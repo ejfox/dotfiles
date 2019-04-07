@@ -1,0 +1,38 @@
+prefs = {
+	Adobe_successfulUpgrades0700003 = "pickle = {\
+	[\"/Volumes/Photos/ Photos/2015/2015.lrcat\"] = {\
+		catalogType = \"lr\",\
+		id = \"7FD0A7EE-7C87-47DE-BDE6-3DB368606F28\",\
+		upgraded = \"/Volumes/Photos/ Photos/2015/2015-2.lrcat\",\
+	},\
+	[\"/Volumes/Photos/ Photos/2016/2016.lrcat\"] = {\
+		catalogType = \"lr\",\
+		id = \"D1B05A62-30E8-4AE9-88BC-21ABB0CECA6A\",\
+		upgraded = \"/Volumes/Photos/ Photos/2016/2016-2.lrcat\",\
+	},\
+	[\"/Volumes/Photos/2017/2017.lrcat\"] = {\
+		catalogType = \"lr\",\
+		id = \"DE2FACFC-4D48-4904-A14E-A63CD84C031D\",\
+		upgraded = \"/Volumes/Photos/2017/2017-2.lrcat\",\
+	},\
+	[\"/Volumes/Photos/2018/2018/2018.lrcat\"] = {\
+		catalogType = \"lr\",\
+		id = \"EECA8B16-120E-4376-AECB-1EB245A560E5\",\
+		upgraded = \"/Volumes/Photos/2018/2018/2018-2.lrcat\",\
+	},\
+}\
+",
+	libraryToLoad20 = "/Volumes/Photos/Master Photo Catalog/Master Photo Catalog.lrcat",
+	recentLibraries20 = "recentLibraries = {\
+	\"/Volumes/Photos/Master Photo Catalog/Master Photo Catalog.lrcat\",\
+	\"/Volumes/Photos/2018/2018/2018-2.lrcat\",\
+	\"/Volumes/Photos/2017/2017-2.lrcat\",\
+}\
+",
+	recentLibraries20_missing = "recentMissingLibraries = {\
+	\"/Volumes/Photos/ Photos/2015/2015-2.lrcat\",\
+	\"/Volumes/Photos/ Photos/2016/2016-2.lrcat\",\
+}\
+",
+	recentLibraryBehavior20 = "UseMostRecentLibrary",
+}
