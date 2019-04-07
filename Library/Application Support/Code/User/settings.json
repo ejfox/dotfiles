@@ -1,0 +1,11 @@
+{
+    "window.zoomLevel": 0,
+    "explorer.decorations.badges": false,
+    "workbench.startupEditor": "newUntitledFile",
+    "workbench.iconTheme": "vs-minimal",
+    "workbench.tips.enabled": false,
+    "workbench.statusBar.visible": false,
+    "workbench.statusBar.feedback.visible": false,
+    "workbench.colorTheme": "Panda Syntax",
+    "editor.minimap.enabled": false
+}
