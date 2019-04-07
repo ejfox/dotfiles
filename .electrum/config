@@ -1,0 +1,12 @@
+{
+    "auto_connect": true,
+    "console-history": [],
+    "gui_last_wallet": "/Users/ejf/.electrum/wallets/wallet_1",
+    "is_maximized": false,
+    "recently_open": [
+        "/Users/ejf/.electrum/wallets/wallet_1",
+        "/Users/ejf/.electrum/wallets/default_wallet"
+    ],
+    "rpcpassword": "wKGXcM9LuFss5PWNiMftMQ==",
+    "rpcuser": "user"
+}
