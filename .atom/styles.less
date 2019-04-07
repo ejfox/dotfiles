@@ -1,0 +1,132 @@
+// @font-size: 1rem;
+//
+// html,
+// body {
+//   font-size: @font-size;
+// }
+//
+//
+// .tree-view,
+// .tooltip,
+// .tab-bar .tab,
+// .find-and-replace .find-meta-container,
+// atom-text-editor[mini],
+// .btn,
+// .status-bar,
+// .list-tree li.list-nested-item > .list-item {
+//   font-size: 0.7rem;
+// }
+//
+// .list-tree li.list-nested-item > .list-item,
+// .tree-view,
+// .list-tree,
+// .list-item {
+//   line-height: 1.3em;
+//   font-size: 0.7rem;
+// }
+
+.status-bar {
+  .encoding-status { display: none; }
+
+  .line-ending-tile { display: none; }
+
+  .icon-alert, .icon-info { display: none; }
+
+  .github-PushPull { display: none; }
+
+  grammar-selector-status { display: none; }
+
+}
+
+#linter-panel {
+  .linter {
+    font-size: 0.72em;
+  }
+}
+
+.settings-view .section:first-child, .settings-view .section:last-child {
+  padding: 0.5em;
+}
+.settings-view {
+  padding: 0;
+}
+.config-menu {
+  font-size:12px;
+  min-width: 114px;
+  .btn {
+    word-wrap: break-word;
+    overflow: hidden;
+  }
+}
+
+.pane {
+  .tab {
+    .title {}
+  }
+}
+
+.tab-bar, .tab, .title {
+  font-size: 11px !important; // smaller font size
+}
+
+.tab .title {
+}
+
+.tree-view {
+  padding: 0;
+  background-color: rgba(5,5,5,0.25)
+}
+
+li.file.entry.list-item, .list-tree li.list-nested-item > .list-item {
+  font-size: 0.8rem !important;
+  line-height: 1.5em;
+  margin-left: 0px;
+}
+
+.list-group .selected::before, .list-tree .selected::before {
+  height: 1rem;
+}
+
+.github-Git {
+  font-size: 11px;
+}
+.github-StagingView-list {
+  font-size:12px;
+}
+.github-FilePatchListView-item {
+  font-family: courier;
+  font-size: 10px;
+}
+.github-CommitView {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.github-StagingView-headerButton--iconOnly {
+  border: 0 !important;
+}
+
+.github-CommitView-expandButton {
+  display: none;
+}
+.github-CommitView-hardwrap {
+  display: none;
+}
+
+atom-pane-axis > atom-pane-resize-handle {
+  background-color: rgba(255,255,255,0.2);
+  // background-color: white;
+  height: 3px;
+}
+
+.list-inline {
+
+}
+
+ol.tree-view-root {
+  padding: 0 !important;
+}
+
+.github-StatusBarTile, .github-ChangedFilesCount {
+  border: 0 !important;
+}
