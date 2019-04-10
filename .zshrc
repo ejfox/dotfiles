@@ -84,6 +84,7 @@ export SSH_KEY_PATH="~/.ssh/rsa_id"
 # ~aliases
 alias ~aliases="vim ~/.zshrc +86"
 #
+alias ~newsketch="canvas-sketch sketch.js --new --open"
 alias shutdown="sudo shutdown -r now"
 alias scripts="cat package.json | grep 'scripts' -A 10"
 alias serve="npx node-static -p 8000"
