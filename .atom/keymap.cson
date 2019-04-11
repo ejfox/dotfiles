@@ -1,3 +1,4 @@
-'atom-workspace':
+'atom-text-editor':
   'cmd-shift-\\': 'github:toggle-git-tab'
-  'cmd-shift-G': 'github:toggle-git-tab'
+  'cmd-g': 'github:toggle-git-tab'
+  # 'cmd-]': 'github:toggle-git-tab'
