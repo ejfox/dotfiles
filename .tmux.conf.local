@@ -178,8 +178,11 @@ tmux_conf_theme_left_separator_main=''  # /!\ you don't need to install Power
 #     - #{uptime_s}
 #     - #{username}
 #     - #{username_ssh}
-tmux_conf_theme_status_left=' [#S]  ↑#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,} '
-tmux_conf_theme_status_right='#{prefix}#{pairing}#{synchronized} #{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} | #{username_ssh} '
+# tmux_conf_theme_status_left=' [#S]  ↑#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,} ' 
+tmux_conf_theme_status_left=' [#S]  ↑#{?uptime_d, #{uptime_d}d,} '
+
+# tmux_conf_theme_status_right='#{prefix}#{pairing}#{synchronized} #{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} | #{username_ssh} '
+tmux_conf_theme_status_right='#{prefix}#{pairing}#{synchronized} #{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} | #{username_ssh} '
 
 # status left style
 tmux_conf_theme_status_left_fg='#000000,#FF005F,#e4e4e4'  # black, white , white
@@ -237,8 +240,10 @@ tmux_conf_battery_bar_palette='heat'
 #   - gradient (default)
 #   - heat
 #   - 'colour_low,colour_half,colour_full'
-tmux_conf_battery_hbar_palette='heat'
+#tmux_conf_battery_hbar_palette='heat'
 #tmux_conf_battery_hbar_palette='#d70000,#ff5f00,#5fff00'  # red, orange, green
+# minimal offblack-to-offgray
+#tmux_conf_battery_hbar_palette='#999999,#333333,#000000'  # black, offgray, black
 
 # battery vbar palette, possible values are:
 #   - gradient (default)
@@ -291,4 +296,80 @@ tmux_conf_copy_to_os_clipboard=false
 # bind C-a send-prefix
 
 # move status line to top
-#set -g status-position top
+set -g status-position top
+
+
+# add additional prefix
+set -g prefix C-Space
+bind C-Space send-prefix
+
+
+# EJ here, gonna do some fun customizations
+
+# Send pane to left/right 50%
+bind S-Left split-window -h \; swap-pane -s ! \; kill-pane -t !
+bind S-Right split-window -h \; swap-pane -U \; kill-pane -t !
+
+# Navigate panes with both vim keys and arrow keys
+bind h select-pane -L
+bind j select-pane -D
+bind k select-pane -U
+bind l select-pane -R
+bind Left select-pane -L
+bind Down select-pane -D
+bind Up select-pane -U
+bind Right select-pane -R
+
+# Session management luxuries
+bind C-c new-session
+bind C-f command-prompt -p "Find session:" "switch-client -t '%%'"
+
+# Use system clipboard
+set -g set-clipboard on
+
+# Enable mouse mode (optional)
+set -g mouse on
+
+# Reload configuration
+bind r source-file ~/.tmux.conf \; display "Configuration reloaded!"
+
+# Increase scrollback buffer size
+set -g history-limit 10000
+
+# Start window and pane numbering at 1, not 0
+set -g base-index 1
+setw -g pane-base-index 1
+
+# Renumber windows when one is closed
+set -g renumber-windows on
+
+# Don't rename windows automatically
+set -g allow-rename off
+
+
+# Create a new window with the current path
+bind c new-window -c "#{pane_current_path}"
+
+# List of plugins
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-sensible'
+set -g @plugin 'erikw/tmux-powerline'
+set -g @plugin 'tmux-plugins/tmux-yank'
+set -g @plugin 'arl/tmux-gitbar'
+set -g @plugin 'tmux-plugins/tmux-prefix-highlight'
+set -g @plugin 'tmux-plugins/tmux-git'
+
+
+
+# Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
+run '~/.tmux/plugins/tpm/tpm'
+
+# Allow tmux to rename windows automatically
+set-option -g allow-rename on
+
+# Automatically rename windows to "directory:command"
+setw -g automatic-rename on
+setw -g automatic-rename-format '#{b:pane_current_path}:#{pane_current_command}'
+
+# Rename the session based on the first window name
+set-hook -g after-new-session 'rename-session -t "$TMUX_PANE" "#{b:pane_current_path}"'
