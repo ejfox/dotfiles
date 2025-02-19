@@ -4,15 +4,45 @@
 
 alias \?\?="gh copilot suggest $0"
 
-
 # if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
 #   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 # fi
 
 # custom startup script
-[ -f ~/.startup.sh ] && source ~/.startup.sh
+# [ -f ~/.startup.sh ] && source ~/.startup.sh
 
+# Cache the startup script output to improve terminal startup speed
 
+# Path to the cache file
+CACHE_FILE="$HOME/.cache/startup_script_cache"
+CACHE_DURATION=1800  # 30 minutes in seconds
+
+# Function to get the last modification time of the cache file (works on macOS and Linux)
+function get_cache_mod_time {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f "%m" "$CACHE_FILE"  # For macOS
+  else
+    stat -c "%Y" "$CACHE_FILE"  # For Linux
+  fi
+}
+
+# Function to run the startup script and cache the output
+function run_startup_script {
+  current_time=$(date +%s)
+  if [ -f "$CACHE_FILE" ]; then
+    cache_mod_time=$(get_cache_mod_time)
+    if (( current_time - cache_mod_time < CACHE_DURATION )); then
+      cat "$CACHE_FILE"
+      return
+    fi
+  fi
+  # If cache is missing or outdated, run the startup script and cache the output
+  ~/.startup.sh > "$CACHE_FILE"
+  cat "$CACHE_FILE"
+}
+
+# Display cached or freshly generated MOTD
+run_startup_script
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
@@ -26,11 +56,6 @@ export ZSH="$HOME/.oh-my-zsh"
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 # ZSH_THEME="pygmalion"
 ZSH_THEME="powerlevel10k/powerlevel10k"
-# Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
-# If set to an empty array, this variable will have no effect.
-# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
@@ -60,22 +85,13 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 ENABLE_CORRECTION="true"
 
 # Uncomment the following line to display red dots whilst waiting for completion.
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
 # COMPLETION_WAITING_DOTS="true"
 
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
+# Uncomment the following line if you want to disable marking untracked files under VCS as dirty.
 # DISABLE_UNTRACKED_FILES_DIRTY="true"
 
 # Uncomment the following line if you want to change the command execution time
 # stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
 # HIST_STAMPS="mm/dd/yyyy"
 
 # Would you like to use another custom folder than $ZSH/custom?
@@ -84,8 +100,6 @@ ENABLE_CORRECTION="true"
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
 plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
@@ -114,7 +128,12 @@ source $ZSH/oh-my-zsh.sh
 # - $ZSH_CUSTOM/aliases.zsh
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
-#
+
+
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
@@ -122,21 +141,112 @@ source $ZSH/oh-my-zsh.sh
 PATH=~/.console-ninja/.bin:$PATH
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-# [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-touch ~/.hushlogin
-export MAILCHECK=0
-
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+summarize_commits() {
+    # Configurable defaults
+    local default_since="48.hours"   # Default time range
+    local default_commits=5         # Default number of commits
+
+    # Optional arguments
+    local since="${1:-$default_since}" # Accept user input or use default
+    local num_commits="${2:-$default_commits}" # Default to 5 commits if not provided
+
+    # Retrieve the latest N commits in the given time frame
+    local commits=()
+    while IFS= read -r commit; do
+        commits+=("$commit")
+    done < <(git log --since="$since" --pretty=format:"%H" -n "$num_commits")
+
+    # Check if there are any commits in the specified range
+    if [ ${#commits[@]} -eq 0 ]; then
+        echo "No commits found in the last $since."
+        return 1
+    fi
+
+    # Generate diffs for the retrieved commits
+    local diffs=""
+    for commit in "${commits[@]}"; do
+        diffs+="$(git show "$commit")\n\n"
+    done
+
+    # Send the diffs to the LLM for summarization
+    echo -e "$diffs" | llm -m "gpt-3.5-turbo-16k" "Summarize the following git diffs in detail, particularly focused on describing the delta, summarizing the changes that were made:"
+}
+
 
 export TERM="xterm-256color"
 export COLORTERM="truecolor"
 
+source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# Custom aliases and commands
+alias dev="yarn dev"
+alias yarni="yarn install"
+alias nodei="node index.js"
+alias c="clear && refresh"
+alias yd="yarn dev"
+alias pbp="pbpaste"
+alias pbc="pbcopy"
+alias pbjson="pbpaste | jsonfui"
+alias catcopy="cat | pbcopy"
+alias jcurl="curl -s \"$1\" | jsonfui"
+alias tmuxkill="tmux kill-server"
+alias tmuxnew="tmux new -s"
+alias showcase="open \"https://ejfox-codeshowcase.web.val.run/?code=$(pbpaste | jq -sRr @uri)\""
+alias obsidian="cd /Users/ejfox/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
+alias pico8="/Applications/PICO-8.app/Contents/MacOS/pico8"
+alias nukeyarn="rm yarn.lock;rm -rf node_modules"
+alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
+alias sshvps='ssh -i ~/.ssh/2024-mbp.pem debian@208.113.130.118'
+alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
+alias newsketch='
+  ART_DIR=~/art
+  TODAY=$(date +"%m-%d")
+  INDEX=$(ls $ART_DIR | grep $TODAY | awk -F"[-.]" "{print \$3}" | sort -n | tail -n 1)
+  if [ -z "$INDEX" ]; then
+    INDEX=1
+  else
+    INDEX=$((INDEX+1))
+  fi
+  SKETCH_FILE="$TODAY-$INDEX.js"
+  cp $ART_DIR/template/default-sketch.js $ART_DIR/$SKETCH_FILE
+  echo "Created $ART_DIR/$SKETCH_FILE"
+  cd $ART_DIR
+  npx canvas-sketch-cli $SKETCH_FILE --open &
+  code $ART_DIR/art.code-workspace
+'
+
+
+export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+. "/Users/ejfox/.deno/env"
+export CLOUDINARY_URL=cloudinary://751378798145412:t43vi02SDGSBXozPl0g2RbQh-m8@ejf
+
+export PERSONAL_SUPABASE_URL="https://xmdylmbdeulxcqdbkfno.supabase.co"
+export PERSONAL_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhtZHlsbWJkZXVseGNxZGJrZm5vIiwicm9sZSI6ImFub24iLCJpYXQiOjE2ODk5NTM0NjAsImV4cCI6MjAwNTUyOTQ2MH0.jspo2sHRd4RSN8jL8DYIfTdfZVoGZRcbiZL0MpHo8yI"
+
+
+scraps() {
+  local limit=${1:-10}     # Default to 10 rows
+  local filter=${2:-""}    # Optional filter, e.g., "type=eq.note"
+
+  curl -s "$PERSONAL_SUPABASE_URL/rest/v1/scraps?select=id,content,summary,created_at,updated_at,tags,relationships,metadata,scrap_id,graph_imported,url,screenshot_url,location,title,latitude,longitude,type,published_at,shared,processing_instance_id,processing_started_at,source&order=id.desc&limit=$limit&$filter" \
+    -H "apikey: $PERSONAL_SUPABASE_ANON_KEY" \
+    -H "Authorization: Bearer $PERSONAL_SUPABASE_ANON_KEY" \
+    -H "Content-Type: application/json" | jq
+}
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/opt/homebrew/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
+        . "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh"
+    else
+        export PATH="/opt/homebrew/Caskroom/miniconda/base/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
