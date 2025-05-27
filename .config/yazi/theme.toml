@@ -1,0 +1,35 @@
+# Minimal theme - just fg/bg, no colors
+
+[manager]
+cwd = { fg = "reset" }
+
+[status]
+separator_style = { fg = "reset" }
+
+[filetype]
+
+[icons]
+"Desktop/" = "◆"
+"Documents/" = "※"  
+"Downloads/" = "↓"
+"Pictures/" = "□"
+"Videos/" = "▶"
+
+".git/" = "◆"
+"node_modules/" = "◇"
+
+"*.js" = "◇"
+"*.ts" = "◇"
+"*.py" = "◇"
+"*.rs" = "◇"
+"*.go" = "◇"
+
+"*.json" = "◈"
+"*.toml" = "◈"
+"*.yaml" = "◈"
+"*.yml" = "◈"
+
+"*.md" = "※"
+"*.txt" = "※"
+
+"*" = "·"
