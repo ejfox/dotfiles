@@ -1,11 +1,16 @@
 [user]
 	name = EJ Fox
 	email = ejfox@ejfox.com
-	signingkey = 5D30A33E08E35B8915B4C7E2E2078E653FE389CD
+
+# This next lines include Netlify's Git Credential Helper configuration in your Git configuration.
+[include]
+  path = /Users/ejfox/Library/Preferences/netlify/helper/git-config
+[credential]
+	helper = osxkeychain
 [filter "lfs"]
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
 	required = true
-[commit]
-	gpgsign = true
+[init]
+	defaultBranch = main
