@@ -1,69 +1,66 @@
-# Usage Instructions
+# ◆ Dotfiles
 
-1. Clone your dotfiles repository (if you haven't already):
-   ```
-   git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
-   ```
+Minimalist terminal configuration focused on functional beauty and distraction-free computing.
 
-2. Create a symlink for your .tmux.conf:
-   ```
-   ln -sf ~/.dotfiles/.tmux.conf ~/.tmux.conf
-   ```
+## Core Philosophy
+- **Geometric symbols** throughout interface (◆ ◇ ○ ▪ ─)
+- **Theme-agnostic** design (works in light/dark mode)  
+- **Zen mode** for deep focus
+- **Modern CLI tools** replacing legacy commands
 
-3. Pull the latest changes:
-   ```
-   cd ~/.dotfiles
-   git pull origin main
-   ```
-
-Now, to keep things synced going forward, you can just run `git pull` in your ~/.dotfiles directory whenever you want to update.
-
-If you want to automate this process, you could create a simple script:
-
-
+## Installation
 
 ```bash
-#!/bin/bash
-
-# File: ~/sync-dotfiles.sh
-
-# Navigate to dotfiles directory
+git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-
-# Pull latest changes
-git pull origin main
-
-# Re-create symlink (in case the file was added recently)
-ln -sf ~/.dotfiles/.tmux.conf ~/.tmux.conf
-
-echo "Dotfiles synced successfully!"
-
+./sync-dotfiles.sh
 ```
 
-Save this script as `~/sync-dotfiles.sh`, make it executable with `chmod +x ~/sync-dotfiles.sh`, and you can run it anytime with `~/sync-dotfiles.sh`.
+## What's Included
 
-To handle potential conflicts between your local .tmux.conf and the one in the repository:
+### 🔧 **Shell & Terminal**
+- `.zshrc` - Modern shell with LLM integration + modern CLI aliases
+- `.startup.sh` - AI-powered MOTD with contextual information
+- `.zen-mode.sh` - Toggle minimal UI mode across all apps
+- `.p10k.zsh` - Minimal Powerlevel10k prompt configuration
 
-1. If you've made local changes you want to keep:
-   ```
-   cp ~/.tmux.conf ~/.dotfiles/.tmux.conf
-   cd ~/.dotfiles
-   git add .tmux.conf
-   git commit -m "Update .tmux.conf"
-   git push origin main
-   ```
+### ⌨️ **Terminal Multiplexer**
+- `.tmux.conf` - Geometric status indicators, subtle active pane underline
+- Vim-style navigation, zen mode integration
 
-2. If you want to discard local changes and use the version from the repo:
-   ```
-   cd ~/.dotfiles
-   git checkout .tmux.conf
-   ln -sf ~/.dotfiles/.tmux.conf ~/.tmux.conf
-   ```
+### 🎨 **Applications**
+- `ghostty/` - Terminal with opacity + blur effects
+- `nvim/` - LazyVim with minimal statusline + zen mode
+- `yazi/` - Clean file manager without color distractions
+- `btop/` - System monitor with transparent background
 
-This approach gives you a quick and easy way to sync your tmux config (and other dotfiles) across machines. It's not as automated as some of the more complex setups we discussed earlier, but it's straightforward and gets the job done.
+### 🔄 **Development**
+- `.gitconfig` - Clean git setup with LFS support
+- `.npmrc` - Node package manager configuration
+- Modern CLI replacements: `lsd`, `bat`, `dust`, `duf`, `btop`
 
-Remember, whenever you make changes to your .tmux.conf that you want to sync across machines:
+### 📱 **Legacy Support**
+- `.bash_profile`, `.zprofile` - Shell environment setup
+- `.hyper.js` - Hyper terminal configuration (backup)
 
-1. Make the changes in ~/.dotfiles/.tmux.conf
-2. Commit and push the changes
-3. On other machines, run the sync script or `git pull` in the ~/.dotfiles directory
+## Key Features
+
+- **Active pane indicator**: Subtle `─` underline (theme-agnostic)
+- **Smart status**: Geometric symbols for window counts (⚌ ☰ ⚍)  
+- **LLM integration**: Context-aware terminal greetings
+- **Workflow tools**: Things CLI, Obsidian, canvas-sketch integration
+- **One-command zen**: `zen` toggles minimal mode everywhere
+
+## Modern CLI Tools
+
+| Old | New | Purpose |
+|-----|-----|---------|
+| `ls` | `lsd` | Better directory listings |
+| `cat` | `bat` | Syntax highlighting |
+| `du` | `dust` | Disk usage visualization |
+| `df` | `duf` | Disk free visualization |
+| `top` | `btop` | System monitoring |
+
+---
+
+*Every pixel serves a purpose. Maximum functionality, minimum distraction.*
