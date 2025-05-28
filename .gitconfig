@@ -1,6 +1,7 @@
 [user]
 	name = EJ Fox
 	email = ejfox@ejfox.com
+	signingkey = 5D30A33E08E35B8915B4C7E2E2078E653FE389CD
 
 # This next lines include Netlify's Git Credential Helper configuration in your Git configuration.
 [include]
