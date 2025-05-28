@@ -17,7 +17,7 @@ mkdir -p "$CACHE_DIR" 2>/dev/null
 
 # Update reflection cache if it doesn't exist or is older than 4 hours
 if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/null) ]]; then
-  today_tasks=$(things-cli today | head -n 3)
+  today_tasks=$(command -v things-cli >/dev/null && things-cli today | head -n 3 || echo "No tasks available")
   cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
   latest_mastodon_posts=$(curl https://mastodon-posts.ejfox.tools)
 
@@ -29,12 +29,14 @@ Terminal History: $cmd_history
 Latest Mastodon Posts: $latest_mastodon_posts
 Current Time: $(date)"
 
-  echo "$reflection_prompt" | "$LLM_PATH" -m anthropic/claude-sonnet-4-0 -o max_tokens 164 >"$REFLECTION_CACHE"
+  echo "$reflection_prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 164 >"$REFLECTION_CACHE" 2>/dev/null || echo "AI reflection unavailable" >"$REFLECTION_CACHE"
 fi
 
 # Show today's tasks
-echo -e "\n[TODAY'S MISSION]"
-things-cli today | head -n 3
+if command -v things-cli >/dev/null 2>&1; then
+  echo -e "\n[TODAY'S MISSION]"
+  things-cli today | head -n 3
+fi
 
 # Show recently accessed repos
 echo -e "\n[RECENTLY ACCESSED]"
