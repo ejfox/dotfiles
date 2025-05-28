@@ -45,7 +45,7 @@ function run_startup_script {
 run_startup_script
 
 # If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+export PATH=$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -129,10 +129,10 @@ source $ZSH/oh-my-zsh.sh
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
 
-
-  export NVM_DIR="$HOME/.nvm"
-  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+# NVM configuration
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
@@ -143,42 +143,16 @@ PATH=~/.console-ninja/.bin:$PATH
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-summarize_commits() {
-    # Configurable defaults
-    local default_since="48.hours"   # Default time range
-    local default_commits=5         # Default number of commits
-
-    # Optional arguments
-    local since="${1:-$default_since}" # Accept user input or use default
-    local num_commits="${2:-$default_commits}" # Default to 5 commits if not provided
-
-    # Retrieve the latest N commits in the given time frame
-    local commits=()
-    while IFS= read -r commit; do
-        commits+=("$commit")
-    done < <(git log --since="$since" --pretty=format:"%H" -n "$num_commits")
-
-    # Check if there are any commits in the specified range
-    if [ ${#commits[@]} -eq 0 ]; then
-        echo "No commits found in the last $since."
-        return 1
-    fi
-
-    # Generate diffs for the retrieved commits
-    local diffs=""
-    for commit in "${commits[@]}"; do
-        diffs+="$(git show "$commit")\n\n"
-    done
-
-    # Send the diffs to the LLM for summarization
-    echo -e "$diffs" | llm -m "gpt-3.5-turbo-16k" "Summarize the following git diffs in detail, particularly focused on describing the delta, summarizing the changes that were made:"
-}
-
-
+# Terminal settings
 export TERM="xterm-256color"
 export COLORTERM="truecolor"
+touch ~/.hushlogin
+export MAILCHECK=0
 
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# Smart git commit with LLM integration
+alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
 
 # Custom aliases and commands
 alias dev="yarn dev"
@@ -217,14 +191,10 @@ alias newsketch='
   code $ART_DIR/art.code-workspace
 '
 
-
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 . "/Users/ejfox/.deno/env"
-export CLOUDINARY_URL=cloudinary://751378798145412:t43vi02SDGSBXozPl0g2RbQh-m8@ejf
-
-export PERSONAL_SUPABASE_URL="https://xmdylmbdeulxcqdbkfno.supabase.co"
-export PERSONAL_SUPABASE_ANON_KEY="REDACTED_SUPABASE_ANON_KEY"
-
+# Load environment variables from ~/.env (not committed to git)
+[ -f ~/.env ] && source ~/.env
 
 scraps() {
   local limit=${1:-10}     # Default to 10 rows
@@ -234,6 +204,37 @@ scraps() {
     -H "apikey: $PERSONAL_SUPABASE_ANON_KEY" \
     -H "Authorization: Bearer $PERSONAL_SUPABASE_ANON_KEY" \
     -H "Content-Type: application/json" | jq
+}
+
+summarize_commits() {
+    # Configurable defaults
+    local default_since="48.hours"   # Default time range
+    local default_commits=5         # Default number of commits
+
+    # Optional arguments
+    local since="${1:-$default_since}" # Accept user input or use default
+    local num_commits="${2:-$default_commits}" # Default to 5 commits if not provided
+
+    # Retrieve the latest N commits in the given time frame
+    local commits=()
+    while IFS= read -r commit; do
+        commits+=("$commit")
+    done < <(git log --since="$since" --pretty=format:"%H" -n "$num_commits")
+
+    # Check if there are any commits in the specified range
+    if [ ${#commits[@]} -eq 0 ]; then
+        echo "No commits found in the last $since."
+        return 1
+    fi
+
+    # Generate diffs for the retrieved commits
+    local diffs=""
+    for commit in "${commits[@]}"; do
+        diffs+="$(git show "$commit")\n\n"
+    done
+
+    # Send the diffs to the LLM for summarization
+    echo -e "$diffs" | llm -m "gpt-3.5-turbo-16k" "Summarize the following git diffs in detail, particularly focused on describing the delta, summarizing the changes that were made:"
 }
 
 # >>> conda initialize >>>
@@ -250,3 +251,5 @@ else
 fi
 unset __conda_setup
 # <<< conda initialize <<<
+
+alias claude="/Users/ejfox/.claude/local/claude"
