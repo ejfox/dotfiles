@@ -10,12 +10,12 @@ vim.opt.relativenumber = false
 vim.opt.smoothscroll = false
 
 -- make it so space-e only toggles the explorer if its active
-vim.keymap.set("n", "<space>e", function()
-  if vim.fn.win_gettype() == "popup" then
-    return "<space>e"
-  end
-  return "<cmd>Neotree toggle<cr>"
-end, { noremap = true, expr = true })
+-- vim.keymap.set("n", "<space>e", function()
+--   if vim.fn.win_gettype() == "popup" then
+--     return "<space>e"
+--   end
+--   return "<cmd>Neotree toggle<cr>"
+-- end, { noremap = true, expr = true })
 
 -- set column mode for navigation
 vim.opt.virtualedit = "all"
@@ -35,14 +35,14 @@ vim.opt.list = true
 vim.opt.listchars = { tab = "→ ", trail = "·", nbsp = "␣" }
 
 -- Minimal UI settings
-vim.opt.cmdheight = 0  -- Hide command line unless typing
-vim.opt.laststatus = 3  -- Global statusline
-vim.opt.showmode = false  -- Don't show mode (statusline handles it)
-vim.opt.ruler = false  -- Don't show cursor position
-vim.opt.showcmd = false  -- Don't show command in bottom bar
+vim.opt.cmdheight = 0 -- Hide command line unless typing
+vim.opt.laststatus = 3 -- Global statusline
+vim.opt.showmode = false -- Don't show mode (statusline handles it)
+vim.opt.ruler = false -- Don't show cursor position
+vim.opt.showcmd = false -- Don't show command in bottom bar
 
 -- Minimal signcolumn
-vim.opt.signcolumn = "yes:1"  -- Always show, but only 1 char wide
+vim.opt.signcolumn = "yes:1" -- Always show, but only 1 char wide
 
 -- Font to match your terminal
 vim.opt.guifont = "Monaspace Krypton:h13"
