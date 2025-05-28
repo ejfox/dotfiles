@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# Use Monaspace Krypton everywhere
+FONT="Monaspace Krypton"
+NERD_FONT="Monaspace Krypton"
+
+##### Bar Appearance #####
+sketchybar --bar height=40 \
+  blur_radius=0 \
+  position=top \
+  padding_left=12 \
+  padding_right=12 \
+  color=0xff000000 \
+  corner_radius=0 \
+  shadow=off \
+  y_offset=-2 \
+  margin=0
+
+##### Defaults #####
+sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
+  icon.color=0xffffffff \
+  label.font="$FONT:Regular:13.0" \
+  label.color=0xffffffff \
+  background.drawing=off \
+  padding_left=4 \
+  padding_right=4 \
+  label.padding_left=4 \
+  label.padding_right=4 \
+  icon.padding_left=4 \
+  icon.padding_right=4 \
+  y_offset=0 \
+  updates=when_shown \
+  icon.animation_duration=250 \
+  label.animation_duration=250 \
+  background.animation_duration=250
+
+###### Dev Dashboard #####
+#sketchybar --add item dev_dashboard left \
+#  --set dev_dashboard update_freq=300 \
+#  position=left \
+#  label.font="$FONT:Regular:12.0" \
+#  icon.font="$NERD_FONT:Regular:14.0" \
+#  icon.color=0xffffffff \
+#  label.color=0xffffffff \
+#  script="$HOME/.config/sketchybar/plugins/dev_dashboard.sh"
+#
+##### Git Status #####
+sketchybar --add item git left \
+  --set git update_freq=30 \
+  position=left \
+  icon="" \
+  label.font="$FONT:Regular:13.0" \
+  label.y_offset=0 \
+  script="$HOME/.config/sketchybar/plugins/git.sh" \
+  click_script="$HOME/.config/sketchybar/plugins/git_click.sh" \
+  icon.drawing=on \
+  label.drawing=on \
+  background.drawing=off
+
+##### CIPHER - AI Companion #####
+sketchybar --add item cipher left \
+  --set cipher update_freq=60 \
+  position=left \
+  icon="" \
+  icon.drawing=off \
+  label.color=0xff666666 \
+  label.font="Monaspace Xenon:Italic:13.0" \
+  label.y_offset=0 \
+  padding_left=20 \
+  drawing=on \
+  script="$HOME/.config/sketchybar/plugins/cipher.sh" \
+  click_script="sketchybar --set cipher drawing=off"
+
+##### Battery #####
+sketchybar --add item battery right \
+  --set battery update_freq=30 \
+  icon.font="$NERD_FONT:Regular:16.0" \
+  label.font="$FONT:Regular:11.0" \
+  padding_right=8 \
+  script="$HOME/.config/sketchybar/plugins/battery.sh" \
+  click_script="pmset -g batt"
+
+##### Time #####
+sketchybar --add item clock right \
+  --set clock update_freq=1 \
+  position=right \
+  script="$HOME/.config/sketchybar/plugins/clock.sh"
+
+###### Next Todo #####
+#sketchybar --add item task right \
+#  --set task update_freq=300 \
+#  position=right \
+#  script="$HOME/.config/sketchybar/plugins/top_task.sh"
+
+##### Words This Month #####
+sketchybar --add item words right \
+  --set words update_freq=300 \
+  position=right \
+  script="$HOME/.config/sketchybar/plugins/words.sh" \
+  click_script="open https://ejfox.com/blog" \
+  --subscribe words system_woke
+
+##### Photos Count #####
+sketchybar --add item photos right \
+  --set photos update_freq=300 \
+  position=right \
+  script="$HOME/.config/sketchybar/plugins/photos.sh" \
+  click_script="open https://ejfox.photos" \
+  --subscribe photos system_woke
+
+##### Productivity #####
+# sketchybar --add item productivity right \
+#   --set productivity update_freq=60 \
+#   position=right \
+#   script="$HOME/.config/sketchybar/plugins/productivity.sh" \
+#   --subscribe productivity system_woke
+
+##### Typing Speed #####
+sketchybar --add item typing right \
+  --set typing update_freq=300 \
+  position=right \
+  script="$HOME/.config/sketchybar/plugins/typing.sh" \
+  click_script="open https://monkeytype.com/profile/ejfox" \
+  --subscribe typing system_woke
+
+##### Daily Stats #####
+# sketchybar --add item daily_stats right \
+#   --set daily_stats update_freq=1800 \
+#   position=right \
+#   script="$HOME/.config/sketchybar/plugins/daily_stats.sh"
+
+##### Force initial update #####
+sketchybar --update
+sketchybar --trigger git
+sketchybar --trigger words
+sketchybar --trigger photos  
+sketchybar --trigger productivity
+sketchybar --trigger typing
