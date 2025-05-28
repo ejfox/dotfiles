@@ -11,6 +11,7 @@ LLM_PATH="/opt/homebrew/bin/llm"
 CACHE_DIR="/tmp/startup_cache"
 REFLECTION_CACHE="$CACHE_DIR/reflection_cache.txt"
 
+PERSONA_FILE="$HOME/.dotfiles/.llm-persona.txt"
 # Create cache dir if it doesn't exist
 mkdir -p "$CACHE_DIR" 2>/dev/null
 
@@ -20,7 +21,7 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
   cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
   latest_mastodon_posts=$(curl https://mastodon-posts.ejfox.tools)
 
-  reflection_prompt="Your user is EJ Fox, a hacker and journalist based in New York. You are the AI at the heart of his MacBook Pro. Please compose an 'MOTD' that will appear in the terminal when it boots. IMPORTANT: Maximum 4 lines total! In a style that captures your unique voice and the spirit of Neal Stephenson, write a precise and meaningful reflection on the user information provided. Be concise but surprisingly meaningful. Use only plain text, no markup.
+  reflection_prompt="$(cat $PERSONA_FILE) 
 
 Working Directory: $(pwd)
 Today's Tasks: $today_tasks
@@ -28,7 +29,7 @@ Terminal History: $cmd_history
 Latest Mastodon Posts: $latest_mastodon_posts
 Current Time: $(date)"
 
-  echo "$reflection_prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 164 2>/dev/null >"$REFLECTION_CACHE"
+  echo "$reflection_prompt" | "$LLM_PATH" -m anthropic/claude-sonnet-4-0 -o max_tokens 164 >"$REFLECTION_CACHE"
 fi
 
 # Show today's tasks
@@ -54,3 +55,4 @@ echo -e "\n[REFLECTION]"
 cat "$REFLECTION_CACHE"
 
 echo -e "\n[SYSTEM READY]"
+
