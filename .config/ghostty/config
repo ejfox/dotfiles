@@ -1,10 +1,10 @@
 # Minimal Ghostty config aligned with tmux/sketchybar aesthetic
 
 window-decoration = false
-background-opacity = 0.95  # Slightly more opaque for better readability
-background-blur-radius = 20  # Subtle blur, not too distracting
-bold-is-bright = false  # Keep colors consistent
-font-family = Monaspace Krypton  # Your preferred coding font
+background-opacity = 0.95 
+background-blur-radius = 20
+bold-is-bright = false 
+font-family = Monaspace Krypton
 
 # Auto-switch between light and dark themes based on system preference
 theme = light:ayu_light,dark:ayu_dark
@@ -18,9 +18,9 @@ window-padding-x = 0
 window-padding-y = 0
 
 # No bells or whistles
-audible-bell = false
-visual-bell = false
+# audible-bell = fale
+# visual-bell = false
 
 # Performance
-max-fps = 120  # Smooth scrolling
+# max-fps = 120  # Smooth scrolling
 
