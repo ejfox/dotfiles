@@ -56,23 +56,23 @@ if [ -n "$LATEST_REPO" ] && git -C "$LATEST_REPO" rev-parse --is-inside-work-tre
   # If repo changed, animate the transition
   if [ "$CURRENT_REPO" != "$PREV_REPO" ] && [ -n "$PREV_REPO" ]; then
     # Slide out old repo name
-    sketchybar --animate sin 15 --set $NAME label.y_offset=10 label.color=0x00666666
+    sketchybar --animate sin 15 --set git label.y_offset=10 label.color=0x00666666
     sleep 0.25
     
     # Update to new repo and slide in
     if [ -n "$STATUS" ]; then
-      sketchybar --set $NAME label="$REPO" icon="$STATUS" icon.color=$COLOR
+      sketchybar --set git label="$REPO" icon="$STATUS" icon.color=$COLOR
     else
-      sketchybar --set $NAME label="$REPO" icon="" icon.color=$COLOR
+      sketchybar --set git label="$REPO" icon="" icon.color=$COLOR
     fi
     
-    sketchybar --animate sin 15 --set $NAME label.y_offset=0 label.color=$COLOR
+    sketchybar --animate sin 15 --set git label.y_offset=0 label.color=$COLOR
   else
     # No animation needed, just update normally
     if [ -n "$STATUS" ]; then
-      sketchybar --set $NAME label="$REPO" icon="$STATUS" icon.color=$COLOR label.color=$COLOR
+      sketchybar --set git label="$REPO" icon="$STATUS" icon.color=$COLOR label.color=$COLOR
     else
-      sketchybar --set $NAME label="$REPO" icon="" icon.color=$COLOR label.color=$COLOR
+      sketchybar --set git label="$REPO" icon="" icon.color=$COLOR label.color=$COLOR
     fi
   fi
   
@@ -80,5 +80,5 @@ if [ -n "$LATEST_REPO" ] && git -C "$LATEST_REPO" rev-parse --is-inside-work-tre
   echo "$CURRENT_REPO" > "$CACHE_FILE"
 else
   # Fallback if no git repos found
-  sketchybar --set $NAME label="no repo" icon="" icon.color=0xff666666 label.color=0xff666666
+  sketchybar --set git label="no repo" icon="" icon.color=0xff666666 label.color=0xff666666
 fi
