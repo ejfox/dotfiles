@@ -259,4 +259,7 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+# Initialize zoxide (smarter cd command)
+eval "$(zoxide init zsh)"
+
 alias claude="/Users/ejfox/.claude/local/claude"
