@@ -6,7 +6,7 @@ PHOTO_COUNT=$(echo "$response" | jq -r '.stats.photosThisMonth')
 
 # Format and update sketchybar
 if [ -n "$PHOTO_COUNT" ] && [ "$PHOTO_COUNT" != "null" ]; then
-  sketchybar --set $NAME icon="" label="${PHOTO_COUNT}" drawing=on
+  sketchybar --set photos icon="📸" label="${PHOTO_COUNT}" drawing=on
 else
-  sketchybar --set $NAME drawing=off
+  sketchybar --set photos drawing=off
 fi

@@ -93,7 +93,7 @@ fi
 
 # Only show time remaining, hide if infinite
 if [ "$TIME_LABEL" = "∞" ]; then
-  sketchybar --set "$NAME" drawing=off
+  sketchybar --set battery drawing=off
 else
-  sketchybar --set "$NAME" drawing=on icon="$ICON" label="$TIME_LABEL" icon.color="$COLOR" label.color="$COLOR"
+  sketchybar --set battery drawing=on icon="$ICON" label="$TIME_LABEL" icon.color="$COLOR" label.color="$COLOR"
 fi
