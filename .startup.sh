@@ -7,7 +7,7 @@ if [ -f "/tmp/.zen-mode-state" ]; then
 fi
 
 OBSIDIAN_ROOT="${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
-LLM_PATH="/opt/homebrew/bin/llm"
+LLM_PATH="/Users/ejfox/.local/bin/llm"
 CACHE_DIR="/tmp/startup_cache"
 REFLECTION_CACHE="$CACHE_DIR/reflection_cache.txt"
 PERSONA_FILE="$HOME/.dotfiles/.llm-persona.txt"
@@ -52,6 +52,7 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
   
   cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
   latest_mastodon_posts=$(curl -s --max-time 3 https://mastodon-posts.ejfox.tools)
+  historical_tweets=$(curl -s --max-time 3 https://twitter-posts.ejfox.tools/today | cut -c 1-1000)
   
   # Get recent notes with their content preview
   recent_notes=""
@@ -76,6 +77,7 @@ Current context:
 - Recent Terminal Commands: $cmd_history
 - Recent Notes: ${recent_notes:-No recent notes}
 - Latest Mastodon Posts: $latest_mastodon_posts
+- Historical Tweets (Today in History): ${historical_tweets:-No historical tweets}
 
 Based on this context, provide 2-3 specific, actionable insights:
 1. What connections do you see between current work and scheduled time?
