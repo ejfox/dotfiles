@@ -1,0 +1,22 @@
+[[plugin.deps]]
+use = "yazi-rs/plugins:diff"
+rev = "63f9650"
+hash = "47865a70cade14a0b9b6bc6a54f16bdb"
+
+[[plugin.deps]]
+use = "Reledia/glow"
+rev = "2da96e3"
+hash = "f9ee1436e3b853508d87f7d49dce56e6"
+
+[[plugin.deps]]
+use = "DreamMaoMao/git"
+rev = "24d78dc"
+hash = "38d7acf25dca27205e81aa3a9059ad74"
+
+[[plugin.deps]]
+use = "ndtoan96/ouch"
+rev = "10b4627"
+hash = "3ec6a973d506665f1570a9fe08343fd8"
+
+[flavor]
+deps = []
