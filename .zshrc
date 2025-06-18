@@ -262,4 +262,10 @@ unset __conda_setup
 # Initialize zoxide (smarter cd command)
 eval "$(zoxide init zsh)"
 
+# Initialize atuin
+eval "$(atuin init zsh)"
+
 alias claude="/Users/ejfox/.claude/local/claude"
+
+export EDITOR="nvim"
+export VISUAL="nvim"
