@@ -2,7 +2,7 @@
 -- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 -- Add any additional options here
 vim.g.neovide_theme = "auto"
-
+vim.g.neovide_floating_shadow = false -- Cleaner floating windows
 -- disable relative numbers
 vim.opt.relativenumber = false
 
@@ -21,7 +21,7 @@ vim.opt.smoothscroll = false
 vim.opt.virtualedit = "all"
 
 -- keep cursor in the center
-vim.opt.scrolloff = 8
+-- vim.opt.scrolloff = 8
 
 -- Preview substitutions live as you type
 vim.opt.inccommand = "split"
@@ -46,3 +46,7 @@ vim.opt.signcolumn = "yes:1" -- Always show, but only 1 char wide
 
 -- Font to match your terminal
 vim.opt.guifont = "Monaspace Krypton:h13"
+vim.opt.clipboard = ""
+vim.opt.showbreak = "↪ " -- What wrapped lines show
+vim.opt.breakindent = true -- Wrapped lines match indent
+vim.opt.breakindentopt = "shift:2" -- But shifted a bit
