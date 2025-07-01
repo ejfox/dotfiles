@@ -91,9 +91,5 @@ else
   COLOR="0xffa9b1d6"  # Normal purple-ish
 fi
 
-# Only show time remaining, hide if infinite
-if [ "$TIME_LABEL" = "∞" ]; then
-  sketchybar --set battery drawing=off
-else
-  sketchybar --set battery drawing=on icon="$ICON" label="$TIME_LABEL" icon.color="$COLOR" label.color="$COLOR"
-fi
+# Always show battery status
+sketchybar --set battery drawing=on icon="$ICON" label="$TIME_LABEL" icon.color="$COLOR" label.color="$COLOR"

@@ -58,18 +58,18 @@ sketchybar --add item git left \
   background.drawing=off
 
 ##### CIPHER - AI Companion #####
-sketchybar --add item cipher left \
-  --set cipher update_freq=60 \
-  position=left \
-  icon="" \
-  icon.drawing=off \
-  label.color=0xff666666 \
-  label.font="Monaspace Xenon:Italic:13.0" \
-  label.y_offset=0 \
-  padding_left=20 \
-  drawing=on \
-  script="$HOME/.config/sketchybar/plugins/cipher.sh" \
-  click_script="sketchybar --set cipher drawing=off"
+# sketchybar --add item cipher left \
+#   --set cipher update_freq=60 \
+#   position=left \
+#   icon="" \
+#   icon.drawing=off \
+#   label.color=0xff666666 \
+#   label.font="Monaspace Xenon:Italic:13.0" \
+#   label.y_offset=0 \
+#   padding_left=20 \
+#   drawing=on \
+#   script="$HOME/.config/sketchybar/plugins/cipher.sh" \
+#   click_script="sketchybar --set cipher drawing=off"
 
 ##### Battery #####
 sketchybar --add item battery right \
@@ -101,12 +101,12 @@ sketchybar --add item words right \
   --subscribe words system_woke
 
 ##### Photos Count #####
-sketchybar --add item photos right \
-  --set photos update_freq=300 \
-  position=right \
-  script="$HOME/.config/sketchybar/plugins/photos.sh" \
-  click_script="open https://ejfox.photos" \
-  --subscribe photos system_woke
+# sketchybar --add item photos right \
+#   --set photos update_freq=300 \
+#   position=right \
+#   script="$HOME/.config/sketchybar/plugins/photos.sh" \
+#   click_script="open https://ejfox.photos" \
+#   --subscribe photos system_woke
 
 ##### Productivity #####
 # sketchybar --add item productivity right \
@@ -116,12 +116,12 @@ sketchybar --add item photos right \
 #   --subscribe productivity system_woke
 
 ##### Typing Speed #####
-sketchybar --add item typing right \
-  --set typing update_freq=300 \
-  position=right \
-  script="$HOME/.config/sketchybar/plugins/typing.sh" \
-  click_script="open https://monkeytype.com/profile/ejfox" \
-  --subscribe typing system_woke
+# sketchybar --add item typing right \
+#   --set typing update_freq=300 \
+#   position=right \
+#   script="$HOME/.config/sketchybar/plugins/typing.sh" \
+#   click_script="open https://monkeytype.com/profile/ejfox" \
+#   --subscribe typing system_woke
 
 ##### Daily Stats #####
 # sketchybar --add item daily_stats right \
@@ -133,6 +133,6 @@ sketchybar --add item typing right \
 sketchybar --update
 sketchybar --trigger git
 sketchybar --trigger words
-sketchybar --trigger photos  
+# sketchybar --trigger photos  
 sketchybar --trigger productivity
-sketchybar --trigger typing
+# sketchybar --trigger typing
