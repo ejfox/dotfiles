@@ -1,7 +1,7 @@
 # Minimal Ghostty config aligned with tmux/sketchybar aesthetic
 
 window-decoration = false
-background-opacity = 0.95 
+background-opacity = 0.92 
 background-blur-radius = 20
 bold-is-bright = false 
 font-family = Monaspace Krypton
@@ -16,7 +16,7 @@ cursor-style-blink = false
 # Remove all the chrome
 window-padding-x = 0
 window-padding-y = 0
-
+cursor-invert-fg-bg = true
 # No bells or whistles
 # audible-bell = fale
 # visual-bell = false
@@ -24,3 +24,7 @@ window-padding-y = 0
 # Performance
 # max-fps = 120  # Smooth scrolling
 
+adjust-cell-height = -16%
+
+adjust-cell-width = -10%
+link-url = true
