@@ -25,13 +25,13 @@ mkdir -p "$CACHE_DIR" 2>/dev/null
 if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/null) ]]; then
   # Gather all context
   today_tasks=$(command -v things-cli >/dev/null && things-cli today | head -n 5 || echo "No tasks available")
-  
+
   # Get calendar events for today using icalBuddy
   calendar_events=""
   if command -v icalBuddy >/dev/null 2>&1; then
     calendar_events=$(icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null || echo "")
   fi
-  
+
   # Get more detailed git status
   git_context=""
   for repo in $(find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print | head -5); do
@@ -41,7 +41,7 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
       git_context="${git_context}${repo_name} has uncommitted changes. "
     fi
     # Check for PRs if gh is installed
-    if command -v gh &> /dev/null; then
+    if command -v gh &>/dev/null; then
       pr_count=$(gh pr list --search "review-requested:@me" --json number 2>/dev/null | jq length 2>/dev/null || echo 0)
       if [ "$pr_count" -gt 0 ]; then
         git_context="${git_context}${repo_name} has ${pr_count} PRs needing review. "
@@ -49,11 +49,11 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
     fi
   done
   cd - >/dev/null 2>&1
-  
+
   cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
   latest_mastodon_posts=$(curl -s --max-time 3 https://mastodon-posts.ejfox.tools)
   historical_tweets=$(curl -s --max-time 3 https://twitter-posts.ejfox.tools/today | cut -c 1-1000)
-  
+
   # Get recent notes with their content preview
   recent_notes=""
   while IFS= read -r note; do
@@ -64,7 +64,7 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
       recent_notes="${recent_notes}${note_name}: ${preview}... "
     fi
   done < <(find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' | head -3)
-  
+
   # Enhanced prompt that asks for connections and insights
   reflection_prompt="$(cat $PERSONA_FILE)
   
@@ -124,8 +124,8 @@ echo -e "\n\033[1mRECENT WORK\033[0m"
 find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print |
   xargs -I{} bash -c 'printf "%s\t%s\n" "$(stat -f "%m" "{}")" "$(basename "{}")"' |
   sort -rn | head -n 3 | cut -f2- | while read repo; do
-    echo -e "  $SYMBOL_REPO $repo"
-  done
+  echo -e "  $SYMBOL_REPO $repo"
+done
 
 # Recent notes
 notes=$(find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' | head -3)
@@ -137,6 +137,16 @@ if [ ! -z "$notes" ]; then
   done
 fi
 
+# Typing Stats
+TYPING_DATA=$(curl -s --max-time 2 "https://ejfox.com/api/monkeytype" 2>/dev/null)
+if [ ! -z "$TYPING_DATA" ] && [ "$TYPING_DATA" != "null" ]; then
+  BEST_WPM=$(echo "$TYPING_DATA" | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
+  TOTAL_TESTS=$(echo "$TYPING_DATA" | jq -r '.typingStats.testsCompleted // empty' 2>/dev/null)
+  CURRENT_MONTH=$(date +"%Y-%m")
+  MONTH_BEST=$(echo "$TYPING_DATA" | jq -r --arg month "$CURRENT_MONTH" '.typingStats.recentTests[]? | select(.timestamp | startswith($month)) | .wpm' 2>/dev/null | sort -nr | head -1)
+
+fi
+
 # AI Insights
 echo -e "\n\033[1mINSIGHTS\033[0m"
 cat "$REFLECTION_CACHE" | fold -s -w 70 | while read line; do
@@ -145,3 +155,4 @@ done
 
 echo -e "\n\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[1mSYSTEM READY\033[0m\n"
+
