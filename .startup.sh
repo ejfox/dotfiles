@@ -43,7 +43,7 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
     # Check for PRs if gh is installed
     if command -v gh &>/dev/null; then
       pr_count=$(gh pr list --search "review-requested:@me" --json number 2>/dev/null | jq length 2>/dev/null || echo 0)
-      if [ "$pr_count" -gt 0 ]; then
+      if [ -n "$pr_count" ] && [ "$pr_count" -gt 0 ]; then
         git_context="${git_context}${repo_name} has ${pr_count} PRs needing review. "
       fi
     fi
