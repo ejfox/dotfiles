@@ -34,11 +34,57 @@
     # =========================[ Line #1 ]=========================
     os_icon                 # os identifier
     dir                     # current directory
-    vcs                     # git status
+    vcs                     # git status with enhanced info
     # =========================[ Line #2 ]=========================
     newline                 # \n
     prompt_char             # prompt symbol
   )
+  
+  # Cyberpunk minimalist styling
+  typeset -g POWERLEVEL9K_MODE='nerdfont-v3'
+  typeset -g POWERLEVEL9K_ICON_PADDING=none
+  
+  # Everything gray except git status (which stays colorful for visibility)
+  
+  # Git status enhanced for maximum info density
+  typeset -g POWERLEVEL9K_VCS_SHOW_CHANGESET=true
+  typeset -g POWERLEVEL9K_VCS_SHOW_SUBMODULE_DIRTY=true
+  typeset -g POWERLEVEL9K_VCS_COMMITS_AHEAD_MAX_NUM=99
+  typeset -g POWERLEVEL9K_VCS_COMMITS_BEHIND_MAX_NUM=99
+  
+  # Detailed git status symbols (hacker aesthetic)
+  typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON='?'
+  typeset -g POWERLEVEL9K_VCS_UNSTAGED_ICON='!'
+  typeset -g POWERLEVEL9K_VCS_STAGED_ICON='+'
+  typeset -g POWERLEVEL9K_VCS_INCOMING_CHANGES_ICON='⇣'
+  typeset -g POWERLEVEL9K_VCS_OUTGOING_CHANGES_ICON='⇡'
+  typeset -g POWERLEVEL9K_VCS_STASH_ICON='⚑'
+  typeset -g POWERLEVEL9K_VCS_TAG_ICON='🏷'
+  
+  # Show commit hash and ahead/behind counts
+  typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${P9K_CONTENT}${${P9K_VCS_COMMIT_HASH:+ ${P9K_VCS_COMMIT_HASH}}}'
+  
+  # Everything else is gray
+  typeset -g POWERLEVEL9K_STATUS_FOREGROUND=240
+  typeset -g POWERLEVEL9K_STATUS_ERROR_FOREGROUND=240
+  
+  # Hide OK status (only show when command fails)
+  typeset -g POWERLEVEL9K_STATUS_OK=false
+  typeset -g POWERLEVEL9K_STATUS_OK_PIPE=false
+  typeset -g POWERLEVEL9K_COMMAND_EXECUTION_TIME_FOREGROUND=240
+  typeset -g POWERLEVEL9K_BACKGROUND_JOBS_FOREGROUND=240
+  typeset -g POWERLEVEL9K_BATTERY_CHARGING_FOREGROUND=240
+  typeset -g POWERLEVEL9K_BATTERY_CHARGED_FOREGROUND=240
+  typeset -g POWERLEVEL9K_BATTERY_DISCONNECTED_FOREGROUND=240
+  typeset -g POWERLEVEL9K_BATTERY_LOW_FOREGROUND=240
+  typeset -g POWERLEVEL9K_NVM_FOREGROUND=240
+  typeset -g POWERLEVEL9K_PACKAGE_FOREGROUND=240
+  typeset -g POWERLEVEL9K_VIRTUALENV_FOREGROUND=240
+  typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=240
+  typeset -g POWERLEVEL9K_DIR_FOREGROUND=240
+  
+  # Time format (24h minimal)
+  typeset -g POWERLEVEL9K_TIME_FORMAT='%D{%H:%M}'
 
   # The list of segments shown on the right. Fill it with less important segments.
   # Right prompt on the last prompt line (where you are typing your commands) gets
@@ -49,15 +95,11 @@
     status                  # exit code of the last command
     command_execution_time  # duration of the last command
     background_jobs         # presence of background jobs
-    direnv                  # direnv status (https://direnv.net/)
-    asdf                    # asdf version manager (https://github.com/asdf-vm/asdf)
-    virtualenv              # python virtual environment (https://docs.python.org/3/library/venv.html)
-    anaconda                # conda environment (https://conda.io/)
-    pyenv                   # python environment (https://github.com/pyenv/pyenv)
-    goenv                   # go environment (https://github.com/syndbg/goenv)
-    nodenv                  # node.js version from nodenv (https://github.com/nodenv/nodenv)
-    nvm                     # node.js version from nvm (https://github.com/nvm-sh/nvm)
-    nodeenv                 # node.js environment (https://github.com/ekalinin/nodeenv)
+    battery                 # battery level (essential for laptops)
+    nvm                     # node.js version from nvm
+    package                 # name@version from package.json (dev context)
+    virtualenv              # python virtual environment
+    direnv                  # direnv status
     # node_version          # node.js version
     # go_version            # go version (https://golang.org)
     # rust_version          # rustc version (https://www.rust-lang.org)

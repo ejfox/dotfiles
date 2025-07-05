@@ -141,14 +141,10 @@ zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
 
-# NVM configuration - lazy loaded for speed
+# NVM configuration - initialize for p10k prompt detection
 export NVM_DIR="$HOME/.nvm"
-nvm() {
-    unset -f nvm
-    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
-    [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
-    nvm "$@"
-}
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
@@ -174,7 +170,7 @@ alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_out
 # Override Oh My Zsh ls aliases with lsd
 alias l='lsd -lah'
 alias la='lsd -lAh'
-alias ll='lsd -lh'
+alias ll='lsd -lht'
 alias ls='lsd -G'
 alias lsa='lsd -lah'
 
@@ -298,3 +294,4 @@ export VISUAL="nvim"
 
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
+alias sw="smallweb"

@@ -1,2 +1,4 @@
 .env
 .tmux.conf.local
+# Local Netlify folder
+.netlify
