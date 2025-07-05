@@ -2,3 +2,5 @@
 .tmux.conf.local
 # Local Netlify folder
 .netlify
+# NPM auth token
+.npmrc
