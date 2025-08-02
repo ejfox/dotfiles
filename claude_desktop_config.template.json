@@ -1,0 +1,93 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "${SUPABASE_ACCESS_TOKEN}"
+      ]
+    },
+    "things": {
+      "command": "node",
+      "args": [
+        "/Users/ejfox/code/vulpes-things-mcp/dist/index.js"
+      ]
+    },
+    "mcp-obsidian": {
+      "command": "uvx",
+      "args": [
+        "mcp-obsidian"
+      ],
+      "env": {
+        "OBSIDIAN_API_KEY": "${OBSIDIAN_API_KEY}"
+      }
+    },
+    "blender": {
+      "command": "uvx",
+      "args": [
+        "blender-mcp"
+      ]
+    },
+    "qgis": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/ejfox/code/qgis_mcp/src/qgis_mcp",
+        "run",
+        "qgis_mcp_server.py"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/ejfox/"
+      ]
+    },
+    "spotify": {
+      "command": "node",
+      "args": [
+        "/Users/ejfox/code/spotify-mcp/dist/index.js"
+      ],
+      "env": {
+        "SPOTIFY_CLIENT_ID": "${SPOTIFY_CLIENT_ID}",
+        "SPOTIFY_CLIENT_SECRET": "${SPOTIFY_CLIENT_SECRET}",
+        "SPOTIFY_REDIRECT_URI": "http://localhost:8888",
+        "SPOTIFY_REFRESH_TOKEN": "${SPOTIFY_REFRESH_TOKEN}"
+      }
+    },
+    "webresearch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mzxrai/mcp-webresearch@latest"
+      ]
+    },
+    "Framelink Figma MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp",
+        "--figma-api-key=${FIGMA_API_KEY}",
+        "--stdio"
+      ]
+    },
+    "toolbox": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@smithery/toolbox",
+        "--key",
+        "${SMITHERY_KEY}",
+        "--profile",
+        "residential-raccoon-I3kuJu"
+      ]
+    }
+  },
+  "globalShortcut": ""
+}
