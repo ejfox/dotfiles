@@ -44,16 +44,16 @@ sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
 #  label.color=0xffffffff \
 #  script="$HOME/.config/sketchybar/plugins/dev_dashboard.sh"
 #
-##### Git Status #####
-sketchybar --add item git left \
-  --set git update_freq=30 \
+##### Context Aware Display #####
+sketchybar --add item context left \
+  --set context update_freq=5 \
   position=left \
   icon="" \
   label.font="$FONT:Regular:13.0" \
   label.y_offset=0 \
-  script="$HOME/.config/sketchybar/plugins/git.sh" \
+  script="$HOME/.config/sketchybar/plugins/context_aware.sh" \
   click_script="$HOME/.config/sketchybar/plugins/git_click.sh" \
-  icon.drawing=on \
+  icon.drawing=off \
   label.drawing=on \
   background.drawing=off
 
@@ -73,7 +73,7 @@ sketchybar --add item git left \
 
 ##### Battery #####
 sketchybar --add item battery right \
-  --set battery update_freq=30 \
+  --set battery update_freq=10 \
   icon.font="$NERD_FONT:Regular:16.0" \
   label.font="$FONT:Regular:11.0" \
   padding_right=8 \
@@ -94,7 +94,7 @@ sketchybar --add item clock right \
 
 ##### Words This Month #####
 sketchybar --add item words right \
-  --set words update_freq=300 \
+  --set words update_freq=60 \
   position=right \
   script="$HOME/.config/sketchybar/plugins/words.sh" \
   click_script="open https://ejfox.com/blog" \
@@ -131,7 +131,7 @@ sketchybar --add item words right \
 
 ##### Force initial update #####
 sketchybar --update
-sketchybar --trigger git
+sketchybar --trigger context
 sketchybar --trigger words
 # sketchybar --trigger photos  
 sketchybar --trigger productivity
