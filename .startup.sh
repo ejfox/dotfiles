@@ -6,11 +6,72 @@ if [ -f "/tmp/.zen-mode-state" ]; then
   exit 0
 fi
 
-OBSIDIAN_ROOT="${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
-LLM_PATH="/Users/ejfox/.local/bin/llm"
+# Check for instant mode
+INSTANT_MODE=${STARTUP_INSTANT:-false}
+if [ "$1" = "--instant" ] || [ "$1" = "--no-animations" ]; then
+  INSTANT_MODE=true
+fi
+
+# Validate and sanitize environment variables
+OBSIDIAN_ROOT="${OBSIDIAN_ROOT:-${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox}"
+LLM_PATH="${LLM_PATH:-/opt/homebrew/bin/llm}"
 CACHE_DIR="/tmp/startup_cache"
 REFLECTION_CACHE="$CACHE_DIR/reflection_cache.txt"
 PERSONA_FILE="$HOME/.dotfiles/.llm-persona.txt"
+
+# Validate paths - prevent directory traversal
+if [[ "$OBSIDIAN_ROOT" != "$HOME"* ]]; then
+    echo "Error: OBSIDIAN_ROOT must be within user home directory" >&2
+    exit 1
+fi
+
+# Function to safely create cache directory
+create_cache_dir() {
+    if ! mkdir -p "$CACHE_DIR" 2>/dev/null; then
+        echo "Error: Cannot create cache directory $CACHE_DIR" >&2
+        exit 1
+    fi
+    if [ ! -w "$CACHE_DIR" ]; then
+        echo "Error: Cache directory $CACHE_DIR is not writable" >&2
+        exit 1
+    fi
+}
+
+# Function to safely write to cache with atomic operations
+safe_write() {
+    local file="$1"
+    local content="$2"
+    local temp_file="${file}.tmp.$$"
+    
+    if echo "$content" > "$temp_file" 2>/dev/null; then
+        mv "$temp_file" "$file" 2>/dev/null || {
+            rm -f "$temp_file" 2>/dev/null
+            return 1
+        }
+    else
+        rm -f "$temp_file" 2>/dev/null
+        return 1
+    fi
+}
+
+# Function to check if dependency exists and is executable
+check_dependency() {
+    local cmd="$1"
+    command -v "$cmd" >/dev/null 2>&1 && [ -x "$(command -v "$cmd")" ]
+}
+
+# Bulk dependency check
+DEPS_AVAILABLE=""
+check_dependency things-cli && DEPS_AVAILABLE="${DEPS_AVAILABLE}things-cli "
+check_dependency icalBuddy && DEPS_AVAILABLE="${DEPS_AVAILABLE}icalBuddy "
+check_dependency find && DEPS_AVAILABLE="${DEPS_AVAILABLE}find "
+check_dependency "$LLM_PATH" && DEPS_AVAILABLE="${DEPS_AVAILABLE}llm "
+
+# Helper functions to check specific dependencies
+has_things() { [[ "$DEPS_AVAILABLE" =~ "things-cli" ]]; }
+has_icalbuddy() { [[ "$DEPS_AVAILABLE" =~ "icalBuddy" ]]; }
+has_find() { [[ "$DEPS_AVAILABLE" =~ "find" ]]; }
+has_llm() { [[ "$DEPS_AVAILABLE" =~ "llm" ]]; }
 
 # Geometric symbols matching your aesthetic
 SYMBOL_TASK="◆"
@@ -19,18 +80,24 @@ SYMBOL_NOTE="○"
 SYMBOL_INSIGHT="▪"
 
 # Create cache dir if it doesn't exist
-mkdir -p "$CACHE_DIR" 2>/dev/null
+create_cache_dir
 
 # Update reflection cache if it doesn't exist or is older than 20 minutes
+# Use atomic lock to prevent race conditions
+REFLECTION_LOCK="$CACHE_DIR/reflection.lock"
 if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/null) ]]; then
-  # Gather all context
-  today_tasks=$(command -v things-cli >/dev/null && things-cli today | head -n 5 || echo "No tasks available")
+  # Try to acquire lock atomically
+  if (set -C; echo $$ > "$REFLECTION_LOCK") 2>/dev/null; then
+    # We got the lock, proceed with cache generation
+    trap 'rm -f "$REFLECTION_LOCK"' EXIT
+    # Gather all context
+    today_tasks=$(has_things && things-cli today | head -n 5 2>/dev/null || echo "No tasks available")
 
-  # Get calendar events for today using icalBuddy
-  calendar_events=""
-  if command -v icalBuddy >/dev/null 2>&1; then
-    calendar_events=$(icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null || echo "")
-  fi
+    # Get calendar events for today using icalBuddy
+    calendar_events=""
+    if has_icalbuddy; then
+      calendar_events=$(icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || echo "")
+    fi
 
   # Get more detailed git status
   git_context=""
@@ -51,8 +118,16 @@ if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/nu
   cd - >/dev/null 2>&1
 
   cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
-  latest_mastodon_posts=$(curl -s --max-time 3 https://mastodon-posts.ejfox.tools)
-  historical_tweets=$(curl -s --max-time 3 https://twitter-posts.ejfox.tools/today | cut -c 1-1000)
+  
+  # Run network calls in parallel
+  curl -s --max-time 3 https://mastodon-posts.ejfox.tools > /tmp/mastodon_posts.tmp &
+  curl -s --max-time 3 https://twitter-posts.ejfox.tools/today > /tmp/twitter_posts.tmp &
+  
+  # Wait for both to complete
+  wait
+  
+  latest_mastodon_posts=$(cat /tmp/mastodon_posts.tmp 2>/dev/null || echo "")
+  historical_tweets=$(cat /tmp/twitter_posts.tmp 2>/dev/null | cut -c 1-1000)
 
   # Get recent notes with their content preview
   recent_notes=""
@@ -89,70 +164,164 @@ IMPORTANT: Output plain text only. NO markdown formatting.
 Use unicode symbols like → ▸ ▪ ◆ • ⚡ ⚠ ✓ ✗ instead of markdown.
 Format as short, punchy lines. Think terminal aesthetic."
 
-  echo "$reflection_prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 200 >"$REFLECTION_CACHE" 2>/dev/null || echo "AI reflection unavailable" >"$REFLECTION_CACHE"
+    # Generate reflection using LLM if available
+    if has_llm && [ -f "$PERSONA_FILE" ]; then
+      if ! safe_write "$REFLECTION_CACHE" "$(echo "$reflection_prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 200 2>/dev/null)"; then
+        safe_write "$REFLECTION_CACHE" "AI reflection unavailable"
+      fi
+    else
+      safe_write "$REFLECTION_CACHE" "AI reflection unavailable"
+    fi
+  else
+    # Another process is generating, wait briefly then continue
+    sleep 0.1
+  fi
 fi
 
-# Clear screen for clean display
+# Progressive display functions
+current_line=4
+
+show_section() {
+    local section_name="$1"
+    local -a lines=("${@:2}")
+    
+    if [ "$INSTANT_MODE" = "true" ]; then
+        echo -e "\n\033[1m$section_name\033[0m"
+        for line in "${lines[@]}"; do
+            echo -e "$line"
+        done
+        return
+    fi
+    
+    # Progressive mode: show section header immediately
+    echo -e "\n\033[1m$section_name\033[0m"
+    
+    # Then show lines with typing effect only for insights
+    for line in "${lines[@]}"; do
+        echo -e "$line"
+        # Only animate the insights section (longest section)
+        if [[ "$section_name" == "INSIGHTS" ]]; then
+            sleep 0.01  # 10ms for insights only
+        fi
+    done
+}
+
+# Simple structure - just show header immediately
 clear
 
-# Header with time context
+# Hide cursor during progressive display (only in non-instant mode)
+if [ "$INSTANT_MODE" = "false" ]; then
+    printf "\033[?25l"  # Hide cursor
+fi
+
 echo -e "\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[1m$(date '+%A, %B %d - %I:%M %p')\033[0m"
 echo -e "\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 
-# Today's mission with better formatting
-if command -v things-cli >/dev/null 2>&1; then
-  echo -e "\n\033[1mTODAY'S MISSION\033[0m"
-  things-cli today | head -n 3 | while read task; do
-    echo -e "  $SYMBOL_TASK $task"
-  done
-fi
-
-# Calendar events if available
-if command -v icalBuddy >/dev/null 2>&1; then
-  events=$(icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | head -3)
-  if [ ! -z "$events" ]; then
-    echo -e "\n\033[1mSCHEDULE\033[0m"
-    echo "$events" | while read event; do
-      echo -e "  $SYMBOL_NOTE $event"
-    done
+# Start background jobs for data fetching - only if dependencies are available
+{
+  if has_things; then
+    things-cli today | head -n 3 > /tmp/startup_cache/tasks.txt 2>/dev/null
+  else
+    rm -f /tmp/startup_cache/tasks.txt 2>/dev/null
   fi
+} &
+TASKS_PID=$!
+
+{
+  if has_icalbuddy; then
+    icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' > /tmp/startup_cache/calendar.txt
+  else
+    rm -f /tmp/startup_cache/calendar.txt 2>/dev/null
+  fi
+} &
+CALENDAR_PID=$!
+
+{
+  if has_find && [ -d ~/code ]; then
+    find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print 2>/dev/null |
+      xargs -I{} bash -c 'printf "%s\t%s\n" "$(stat -f "%m" "{}")" "$(basename "{}")"' 2>/dev/null |
+      sort -rn | head -n 3 | cut -f2- > /tmp/startup_cache/repos.txt 2>/dev/null
+  else
+    rm -f /tmp/startup_cache/repos.txt 2>/dev/null
+  fi
+} &
+REPOS_PID=$!
+
+{
+  if has_find && [ -d "${OBSIDIAN_ROOT}" ]; then
+    find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' 2>/dev/null | head -3 > /tmp/startup_cache/notes.txt 2>/dev/null
+  else
+    rm -f /tmp/startup_cache/notes.txt 2>/dev/null
+  fi
+} &
+NOTES_PID=$!
+
+# Show sections as they complete - no artificial delays!
+# Tasks (usually fastest)
+wait $TASKS_PID
+if [ -f /tmp/startup_cache/tasks.txt ] && [ -s /tmp/startup_cache/tasks.txt ]; then
+  task_lines=()
+  while IFS= read -r task; do
+    task_lines+=("  $SYMBOL_TASK $task")
+  done < /tmp/startup_cache/tasks.txt
+  show_section "TODAY'S MISSION" "${task_lines[@]}"
 fi
 
-# Recently accessed with cleaner format
-echo -e "\n\033[1mRECENT WORK\033[0m"
-find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print |
-  xargs -I{} bash -c 'printf "%s\t%s\n" "$(stat -f "%m" "{}")" "$(basename "{}")"' |
-  sort -rn | head -n 3 | cut -f2- | while read repo; do
-  echo -e "  $SYMBOL_REPO $repo"
-done
+# Calendar
+wait $CALENDAR_PID  
+if [ -f /tmp/startup_cache/calendar.txt ] && [ -s /tmp/startup_cache/calendar.txt ]; then
+  calendar_lines=()
+  while IFS= read -r event; do
+    # Trim leading/trailing whitespace
+    event=$(echo "$event" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    calendar_lines+=("  $SYMBOL_NOTE $event")
+  done < <(head -3 /tmp/startup_cache/calendar.txt)
+  show_section "SCHEDULE" "${calendar_lines[@]}"
+fi
 
-# Recent notes
-notes=$(find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' | head -3)
-if [ ! -z "$notes" ]; then
-  echo -e "\n\033[1mRECENT NOTES\033[0m"
-  echo "$notes" | while read note; do
+# Recent work
+wait $REPOS_PID
+if [ -f /tmp/startup_cache/repos.txt ] && [ -s /tmp/startup_cache/repos.txt ]; then
+  repo_lines=()
+  while IFS= read -r repo; do
+    repo_lines+=("  $SYMBOL_REPO $repo")
+  done < /tmp/startup_cache/repos.txt
+  show_section "RECENT WORK" "${repo_lines[@]}"
+fi
+
+# Recent notes  
+wait $NOTES_PID
+if [ -f /tmp/startup_cache/notes.txt ] && [ -s /tmp/startup_cache/notes.txt ]; then
+  note_lines=()
+  while IFS= read -r note; do
     note_name=$(basename "$note" .md)
-    echo -e "  $SYMBOL_NOTE $note_name"
-  done
+    note_lines+=("  $SYMBOL_NOTE $note_name")
+  done < /tmp/startup_cache/notes.txt
+  show_section "RECENT NOTES" "${note_lines[@]}"
 fi
 
-# Typing Stats
-TYPING_DATA=$(curl -s --max-time 2 "https://ejfox.com/api/monkeytype" 2>/dev/null)
-if [ ! -z "$TYPING_DATA" ] && [ "$TYPING_DATA" != "null" ]; then
-  BEST_WPM=$(echo "$TYPING_DATA" | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
-  TOTAL_TESTS=$(echo "$TYPING_DATA" | jq -r '.typingStats.testsCompleted // empty' 2>/dev/null)
-  CURRENT_MONTH=$(date +"%Y-%m")
-  MONTH_BEST=$(echo "$TYPING_DATA" | jq -r --arg month "$CURRENT_MONTH" '.typingStats.recentTests[]? | select(.timestamp | startswith($month)) | .wpm' 2>/dev/null | sort -nr | head -1)
-
+# AI Insights (slowest - network dependent)
+insights_text=$(cat "$REFLECTION_CACHE" | fold -s -w 70)
+if [ ! -z "$insights_text" ]; then
+  insight_lines=()
+  while IFS= read -r line; do
+    insight_lines+=("  $SYMBOL_INSIGHT $line")
+  done <<< "$insights_text"
+  show_section "INSIGHTS" "${insight_lines[@]}"
 fi
 
-# AI Insights
-echo -e "\n\033[1mINSIGHTS\033[0m"
-cat "$REFLECTION_CACHE" | fold -s -w 70 | while read line; do
-  echo -e "  $SYMBOL_INSIGHT $line"
-done
-
+# Footer
 echo -e "\n\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-echo -e "\033[1mSYSTEM READY\033[0m\n"
+echo -e "\033[1mSYSTEM READY\033[0m"
+
+# Show cursor again
+if [ "$INSTANT_MODE" = "false" ]; then
+    printf "\033[?25h"  # Show cursor
+fi
+
+# Add whitespace at the end
+echo
+echo
+echo
 

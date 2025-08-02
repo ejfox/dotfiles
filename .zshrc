@@ -118,6 +118,14 @@ zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 
 # User configuration
 
+# Standard zsh history settings
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY
+setopt APPEND_HISTORY
+setopt HIST_IGNORE_DUPS
+
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
