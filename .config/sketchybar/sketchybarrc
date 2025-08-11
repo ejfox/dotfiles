@@ -57,6 +57,12 @@ sketchybar --add item context left \
   label.drawing=on \
   background.drawing=off
 
+##### Claude Usage #####
+sketchybar --add item claude_usage left \
+  --set claude_usage update_freq=10 \
+  script="$HOME/.config/sketchybar/plugins/claude_usage.sh" \
+  label.font="$FONT:Regular:11.0"
+
 ##### CIPHER - AI Companion #####
 # sketchybar --add item cipher left \
 #   --set cipher update_freq=60 \
@@ -133,6 +139,6 @@ sketchybar --add item words right \
 sketchybar --update
 sketchybar --trigger context
 sketchybar --trigger words
-# sketchybar --trigger photos  
+# sketchybar --trigger photos
 sketchybar --trigger productivity
 # sketchybar --trigger typing
