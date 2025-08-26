@@ -33,19 +33,25 @@ return {
       -- Helper function for LSP status
       local function lsp_status()
         local clients = vim.lsp.get_active_clients({ bufnr = 0 })
-        if #clients == 0 then
-          return "NO LSP"
-        end
+        local lsp_names = {}
         
-        -- Check if any client is still loading
         for _, client in ipairs(clients) do
-          if client.initialized == false then
-            return "..."
+          -- Skip copilot from LSP display
+          if client.name ~= "copilot" then
+            table.insert(lsp_names, client.name)
           end
         end
         
-        -- All good, return nothing
-        return ""
+        if #lsp_names == 0 then
+          return "NO LSP"
+        end
+        
+        -- Return first LSP name, or multiple if more than one
+        if #lsp_names == 1 then
+          return lsp_names[1]
+        else
+          return table.concat(lsp_names, ",")
+        end
       end
 
       -- Line count
