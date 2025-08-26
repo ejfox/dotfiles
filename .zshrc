@@ -15,7 +15,7 @@ alias \?\?="gh copilot suggest $0"
 
 # Path to the cache file
 CACHE_FILE="$HOME/.cache/startup_script_cache"
-CACHE_DURATION=1800  # 30 minutes in seconds
+CACHE_DURATION=10800  # 3 hours in seconds
 
 # Function to get the last modification time of the cache file (works on macOS and Linux)
 function get_cache_mod_time {
@@ -157,8 +157,6 @@ export NVM_DIR="$HOME/.nvm"
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-
-PATH=~/.console-ninja/.bin:$PATH
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -304,16 +302,11 @@ export VISUAL="nvim"
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
 alias sw="smallweb"
-alias pip="uv pip"
-alias pip3="uv pip"
-export UV_SYSTEM_PYTHON=1
 
-# UV FOREVER 🚀
-alias python="uv run python"
-alias pip="uv pip"
-alias pip3="uv pip"
-alias venv="uv venv"
-alias install="uv tool install"
+# ========================================
+# UV FOREVER 🚀 - Modern Python tooling
+# ========================================
+export UV_SYSTEM_PYTHON=1
 
 # Quick uv commands
 alias uvi="uv tool install"      # install any Python CLI tool
@@ -321,13 +314,7 @@ alias uvr="uv run"               # run in isolated env
 alias uvs="uv sync"              # sync dependencies
 alias uvx="uvx"                  # run without installing
 
-# Never see pip conflicts again
-export UV_SYSTEM_PYTHON=1
-# ========================================
-# UV HELPERS - Remind you to use uv instead
-# ========================================
-
-# Override pip to remind about uv
+# Override pip/python with helpful reminders (functions, not aliases)
 function pip() {
   echo "💡 Use uv instead:"
   echo "  • uv add <package>        (in a project)"
@@ -339,13 +326,7 @@ function pip() {
 }
 
 function pip3() {
-  echo "💡 Use uv instead:"
-  echo "  • uv add <package>        (in a project)"
-  echo "  • uv tool install <tool>  (for CLI tools)"
-  echo "  • uv pip install <pkg>    (if you really need pip)"
-  echo ""
-  echo "Running traditional pip3..."
-  command pip3 "$@"
+  pip "$@"  # Just call pip function
 }
 
 # Override python to suggest uv for projects
@@ -359,26 +340,26 @@ function python() {
 }
 
 function python3() {
-  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
-    echo "💡 Python project detected! Use: uv run python"
-    echo "   This ensures correct dependencies are loaded"
-    echo ""
-  fi
-  command python3 "$@"
+  python "$@"  # Just call python function
 }
 
-# Override venv commands
+# Override venv commands - helpful reminders to break old habits
 alias venv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias virtualenv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias activate='echo "💡 No activation needed! Just use: uv run python"'
 alias deactivate='echo "💡 No deactivation needed with uv!"'
 
+# More aggressive overrides for common venv patterns
+alias "source venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
+alias "source .venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
+alias ". venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
+alias ". .venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
 
 # ========================================
-# UV CHEAT SHEET - THE ONLY COMMANDS YOU NEED
+# UV HELPER FUNCTIONS
 # ========================================
 
-# Quick reminders when you forget
+# Quick reference
 alias halp='echo "
 📦 UV QUICK REFERENCE:
   uv init              → start new project
@@ -423,25 +404,22 @@ function install() {
 function cd() {
   builtin cd "$@"
   if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
-    echo "🐍 Python project detected\! Commands:"
+    echo "🐍 Python project detected! Commands:"
     echo "  • py script.py    (auto-runs with uv)"
     echo "  • install <pkg>   (auto-adds with uv)"
     echo "  • uv sync         (install all deps)"
   fi
 }
 
-# Fuck it, just make it work
+# Quick fixes
 alias fixit='uv pip sync requirements.txt 2>/dev/null || uv sync 2>/dev/null || uv init'
 alias fuckit='rm -rf .venv __pycache__ && uv sync'
-
-# Never type "source venv/bin/activate" again
-alias activate='echo "LOL no need, just use: uv run python"'
-alias venv='echo "Stop\! Use: uv init (new project) or uv sync (existing)"'
 
 # Quick new project
 function pyproject() {
   mkdir -p "$1" && cd "$1"
   uv init
-  echo "✨ Project $1 created\! Now do: install <packages>"
+  echo "✨ Project $1 created! Now do: install <packages>"
 }
 
+alias refresh-motd='rm -f /tmp/startup_cache/reflection_cache.txt && ~/.startup.sh'

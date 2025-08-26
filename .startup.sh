@@ -1,327 +1,155 @@
 #!/bin/bash
-# ~/.startup.sh - EJ Fox's terminal startup with personalized MOTD
+# ~/.startup.sh - Fast, non-blocking terminal startup with streaming insights
 
 # Skip in zen mode
 if [ -f "/tmp/.zen-mode-state" ]; then
   exit 0
 fi
 
-# Check for instant mode
-INSTANT_MODE=${STARTUP_INSTANT:-false}
-if [ "$1" = "--instant" ] || [ "$1" = "--no-animations" ]; then
-  INSTANT_MODE=true
-fi
+# Interrupt handler - ESC to skip
+trap 'echo -e "\n\033[33m⏭️  Skipped startup\033[0m"; exit 0' INT
 
-# Validate and sanitize environment variables
-OBSIDIAN_ROOT="${OBSIDIAN_ROOT:-${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox}"
-LLM_PATH="${LLM_PATH:-/opt/homebrew/bin/llm}"
+# Configuration
 CACHE_DIR="/tmp/startup_cache"
 REFLECTION_CACHE="$CACHE_DIR/reflection_cache.txt"
 PERSONA_FILE="$HOME/.dotfiles/.llm-persona.txt"
+LLM_PATH="${LLM_PATH:-/opt/homebrew/bin/llm}"
+OBSIDIAN_ROOT="${OBSIDIAN_ROOT:-${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox}"
 
-# Validate paths - prevent directory traversal
-if [[ "$OBSIDIAN_ROOT" != "$HOME"* ]]; then
-    echo "Error: OBSIDIAN_ROOT must be within user home directory" >&2
-    exit 1
-fi
-
-# Function to safely create cache directory
-create_cache_dir() {
-    if ! mkdir -p "$CACHE_DIR" 2>/dev/null; then
-        echo "Error: Cannot create cache directory $CACHE_DIR" >&2
-        exit 1
-    fi
-    if [ ! -w "$CACHE_DIR" ]; then
-        echo "Error: Cache directory $CACHE_DIR is not writable" >&2
-        exit 1
-    fi
-}
-
-# Function to safely write to cache with atomic operations
-safe_write() {
-    local file="$1"
-    local content="$2"
-    local temp_file="${file}.tmp.$$"
-    
-    if echo "$content" > "$temp_file" 2>/dev/null; then
-        mv "$temp_file" "$file" 2>/dev/null || {
-            rm -f "$temp_file" 2>/dev/null
-            return 1
-        }
-    else
-        rm -f "$temp_file" 2>/dev/null
-        return 1
-    fi
-}
-
-# Function to check if dependency exists and is executable
-check_dependency() {
-    local cmd="$1"
-    command -v "$cmd" >/dev/null 2>&1 && [ -x "$(command -v "$cmd")" ]
-}
-
-# Bulk dependency check
-DEPS_AVAILABLE=""
-check_dependency things-cli && DEPS_AVAILABLE="${DEPS_AVAILABLE}things-cli "
-check_dependency icalBuddy && DEPS_AVAILABLE="${DEPS_AVAILABLE}icalBuddy "
-check_dependency find && DEPS_AVAILABLE="${DEPS_AVAILABLE}find "
-check_dependency "$LLM_PATH" && DEPS_AVAILABLE="${DEPS_AVAILABLE}llm "
-
-# Helper functions to check specific dependencies
-has_things() { [[ "$DEPS_AVAILABLE" =~ "things-cli" ]]; }
-has_icalbuddy() { [[ "$DEPS_AVAILABLE" =~ "icalBuddy" ]]; }
-has_find() { [[ "$DEPS_AVAILABLE" =~ "find" ]]; }
-has_llm() { [[ "$DEPS_AVAILABLE" =~ "llm" ]]; }
-
-# Geometric symbols matching your aesthetic
+# Symbols
 SYMBOL_TASK="◆"
 SYMBOL_REPO="◇"
 SYMBOL_NOTE="○"
 SYMBOL_INSIGHT="▪"
 
-# Create cache dir if it doesn't exist
-create_cache_dir
+# Create cache dir
+mkdir -p "$CACHE_DIR"
 
-# Update reflection cache if it doesn't exist or is older than 20 minutes
-# Use atomic lock to prevent race conditions
-REFLECTION_LOCK="$CACHE_DIR/reflection.lock"
-if [[ ! -f "$REFLECTION_CACHE" || $(find "$REFLECTION_CACHE" -mmin +20 2>/dev/null) ]]; then
-  # Try to acquire lock atomically
-  if (set -C; echo $$ > "$REFLECTION_LOCK") 2>/dev/null; then
-    # We got the lock, proceed with cache generation
-    trap 'rm -f "$REFLECTION_LOCK"' EXIT
-    # Gather all context
-    today_tasks=$(has_things && things-cli today | head -n 5 2>/dev/null || echo "No tasks available")
+# Helper function to check commands
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
-    # Get calendar events for today using icalBuddy
-    calendar_events=""
-    if has_icalbuddy; then
-      calendar_events=$(icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || echo "")
-    fi
-
-  # Get more detailed git status
-  git_context=""
-  for repo in $(find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print | head -5); do
-    repo_name=$(basename "$repo")
-    cd "$repo" 2>/dev/null
-    if [[ -n $(git status -s 2>/dev/null) ]]; then
-      git_context="${git_context}${repo_name} has uncommitted changes. "
-    fi
-    # Check for PRs if gh is installed
-    if command -v gh &>/dev/null; then
-      pr_count=$(gh pr list --search "review-requested:@me" --json number 2>/dev/null | jq length 2>/dev/null || echo 0)
-      if [ -n "$pr_count" ] && [ "$pr_count" -gt 0 ]; then
-        git_context="${git_context}${repo_name} has ${pr_count} PRs needing review. "
-      fi
-    fi
-  done
-  cd - >/dev/null 2>&1
-
-  cmd_history=$(tail -n 24 ~/.zsh_history | cut -d ';' -f 2-)
-  
-  # Run network calls in parallel
-  curl -s --max-time 3 https://mastodon-posts.ejfox.tools > /tmp/mastodon_posts.tmp &
-  curl -s --max-time 3 https://twitter-posts.ejfox.tools/today > /tmp/twitter_posts.tmp &
-  
-  # Wait for both to complete
-  wait
-  
-  latest_mastodon_posts=$(cat /tmp/mastodon_posts.tmp 2>/dev/null || echo "")
-  historical_tweets=$(cat /tmp/twitter_posts.tmp 2>/dev/null | cut -c 1-1000)
-
-  # Get recent notes with their content preview
-  recent_notes=""
-  while IFS= read -r note; do
-    if [ -f "$note" ]; then
-      note_name=$(basename "$note" .md)
-      # Get first non-empty line that isn't a header
-      preview=$(grep -v '^#' "$note" | grep -v '^$' | head -1 | cut -c 1-50)
-      recent_notes="${recent_notes}${note_name}: ${preview}... "
-    fi
-  done < <(find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' | head -3)
-
-  # Enhanced prompt that asks for connections and insights
-  reflection_prompt="$(cat $PERSONA_FILE)
-  
-Current context:
-- Working Directory: $(pwd)
-- Time: $(date '+%A, %B %d, %I:%M %p')
-- Today's Tasks: $today_tasks
-- Calendar Events: ${calendar_events:-No events today}
-- Git Status: ${git_context:-All repos clean}
-- Recent Terminal Commands: $cmd_history
-- Recent Notes: ${recent_notes:-No recent notes}
-- Latest Mastodon Posts: $latest_mastodon_posts
-- Historical Tweets (Today in History): ${historical_tweets:-No historical tweets}
-
-Based on this context, provide 2-3 specific, actionable insights:
-1. What connections do you see between current work and scheduled time?
-2. What's the most important thing to focus on right now?
-3. Any patterns or opportunities you notice?
-
-Keep it concise and practical. Use a calm, focused tone.
-IMPORTANT: Output plain text only. NO markdown formatting.
-Use unicode symbols like → ▸ ▪ ◆ • ⚡ ⚠ ✓ ✗ instead of markdown.
-Format as short, punchy lines. Think terminal aesthetic."
-
-    # Generate reflection using LLM if available
-    if has_llm && [ -f "$PERSONA_FILE" ]; then
-      if ! safe_write "$REFLECTION_CACHE" "$(echo "$reflection_prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 200 2>/dev/null)"; then
-        safe_write "$REFLECTION_CACHE" "AI reflection unavailable"
-      fi
-    else
-      safe_write "$REFLECTION_CACHE" "AI reflection unavailable"
-    fi
-  else
-    # Another process is generating, wait briefly then continue
-    sleep 0.1
-  fi
-fi
-
-# Progressive display functions
-current_line=4
-
-show_section() {
-    local section_name="$1"
-    local -a lines=("${@:2}")
-    
-    if [ "$INSTANT_MODE" = "true" ]; then
-        echo -e "\n\033[1m$section_name\033[0m"
-        for line in "${lines[@]}"; do
-            echo -e "$line"
-        done
-        return
-    fi
-    
-    # Progressive mode: show section header immediately
-    echo -e "\n\033[1m$section_name\033[0m"
-    
-    # Then show lines with typing effect only for insights
-    for line in "${lines[@]}"; do
-        echo -e "$line"
-        # Only animate the insights section (longest section)
-        if [[ "$section_name" == "INSIGHTS" ]]; then
-            sleep 0.01  # 10ms for insights only
-        fi
-    done
-}
-
-# Simple structure - just show header immediately
-clear
-
-# Hide cursor during progressive display (only in non-instant mode)
-if [ "$INSTANT_MODE" = "false" ]; then
-    printf "\033[?25l"  # Hide cursor
-fi
-
+# IMMEDIATELY show header (no clear, no delay)
+echo ""
 echo -e "\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[1m$(date '+%A, %B %d - %I:%M %p')\033[0m"
 echo -e "\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 
-# Start background jobs for data fetching - only if dependencies are available
-{
-  if has_things; then
-    things-cli today | head -n 3 > /tmp/startup_cache/tasks.txt 2>/dev/null
-  else
-    rm -f /tmp/startup_cache/tasks.txt 2>/dev/null
-  fi
-} &
-TASKS_PID=$!
+# Start gathering data in background IMMEDIATELY
+echo -e "\033[36m◆ Loading...\033[0m"
 
-{
-  if has_icalbuddy; then
-    icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' > /tmp/startup_cache/calendar.txt
-  else
-    rm -f /tmp/startup_cache/calendar.txt 2>/dev/null
-  fi
-} &
-CALENDAR_PID=$!
-
-{
-  if has_find && [ -d ~/code ]; then
-    find ~/code -maxdepth 1 -type d -exec test -d "{}/.git" \; -print 2>/dev/null |
-      xargs -I{} bash -c 'printf "%s\t%s\n" "$(stat -f "%m" "{}")" "$(basename "{}")"' 2>/dev/null |
-      sort -rn | head -n 3 | cut -f2- > /tmp/startup_cache/repos.txt 2>/dev/null
-  else
-    rm -f /tmp/startup_cache/repos.txt 2>/dev/null
-  fi
-} &
-REPOS_PID=$!
-
-{
-  if has_find && [ -d "${OBSIDIAN_ROOT}" ]; then
-    find "${OBSIDIAN_ROOT}" -type f -name "*.md" -mtime -1 -not -path '*/\.*' 2>/dev/null | head -3 > /tmp/startup_cache/notes.txt 2>/dev/null
-  else
-    rm -f /tmp/startup_cache/notes.txt 2>/dev/null
-  fi
-} &
-NOTES_PID=$!
-
-# Show sections as they complete - no artificial delays!
-# Tasks (usually fastest)
-wait $TASKS_PID
-if [ -f /tmp/startup_cache/tasks.txt ] && [ -s /tmp/startup_cache/tasks.txt ]; then
-  task_lines=()
-  while IFS= read -r task; do
-    task_lines+=("  $SYMBOL_TASK $task")
-  done < /tmp/startup_cache/tasks.txt
-  show_section "TODAY'S MISSION" "${task_lines[@]}"
+# Tasks
+if has_cmd things-cli; then
+  (things-cli today | head -n 3 | while read line; do
+    echo "  $SYMBOL_TASK $line"
+  done > "$CACHE_DIR/tasks.tmp") &
+  TASKS_PID=$!
 fi
 
 # Calendar
-wait $CALENDAR_PID  
-if [ -f /tmp/startup_cache/calendar.txt ] && [ -s /tmp/startup_cache/calendar.txt ]; then
-  calendar_lines=()
-  while IFS= read -r event; do
-    # Trim leading/trailing whitespace
-    event=$(echo "$event" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    calendar_lines+=("  $SYMBOL_NOTE $event")
-  done < <(head -3 /tmp/startup_cache/calendar.txt)
-  show_section "SCHEDULE" "${calendar_lines[@]}"
+if has_cmd icalBuddy; then
+  (icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null | 
+   sed 's/\x1b\[[0-9;]*m//g' | head -3 | while read line; do
+    echo "  $SYMBOL_NOTE $line"
+  done > "$CACHE_DIR/calendar.tmp") &
+  CALENDAR_PID=$!
 fi
 
-# Recent work
-wait $REPOS_PID
-if [ -f /tmp/startup_cache/repos.txt ] && [ -s /tmp/startup_cache/repos.txt ]; then
-  repo_lines=()
-  while IFS= read -r repo; do
-    repo_lines+=("  $SYMBOL_REPO $repo")
-  done < /tmp/startup_cache/repos.txt
-  show_section "RECENT WORK" "${repo_lines[@]}"
+# Recent repos
+if [ -d ~/code ]; then
+  (find ~/code -maxdepth 1 -type d -name ".git" 2>/dev/null | head -3 | while read gitdir; do
+    repo=$(dirname "$gitdir")
+    echo "  $SYMBOL_REPO $(basename "$repo")"
+  done > "$CACHE_DIR/repos.tmp") &
+  REPOS_PID=$!
 fi
 
-# Recent notes  
-wait $NOTES_PID
-if [ -f /tmp/startup_cache/notes.txt ] && [ -s /tmp/startup_cache/notes.txt ]; then
-  note_lines=()
-  while IFS= read -r note; do
-    note_name=$(basename "$note" .md)
-    note_lines+=("  $SYMBOL_NOTE $note_name")
-  done < /tmp/startup_cache/notes.txt
-  show_section "RECENT NOTES" "${note_lines[@]}"
+# Recent notes
+if [ -d "$OBSIDIAN_ROOT" ]; then
+  (find "$OBSIDIAN_ROOT" -type f -name "*.md" -mtime -1 2>/dev/null | head -3 | while read note; do
+    echo "  $SYMBOL_NOTE $(basename "$note" .md)"
+  done > "$CACHE_DIR/notes.tmp") &
+  NOTES_PID=$!
 fi
 
-# AI Insights (slowest - network dependent)
-insights_text=$(cat "$REFLECTION_CACHE" | fold -s -w 70)
-if [ ! -z "$insights_text" ]; then
-  insight_lines=()
-  while IFS= read -r line; do
-    insight_lines+=("  $SYMBOL_INSIGHT $line")
-  done <<< "$insights_text"
-  show_section "INSIGHTS" "${insight_lines[@]}"
+# Clear loading line
+printf "\r\033[K"
+
+# Display sections as they complete (no waiting)
+if [ -n "$TASKS_PID" ]; then
+  wait $TASKS_PID 2>/dev/null
+  if [ -s "$CACHE_DIR/tasks.tmp" ]; then
+    echo -e "\n\033[1mTODAY'S MISSION\033[0m"
+    cat "$CACHE_DIR/tasks.tmp"
+  fi
+fi
+
+if [ -n "$CALENDAR_PID" ]; then
+  wait $CALENDAR_PID 2>/dev/null
+  if [ -s "$CACHE_DIR/calendar.tmp" ]; then
+    echo -e "\n\033[1mSCHEDULE\033[0m"
+    cat "$CACHE_DIR/calendar.tmp"
+  fi
+fi
+
+if [ -n "$REPOS_PID" ]; then
+  wait $REPOS_PID 2>/dev/null
+  if [ -s "$CACHE_DIR/repos.tmp" ]; then
+    echo -e "\n\033[1mRECENT WORK\033[0m"
+    cat "$CACHE_DIR/repos.tmp"
+  fi
+fi
+
+if [ -n "$NOTES_PID" ]; then
+  wait $NOTES_PID 2>/dev/null
+  if [ -s "$CACHE_DIR/notes.tmp" ]; then
+    echo -e "\n\033[1mRECENT NOTES\033[0m"
+    cat "$CACHE_DIR/notes.tmp"
+  fi
+fi
+
+# Handle insights - check cache age
+if [[ -f "$REFLECTION_CACHE" ]] && [[ -z $(find "$REFLECTION_CACHE" -mmin +180 2>/dev/null) ]]; then
+  # Cache is fresh, just display it
+  echo -e "\n\033[1mINSIGHTS\033[0m \033[2m(cached)\033[0m"
+  cat "$REFLECTION_CACHE" | while IFS= read -r line; do
+    echo "  $SYMBOL_INSIGHT $line"
+  done
+else
+  # Cache is stale, regenerate with streaming
+  echo -e "\n\033[1mINSIGHTS\033[0m"
+  echo -e "\033[36m◆ Generating fresh insights...\033[0m"
+  
+  if has_cmd "$LLM_PATH" && [ -f "$PERSONA_FILE" ]; then
+    # Gather context quickly
+    tasks=$(has_cmd things-cli && things-cli today | head -5 2>/dev/null || echo "No tasks")
+    
+    # Build minimal prompt
+    prompt="$(cat "$PERSONA_FILE")
+
+Context:
+- Time: $(date '+%A, %B %d, %I:%M %p')
+- Tasks: $tasks
+- Directory: $(pwd)
+
+Provide 2-3 brief, actionable insights. Use symbols like → ▸ ▪ ◆ • ⚡.
+Keep it punchy. Terminal aesthetic. NO markdown."
+
+    # Stream output directly
+    echo "$prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 150 --no-log 2>/dev/null | tee "$REFLECTION_CACHE.tmp" | while IFS= read -r line; do
+      echo "  $SYMBOL_INSIGHT $line"
+      sleep 0.01  # Tiny delay for effect
+    done
+    
+    # Save cache
+    if [ -s "$REFLECTION_CACHE.tmp" ]; then
+      mv "$REFLECTION_CACHE.tmp" "$REFLECTION_CACHE"
+    fi
+  else
+    echo "  $SYMBOL_INSIGHT Configure LLM for personalized insights"
+  fi
 fi
 
 # Footer
 echo -e "\n\033[2m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[1mSYSTEM READY\033[0m"
-
-# Show cursor again
-if [ "$INSTANT_MODE" = "false" ]; then
-    printf "\033[?25h"  # Show cursor
-fi
-
-# Add whitespace at the end
-echo
-echo
-echo
-
+echo ""
