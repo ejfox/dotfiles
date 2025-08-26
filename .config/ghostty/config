@@ -7,7 +7,7 @@ bold-is-bright = false
 font-family = Monaspace Krypton
 
 # Auto-switch between light and dark themes based on system preference
-theme = light:ayu_light,dark:ayu_dark
+theme = light:catppuccin-latte,dark:catppuccin-mocha
 
 # Minimal cursor
 cursor-style = block
@@ -17,14 +17,26 @@ cursor-style-blink = false
 window-padding-x = 0
 window-padding-y = 0
 cursor-invert-fg-bg = true
-# No bells or whistles
-# audible-bell = fale
-# visual-bell = false
 
 # Performance
-# max-fps = 120  # Smooth scrolling
+shell-integration = zsh
+shell-integration-features = cursor,sudo,title
 
 adjust-cell-height = -16%
-
 adjust-cell-width = -10%
-link-url = true
+
+# Clean mouse behavior
+mouse-hide-while-typing = true
+
+# Window behavior
+window-vsync = true
+resize-overlay = never
+
+# Actual working keybinds for tmux workflow
+keybind = cmd+k=clear_screen
+keybind = cmd+shift+enter=toggle_fullscreen
+
+# Better clipboard  
+clipboard-read = allow
+clipboard-write = allow
+clipboard-paste-protection = false
