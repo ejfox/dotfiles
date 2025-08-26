@@ -169,6 +169,7 @@ export COLORTERM="truecolor"
 touch ~/.hushlogin
 export MAILCHECK=0
 
+
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # Smart git commit with LLM integration
@@ -303,3 +304,144 @@ export VISUAL="nvim"
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
 alias sw="smallweb"
+alias pip="uv pip"
+alias pip3="uv pip"
+export UV_SYSTEM_PYTHON=1
+
+# UV FOREVER 🚀
+alias python="uv run python"
+alias pip="uv pip"
+alias pip3="uv pip"
+alias venv="uv venv"
+alias install="uv tool install"
+
+# Quick uv commands
+alias uvi="uv tool install"      # install any Python CLI tool
+alias uvr="uv run"               # run in isolated env
+alias uvs="uv sync"              # sync dependencies
+alias uvx="uvx"                  # run without installing
+
+# Never see pip conflicts again
+export UV_SYSTEM_PYTHON=1
+# ========================================
+# UV HELPERS - Remind you to use uv instead
+# ========================================
+
+# Override pip to remind about uv
+function pip() {
+  echo "💡 Use uv instead:"
+  echo "  • uv add <package>        (in a project)"
+  echo "  • uv tool install <tool>  (for CLI tools)"
+  echo "  • uv pip install <pkg>    (if you really need pip)"
+  echo ""
+  echo "Running traditional pip..."
+  command pip "$@"
+}
+
+function pip3() {
+  echo "💡 Use uv instead:"
+  echo "  • uv add <package>        (in a project)"
+  echo "  • uv tool install <tool>  (for CLI tools)"
+  echo "  • uv pip install <pkg>    (if you really need pip)"
+  echo ""
+  echo "Running traditional pip3..."
+  command pip3 "$@"
+}
+
+# Override python to suggest uv for projects
+function python() {
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+    echo "💡 Python project detected! Use: uv run python"
+    echo "   This ensures correct dependencies are loaded"
+    echo ""
+  fi
+  command python "$@"
+}
+
+function python3() {
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+    echo "💡 Python project detected! Use: uv run python"
+    echo "   This ensures correct dependencies are loaded"
+    echo ""
+  fi
+  command python3 "$@"
+}
+
+# Override venv commands
+alias venv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
+alias virtualenv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
+alias activate='echo "💡 No activation needed! Just use: uv run python"'
+alias deactivate='echo "💡 No deactivation needed with uv!"'
+
+
+# ========================================
+# UV CHEAT SHEET - THE ONLY COMMANDS YOU NEED
+# ========================================
+
+# Quick reminders when you forget
+alias halp='echo "
+📦 UV QUICK REFERENCE:
+  uv init              → start new project
+  uv add <package>     → install package (like npm install)
+  uv remove <package>  → uninstall package
+  uv sync              → install all deps from pyproject.toml
+  uv run <script>      → run in project env
+  uv tool install      → install CLI tools globally
+  uvx <tool>           → run tool without installing
+"'
+
+# Smart python that knows what you want
+function py() {
+  if [[ -f "pyproject.toml" ]]; then
+    echo "🚀 Running with uv in project..."
+    uv run python "$@"
+  elif [[ -f "requirements.txt" ]]; then
+    echo "📦 Found requirements.txt, using uv..."
+    uv pip sync requirements.txt
+    uv run python "$@"
+  else
+    echo "🐍 No project found, using system python..."
+    /usr/bin/python3 "$@"
+  fi
+}
+
+# Install packages smartly
+function install() {
+  if [[ -f "pyproject.toml" ]]; then
+    echo "📦 Adding to project with uv..."
+    uv add "$@"
+  elif [[ -f "package.json" ]]; then
+    echo "📦 npm project detected..."
+    npm install "$@"
+  else
+    echo "🔧 Installing as global tool..."
+    uv tool install "$@"
+  fi
+}
+
+# Auto-reminder when cd into Python project
+function cd() {
+  builtin cd "$@"
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+    echo "🐍 Python project detected\! Commands:"
+    echo "  • py script.py    (auto-runs with uv)"
+    echo "  • install <pkg>   (auto-adds with uv)"
+    echo "  • uv sync         (install all deps)"
+  fi
+}
+
+# Fuck it, just make it work
+alias fixit='uv pip sync requirements.txt 2>/dev/null || uv sync 2>/dev/null || uv init'
+alias fuckit='rm -rf .venv __pycache__ && uv sync'
+
+# Never type "source venv/bin/activate" again
+alias activate='echo "LOL no need, just use: uv run python"'
+alias venv='echo "Stop\! Use: uv init (new project) or uv sync (existing)"'
+
+# Quick new project
+function pyproject() {
+  mkdir -p "$1" && cd "$1"
+  uv init
+  echo "✨ Project $1 created\! Now do: install <packages>"
+}
+

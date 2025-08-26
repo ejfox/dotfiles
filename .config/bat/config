@@ -1,0 +1,7 @@
+# Bat configuration with automatic light/dark theme switching
+--theme=auto:system
+--theme-light="Monokai Extended Light"
+--theme-dark="Monokai Extended"
+--style=numbers,changes,header,grid
+--wrap=never
+--pager=never
