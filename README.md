@@ -61,6 +61,32 @@ cd ~/.dotfiles
 | `df` | `duf` | Disk free visualization |
 | `top` | `btop` | System monitoring |
 
+## Configuration Coverage
+
+| Application | Config Location | Status | Description |
+|------------|-----------------|---------|-------------|
+| **Shell (Zsh)** | `.zshrc` (447 lines) | ✅ Modified | Main shell config with Powerlevel10k prompt, aliases, PATH setup |
+| **Powerlevel10k** | `.p10k.zsh` | ✅ Active | Terminal prompt theme configuration |
+| **Neovim** | `.config/nvim/` | ✅ Modified | LazyVim-based config with custom plugins (vue-nav, snacks, minimal-statusline) |
+| **Tmux** | `.tmux.conf` (128 lines) | ✅ Modified | Terminal multiplexer with custom settings |
+| **Vim** | `.vimrc` (19 lines) | ✅ Active | Basic vim configuration |
+| **Ghostty** | `.config/ghostty/` | ✅ Modified | Terminal emulator with themes directory |
+| **Sketchybar** | `.config/sketchybar/` | ✅ Modified | macOS menu bar customization with plugins (including mutagen.sh) |
+| **Yazi** | `.config/yazi/` | ✅ Modified | Terminal file manager (yazi.toml, theme.toml, package.toml) |
+| **Bat** | `.config/bat/` | 🆕 New | Cat replacement with syntax highlighting |
+| **BTerm/BTOp** | `.config/btop/` | ✅ Active | Resource monitor configuration |
+| **Atuin** | `.config/atuin/` | ✅ Active | Shell history sync/search tool |
+| **Karabiner** | `.config/karabiner/` | ✅ Active | Keyboard customization for macOS |
+| **Neofetch** | `.config/neofetch/` | ✅ Active | System info display tool |
+| **Claude** | `.config/claude/` | ✅ Active | Claude desktop app settings |
+| **HTerm/HTop** | `.config/htop/` | ✅ Active | Process viewer configuration |
+| **Wireshark** | `.config/wireshark/` | ✅ Active | Network protocol analyzer |
+| **Git** | `.gitignore`, `.gitattributes` | ✅ Active | Version control settings |
+| **Docker** | `.docker/config.json` | ✅ Active | Container runtime config |
+| **GPG** | `.gnupg/` | ✅ Active | Encryption/signing configuration |
+| **VSCode** | `Library/.../Code/User/settings.json` | ✅ Active | Code editor settings |
+| **Spectacle** | `Library/.../Spectacle/` | ✅ Active | Window management shortcuts |
+
 ---
 
 *Every pixel serves a purpose. Maximum functionality, minimum distraction.*
