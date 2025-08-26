@@ -33,25 +33,31 @@ return {
       -- Helper function for LSP status
       local function lsp_status()
         local clients = vim.lsp.get_active_clients({ bufnr = 0 })
-        local lsp_names = {}
+        local lsp_icons = {
+          volar = "󰡄",  -- Vue icon (alternative)
+          vtsls = "󰛦",  -- TypeScript icon
+          tsserver = "󰛦",  -- TypeScript icon
+          eslint = "󰱺",  -- ESLint icon
+          copilot = "",  -- Copilot
+          lua_ls = "",  -- Lua
+          pyright = "",  -- Python
+          rust_analyzer = "",  -- Rust
+        }
         
+        local icons = {}
         for _, client in ipairs(clients) do
-          -- Skip copilot from LSP display
+          -- Skip copilot from display
           if client.name ~= "copilot" then
-            table.insert(lsp_names, client.name)
+            local icon = lsp_icons[client.name] or "●"
+            table.insert(icons, icon)
           end
         end
         
-        if #lsp_names == 0 then
-          return "NO LSP"
+        if #icons == 0 then
+          return ""  -- No text when no LSP
         end
         
-        -- Return first LSP name, or multiple if more than one
-        if #lsp_names == 1 then
-          return lsp_names[1]
-        else
-          return table.concat(lsp_names, ",")
-        end
+        return table.concat(icons, " ")
       end
 
       -- Line count
