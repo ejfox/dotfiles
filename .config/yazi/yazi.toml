@@ -1,12 +1,15 @@
 # Minimal yazi config - no colors, just shapes
 
 [manager]
+ratio = [1,3,4]
 show_hidden = false
-sort_by = "natural"
+sort_by = "mtime"
 sort_dir_first = true
-linemode = "size"
+linemode = "mtime"
 show_symlink = true
 
 [preview]
-max_width = 600
-max_height = 900
+max_width = 1200
+max_height = 1200
+wrap = "no"
+image_delay = 10
