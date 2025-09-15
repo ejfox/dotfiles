@@ -56,7 +56,7 @@ fi
 
 # Recent repos
 if [ -d ~/code ]; then
-  (find ~/code -maxdepth 1 -type d -name ".git" 2>/dev/null | head -3 | while read gitdir; do
+  (find ~/code -maxdepth 2 -type d -name ".git" 2>/dev/null | head -3 | while read gitdir; do
     repo=$(dirname "$gitdir")
     echo "  $SYMBOL_REPO $(basename "$repo")"
   done > "$CACHE_DIR/repos.tmp") &
@@ -65,10 +65,21 @@ fi
 
 # Recent notes
 if [ -d "$OBSIDIAN_ROOT" ]; then
-  (find "$OBSIDIAN_ROOT" -type f -name "*.md" -mtime -1 2>/dev/null | head -3 | while read note; do
+  (find "$OBSIDIAN_ROOT" -type f -name "*.md" 2>/dev/null | head -3 | while read note; do
     echo "  $SYMBOL_NOTE $(basename "$note" .md)"
   done > "$CACHE_DIR/notes.tmp") &
   NOTES_PID=$!
+fi
+
+# Background email sync (non-blocking)
+if [ -x "$HOME/.email-auto-sync.sh" ]; then
+  "$HOME/.email-auto-sync.sh" &
+fi
+
+# Email summary
+if [ -x "$HOME/.email-summary.sh" ]; then
+  ("$HOME/.email-summary.sh" > "$CACHE_DIR/email.tmp") &
+  EMAIL_PID=$!
 fi
 
 # Clear loading line
@@ -107,6 +118,14 @@ if [ -n "$NOTES_PID" ]; then
   fi
 fi
 
+if [ -n "$EMAIL_PID" ]; then
+  wait $EMAIL_PID 2>/dev/null
+  if [ -s "$CACHE_DIR/email.tmp" ]; then
+    echo -e "\n\033[1mEMAIL\033[0m"
+    cat "$CACHE_DIR/email.tmp"
+  fi
+fi
+
 # Handle insights - check cache age
 if [[ -f "$REFLECTION_CACHE" ]] && [[ -z $(find "$REFLECTION_CACHE" -mmin +180 2>/dev/null) ]]; then
   # Cache is fresh, just display it
@@ -135,7 +154,7 @@ Provide 2-3 brief, actionable insights. Use symbols like → ▸ ▪ ◆ • ⚡
 Keep it punchy. Terminal aesthetic. NO markdown."
 
     # Stream output directly
-    echo "$prompt" | "$LLM_PATH" -m gpt-4o-mini -o max_tokens 150 --no-log 2>/dev/null | tee "$REFLECTION_CACHE.tmp" | while IFS= read -r line; do
+    echo "$prompt" | "$LLM_PATH" -m 4o-mini -o max_tokens 150 --no-log 2>/dev/null | tee "$REFLECTION_CACHE.tmp" | while IFS= read -r line; do
       echo "  $SYMBOL_INSIGHT $line"
       sleep 0.01  # Tiny delay for effect
     done
