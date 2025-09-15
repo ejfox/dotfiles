@@ -7,7 +7,7 @@ MONTH=$(echo "$WORDS_DATA" | jq -r '.month')
 
 # Format and update sketchybar
 if [ -n "$WORD_COUNT" ] && [ "$WORD_COUNT" != "null" ]; then
-  sketchybar --set words icon="📝" label="${WORD_COUNT}" drawing=on
+  sketchybar --set words icon="¶" label="${WORD_COUNT}" drawing=on
 else
   sketchybar --set words drawing=off
 fi

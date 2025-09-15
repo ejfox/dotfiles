@@ -1,5 +1,14 @@
 servers = (
-  { address = "irc.dal.net"; chatnet = "DALnet"; port = "6667"; },
+  # Elite cracked servers config
+  {
+    address = "irc.forestpunks.com";
+    chatnet = "ForestPunks";
+    port = "6697";
+    use_ssl = "yes";
+    ssl_verify = "no";
+    password = "ng@UZKBgBNy@K33";
+    autoconnect = "yes";
+  },
   {
     address = "ssl.efnet.org";
     chatnet = "EFNet";
@@ -7,48 +16,18 @@ servers = (
     use_tls = "yes";
   },
   {
-    address = "irc.esper.net";
-    chatnet = "EsperNet";
+    address = "irc.libera.chat";
+    chatnet = "Libera";
     port = "6697";
     use_tls = "yes";
     tls_verify = "yes";
   },
-  {
-    address = "chat.freenode.net";
-    chatnet = "Freenode";
-    port = "6697";
-    use_tls = "yes";
-    tls_verify = "yes";
-  },
-  {
-    address = "irc.gamesurge.net";
-    chatnet = "GameSurge";
-    port = "6667";
-  },
-  {
-    address = "eu.irc6.net";
-    chatnet = "IRCnet";
-    port = "6667";
-    use_tls = "yes";
-  },
-  { address = "open.ircnet.net"; chatnet = "IRCnet"; port = "6667"; },
-  {
-    address = "irc.ircsource.net";
-    chatnet = "IRCSource";
-    port = "6667";
-  },
-  { address = "irc.netfuze.net"; chatnet = "NetFuze"; port = "6667"; },
   {
     address = "irc.oftc.net";
     chatnet = "OFTC";
     port = "6697";
     use_tls = "yes";
     tls_verify = "yes";
-  },
-  { 
-    address = "irc.quakenet.org";
-    chatnet = "QuakeNet";
-    port = "6667";
   },
   {
     address = "irc.rizon.net";
@@ -57,20 +36,24 @@ servers = (
     use_tls = "yes";
     tls_verify = "yes";
   },
-  { address = "silc.silcnet.org"; chatnet = "SILC"; port = "706"; },
-  { 
-    address = "irc.undernet.org";
-    chatnet = "Undernet";
-    port = "6667";
+  {
+    address = "irc.hackint.org";
+    chatnet = "Hackint";
+    port = "6697";
+    use_tls = "yes";
+    tls_verify = "yes";
   }
 );
 
 chatnets = {
-  DALnet = {
+  ForestPunks = {
     type = "IRC";
+    nick = "ejfox";
+    username = "ejfox";
+    realname = "EJ Fox";
     max_kicks = "4";
-    max_msgs = "20";
-    max_whois = "30";
+    max_msgs = "10";
+    max_whois = "4";
   };
   EFNet = { 
     type = "IRC";
@@ -78,48 +61,17 @@ chatnets = {
     max_msgs = "4";
     max_whois = "1";
   };
-  EsperNet = {
+  Libera = {
     type = "IRC";
     max_kicks = "1";
     max_msgs = "4";
     max_whois = "1";
   };
-  Freenode = {
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "4";
-    max_whois = "1";
-  };
-  GameSurge = {
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "1";
-    max_whois = "1";
-  };
-  IRCnet = { 
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "1";
-    max_whois = "1";
-  };
-  IRCSource = {
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "4";
-    max_whois = "1";
-  };
-  NetFuze = {
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "1";
-    max_whois = "1";
-  };
-  OFTC = { type = "IRC"; max_kicks = "1"; max_msgs = "1"; max_whois = "1"; };
-  QuakeNet = {
-    type = "IRC";
-    max_kicks = "1";
-    max_msgs = "1";
-    max_whois = "1";
+  OFTC = { 
+    type = "IRC"; 
+    max_kicks = "1"; 
+    max_msgs = "1"; 
+    max_whois = "1"; 
   };
   Rizon = { 
     type = "IRC";
@@ -127,35 +79,39 @@ chatnets = {
     max_msgs = "1";
     max_whois = "1";
   };
-  SILC = { type = "SILC"; };
-  Undernet = {
+  Hackint = {
     type = "IRC";
     max_kicks = "1";
-    max_msgs = "1";
+    max_msgs = "4";
     max_whois = "1";
   };
 };
 
 channels = (
-  { name = "#lobby"; chatnet = "EsperNet"; autojoin = "No"; },
-  { name = "#freenode"; chatnet = "Freenode"; autojoin = "No"; },
-  { name = "#irssi"; chatnet = "Freenode"; autojoin = "No"; },
-  { name = "#gamesurge"; chatnet = "GameSurge"; autojoin = "No"; },
-  { name = "#irssi"; chatnet = "IRCNet"; autojoin = "No"; },
-  { name = "#ircsource"; chatnet = "IRCSource"; autojoin = "No"; },
-  { name = "#netfuze"; chatnet = "NetFuze"; autojoin = "No"; },
-  { name = "#oftc"; chatnet = "OFTC"; autojoin = "No"; },
-  { name = "silc"; chatnet = "SILC"; autojoin = "No"; }
+  { name = "#general"; chatnet = "ForestPunks"; autojoin = "yes"; },
+  { name = "#dev"; chatnet = "ForestPunks"; autojoin = "yes"; },
+  { name = "#random"; chatnet = "ForestPunks"; autojoin = "yes"; },
+  { name = "#hackint"; chatnet = "Hackint"; autojoin = "No"; },
+  { name = "#libera"; chatnet = "Libera"; autojoin = "No"; },
+  { name = "#oftc"; chatnet = "OFTC"; autojoin = "No"; }
 );
 
 aliases = {
   ATAG = "WINDOW SERVER";
   ADDALLCHANS = "SCRIPT EXEC foreach my \\$channel (Irssi::channels()) { Irssi::command(\"CHANNEL ADD -auto \\$channel->{name} \\$channel->{server}->{tag} \\$channel->{key}\")\\;}";
+  # Cracked elite shortcuts
   B = "BAN";
   BACK = "AWAY";
   BANS = "BAN";
   BYE = "QUIT";
   C = "CLEAR";
+  CC = "CONNECT ForestPunks";
+  FP = "CONNECT ForestPunks";
+  H = "HELP";
+  HACK = "CONNECT Hackint";
+  L = "CONNECT Libera";
+  NE = "NETWORK";
+  RE = "RECONNECT";
   CALC = "EXEC - if command -v bc >/dev/null 2>&1\\; then printf '%s=' '$*'\\; echo '$*' | bc -l\\; else echo bc was not found\\; fi";
   CHAT = "DCC CHAT";
   CUBES = "SCRIPT EXEC Irssi::active_win->print(\"%_bases\", MSGLEVEL_CLIENTCRAP) \\; Irssi::active_win->print( do { join '', map { \"%x0\\${_}0\\$_\" } '0'..'9','A'..'F' }, MSGLEVEL_NEVER | MSGLEVEL_CLIENTCRAP) \\; Irssi::active_win->print(\"%_cubes\", MSGLEVEL_CLIENTCRAP) \\; Irssi::active_win->print( do { my \\$y = \\$_*6 \\; join '', map { my \\$x = \\$_ \\; map { \"%x\\$x\\$_\\$x\\$_\" } @{['0'..'9','A'..'Z']}[\\$y .. \\$y+5] } 1..6 }, MSGLEVEL_NEVER | MSGLEVEL_CLIENTCRAP) for 0..5 \\; Irssi::active_win->print(\"%_grays\", MSGLEVEL_CLIENTCRAP) \\; Irssi::active_win->print( do { join '', map { \"%x7\\${_}7\\$_\" } 'A'..'X' }, MSGLEVEL_NEVER | MSGLEVEL_CLIENTCRAP) \\; Irssi::active_win->print(\"%_mIRC extended colours\", MSGLEVEL_CLIENTCRAP) \\; my \\$x \\; \\$x .= sprintf \"\00399,%02d%02d\",\\$_,\\$_ for 0..15 \\; Irssi::active_win->print(\\$x, MSGLEVEL_NEVER | MSGLEVEL_CLIENTCRAP) \\; for my \\$z (0..6) { my \\$x \\; \\$x .= sprintf \"\00399,%02d%02d\",\\$_,\\$_ for 16+(\\$z*12)..16+(\\$z*12)+11 \\; Irssi::active_win->print(\\$x, MSGLEVEL_NEVER | MSGLEVEL_CLIENTCRAP) }";
@@ -401,6 +357,45 @@ statusbar = {
   };
 };
 settings = {
-  core = { real_name = "EJ Fox"; user_name = "ejf"; nick = "ejf"; };
-  "fe-text" = { actlist_sort = "refnum"; };
+  core = { 
+    real_name = "EJ Fox"; 
+    user_name = "ejfox"; 
+    nick = "ejfox";
+    timestamp_format = "%H:%M:%S";
+    log_timestamp = "%Y-%m-%d %H:%M:%S ";
+  };
+  "fe-text" = { 
+    actlist_sort = "refnum";
+    autostick_split_windows = "ON";
+    indent = "2";
+    term_charset = "utf-8";
+    colors = "ON";
+    mirc_blink_fix = "ON";
+  };
+  "fe-common/core" = {
+    autocreate_own_query = "ON";
+    autocreate_query_level = "MSGS DCCMSGS";
+    use_status_window = "ON";
+    use_msgs_window = "OFF";
+    autoclose_windows = "ON";
+    reuse_unused_windows = "ON";
+    autolog = "ON";
+    autolog_path = "~/.dotfiles/.irssi/logs/%Y/$tag/$0.%m-%d.log";
+    bell_beeps = "ON";
+    beep_msg_level = "MSGS NOTICES DCC DCCMSGS HILIGHT";
+    beep_when_window_active = "OFF";
+    beep_when_away = "ON";
+    emphasis = "ON";
+    emphasis_replace = "ON";
+    emphasis_multiword = "ON";
+    theme = "cracked";
+  };
+  "perl/core/scripts" = {
+    neat_maxlength = "15";
+    awl_display_key_active = "%w$N %C$H$C$S";
+    awl_display_nokey_active = "%w$N %C$H$C$S";
+    awl_display_key = "%w$N $H$S";
+    awl_display_nokey = "%w$N $H$S";
+    awl_separator = " %c▪%n ";
+  };
 };
