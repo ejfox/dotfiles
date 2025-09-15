@@ -91,5 +91,20 @@ else
   COLOR="0xffa9b1d6"  # Normal purple-ish
 fi
 
+# Check if we need to make the entire bar red for critical battery
+if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]] && [[ ${BASH_REMATCH[1]} -lt 10 ]]; then
+  # Less than 10 minutes remaining - red bar background
+  BAR_COLOR="0xffff0000"
+elif [[ "$TIME_LABEL" == "9m" ]] || [[ "$TIME_LABEL" == "8m" ]] || [[ "$TIME_LABEL" == "7m" ]] || [[ "$TIME_LABEL" == "6m" ]] || [[ "$TIME_LABEL" == "5m" ]] || [[ "$TIME_LABEL" == "4m" ]] || [[ "$TIME_LABEL" == "3m" ]] || [[ "$TIME_LABEL" == "2m" ]] || [[ "$TIME_LABEL" == "1m" ]]; then
+  # Definitely less than 10 minutes - red bar
+  BAR_COLOR="0xffff0000"
+else
+  # Normal bar color
+  BAR_COLOR="0xff000000"
+fi
+
+# Update bar background color
+sketchybar --bar color="$BAR_COLOR"
+
 # Always show battery status
 sketchybar --set battery drawing=on icon="$ICON" label="$TIME_LABEL" icon.color="$COLOR" label.color="$COLOR"
