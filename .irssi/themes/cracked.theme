@@ -1,0 +1,131 @@
+# Monochrome data-dense IRC theme for ejfox
+# Matches tmux aesthetic: minimal, no colors, unicode symbols, data-dense
+
+# NO COLORS - pure monochrome like tmux config
+default_color = "%n";
+
+# Status bar - minimal like tmux
+sb_background = "%n";
+sb_window_bg = "%n";  
+sb_prompt_bg = "%n";
+sb_info_bg = "%n";
+sb = "";
+sbstart = "";
+sbend = "";
+
+# Activity indicators - data-dense unicode symbols
+sb_act_sep = " ";
+sb_act_text = "$*";
+sb_act_msg = "◼$*";
+sb_act_hilight = "⚌$*";
+sb_act_hilight_color = "◼$*";
+
+# Message formatting - ultra minimal, data-dense
+pubmsg = "{pubmsgnick $2 {pubnick $0}}$1";
+pubmsg_me = "{pubmsgmenick $2 {pubmenick $0}}$1"; 
+pubmsg_me_channel = "{pubmsgmenick $3 {pubmenick $0}{msgchannel $1}}$2";
+pubmsg_hilight = "{pubmsghinick $0 $3 $1}$2";
+pubmsg_hilight_channel = "{pubmsghinick $0 $4 $1{msgchannel $2}}$3";
+pubmsg_channel = "{pubmsgnick $3 {pubnick $0}{msgchannel $1}}$2";
+msg_private = "{privmsg $0 $1}$2";
+msg_private_query = "{privmsgnick $0}$2";
+
+# Nick formatting - minimal brackets like tmux window indicators  
+pubmenick = "$*";
+pubnick_channel = "$*";
+pubnick = "$*";
+privmsgnick = "$*";
+pubmsgmenick = "★$0%n";
+pubmsgnick = "$0%n";
+pubmsghinick = "◼$0%n $1";
+privmsgnick = "$0%n";
+
+# Connection events - unicode symbols like tmux pane indicators
+join = "▸ {channick $0} {chanhost_hilight $1} {channel $2}";
+part = "◂ {channick $0} {chanhost $1} {channel $2} {reason $3}";
+quit = "✗ {channick $0} {chanhost $1} {reason $2}";  
+kick = "⚡ {channick $0} ← {channel $1} ← {nick $2} {reason $3}";
+nick_change = "△ {channick $0} → {channick_hilight $1}";
+
+# Mode changes - gear symbol like tmux uses
+mode = "⚙ {channelhilight $0} {mode $1} ← {nick $2}";
+
+# Topic - simple arrow like tmux indicators  
+topic = "▶ {channelhilight $0}: $1";
+topic_info = "▶ {nick $0} {nickhost $2} {comment $1}";
+
+# Channel/nick formatting - no colors, minimal
+channick_hilight = "$*";
+chanhost_hilight = "$*";  
+channick = "$*";
+chanhost = "$*";
+channelhilight = "$*";
+ban = "✗ {channel $0} {ban $1}";
+
+# Server messages - minimal indicators
+servertag = "[$0] ";
+servernotice = "▶ $*";
+servererror = "✗ $*";
+
+# Whois - data table format
+whois = " $[8]0 │ $1-";
+
+# DCC - bracket format  
+dccmsg = "[dcc/$0] $1-";
+dcc = "▶ DCC $*";
+
+# CTCP - minimal format
+ctcp_requested = "▶ $0 [$1] $2";
+ctcp_requested_unknown = "▶ $0 [$1] $2"; 
+ctcp_reply = "▶ CTCP $0 ← $1: $2";
+ctcp_reply_channel = "▶ CTCP $0 ← $1 {channel $3}: $2";
+ctcp_ping_reply = "▶ PING ← $0: $1.$[-3.0]2s";
+
+# Netsplits - connection symbols
+netsplit = "✗ Split $0 ↔ $1 quits: $2";
+netsplit_more = "✗ Split $0 ↔ $1 quits: $2 (+$3)";
+netsplit_join = "▸ Split over, joins: $0"; 
+netsplit_join_more = "▸ Split over, joins: $0 (+$1)";
+
+# Highlighting - reverse like tmux current window
+hilight = "%_$*%n";
+
+# Timestamps - minimal like tmux
+timestamp = "$*";
+line_start = "";
+
+# Abstract formats
+abstracts = {
+  line_start = "";
+  timestamp = "%%H:%%M ";
+  servertag = "[$0] ";
+  daychange = "─── %d %b ───";
+  talking_with = "Query with {nick $0}";
+  refnum_too_low = "Window number must be greater than 1";
+  error_server_sticky = "Window's server is sticky and it cannot be changed without -unsticky option";
+  set_server_sticky = "Window's server set sticky";
+  unset_server_sticky = "Window's server set unsticky";
+  window_name_not_unique = "Window names must be unique";
+  window_level = "Window level is $0";
+  windowlist_header = "Ref Name                 Active item     Server          Level";
+  windowlist_line = "$[3]0 %|$[20]1 $[15]2 $[15]3 $4";
+  windowlist_footer = "";
+  windows_layout_saved = "Layout of windows is now remembered next time you start irssi";
+  windows_layout_reset = "Layout of windows reset to defaults";
+  window_info_header = "";  
+  window_info_footer = "";
+  window_info_refnum = "Window  : $0";
+  window_info_refnum_sticky = "Window  : {hilight #$0 (sticky)}";
+  window_info_name = "Name    : $0";
+  window_info_history = "History : $0";
+  window_info_level = "Level   : $0";
+  window_info_server = "Server  : $0";
+  window_info_server_sticky = "Server  : $0 (sticky)";
+  window_info_theme = "Theme   : $0$1";
+  window_info_bound_items_header = "Bounds  : {hilight Name                           Server tag}";
+  window_info_bound_items_footer = "";
+  window_info_bound_items = "        : $[!30]0 $[!15]1 $2";
+  window_info_items_header = "Items   : {hilight Name                           Server tag}";
+  window_info_items_footer = "";  
+  window_info_items = "        : $[!30]0 $[!15]1";
+};

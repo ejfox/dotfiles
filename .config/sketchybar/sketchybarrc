@@ -57,18 +57,14 @@ sketchybar --add item mutagen left \
 #  label.color=0xffffffff \
 #  script="$HOME/.config/sketchybar/plugins/dev_dashboard.sh"
 #
-##### Context Aware Display #####
-sketchybar --add item context left \
-  --set context update_freq=5 \
-  position=left \
-  icon="" \
-  label.font="$FONT:Regular:13.0" \
-  label.y_offset=0 \
-  script="$HOME/.config/sketchybar/plugins/context_aware.sh" \
-  click_script="$HOME/.config/sketchybar/plugins/git_click.sh" \
-  icon.drawing=off \
-  label.drawing=on \
-  background.drawing=off
+# ##### Context Aware Display ##### (REMOVED - was too complex)
+
+##### Documentation Reminder #####
+sketchybar --add item doc_reminder left \
+  --set doc_reminder update_freq=300 \
+  script="$HOME/.config/sketchybar/plugins/doc_reminder.sh" \
+  click_script="open \"things:///add?title=Document%20today's%20work\"" \
+  icon.drawing=off
 
 ##### Claude Usage #####
 sketchybar --add item claude_usage left \
@@ -150,7 +146,6 @@ sketchybar --add item words right \
 
 ##### Force initial update #####
 sketchybar --update
-sketchybar --trigger context
 sketchybar --trigger words
 # sketchybar --trigger photos
 sketchybar --trigger productivity
