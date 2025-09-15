@@ -423,3 +423,9 @@ function pyproject() {
 }
 
 alias refresh-motd='rm -f /tmp/startup_cache/reflection_cache.txt && ~/.startup.sh'
+
+# IRC shortcuts
+alias fp='irssi'
+alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
+alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
+alias fp="irssi"
