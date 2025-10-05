@@ -1,22 +1,41 @@
-# Usage Instructions
+# Dotfiles
 
-1. Clone your dotfiles repository (if you haven't already):
-   ```
-   git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
-   ```
+Cross-platform dotfiles with environment-specific configurations.
 
-2. Create a symlink for your .tmux.conf:
-   ```
-   ln -sf ~/.dotfiles/.tmux.conf ~/.tmux.conf
-   ```
+## Branches
 
-3. Pull the latest changes:
-   ```
-   cd ~/.dotfiles
-   git pull origin main
-   ```
+- **`master`**: macOS-focused configurations
+- **`vps-production`**: VPS/server-specific configurations with local overrides
 
-Now, to keep things synced going forward, you can just run `git pull` in your ~/.dotfiles directory whenever you want to update.
+## Quick Setup
+
+**macOS:**
+```bash
+git clone https://github.com/ejfox/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+git checkout master
+# Create symlinks as needed
+```
+
+**VPS/Server:**
+```bash
+git clone https://github.com/ejfox/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+git checkout vps-production
+# Symlinks already configured
+```
+
+## VPS-Specific Features
+
+### Tmux Configuration
+- **`.tmux.conf.local`**: VPS overrides (ejfox.com status, Docker count, ∎ indicator)
+- **`.tmux.nested.conf`**: Visual distinction for SSH sessions (dark theme, bottom status)
+
+### Shell Configuration
+- **Conditional VPS prompt**: Shows `vps:` prefix only on server (SSH detection)
+
+### Git Configuration
+- **`.gitconfig.local`**: Disables GPG signing on VPS (enabled by default on local)
 
 If you want to automate this process, you could create a simple script:
 
