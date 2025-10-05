@@ -8,4 +8,14 @@
 	process = git-lfs filter-process
 	required = true
 [commit]
-	gpgsign = true
+	gpgSign = true
+[credential "https://github.com"]
+	helper = 
+	helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential
+
+# Include local overrides (for VPS-specific settings)
+[include]
+	path = ~/.gitconfig.local
