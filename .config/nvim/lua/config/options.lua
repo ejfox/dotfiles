@@ -54,16 +54,14 @@ vim.opt.showbreak = "↪ " -- What wrapped lines show
 vim.opt.breakindent = true -- Wrapped lines match indent
 vim.opt.breakindentopt = "shift:2" -- But shifted a bit
 
--- Make background transparent in light mode only
+-- True color support for terminal
 vim.opt.termguicolors = true
--- Make background transparent in light mode (catppuccin-latte)
+
+-- Make UI elements (statusline, tabline) transparent in light mode
+-- Editor backgrounds are handled by colorscheme.lua
 vim.api.nvim_create_autocmd("ColorScheme", {
   pattern = { "catppuccin-latte" },
   callback = function()
-    vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
-    vim.api.nvim_set_hl(0, "NormalFloat", { bg = "none" })
-    vim.api.nvim_set_hl(0, "SignColumn", { bg = "none" })
-    vim.api.nvim_set_hl(0, "LineNr", { bg = "none" })
     vim.api.nvim_set_hl(0, "StatusLine", { bg = "none" })
     vim.api.nvim_set_hl(0, "StatusLineNC", { bg = "none" })
     vim.api.nvim_set_hl(0, "TabLine", { bg = "none" })
