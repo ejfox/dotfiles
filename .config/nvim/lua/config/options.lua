@@ -56,8 +56,9 @@ vim.opt.breakindentopt = "shift:2" -- But shifted a bit
 
 -- Make background transparent in light mode only
 vim.opt.termguicolors = true
+-- Make background transparent in light mode (catppuccin-latte)
 vim.api.nvim_create_autocmd("ColorScheme", {
-  pattern = { "ayu-light", "catppuccin-latte" },
+  pattern = { "catppuccin-latte" },
   callback = function()
     vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
     vim.api.nvim_set_hl(0, "NormalFloat", { bg = "none" })
@@ -68,5 +69,15 @@ vim.api.nvim_create_autocmd("ColorScheme", {
     vim.api.nvim_set_hl(0, "TabLine", { bg = "none" })
     vim.api.nvim_set_hl(0, "TabLineFill", { bg = "none" })
     vim.api.nvim_set_hl(0, "TabLineSel", { bg = "none" })
+  end,
+})
+
+-- Auto-reload files when changed externally (if buffer not modified locally)
+vim.opt.autoread = true
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
+  callback = function()
+    if vim.fn.getcmdwintype() == "" then
+      vim.cmd("checktime")
+    end
   end,
 })
