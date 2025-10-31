@@ -454,7 +454,7 @@ theme-dark() {
     'default:fg=#e5dcdc'
   )
 
-  export FZF_DEFAULT_OPTS=$'--color=fg:#e5dcdc,bg:#0d0d0d,hl:#da0000 \
+  export FZF_DEFAULT_OPTS=$'--color=fg:#e5dcdc,bg:#000000,hl:#da0000 \
     --color=fg+:#e5dcdc,bg+:#1a1a1a,hl+:#da0000 \
     --color=info:#ff279a,prompt:#da0000,pointer:#da0000 \
     --color=marker:#ff8e0e,spinner:#f300a2,header:#c00000 \

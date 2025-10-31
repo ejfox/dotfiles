@@ -19,14 +19,14 @@ local function hi(group, opts)
 end
 
 -- Editor colors
-hi('Normal', { fg = '#e5dcdc', bg = '#0d0d0d' })
+hi('Normal', { fg = '#e5dcdc', bg = '#000000' })
 hi('Comment', { fg = '#c00000', italic = true })
 hi('LineNr', { fg = '#595959' })
 hi('CursorLine', { bg = '#1a1a1a' })
 hi('CursorLineNr', { fg = '#ff6e0e', bold = true })
 hi('Visual', { bg = '#595959' })
-hi('Search', { bg = '#f300a2', fg = '#0d0d0d' })
-hi('IncSearch', { bg = '#ff6e0e', fg = '#0d0d0d', bold = true })
+hi('Search', { bg = '#f300a2', fg = '#000000' })
+hi('IncSearch', { bg = '#ff6e0e', fg = '#000000', bold = true })
 
 -- Syntax highlighting
 hi('Keyword', { fg = '#ff6e0e' })
