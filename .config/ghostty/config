@@ -1,13 +1,13 @@
 # Minimal Ghostty config aligned with tmux/sketchybar aesthetic
 
 window-decoration = false
-background-opacity = 0.92 
+background-opacity = 0.87
 background-blur-radius = 20
 bold-is-bright = false 
 font-family = MonaspiceKr Nerd Font
 
-# Auto-switch between light and dark themes based on system preference
-theme = light:Monokai Pro Light,dark:ayu_dark
+# Auto-switch between light and dark themes based on system preference (Catppuccin consistent)
+theme = light:catppuccin_latte,dark:catppuccin_mocha
 
 # Minimal cursor
 cursor-style = block

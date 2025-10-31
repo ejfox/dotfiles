@@ -86,6 +86,7 @@ sketchybar --add item claude_usage left \
 #   script="$HOME/.config/sketchybar/plugins/cipher.sh" \
 #   click_script="sketchybar --set cipher drawing=off"
 
+
 ##### Battery #####
 sketchybar --add item battery right \
   --set battery update_freq=10 \

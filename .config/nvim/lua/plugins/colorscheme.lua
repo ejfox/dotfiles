@@ -1,20 +1,41 @@
 return {
-  -- Configure the Ayu theme plugin
+  -- Configure Catppuccin theme plugin
   {
-    "Shatur/neovim-ayu",
+    "catppuccin/nvim",
+    name = "catppuccin",
     lazy = false,
     priority = 1000,
     config = function()
-      require("ayu").setup({
-        mirage = false,
-        overrides = {},
+      require("catppuccin").setup({
+        flavour = "mocha",
+        transparent_background = false,
+        custom_highlights = function(colors)
+          return {
+            -- Override background to pure black
+            Normal = { bg = "#000000" },
+            NormalFloat = { bg = "#000000" },
+            FloatBorder = { bg = "#000000" },
+            SignColumn = { bg = "#000000" },
+            LineNr = { bg = "#000000" },
+            CursorLine = { bg = "#1a1a1a" },
+            CursorLineNr = { bg = "#1a1a1a" },
+          }
+        end,
+        integrations = {
+          cmp = true,
+          gitsigns = true,
+          telescope = true,
+          treesitter = true,
+          notify = true,
+          mini = true,
+        },
       })
     end,
   },
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "ayu",
+      colorscheme = "catppuccin",
     },
   },
 }
