@@ -38,6 +38,7 @@ return {
         is_open_on_start = false,         -- Don't open sidebar by default
         set_number = false,               -- Don't show line numbers in sidebar
         width = 40,                       -- Width in characters
+        layout = "vertical",              -- Explicit vertical layout
       },
 
       -- Diff/apply settings (how changes get applied)
@@ -49,7 +50,8 @@ return {
       -- Windows/UI styling
       windows = {
         wrap = true,
-        type = "default",                 -- "default", "split", "vsplit", "floating", "horizontal"
+        type = "split",                   -- Use split window, not default
+        position = "right",               -- Position sidebar on right
       },
 
       -- Mappings for common operations
