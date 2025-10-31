@@ -6,8 +6,9 @@ background-blur-radius = 20
 bold-is-bright = false 
 font-family = MonaspiceKr Nerd Font
 
-# Auto-switch between light and dark themes based on system preference (Catppuccin consistent)
-theme = light:catppuccin_latte,dark:catppuccin_mocha
+# Auto-switch between light and dark themes based on system preference
+# Options: catppuccin (blue), vulpes_reddish (red)
+theme = light:vulpes_reddish_light,dark:vulpes_reddish_dark
 
 # Minimal cursor
 cursor-style = block
