@@ -170,27 +170,8 @@ export MAILCHECK=0
 
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Catppuccin Mocha theme for zsh-syntax-highlighting
-ZSH_HIGHLIGHT_STYLES=(
-  'alias:fg=#89b4fa'
-  'builtin:fg=#89b4fa'
-  'command:fg=#89b4fa'
-  'function:fg=#89b4fa'
-  'hashed-command:fg=#89b4fa'
-  'reserved-word:fg=#f38ba8'
-  'string:fg=#a6e3a1'
-  'comment:fg=#7f849c,bold'
-  'globbing:fg=#f9e2af'
-  'history-expansion:fg=#f5c2e7'
-  'default:fg=#cdd6f4'
-)
-
-# FZF Catppuccin Mocha theme
-export FZF_DEFAULT_OPTS=$FZF_DEFAULT_OPTS' \
-  --color=fg:#cdd6f4,bg:#1e1e2e,hl:#89b4fa \
-  --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa \
-  --color=info:#a6e3a1,prompt:#f38ba8,pointer:#f38ba8 \
-  --color=marker:#f38ba8,spinner:#f38ba8,header:#f9e2af'
+# Initialize with dark mode (Catppuccin Mocha) by default
+theme-dark
 
 # Smart git commit with LLM integration
 alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
@@ -452,6 +433,51 @@ alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
 alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
 alias fp="irssi"
 
-# Theme switching - Catppuccin light/dark mode for nvim, yazi, lazygit
-alias theme-dark='theme-dark'     # Switch all tools to dark (Catppuccin Mocha)
-alias theme-light='theme-light'   # Switch all tools to light (Catppuccin Latte)
+# Theme switching - Catppuccin light/dark mode for shell (nvim handles its own via auto-dark-mode)
+theme-dark() {
+  # Catppuccin Mocha colors for dark mode
+  ZSH_HIGHLIGHT_STYLES=(
+    'alias:fg=#89b4fa'
+    'builtin:fg=#89b4fa'
+    'command:fg=#89b4fa'
+    'function:fg=#89b4fa'
+    'hashed-command:fg=#89b4fa'
+    'reserved-word:fg=#f38ba8'
+    'string:fg=#a6e3a1'
+    'comment:fg=#7f849c,bold'
+    'globbing:fg=#f9e2af'
+    'history-expansion:fg=#f5c2e7'
+    'default:fg=#cdd6f4'
+  )
+
+  export FZF_DEFAULT_OPTS=$'--color=fg:#cdd6f4,bg:#1e1e2e,hl:#89b4fa \
+    --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa \
+    --color=info:#a6e3a1,prompt:#f38ba8,pointer:#f38ba8 \
+    --color=marker:#f38ba8,spinner:#f38ba8,header:#f9e2af'
+
+  echo "🌙 Switched to dark mode (Catppuccin Mocha)"
+}
+
+theme-light() {
+  # Catppuccin Latte colors for light mode
+  ZSH_HIGHLIGHT_STYLES=(
+    'alias:fg=#1e66f5'
+    'builtin:fg=#1e66f5'
+    'command:fg=#1e66f5'
+    'function:fg:#1e66f5'
+    'hashed-command:fg:#1e66f5'
+    'reserved-word:fg=#d20f39'
+    'string:fg=#40a02b'
+    'comment:fg=#9ca0b0,bold'
+    'globbing:fg=#df8e1d'
+    'history-expansion:fg:#ea76cb'
+    'default:fg:#4c4f69'
+  )
+
+  export FZF_DEFAULT_OPTS=$'--color=fg:#4c4f69,bg:#eff1f5,hl:#1e66f5 \
+    --color=fg+:#4c4f69,bg+:#e6e9ef,hl+:#1e66f5 \
+    --color=info:#40a02b,prompt:#d20f39,pointer:#d20f39 \
+    --color=marker:#d20f39,spinner:#d20f39,header:#df8e1d'
+
+  echo "☀️ Switched to light mode (Catppuccin Latte)"
+}
