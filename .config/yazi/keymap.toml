@@ -1,0 +1,44 @@
+# Yazi Keybindings for New Plugins
+
+# FZF plugin - fuzzy search files
+[[manager.keymap]]
+on = [ "ctrl-f" ]
+run = "plugin fzf"
+desc = "Find files with fzf"
+
+# Bookmarks plugin - manage bookmarks
+[[manager.keymap]]
+on = [ "ctrl-b" ]
+run = "plugin bookmarks --list"
+desc = "Toggle bookmarks"
+
+[[manager.keymap]]
+on = [ "ctrl-a" ]
+run = "plugin bookmarks --add"
+desc = "Add current directory to bookmarks"
+
+# Jump to bookmarks with leader+number
+[[manager.keymap]]
+on = [ "b", "1" ]
+run = "plugin bookmarks --jump 1"
+desc = "Jump to bookmark 1"
+
+[[manager.keymap]]
+on = [ "b", "2" ]
+run = "plugin bookmarks --jump 2"
+desc = "Jump to bookmark 2"
+
+[[manager.keymap]]
+on = [ "b", "3" ]
+run = "plugin bookmarks --jump 3"
+desc = "Jump to bookmark 3"
+
+[[manager.keymap]]
+on = [ "b", "4" ]
+run = "plugin bookmarks --jump 4"
+desc = "Jump to bookmark 4"
+
+[[manager.keymap]]
+on = [ "b", "5" ]
+run = "plugin bookmarks --jump 5"
+desc = "Jump to bookmark 5"

@@ -67,13 +67,17 @@ cd ~/.dotfiles
 |------------|-----------------|---------|-------------|
 | **Shell (Zsh)** | `.zshrc` (447 lines) | ✅ Modified | Main shell config with Powerlevel10k prompt, aliases, PATH setup |
 | **Powerlevel10k** | `.p10k.zsh` | ✅ Active | Terminal prompt theme configuration |
-| **Neovim** | `.config/nvim/` | ✅ Modified | LazyVim-based config with custom plugins (vue-nav, snacks, minimal-statusline) |
-| **Tmux** | `.tmux.conf` (128 lines) | ✅ Modified | Terminal multiplexer with custom settings |
+| **Neovim** | `.config/nvim/` | ✅ Modified | LazyVim 45+ plugins: Copilot, Avante, Telescope, Harpoon, Surround, Treesitter. [See PLUGINS.md](./nvim/PLUGINS.md) |
+| **Neovim Docs** | `.config/nvim/PLUGINS.md` | 🆕 New | Complete plugin inventory with keybindings and config |
+| **Tmux** | `.tmux.conf` (135 lines) | ✅ Modified | Terminal multiplexer: vim nav, tmux-fingers, tmux-fzf, sessions. [See README](./tmux/README.md) |
+| **Tmux Docs** | `.config/tmux/README.md` | 🆕 New | Full keybindings and plugin guide (tmux-fingers for fast copy/paste) |
 | **Vim** | `.vimrc` (19 lines) | ✅ Active | Basic vim configuration |
 | **Ghostty** | `.config/ghostty/` | ✅ Modified | Terminal emulator with themes directory |
 | **Sketchybar** | `.config/sketchybar/` | ✅ Modified | macOS menu bar customization with plugins (including mutagen.sh) |
-| **Yazi** | `.config/yazi/` | ✅ Modified | Terminal file manager (yazi.toml, theme.toml, package.toml) |
-| **Bat** | `.config/bat/` | 🆕 New | Cat replacement with syntax highlighting |
+| **Yazi** | `.config/yazi/` | ✅ Modified | Terminal file manager: fzf search, bookmarks, git status. [See README](./yazi/README.md) |
+| **Yazi Docs** | `.config/yazi/README.md` | 🆕 New | File manager workflows, fzf + bookmarks guide |
+| **Yazi Keybinds** | `.config/yazi/keymap.toml` | 🆕 New | Custom keybindings for fzf and bookmarks |
+| **Bat** | `.config/bat/` | ✅ Active | Cat replacement with syntax highlighting |
 | **BTerm/BTOp** | `.config/btop/` | ✅ Active | Resource monitor configuration |
 | **Atuin** | `.config/atuin/` | ✅ Active | Shell history sync/search tool |
 | **Karabiner** | `.config/karabiner/` | ✅ Active | Keyboard customization for macOS |
