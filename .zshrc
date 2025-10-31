@@ -104,7 +104,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-plugins=(git zsh-autosuggestions)
+plugins=(git zsh-autosuggestions zsh-lux)
 
 # Skip global compinit for faster loading (OMZ will handle it)
 skip_global_compinit=1
@@ -170,8 +170,12 @@ export MAILCHECK=0
 
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Initialize with dark mode (Catppuccin Mocha) by default
-theme-dark
+# Initialize theme based on system appearance (powered by zsh-lux)
+if macos_is_dark; then
+  theme-dark
+else
+  theme-light
+fi
 
 # Smart git commit with LLM integration
 alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
