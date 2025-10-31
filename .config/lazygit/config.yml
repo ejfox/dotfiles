@@ -1,46 +1,46 @@
 # Lazygit Configuration
-# Integrated with vulpes-reddish theme (auto-switches with system appearance)
+# Integrated with vulpes-reddish2 theme (auto-switches with system appearance)
 
 gui:
   # Default theme (dark mode)
   theme:
     lightTheme: false
     activeBorderColor:
-      - '#ff8b59'
+      - '#ff6e0e'
       - bold
     inactiveBorderColor:
       - '#595959'
     searchingActiveBorderColor:
-      - '#ff409f'
+      - '#f300a2'
       - bold
     optionsTextColor:
-      - '#ff8b59'
+      - '#ff6e0e'
     selectedLineBgColor:
       - '#1a1a1a'
     selectedRangeBgColor:
       - '#1a1a1a'
     cherryPickedCommitBgColor:
-      - '#ff409f'
+      - '#f300a2'
     cherryPickedCommitFgColor:
-      - '#121212'
+      - '#0d0d0d'
     unstagedChangesColor:
-      - '#ff042a'
+      - '#f3a200'
     defaultFgColor:
-      - '#ffe8e8'
+      - '#e5dcdc'
 
 # Note: Light mode theme stored below (swap when needed)
 # For light mode, replace the above theme section with:
 # lightTheme: true
-# activeBorderColor: ['#a33100', 'bold']
+# activeBorderColor: ['#e05a00', 'bold']
 # inactiveBorderColor: ['#a6a6a6']
-# searchingActiveBorderColor: ['#ad0057', 'bold']
-# optionsTextColor: ['#a33100']
+# searchingActiveBorderColor: ['#ea009c', 'bold']
+# optionsTextColor: ['#e05a00']
 # selectedLineBgColor: ['#e6e6e6']
 # selectedRangeBgColor: ['#e6e6e6']
-# cherryPickedCommitBgColor: ['#ad0057']
-# cherryPickedCommitFgColor: ['#ebebeb']
-# unstagedChangesColor: ['#720011']
-# defaultFgColor: ['#c60000']
+# cherryPickedCommitBgColor: ['#ea009c']
+# cherryPickedCommitFgColor: ['#f7f7f7']
+# unstagedChangesColor: ['#ea9c00']
+# defaultFgColor: ['#3b2b2b']
 
 keybinding:
   universal:

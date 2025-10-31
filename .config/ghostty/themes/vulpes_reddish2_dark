@@ -1,0 +1,28 @@
+# vulpes-reddish2-dark
+# Generated with theme-lab - Tuftian hue offset precision
+background = #0d0d0d
+foreground = #e5dcdc
+cursor-color = #da0000
+selection-background = #f300a2
+selection-foreground = #0d0d0d
+
+palette = 0=#1a1a1a
+palette = 1=#da1d00
+palette = 2=#da3a00
+palette = 3=#ff0e2e
+palette = 4=#f30041
+palette = 5=#ff0368
+palette = 6=#f36100
+palette = 7=#b3b3b3
+palette = 8=#595959
+palette = 9=#ff4427
+palette = 10=#ff6127
+palette = 11=#ff5a70
+palette = 12=#ff4173
+palette = 13=#ff4b93
+palette = 14=#ff8d41
+palette = 15=#f2f2f2
+
+# Visual Effects
+background-opacity = 0.78
+background-blur-radius = 14
