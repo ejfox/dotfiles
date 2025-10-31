@@ -40,13 +40,23 @@ return {
         pattern = "catppuccin-latte",
         callback = function()
           -- Light mode: transparent backgrounds (use terminal bg)
-          vim.api.nvim_set_hl(0, "Normal", { bg = "none" })
-          vim.api.nvim_set_hl(0, "NormalFloat", { bg = "none" })
-          vim.api.nvim_set_hl(0, "FloatBorder", { bg = "none" })
-          vim.api.nvim_set_hl(0, "SignColumn", { bg = "none" })
-          vim.api.nvim_set_hl(0, "LineNr", { bg = "none" })
-          vim.api.nvim_set_hl(0, "CursorLine", { bg = "none" })
-          vim.api.nvim_set_hl(0, "CursorLineNr", { bg = "none" })
+          local transparent_groups = {
+            "Normal", "NormalFloat", "FloatBorder", "SignColumn", "LineNr",
+            "CursorLine", "CursorLineNr",
+            -- Neotree (file explorer)
+            "NeoTreeNormal", "NeoTreeNormalNC", "NeoTreeEndOfBuffer",
+            "NeoTreeRootName", "NeoTreeDirectoryName", "NeoTreeDirectoryIcon",
+            -- Telescope (finder)
+            "TelescopeNormal", "TelescopeSelection", "TelescopePreviewNormal",
+            -- Sidebar
+            "Sidebar", "SidebarNormal",
+            -- Other panels
+            "PanelHeading", "PanelStNC",
+          }
+
+          for _, group in ipairs(transparent_groups) do
+            vim.api.nvim_set_hl(0, group, { bg = "none" })
+          end
         end,
       })
     end,
