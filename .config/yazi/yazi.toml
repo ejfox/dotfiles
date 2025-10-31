@@ -13,3 +13,16 @@ max_width = 1200
 max_height = 1200
 wrap = "no"
 image_delay = 10
+
+# Plugin configurations
+[plugin]
+
+# FZF plugin for fuzzy finding
+[plugin.fzf]
+fd_args = "--hidden --follow --exclude=.git --exclude=node_modules"
+fd_format = "{full_path}"
+
+# Bookmarks plugin
+[plugin.bookmarks]
+# Automatically load bookmarks on startup
+auto_load = true
