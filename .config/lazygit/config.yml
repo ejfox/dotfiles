@@ -1,0 +1,68 @@
+# Lazygit Configuration
+# Integrated with vulpes-reddish theme (auto-switches with system appearance)
+
+gui:
+  # Default theme (dark mode)
+  theme:
+    lightTheme: false
+    activeBorderColor:
+      - '#ff8b59'
+      - bold
+    inactiveBorderColor:
+      - '#595959'
+    searchingActiveBorderColor:
+      - '#ff409f'
+      - bold
+    optionsTextColor:
+      - '#ff8b59'
+    selectedLineBgColor:
+      - '#1a1a1a'
+    selectedRangeBgColor:
+      - '#1a1a1a'
+    cherryPickedCommitBgColor:
+      - '#ff409f'
+    cherryPickedCommitFgColor:
+      - '#121212'
+    unstagedChangesColor:
+      - '#ff042a'
+    defaultFgColor:
+      - '#ffe8e8'
+
+# Note: Light mode theme stored below (swap when needed)
+# For light mode, replace the above theme section with:
+# lightTheme: true
+# activeBorderColor: ['#a33100', 'bold']
+# inactiveBorderColor: ['#a6a6a6']
+# searchingActiveBorderColor: ['#ad0057', 'bold']
+# optionsTextColor: ['#a33100']
+# selectedLineBgColor: ['#e6e6e6']
+# selectedRangeBgColor: ['#e6e6e6']
+# cherryPickedCommitBgColor: ['#ad0057']
+# cherryPickedCommitFgColor: ['#ebebeb']
+# unstagedChangesColor: ['#720011']
+# defaultFgColor: ['#c60000']
+
+keybinding:
+  universal:
+    quit: 'q'
+    quitWithoutChangingDirectory: 'Q'
+    togglePanel: '<tab>'
+    prevLine: 'k'
+    nextLine: 'j'
+    prevPage: '<c-b>'
+    nextPage: '<c-f>'
+    gotoTop: 'g'
+    gotoBottom: 'G'
+    prevBlock: 'h'
+    nextBlock: 'l'
+    nextBlockAlt: '<right>'
+    prevBlockAlt: '<left>'
+    new: 'n'
+    edit: 'e'
+    openInEditor: 'E'
+    scroll: '<c-d>'
+    scrollUp: '<c-u>'
+
+git:
+  paging:
+    colorArg: always
