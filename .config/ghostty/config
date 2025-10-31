@@ -7,8 +7,8 @@ bold-is-bright = false
 font-family = MonaspiceKr Nerd Font
 
 # Auto-switch between light and dark themes based on system preference
-# Options: catppuccin (blue), vulpes_reddish (red)
-theme = light:vulpes_reddish_light,dark:vulpes_reddish_dark
+# Options: catppuccin (blue), vulpes_reddish2 (red)
+theme = light:vulpes_reddish2_light,dark:vulpes_reddish2_dark
 
 # Minimal cursor
 cursor-style = block

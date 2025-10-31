@@ -433,51 +433,53 @@ alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
 alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
 alias fp="irssi"
 
-# Theme switching - Catppuccin light/dark mode for shell (nvim handles its own via auto-dark-mode)
+# Theme switching - vulpes-reddish2 light/dark mode for shell (nvim handles its own via auto-dark-mode)
 theme-dark() {
-  # Catppuccin Mocha colors for dark mode
+  # vulpes-reddish2 colors for dark mode
   ZSH_HIGHLIGHT_STYLES=(
-    'alias:fg=#89b4fa'
-    'builtin:fg=#89b4fa'
-    'command:fg=#89b4fa'
-    'function:fg=#89b4fa'
-    'hashed-command:fg=#89b4fa'
-    'reserved-word:fg=#f38ba8'
-    'string:fg=#a6e3a1'
-    'comment:fg=#7f849c,bold'
-    'globbing:fg=#f9e2af'
-    'history-expansion:fg=#f5c2e7'
-    'default:fg=#cdd6f4'
+    'alias:fg=#f30061'
+    'builtin:fg=#ff5703'
+    'command:fg=#da0000'
+    'function:fg=#f30061'
+    'hashed-command:fg=#da0000'
+    'reserved-word:fg=#ff6e0e'
+    'string:fg=#ff8e0e'
+    'comment:fg=#c00000,bold'
+    'globbing:fg=#f300a2'
+    'history-expansion:fg=#ff279a'
+    'default:fg=#e5dcdc'
   )
 
-  export FZF_DEFAULT_OPTS=$'--color=fg:#cdd6f4,bg:#1e1e2e,hl:#89b4fa \
-    --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa \
-    --color=info:#a6e3a1,prompt:#f38ba8,pointer:#f38ba8 \
-    --color=marker:#f38ba8,spinner:#f38ba8,header:#f9e2af'
+  export FZF_DEFAULT_OPTS=$'--color=fg:#e5dcdc,bg:#0d0d0d,hl:#da0000 \
+    --color=fg+:#e5dcdc,bg+:#1a1a1a,hl+:#da0000 \
+    --color=info:#ff279a,prompt:#da0000,pointer:#da0000 \
+    --color=marker:#ff8e0e,spinner:#f300a2,header:#c00000 \
+    --color=border:#1a1a1a,label:#e5dcdc,query:#e5dcdc'
 
-  echo "🌙 Switched to dark mode (Catppuccin Mocha)"
+  echo "🌙 Switched to dark mode (vulpes-reddish2)"
 }
 
 theme-light() {
-  # Catppuccin Latte colors for light mode
+  # vulpes-reddish2 colors for light mode
   ZSH_HIGHLIGHT_STYLES=(
-    'alias:fg=#1e66f5'
-    'builtin:fg=#1e66f5'
-    'command:fg=#1e66f5'
-    'function:fg:#1e66f5'
-    'hashed-command:fg:#1e66f5'
-    'reserved-word:fg=#d20f39'
-    'string:fg=#40a02b'
-    'comment:fg=#9ca0b0,bold'
-    'globbing:fg=#df8e1d'
-    'history-expansion:fg:#ea76cb'
-    'default:fg:#4c4f69'
+    'alias:fg=#ea005e'
+    'builtin:fg=#f45100'
+    'command:fg=#ff0404'
+    'function:fg=#ea005e'
+    'hashed-command:fg=#ff0404'
+    'reserved-word:fg=#e05a00'
+    'string:fg=#f48200'
+    'comment:fg=#ff3737,bold'
+    'globbing:fg=#ea009c'
+    'history-expansion:fg=#ff048a'
+    'default:fg=#3b2b2b'
   )
 
-  export FZF_DEFAULT_OPTS=$'--color=fg:#4c4f69,bg:#eff1f5,hl:#1e66f5 \
-    --color=fg+:#4c4f69,bg+:#e6e9ef,hl+:#1e66f5 \
-    --color=info:#40a02b,prompt:#d20f39,pointer:#d20f39 \
-    --color=marker:#d20f39,spinner:#d20f39,header:#df8e1d'
+  export FZF_DEFAULT_OPTS=$'--color=fg:#3b2b2b,bg:#f7f7f7,hl:#ff0404 \
+    --color=fg+:#3b2b2b,bg+:#e6e6e6,hl+:#ff0404 \
+    --color=info:#ff048a,prompt:#ff0404,pointer:#ff0404 \
+    --color=marker:#f48200,spinner:#ea009c,header:#ff3737 \
+    --color=border:#e6e6e6,label:#3b2b2b,query:#3b2b2b'
 
-  echo "☀️ Switched to light mode (Catppuccin Latte)"
+  echo "☀️ Switched to light mode (vulpes-reddish2)"
 }
