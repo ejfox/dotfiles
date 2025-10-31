@@ -18,5 +18,15 @@ use = "ndtoan96/ouch"
 rev = "10b4627"
 hash = "3ec6a973d506665f1570a9fe08343fd8"
 
+[[plugin.deps]]
+use = "DreamMaoMao/fzf"
+rev = "8d63897"
+hash = "4a6f4d77e37dceddf5f21e58b53d1fa7"
+
+[[plugin.deps]]
+use = "DreamMaoMao/bookmarks"
+rev = "f18ccbb"
+hash = "bcef945fa17da65aa75d4e4e1e5c20e1"
+
 [flavor]
 deps = []
