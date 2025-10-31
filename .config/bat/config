@@ -1,7 +1,7 @@
-# Bat configuration with automatic light/dark theme switching
+# Bat configuration with Catppuccin light/dark theme switching
 --theme=auto:system
---theme-light="Monokai Extended Light"
---theme-dark="Monokai Extended"
+--theme-light="Catppuccin Latte"
+--theme-dark="Catppuccin Mocha"
 --style=numbers,changes,header,grid
 --wrap=never
 --pager=never

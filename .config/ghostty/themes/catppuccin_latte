@@ -1,0 +1,40 @@
+# Catppuccin Latte Theme
+background = #eff1f5
+foreground = #4c4f69
+cursor-color = #dc8a78
+selection-background = #acb0be
+selection-foreground = #4c4f69
+
+# Black
+palette = 0=#5c5f77
+# Red
+palette = 1=#d20f39
+# Green
+palette = 2=#40a02b
+# Yellow
+palette = 3=#df8e1d
+# Blue
+palette = 4=#1e66f5
+# Magenta
+palette = 5=#ea76cb
+# Cyan
+palette = 6=#179299
+# White
+palette = 7=#acb0be
+
+# Bright Black
+palette = 8=#6c6f85
+# Bright Red
+palette = 9=#d20f39
+# Bright Green
+palette = 10=#40a02b
+# Bright Yellow
+palette = 11=#df8e1d
+# Bright Blue
+palette = 12=#1e66f5
+# Bright Magenta
+palette = 13=#ea76cb
+# Bright Cyan
+palette = 14=#179299
+# Bright White
+palette = 15=#bcc0cc

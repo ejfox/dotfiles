@@ -170,6 +170,28 @@ export MAILCHECK=0
 
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
+# Catppuccin Mocha theme for zsh-syntax-highlighting
+ZSH_HIGHLIGHT_STYLES=(
+  'alias:fg=#89b4fa'
+  'builtin:fg=#89b4fa'
+  'command:fg=#89b4fa'
+  'function:fg=#89b4fa'
+  'hashed-command:fg=#89b4fa'
+  'reserved-word:fg=#f38ba8'
+  'string:fg=#a6e3a1'
+  'comment:fg=#7f849c,bold'
+  'globbing:fg=#f9e2af'
+  'history-expansion:fg=#f5c2e7'
+  'default:fg=#cdd6f4'
+)
+
+# FZF Catppuccin Mocha theme
+export FZF_DEFAULT_OPTS=$FZF_DEFAULT_OPTS' \
+  --color=fg:#cdd6f4,bg:#1e1e2e,hl:#89b4fa \
+  --color=fg+:#cdd6f4,bg+:#313244,hl+:#89b4fa \
+  --color=info:#a6e3a1,prompt:#f38ba8,pointer:#f38ba8 \
+  --color=marker:#f38ba8,spinner:#f38ba8,header:#f9e2af'
+
 # Smart git commit with LLM integration
 alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
 
@@ -429,3 +451,7 @@ alias fp='irssi'
 alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
 alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
 alias fp="irssi"
+
+# Theme switching - Catppuccin light/dark mode for nvim, yazi, lazygit
+alias theme-dark='theme-dark'     # Switch all tools to dark (Catppuccin Mocha)
+alias theme-light='theme-light'   # Switch all tools to light (Catppuccin Latte)

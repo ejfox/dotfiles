@@ -39,7 +39,8 @@
       "Bash(npx electron-builder:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(find:*)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(brew search:*)"
     ],
     "deny": []
   }
