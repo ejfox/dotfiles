@@ -35,7 +35,7 @@
     "shift-enter-setup": 14,
     "ide-upsell-external-terminal": 23
   },
-  "promptQueueUseCount": 19504,
+  "promptQueueUseCount": 19506,
   "cachedStatsigGates": {
     "tengu_disable_bypass_permissions_mode": false,
     "tengu_tool_pear": false,
@@ -265,6 +265,10 @@
       "hasCompletedProjectOnboarding": true,
       "exampleFilesGeneratedAt": 1761872108199,
       "history": [
+        {
+          "display": "⏺ Yes! One line in your ~/.config/nvim/init.lua:\n\n  vim.opt.statusline = \"%f %m\"\n\n  Or in ~/.config/nvim/init.vim:\n  set statusline=%f\\ %m\n\n  What it does:\n  - %f = filename with path\n  - %m = [+] if modified\n\n  Fancier (still one line):\n  vim.opt.statusline = \"%f %m%=%l:%c %p%%\"\n  - %= = right-align the rest\n  - %l:%c = line:column\n  - %p%% = percentage through file\n\n  This shows: filename [+]                    123:45 67%\n\n  Even easier: If you use a plugin manager, just add nvim-lualine/lualine.nvim - it's pre-configured and looks great out of the box.\n\n-- can we get a simple minimalist pane label with the filename, modification state, and the line:column, right aligned, thank you",
+          "pastedContents": {}
+        },
         {
           "display": "[Image #1] can you make sure we don't have black color overrides in lightmode in nvim? maybe we shouldn't override so much anyway? I mainly just want a real-full-black bg in the editor in dark mode ",
           "pastedContents": {
