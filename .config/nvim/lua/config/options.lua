@@ -41,6 +41,9 @@ vim.opt.showmode = false -- Don't show mode (statusline handles it)
 vim.opt.ruler = false -- Don't show cursor position
 vim.opt.showcmd = false -- Don't show command in bottom bar
 
+-- Minimalist statusline: filename [+]           line:col
+vim.opt.statusline = "%f %m%=%l:%c"
+
 -- Minimal signcolumn
 vim.opt.signcolumn = "yes:1" -- Always show, but only 1 char wide
 
