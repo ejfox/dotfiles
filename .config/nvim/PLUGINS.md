@@ -242,19 +242,24 @@ Comprehensive guide to all installed Neovim plugins and their configurations.
 
 ## UI & Appearance
 
-### Catppuccin (`catppuccin/nvim`)
-- **Purpose**: Warm color scheme with dark/light variants
-- **Config**: `lua/plugins/colorscheme.lua`
+### Vulpes-Reddish Colorscheme
+- **Purpose**: Custom warm reddish theme across all tools
+- **Location**: `colors/vulpes_reddish_dark.lua`, `colors/vulpes_reddish_light.lua`
 - **Features**:
-  - Dark (mocha): Pure black background (#000000)
-  - Light (latte): Transparent background
-  - Integrations for all plugins
+  - Dark variant: Warm reds on #121212 background
+  - Light variant: Deep reds on #ebebeb background
+  - Full syntax highlighting + treesitter support
+  - LSP diagnostics, git signs, UI elements
+  - Consistent with Ghostty, Tmux, Lazygit, Yazi
 
 ### Auto-dark-mode (`f-person/auto-dark-mode.nvim`)
 - **Purpose**: Auto-switch theme based on system appearance
+- **Config**: `lua/plugins/auto-dark-mode.lua`
 - **Features**:
   - Monitors system dark mode every 1 second
-  - Switches between catppuccin-mocha (dark) and catppuccin-latte (light)
+  - Switches between vulpes_reddish_dark (dark) and vulpes_reddish_light (light)
+  - Tied to Ghostty's auto-switching for seamless theme transitions
+- **How it works**: Sets `vim.o.background` which triggers the appropriate colorscheme
 
 ### Lualine (`nvim-lualine/lualine.nvim`)
 - **Purpose**: Minimal statusline
