@@ -1,0 +1,24 @@
+# vulpes-greenish-dark
+# Generated with theme-lab - Tuftian hue offset precision
+background = #0e0e0e
+foreground = #7dff81
+cursor-color = #00ef08
+selection-background = #53ff09
+selection-foreground = #0e0e0e
+
+palette = 0=#1a1a1a
+palette = 1=#00ef18
+palette = 2=#00ef28
+palette = 3=#2aff23
+palette = 4=#22ff09
+palette = 5=#3fff19
+palette = 6=#09ff43
+palette = 7=#b3b3b3
+palette = 8=#595959
+palette = 9=#3cff50
+palette = 10=#3cff5d
+palette = 11=#74ff6f
+palette = 12=#67ff56
+palette = 13=#7bff60
+palette = 14=#56ff7d
+palette = 15=#f2f2f2
