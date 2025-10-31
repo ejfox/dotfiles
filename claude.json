@@ -12,7 +12,7 @@
   "tipsHistory": {
     "memory-command": 23,
     "git-worktrees": 0,
-    "plan-mode-for-complex-tasks": 32,
+    "plan-mode-for-complex-tasks": 33,
     "theme-command": 25,
     "new-user-warmup": 17,
     "enter-to-steer-in-relatime": 25,
@@ -35,7 +35,7 @@
     "shift-enter-setup": 14,
     "ide-upsell-external-terminal": 33
   },
-  "promptQueueUseCount": 19556,
+  "promptQueueUseCount": 19559,
   "cachedStatsigGates": {
     "tengu_disable_bypass_permissions_mode": false,
     "tengu_tool_pear": false,
@@ -91,7 +91,11 @@
       "lastTotalWebSearchRequests": 0,
       "history": [
         {
-          "display": "ild the electron preload files successfully\n\n-----\n\nerror during start dev server and electron app:\nError: Port 3000 is already in use\n    at Server.onError$1 (file:///Users/ejfox/client-code/metro-maker4/next-app-2/node_modules/vite/dist/node/chunks/config.js:18366:28)\n    at Server.emit (node:events:519:28)\n    at emitErrorNT (node:net:1976:8)\n    at processTicksAndRejections (node:internal/process/task_queues:90:21)\n╭─   ~/cl/metro-maker4/next-app-2   feature/add-all-stations-button *9\n╰─❯\n",
+          "display": "doint git add  until I test freakazoid!",
+          "pastedContents": {}
+        },
+        {
+          "display": "no it should work in my case!!",
           "pastedContents": {}
         }
       ]
@@ -273,7 +277,13 @@
         "sync-dotfiles.sh"
       ],
       "hasCompletedProjectOnboarding": true,
-      "exampleFilesGeneratedAt": 1761872108199
+      "exampleFilesGeneratedAt": 1761872108199,
+      "history": [
+        {
+          "display": "yeah use macOS zsh theme or whatever, thats fine, use whatever the most recently updated most used solution is and tie our themes into it :) ",
+          "pastedContents": {}
+        }
+      ]
     },
     "/Users/ejfox/Desktop": {
       "allowedTools": [],
