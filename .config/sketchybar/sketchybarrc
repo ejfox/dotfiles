@@ -66,11 +66,11 @@ sketchybar --add item doc_reminder left \
   click_script="open \"things:///add?title=Document%20today's%20work\"" \
   icon.drawing=off
 
-##### Claude Usage #####
-sketchybar --add item claude_usage left \
-  --set claude_usage update_freq=10 \
-  script="$HOME/.config/sketchybar/plugins/claude_usage.sh" \
-  label.font="$FONT:Regular:11.0"
+##### Claude Usage ##### (DISABLED - ccusage broken)
+# sketchybar --add item claude_usage left \
+#   --set claude_usage update_freq=10 \
+#   script="$HOME/.config/sketchybar/plugins/claude_usage.sh" \
+#   label.font="$FONT:Regular:11.0"
 
 ##### CIPHER - AI Companion #####
 # sketchybar --add item cipher left \

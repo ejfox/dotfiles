@@ -66,3 +66,7 @@ hi('@comment', { fg = '#c00000', italic = true })
 hi('GitSignsAdd', { fg = '#da3a00' })
 hi('GitSignsChange', { fg = '#ff0e2e' })
 hi('GitSignsDelete', { fg = '#f3a200' })
+
+-- Statusline
+hi('StatusLine', { fg = '#e5dcdc', bg = '#1a1a1a' })
+hi('StatusLineNC', { fg = '#595959', bg = '#0a0a0a' })
