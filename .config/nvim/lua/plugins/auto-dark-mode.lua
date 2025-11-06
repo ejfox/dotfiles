@@ -6,11 +6,11 @@ return {
       update_interval = 1000,
       set_dark_mode = function()
         vim.o.background = "dark"
-        vim.cmd("colorscheme vulpes_reddish2_dark")
+        vim.cmd("colorscheme vulpes-reddishnovember-dark")
       end,
       set_light_mode = function()
         vim.o.background = "light"
-        vim.cmd("colorscheme vulpes_reddish2_light")
+        vim.cmd("colorscheme vulpes-reddishnovember-light")
       end,
     })
     auto_dark_mode.init()

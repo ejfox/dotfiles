@@ -1,5 +1,10 @@
 # Minimal yazi config - no colors, just shapes
 
+# Theme configuration
+# Switch between dark and light themes by symlinking:
+# ln -sf vulpes-reddishnovember-dark.toml theme.toml (or -light.toml)
+# Or set directly in flavors below
+
 [manager]
 ratio = [1,3,4]
 show_hidden = false
