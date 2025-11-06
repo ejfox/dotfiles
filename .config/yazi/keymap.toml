@@ -1,4 +1,134 @@
-# Yazi Keybindings for New Plugins
+# Yazi Keybindings
+
+# Navigation
+[[manager.keymap]]
+on = [ "k" ]
+run = "arrow -1"
+desc = "Move up"
+
+[[manager.keymap]]
+on = [ "j" ]
+run = "arrow 1"
+desc = "Move down"
+
+[[manager.keymap]]
+on = [ "h" ]
+run = "leave"
+desc = "Go to parent directory"
+
+[[manager.keymap]]
+on = [ "l" ]
+run = "enter"
+desc = "Enter directory"
+
+[[manager.keymap]]
+on = [ "<Up>" ]
+run = "arrow -1"
+desc = "Move up"
+
+[[manager.keymap]]
+on = [ "<Down>" ]
+run = "arrow 1"
+desc = "Move down"
+
+[[manager.keymap]]
+on = [ "<Left>" ]
+run = "leave"
+desc = "Go to parent directory"
+
+[[manager.keymap]]
+on = [ "<Right>" ]
+run = "enter"
+desc = "Enter directory"
+
+[[manager.keymap]]
+on = [ "g", "g" ]
+run = "arrow -99999999"
+desc = "Move to top"
+
+[[manager.keymap]]
+on = [ "G" ]
+run = "arrow 99999999"
+desc = "Move to bottom"
+
+# File operations
+[[manager.keymap]]
+on = [ "<Enter>" ]
+run = "open"
+desc = "Open file"
+
+[[manager.keymap]]
+on = [ "y" ]
+run = "yank"
+desc = "Yank (copy)"
+
+[[manager.keymap]]
+on = [ "x" ]
+run = "yank --cut"
+desc = "Cut"
+
+[[manager.keymap]]
+on = [ "p" ]
+run = "paste"
+desc = "Paste"
+
+[[manager.keymap]]
+on = [ "d" ]
+run = "remove"
+desc = "Delete"
+
+[[manager.keymap]]
+on = [ "r" ]
+run = "rename"
+desc = "Rename"
+
+[[manager.keymap]]
+on = [ "/" ]
+run = "find"
+desc = "Find"
+
+[[manager.keymap]]
+on = [ "n" ]
+run = "find_arrow"
+desc = "Go to next found"
+
+[[manager.keymap]]
+on = [ "N" ]
+run = "find_arrow --previous"
+desc = "Go to previous found"
+
+# View options
+[[manager.keymap]]
+on = [ "z", "h" ]
+run = "hidden toggle"
+desc = "Toggle hidden files"
+
+[[manager.keymap]]
+on = [ "s" ]
+run = "search"
+desc = "Search"
+
+# Quit
+[[manager.keymap]]
+on = [ "q" ]
+run = "quit"
+desc = "Quit"
+
+# Selection
+[[manager.keymap]]
+on = [ "<Space>" ]
+run = [ "select --state=none", "arrow 1" ]
+desc = "Toggle selection"
+
+[[manager.keymap]]
+on = [ "v" ]
+run = "visual_mode"
+desc = "Enter visual mode"
+
+[[manager.keymap]]
+on = [ "V" ]
+run = "visual_mode --unset"
+desc = "Exit visual mode"
 
 # FZF plugin - fuzzy search files
 [[manager.keymap]]
