@@ -1,0 +1,53 @@
+# vulpes-reddish2-light btop theme
+# Place in ~/.config/btop/themes/
+# Then set: color_theme = "vulpes-reddish2-light"
+
+theme[main_bg]="#f7f7f7"
+theme[main_fg]="#3b2b2b"
+theme[title]="#ef0050"
+theme[hi_fg]="#fe0022"
+theme[selected_bg]="#e6e6e6"
+theme[selected_fg]="#ff048a"
+theme[inactive_fg]="#a6a6a6"
+theme[graph_text]="#3b2b2b"
+
+# Process colors
+theme[proc_misc]="#ea009c"
+theme[cpu_box]="#ef0050"
+theme[mem_box]="#ea005e"
+theme[net_box]="#ff048a"
+theme[proc_box]="#fe0022"
+theme[div_line]="#a6a6a6"
+
+# CPU graph colors
+theme[cpu_start]="#fe0022"
+theme[cpu_mid]="#ef0050"
+theme[cpu_end]="#ea009c"
+
+# Memory graph colors
+theme[mem_start]="#ea005e"
+theme[mem_mid]="#ff048a"
+theme[mem_end]="#ea009c"
+
+# Network graph colors
+theme[net_start]="#ff048a"
+theme[net_mid]="#ea009c"
+theme[net_end]="#fe0022"
+
+# Download/Upload
+theme[download_start]="#ff048a"
+theme[download_mid]="#ea009c"
+theme[download_end]="#ea005e"
+theme[upload_start]="#fe0022"
+theme[upload_mid]="#ef0050"
+theme[upload_end]="#ff048a"
+
+# Process sorting
+theme[process_start]="#fe0022"
+theme[process_mid]="#ef0050"
+theme[process_end]="#ea009c"
+
+# Temp colors
+theme[temp_start]="#ff048a"
+theme[temp_mid]="#fe0022"
+theme[temp_end]="#ea009c"
