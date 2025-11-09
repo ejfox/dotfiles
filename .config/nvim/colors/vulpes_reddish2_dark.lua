@@ -19,30 +19,34 @@ local function hi(group, opts)
 end
 
 -- Editor colors
-hi('Normal', { fg = '#e5dcdc', bg = '#000000' })
+hi('Normal', { fg = '#e5dcdc', bg = '#0d0d0d' })
 hi('Comment', { fg = '#c00000', italic = true })
-hi('LineNr', { fg = '#595959' })
+hi('LineNr', { fg = '#3a3a3a' })  -- More subtle line numbers
 hi('CursorLine', { bg = '#1a1a1a' })
-hi('CursorLineNr', { fg = '#ff6e0e', bold = true })
+hi('CursorLineNr', { fg = '#ff1865', bold = true })  -- Red-pink instead of orange
 hi('Visual', { bg = '#595959' })
-hi('Search', { bg = '#f300a2', fg = '#000000' })
-hi('IncSearch', { bg = '#ff6e0e', fg = '#000000', bold = true })
+hi('Search', { bg = '#f300a2', fg = '#0d0d0d' })
+hi('IncSearch', { bg = '#ff1865', fg = '#0d0d0d', bold = true })  -- Red-pink
+
+-- Indent guides - subtle
+hi('IndentBlanklineChar', { fg = '#262626', nocombine = true })  -- Very subtle
+hi('IndentBlanklineContextChar', { fg = '#3a3a3a', nocombine = true })  -- Slightly visible
 
 -- Syntax highlighting
-hi('Keyword', { fg = '#ff6e0e' })
-hi('String', { fg = '#ff8e0e', italic = true })
+hi('Keyword', { fg = '#ff1865' })  -- Red-pink
+hi('String', { fg = '#ff279a', italic = true })  -- Magenta
 hi('Number', { fg = '#ff279a' })
 hi('Boolean', { fg = '#ff279a' })
 hi('Function', { fg = '#f30061' })
-hi('Constant', { fg = '#ff7903' })
+hi('Constant', { fg = '#ff1865' })  -- Red-pink
 hi('Type', { fg = '#ff1865' })
 hi('Identifier', { fg = '#fd0022' })
 hi('Operator', { fg = '#ff1e0e' })
-hi('Statement', { fg = '#ff6e0e' })
-hi('Conditional', { fg = '#ff6e0e' })
-hi('Repeat', { fg = '#ff6e0e' })
-hi('Label', { fg = '#ff6e0e' })
-hi('Special', { fg = '#ff7903' })
+hi('Statement', { fg = '#ff1865' })  -- Red-pink
+hi('Conditional', { fg = '#ff1865' })  -- Red-pink
+hi('Repeat', { fg = '#ff1865' })  -- Red-pink
+hi('Label', { fg = '#ff1865' })  -- Red-pink
+hi('Special', { fg = '#ff1865' })  -- Red-pink
 hi('PreProc', { fg = '#ff1865' })
 
 -- LSP/Diagnostics
@@ -52,11 +56,11 @@ hi('DiagnosticInfo', { fg = '#ff4141' })
 hi('DiagnosticHint', { fg = '#ff4141' })
 
 -- TreeSitter
-hi('@keyword', { fg = '#ff6e0e' })
-hi('@string', { fg = '#ff8e0e', italic = true })
+hi('@keyword', { fg = '#ff1865' })  -- Red-pink
+hi('@string', { fg = '#ff279a', italic = true })  -- Magenta
 hi('@number', { fg = '#ff279a' })
 hi('@function', { fg = '#f30061' })
-hi('@constant', { fg = '#ff7903' })
+hi('@constant', { fg = '#ff1865' })  -- Red-pink
 hi('@type', { fg = '#ff1865' })
 hi('@variable', { fg = '#fd0022' })
 hi('@operator', { fg = '#ff1e0e' })
