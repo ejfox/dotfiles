@@ -44,7 +44,8 @@ function M.setup()
     punctuation = '#fa006c',
     heading = '#d6002e',
 
-    selection = '#e0001e',
+    selection = '#00d9ff',      -- Cyberpunk cyan/blue
+    selection_fg = '#0d0d0d',   -- Dark fg for contrast
     cursor = '#fa0070',
     cursorline = '#f3f3f3',
   }
@@ -79,8 +80,8 @@ function M.setup()
     ColorColumn = { bg = colors.bg_alt },
 
     -- Selections & Search
-    Visual = { bg = colors.selection },
-    VisualNOS = { bg = colors.selection },
+    Visual = { fg = colors.selection_fg, bg = colors.selection },
+    VisualNOS = { fg = colors.selection_fg, bg = colors.selection },
     Search = { fg = colors.bg, bg = colors.warning },
     IncSearch = { fg = colors.bg, bg = colors.base },
     CurSearch = { fg = colors.bg, bg = colors.base },
