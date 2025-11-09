@@ -21,16 +21,35 @@ end
 -- Editor colors
 hi('Normal', { fg = '#e5dcdc', bg = '#0d0d0d' })
 hi('Comment', { fg = '#c00000', italic = true })
-hi('LineNr', { fg = '#3a3a3a' })  -- More subtle line numbers
+
+-- Line numbers (ultra-subtle - barely visible)
+hi('LineNr', { fg = '#1f1f1f' })  -- 8% mix of bg+fg, ultra subtle
+hi('LineNrAbove', { fg = '#1f1f1f' })
+hi('LineNrBelow', { fg = '#1f1f1f' })
+hi('CursorLineNr', { fg = '#ff1865', bold = true })  -- Current line stands out
+
+-- UI Chrome
 hi('CursorLine', { bg = '#1a1a1a' })
-hi('CursorLineNr', { fg = '#ff1865', bold = true })  -- Red-pink instead of orange
+hi('SignColumn', { bg = '#0d0d0d' })  -- Match main bg
+hi('FoldColumn', { fg = '#1f1f1f', bg = '#0d0d0d' })  -- Subtle
+hi('VertSplit', { fg = '#1a1a1a' })  -- Subtle splits
+hi('WinSeparator', { fg = '#1a1a1a' })
+
 hi('Visual', { bg = '#595959' })
 hi('Search', { bg = '#f300a2', fg = '#0d0d0d' })
-hi('IncSearch', { bg = '#ff1865', fg = '#0d0d0d', bold = true })  -- Red-pink
+hi('IncSearch', { bg = '#ff1865', fg = '#0d0d0d', bold = true })
 
--- Indent guides - subtle
-hi('IndentBlanklineChar', { fg = '#262626', nocombine = true })  -- Very subtle
-hi('IndentBlanklineContextChar', { fg = '#3a3a3a', nocombine = true })  -- Slightly visible
+-- Indent guides (barely visible)
+hi('IndentBlanklineChar', { fg = '#1a1a1a', nocombine = true })  -- Ultra subtle
+hi('IndentBlanklineContextChar', { fg = '#262626', nocombine = true })  -- Slightly more visible
+hi('IblIndent', { fg = '#1a1a1a', nocombine = true })  -- For ibl v3
+hi('IblScope', { fg = '#262626', nocombine = true })
+
+-- Non-text elements (keep out of the way)
+hi('NonText', { fg = '#1f1f1f' })
+hi('SpecialKey', { fg = '#1f1f1f' })
+hi('Whitespace', { fg = '#1a1a1a' })
+hi('EndOfBuffer', { fg = '#0d0d0d' })  -- Invisible
 
 -- Syntax highlighting
 hi('Keyword', { fg = '#ff1865' })  -- Red-pink
@@ -71,6 +90,22 @@ hi('GitSignsAdd', { fg = '#da3a00' })
 hi('GitSignsChange', { fg = '#ff0e2e' })
 hi('GitSignsDelete', { fg = '#f3a200' })
 
--- Statusline
+-- Statusline (inactive should be very subtle)
 hi('StatusLine', { fg = '#e5dcdc', bg = '#1a1a1a' })
-hi('StatusLineNC', { fg = '#595959', bg = '#0a0a0a' })
+hi('StatusLineNC', { fg = '#262626', bg = '#0d0d0d' })  -- Much more subtle
+
+-- Popup menus (floats)
+hi('Pmenu', { fg = '#e5dcdc', bg = '#1a1a1a' })
+hi('PmenuSel', { fg = '#0d0d0d', bg = '#ff1865' })
+hi('PmenuSbar', { bg = '#1a1a1a' })
+hi('PmenuThumb', { bg = '#ff1865' })
+
+-- Floating windows
+hi('NormalFloat', { fg = '#e5dcdc', bg = '#1a1a1a' })
+hi('FloatBorder', { fg = '#3a3a3a', bg = '#1a1a1a' })
+
+-- File explorers (blend with main bg)
+hi('NvimTreeNormal', { fg = '#e5dcdc', bg = '#0d0d0d' })
+hi('NvimTreeEndOfBuffer', { fg = '#0d0d0d' })
+hi('NeoTreeNormal', { fg = '#e5dcdc', bg = '#0d0d0d' })
+hi('NeoTreeEndOfBuffer', { fg = '#0d0d0d' })
