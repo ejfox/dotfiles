@@ -1,7 +1,7 @@
-# Bat configuration with vulpes-reddishnovember theme switching
+# Bat configuration with vulpes-reddish2 theme switching
 --theme=auto:system
---theme-light="vulpes-reddishnovember-light"
---theme-dark="vulpes-reddishnovember-dark"
+--theme-light="vulpes-reddish2-light"
+--theme-dark="vulpes-reddish2-dark"
 --style=numbers,changes,header,grid
 --wrap=never
 --pager=never
