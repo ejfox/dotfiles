@@ -35,9 +35,16 @@ hi('FoldColumn', { fg = '#1f1f1f', bg = '#0d0d0d' })  -- Subtle
 hi('VertSplit', { fg = '#1a1a1a' })  -- Subtle splits
 hi('WinSeparator', { fg = '#1a1a1a' })
 
-hi('Visual', { bg = '#595959' })
+hi('Visual', { bg = '#3d1a2a' })  -- Subtle red-tinted selection for palette cohesion
 hi('Search', { bg = '#f300a2', fg = '#0d0d0d' })
 hi('IncSearch', { bg = '#ff1865', fg = '#0d0d0d', bold = true })
+
+-- Matching brackets (important for navigation)
+hi('MatchParen', { fg = '#ff1865', bg = '#262626', bold = true })
+
+-- Color column for width guides
+hi('ColorColumn', { bg = '#1a1a1a' })
+hi('Folded', { fg = '#c00000', bg = '#1a1a1a' })
 
 -- Indent guides (barely visible)
 hi('IndentBlanklineChar', { fg = '#1a1a1a', nocombine = true })  -- Ultra subtle
@@ -68,11 +75,11 @@ hi('Label', { fg = '#ff1865' })  -- Red-pink
 hi('Special', { fg = '#ff1865' })  -- Red-pink
 hi('PreProc', { fg = '#ff1865' })
 
--- LSP/Diagnostics
-hi('DiagnosticError', { fg = '#f3a200', underline = true })
-hi('DiagnosticWarn', { fg = '#f300a2', underline = true })
-hi('DiagnosticInfo', { fg = '#ff4141' })
-hi('DiagnosticHint', { fg = '#ff4141' })
+-- LSP/Diagnostics (semantic colors, no oranges)
+hi('DiagnosticError', { fg = '#ff0e2e', underline = true })  -- Red for errors
+hi('DiagnosticWarn', { fg = '#f300a2', underline = true })   -- Magenta for warnings
+hi('DiagnosticInfo', { fg = '#ff279a', underline = true })   -- Pink for info
+hi('DiagnosticHint', { fg = '#c00000' })  -- Muted red for hints
 
 -- TreeSitter
 hi('@keyword', { fg = '#ff1865' })  -- Red-pink
@@ -85,10 +92,10 @@ hi('@variable', { fg = '#fd0022' })
 hi('@operator', { fg = '#ff1e0e' })
 hi('@comment', { fg = '#c00000', italic = true })
 
--- Git signs
-hi('GitSignsAdd', { fg = '#da3a00' })
-hi('GitSignsChange', { fg = '#ff0e2e' })
-hi('GitSignsDelete', { fg = '#f3a200' })
+-- Git signs (red/pink palette, no oranges)
+hi('GitSignsAdd', { fg = '#ff279a' })     -- Magenta for additions
+hi('GitSignsChange', { fg = '#f30061' })  -- Pink for changes
+hi('GitSignsDelete', { fg = '#fd0022' })  -- Red for deletions
 
 -- Statusline (inactive should be very subtle)
 hi('StatusLine', { fg = '#e5dcdc', bg = '#1a1a1a' })
