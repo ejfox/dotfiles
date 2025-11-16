@@ -34,8 +34,19 @@ sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
   label.animation_duration=250 \
   background.animation_duration=250
 
-##### Mutagen Status #####
+##### Next Calendar Event #####
 PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+sketchybar --add item next_event left \
+           --set next_event update_freq=60 \
+                            script="$PLUGIN_DIR/next_event.sh" \
+                            icon.drawing=off \
+                            label.font="$FONT:Regular:13.0" \
+                            padding_left=12 \
+                            padding_right=8 \
+                            click_script="open -a Calendar" \
+           --subscribe next_event system_woke
+
+##### Mutagen Status #####
 sketchybar --add item mutagen left \
            --set mutagen update_freq=5 \
                          script="$PLUGIN_DIR/mutagen.sh" \
@@ -59,12 +70,12 @@ sketchybar --add item mutagen left \
 #
 # ##### Context Aware Display ##### (REMOVED - was too complex)
 
-##### Documentation Reminder #####
-sketchybar --add item doc_reminder left \
-  --set doc_reminder update_freq=300 \
-  script="$HOME/.config/sketchybar/plugins/doc_reminder.sh" \
-  click_script="open \"things:///add?title=Document%20today's%20work\"" \
-  icon.drawing=off
+##### Documentation Reminder ##### (REMOVED - symbols too cryptic)
+# sketchybar --add item doc_reminder left \
+#   --set doc_reminder update_freq=300 \
+#   script="$HOME/.config/sketchybar/plugins/doc_reminder.sh" \
+#   click_script="open \"things:///add?title=Document%20today's%20work\"" \
+#   icon.drawing=off
 
 ##### Claude Usage ##### (DISABLED - ccusage broken)
 # sketchybar --add item claude_usage left \
@@ -147,6 +158,7 @@ sketchybar --add item words right \
 
 ##### Force initial update #####
 sketchybar --update
+sketchybar --trigger next_event
 sketchybar --trigger words
 # sketchybar --trigger photos
 sketchybar --trigger productivity
