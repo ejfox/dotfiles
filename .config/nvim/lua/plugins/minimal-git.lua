@@ -44,6 +44,14 @@ return {
           current = "DiffText",
         },
       })
+
+      -- Keybindings for merge conflicts
+      vim.keymap.set("n", "co", "<Plug>(git-conflict-ours)", { desc = "Choose Ours (current)" })
+      vim.keymap.set("n", "ct", "<Plug>(git-conflict-theirs)", { desc = "Choose Theirs (incoming)" })
+      vim.keymap.set("n", "cb", "<Plug>(git-conflict-both)", { desc = "Choose Both" })
+      vim.keymap.set("n", "c0", "<Plug>(git-conflict-none)", { desc = "Choose None" })
+      vim.keymap.set("n", "[x", "<Plug>(git-conflict-prev-conflict)", { desc = "Previous Conflict" })
+      vim.keymap.set("n", "]x", "<Plug>(git-conflict-next-conflict)", { desc = "Next Conflict" })
     end,
   },
 
