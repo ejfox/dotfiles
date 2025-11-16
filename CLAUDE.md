@@ -158,6 +158,24 @@ Last feature addition: Sep 28, 2025 - mermaid-ascii tmux integration
 
 **Commit**: 185fcad - feat(tmux): add 2025 modern workflows (sessionizer removed later)
 
+## Neovim 0.11 Upgrade (Nov 16, 2025):
+**Status**: ✅ UPGRADED - 0.10.4 → 0.11.5
+
+**Major new features:**
+- Built-in LSP auto-completion (opt-in)
+- Async treesitter parsing (no more UI blocking on large files)
+- Better terminal support (OSC 52 clipboard, kitty keyboard protocol)
+- Virtual lines for diagnostics (multiple errors on same line)
+- Shell prompt jumping with `[[` and `]]` in terminal buffers
+- Improved cursor shape/blink in terminal
+
+**Action required:**
+- Open nvim and run `:Lazy sync` to update all plugins for 0.11 compatibility
+- Run `:checkhealth` to verify everything works
+- Run `:help news` to see full changelog
+
+**Upgraded via:** `brew upgrade neovim`
+
 ## Essential Plugins for Daily Driver (Nov 16, 2025):
 **Status**: ✅ INSTALLED - oil.nvim, vim-tmux-navigator, tmux-thumbs
 
