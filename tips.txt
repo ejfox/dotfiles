@@ -13,6 +13,7 @@ TMUX KEYBINDINGS
 (tmux) C-a g - lazygit popup (floats over panes)
 (tmux) C-a K - yazi file manager popup
 (tmux) C-a S - scratch terminal toggle (persistent)
+(tmux) C-\ - tmux-menus (visual TUI for all tmux functions, no memorizing)
 (tmux) C-a C-y - yank entire pane scrollback to clipboard
 (tmux) C-a M-y - yank last 200 lines to clipboard
 (tmux) C-a Space - tmux-thumbs (vimium-style hints for copying text)
