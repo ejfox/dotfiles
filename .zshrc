@@ -193,6 +193,7 @@ alias v='nvim'
 alias n='nvim .'
 alias vs='nvim $(fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap)'
 alias vg='nvim $(rg --line-number --no-heading --color=always . | fzf --ansi --preview "echo {} | cut -d: -f1,2 | xargs -I {} sh -c \"bat --color=always --highlight-line \$(echo {} | cut -d: -f2) \$(echo {} | cut -d: -f1)\"" --delimiter ":" --preview-window=right:60%:wrap | cut -d: -f1)'
+alias o='cd ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox && nvim "$(fd -e md -E .trash -E attachments -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|^\./||" | fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap --with-nth=-2.. --delimiter=/)"'
 
 alias dev="yarn dev"
 alias yarni="yarn install"
