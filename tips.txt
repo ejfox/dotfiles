@@ -1,92 +1,92 @@
-NVIM ALIASES
-v - open nvim
-n - browse current directory with oil.nvim
-vs - fuzzy find files with bat preview
-vg - grep file contents and jump to matching lines
-o - instantly access Obsidian vault (sorted by recency)
-r - recent files across ALL ~/code projects
-- (in nvim) - toggle oil.nvim filesystem browser
-In oil.nvim: delete a line to delete a file, edit a line to rename it
-Oil.nvim trick: visual select multiple files, :d to delete them all
+NVIM ALIASES (ZSH)
+v - (zsh) open nvim
+n - (zsh) browse current directory with oil.nvim
+vs - (zsh) fuzzy find files with bat preview
+vg - (zsh) grep file contents and jump to matching lines
+o - (zsh) instantly access Obsidian vault (sorted by recency)
+r - (zsh) recent files across ALL ~/code projects
+- (nvim) - toggle oil.nvim filesystem browser
+(nvim/oil) delete a line to delete a file, edit a line to rename it
+(nvim/oil) visual select multiple files, :d to delete them all
 
 TMUX KEYBINDINGS
-C-a g - lazygit popup (floats over panes)
-C-a K - yazi file manager popup
-C-a S - scratch terminal toggle (persistent)
-C-a C-y - yank entire pane scrollback to clipboard
-C-a M-y - yank last 200 lines to clipboard
-C-a Space - tmux-thumbs (vimium-style hints for copying text)
-C-a - - split pane vertically (current path)
-C-a _ - split pane horizontally (current path)
-C-a > - swap pane down
-C-a < - swap pane up
-C-a H/J/K/L - resize pane left/down/up/right
-C-a h/j/k/l - select pane left/down/up/right
-M-1 through M-9 - select pane by number
-M-h/M-l - previous/next window
-C-a Z - zen mode toggle
-C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
+(tmux) C-a g - lazygit popup (floats over panes)
+(tmux) C-a K - yazi file manager popup
+(tmux) C-a S - scratch terminal toggle (persistent)
+(tmux) C-a C-y - yank entire pane scrollback to clipboard
+(tmux) C-a M-y - yank last 200 lines to clipboard
+(tmux) C-a Space - tmux-thumbs (vimium-style hints for copying text)
+(tmux) C-a - - split pane vertically (current path)
+(tmux) C-a _ - split pane horizontally (current path)
+(tmux) C-a > - swap pane down
+(tmux) C-a < - swap pane up
+(tmux) C-a H/J/K/L - resize pane left/down/up/right
+(tmux) C-a h/j/k/l - select pane left/down/up/right
+(tmux) M-1 through M-9 - select pane by number
+(tmux) M-h/M-l - previous/next window
+(tmux) C-a Z - zen mode toggle
+(nvim/tmux) C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
 
 NVIM NAVIGATION
-gd - goto definition
-gr - goto references
-gI - goto implementation
-gy - goto type definition
-Telescope: C-_ opens file in vertical split
-<leader>db - toggle breakpoint
-<leader>dc - start/continue debugging
-<leader>du - toggle debug UI
-In .http files: Enter to execute request
+(nvim) gd - goto definition
+(nvim) gr - goto references
+(nvim) gI - goto implementation
+(nvim) gy - goto type definition
+(nvim/telescope) C-_ - opens file in vertical split
+(nvim/dap) <leader>db - toggle breakpoint
+(nvim/dap) <leader>dc - start/continue debugging
+(nvim/dap) <leader>du - toggle debug UI
+(nvim/kulala) Enter in .http files - execute request
 
-MERGE CONFLICTS
-co - choose ours (current branch)
-ct - choose theirs (incoming)
-cb - choose both
-c0 - choose none
-[x / ]x - jump between conflicts
+MERGE CONFLICTS (NVIM)
+(nvim/git-conflict) co - choose ours (current branch)
+(nvim/git-conflict) ct - choose theirs (incoming)
+(nvim/git-conflict) cb - choose both
+(nvim/git-conflict) c0 - choose none
+(nvim/git-conflict) [x / ]x - jump between conflicts
 
-GIT & GITHUB
-commit - LLM-generated commit messages with fzf selection
-ghpub <name> - create public GitHub repo and push
-?? - gh copilot suggest (ask GitHub Copilot for help)
+GIT & GITHUB (ZSH)
+(zsh) commit - LLM-generated commit messages with fzf selection
+(zsh) ghpub <name> - create public GitHub repo and push
+(zsh) ?? - gh copilot suggest (ask GitHub Copilot for help)
 
-CLIPBOARD & JSON
-pbjson - pretty-print JSON from clipboard
-jcurl <url> - curl URL and pretty-print JSON
-catcopy - cat file and copy to clipboard
-showcase - open code showcase with clipboard content
+CLIPBOARD & JSON (ZSH)
+(zsh) pbjson - pretty-print JSON from clipboard
+(zsh) jcurl <url> - curl URL and pretty-print JSON
+(zsh) catcopy - cat file and copy to clipboard
+(zsh) showcase - open code showcase with clipboard content
 
-PYTHON (UV)
-uvi <tool> - install Python CLI tool
-uvr <file> - run Python file in isolated env
-uvs - sync dependencies
-uvx <tool> - run tool without installing
-fixit - auto-fix Python environment issues
-fuckit - nuke .venv and __pycache__, start fresh
+PYTHON (UV/ZSH)
+(zsh) uvi <tool> - install Python CLI tool
+(zsh) uvr <file> - run Python file in isolated env
+(zsh) uvs - sync dependencies
+(zsh) uvx <tool> - run tool without installing
+(zsh) fixit - auto-fix Python environment issues
+(zsh) fuckit - nuke .venv and __pycache__, start fresh
 
-UTILITIES
-nukeyarn - remove yarn.lock and node_modules
-c - clear terminal and refresh
-l/la/ll - various lsd (ls deluxe) formats
-tip - show random tip from this file
-obsidian - cd to Obsidian vault directory
-tmuxkill - kill tmux server
-tmuxnew <name> - create new tmux session
+UTILITIES (ZSH)
+(zsh) nukeyarn - remove yarn.lock and node_modules
+(zsh) c - clear terminal and refresh
+(zsh) l/la/ll - various lsd (ls deluxe) formats
+(zsh) tip - show random tip from this file
+(zsh) obsidian - cd to Obsidian vault directory
+(zsh) tmuxkill - kill tmux server
+(zsh) tmuxnew <name> - create new tmux session
 
-ENHANCED COMMANDS
-ls - lsd with icons and colors
-cat - bat with syntax highlighting
-grep - ripgrep (way faster, regex by default)
-find - fd (blazing fast Rust find alternative)
-top - btop (beautiful process monitor)
-z <partial> - jump to frequently used directory
+ENHANCED COMMANDS (ZSH)
+(zsh) ls - lsd with icons and colors
+(zsh) cat - bat with syntax highlighting
+(zsh) grep - ripgrep (way faster, regex by default)
+(zsh) find - fd (blazing fast Rust find alternative)
+(zsh) top - btop (beautiful process monitor)
+(zsh) z <partial> - jump to frequently used directory
 
-IRC
-fp / irssi - launch IRC client
-ircsesh - new tmux session running irssi
-irclog - tail IRC logs
+IRC (ZSH)
+(zsh) fp / irssi - launch IRC client
+(zsh) ircsesh - new tmux session running irssi
+(zsh) irclog - tail IRC logs
 
 MISC
-Sketchybar shows CIPHER coach when no calendar events
-Nvim 0.11 diagnostics show below lines (virtual lines mode)
-Enhanced commands fall back to standard versions on remote servers
+(sketchybar) CIPHER coach shows when no calendar events in next 4 hours
+(nvim) diagnostics show below lines (virtual lines mode, not inline)
+(zsh) enhanced commands fall back to standard versions on remote servers
