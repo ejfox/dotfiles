@@ -115,60 +115,45 @@ Last major restore: May 27, 2025 - Merged September backup with current config
 Last feature addition: Sep 28, 2025 - mermaid-ascii tmux integration
 
 ## Tmux 2025 Modern Workflows (Nov 15, 2025):
-**Status**: ✅ ACTIVE - Modern popup workflows, sessionizer, .t files
+**Status**: ✅ ACTIVE - Modern popup workflows for pane-based workflow
 
-### New Keybindings Added:
-**Session Management:**
-- `C-a T` → Sesh sessionizer (fuzzy find projects with zoxide)
-  - Inside popup: `Ctrl-a` (all), `Ctrl-t` (tmux only), `Ctrl-z` (zoxide), `Ctrl-f` (find)
-  - Auto-runs `.t` files when creating new sessions
+**Note**: User prefers pane-based workflow (not sessions/windows), so sessionizer removed.
 
-**Popup Workflows:**
+### Popup Workflows (THE GOOD SHIT):
 - `C-a g` → Lazygit popup in current directory (GAME CHANGER)
+  - Floats over your panes, do git stuff, close it, back to work
+  - No disruption to your carefully arranged panes
 - `C-a K` → Yazi file manager popup
-- `C-a S` → Scratch terminal toggle (persistent, hide/show with same key)
+  - Quick file browsing without opening new panes
+- `C-a S` → Scratch terminal toggle (persistent)
+  - Floating terminal for quick commands/calculations
+  - Toggle away with same key, session persists in background
+  - Great for one-off API tests, jq parsing, quick scripts
 
-**Pane Capture:**
+### Pane Capture:
 - `C-a C-y` → Yank entire pane (all scrollback) to clipboard
 - `C-a M-y` → Yank last 200 lines to clipboard
-
-### .t Files - Project Auto-Startup:
-**Location**: `~/code/project-name/.t` (executable bash script)
-
-When sesh creates a session, it auto-runs the .t file to set up your workspace.
-
-**Example** (`~/code/website2/.t`):
-```bash
-#!/bin/bash
-# 4-pane layout: editor + dev server + claude + lazygit
-
-tmux split-window -v -p 30
-tmux split-window -h -p 50
-tmux send-keys "lazygit" C-m
-tmux select-pane -t 1
-tmux send-keys "claude" C-m
-tmux select-pane -t 0
-tmux split-window -v -p 25
-tmux send-keys "npm run dev" C-m
-tmux select-pane -t 0
-tmux send-keys "nvim" C-m
-```
+  - No more manual selection for copying command output
 
 ### Helper Scripts:
-- `~/.local/bin/sesh-connect-smart` - Wraps sesh to run .t files
 - `~/.local/bin/tmux-scratch-toggle` - Toggle scratch terminal with persistence
-- Both scripts are tracked in `~/.dotfiles/bin/`
+- Tracked in `~/.dotfiles/bin/`
 
-### Dependencies Installed:
-- `sesh` (via homebrew) - Go-powered sessionizer with zoxide integration
-- Already had: `zoxide`, `fzf`, `lazygit`, `yazi`
+### Dependencies:
+- `lazygit` (already installed) - Git TUI
+- `yazi` (already installed) - File manager
+- `fzf` (already installed) - Fuzzy finder
 
-### Daily Workflow:
-1. `C-a T` → type project name → Enter (auto-creates session with .t layout)
-2. `C-a g` → quick git operations without disrupting layout
-3. `C-a S` → scratch terminal for one-off commands, toggles away when done
+### Daily Workflow (Pane-Based):
+- Multiple panes visible at once (editor, servers, logs, etc)
+- `C-a g` → quick git operations without disrupting pane layout
+- `C-a S` → scratch terminal for one-off commands
+- `C-a C-y` → yank command output to paste elsewhere
 
-### Documentation:
-Full guide at: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox/robots/tmux-2025-workflows.md`
+**Why popup workflows work for pane users:**
+- Don't create new panes/windows that mess up your layout
+- Float over everything temporarily
+- Quick toggle on/off
+- Back to your panes exactly as you left them
 
-**Commit**: 185fcad - feat(tmux): add 2025 modern workflows
+**Commit**: 185fcad - feat(tmux): add 2025 modern workflows (sessionizer removed later)
