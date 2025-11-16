@@ -19,35 +19,36 @@ function M.setup()
     fg = '#f2cfdf',
     base = '#e60067',
 
-    error = '#ff001e',
-    warning = '#ff0022',
+    error = '#00ffff',
+    warning = '#ffaa00',
     success = '#ffffff',
     info = '#ff0095',
     hint = '#ff4d9d',
 
     comment = '#ffffff',
+    linenr = '#735865',
     keyword = '#ff1aca',
-    string = '#ff7f29',
+    string = '#f5f5f5',
     number = '#ff33c5',
     boolean = '#ff1043',
     func = '#ff0022',
     const = '#ff1043',
     type = '#ff24ab',
     variable = '#ff0a89',
-    operator = '#ff1a79',
-    builtin = '#ff1053',
+    operator = '#f92c7a',
+    builtin = '#f82956',
     parameter = '#ff057e',
     property = '#ff0a91',
-    namespace = '#ff1f6d',
-    macro = '#ff159d',
-    tag = '#ff1a62',
-    punctuation = '#ff006f',
+    namespace = '#f8326e',
+    macro = '#f92a9c',
+    tag = '#f82e64',
+    punctuation = '#f82470',
     heading = '#ff2453',
 
-    selection = '#00d9ff',      -- Cyberpunk cyan/blue
+    selection = '#ff3388',      -- Pink theme selection
     selection_fg = '#0d0d0d',   -- Dark fg for contrast
     cursor = '#e60067',
-    cursorline = '#141414',
+    cursorline = '#1a1a1a',
   }
 
   local highlights = {
@@ -69,9 +70,9 @@ function M.setup()
     CursorLine = { bg = colors.cursorline },
     CursorColumn = { bg = colors.cursorline },
     CursorLineNr = { fg = colors.base },
-    LineNr = { fg = colors.comment },
-    LineNrAbove = { fg = colors.comment },
-    LineNrBelow = { fg = colors.comment },
+    LineNr = { fg = colors.linenr },
+    LineNrAbove = { fg = colors.linenr },
+    LineNrBelow = { fg = colors.linenr },
 
     SignColumn = { bg = colors.bg },
     SignColumnSB = { link = 'SignColumn' },
@@ -407,26 +408,8 @@ function M.setup()
     CmpItemKindOperator = { fg = colors.operator },
     CmpItemKindTypeParameter = { fg = colors.type },
 
-    -- nvim-tree / neo-tree
-    NvimTreeNormal = { fg = colors.fg, bg = colors.bg_alt },
-    NvimTreeFolderName = { fg = colors.info },
-    NvimTreeFolderIcon = { fg = colors.info },
-    NvimTreeOpenedFolderName = { fg = colors.base },
-    NvimTreeRootFolder = { fg = colors.base },
-    NvimTreeSpecialFile = { fg = colors.warning },
-    NvimTreeGitDirty = { fg = colors.warning },
-    NvimTreeGitNew = { fg = colors.success },
-    NvimTreeGitDeleted = { fg = colors.error },
-
-    NeoTreeNormal = { fg = colors.fg, bg = colors.bg_alt },
-    NeoTreeDirectoryName = { fg = colors.info },
-    NeoTreeDirectoryIcon = { fg = colors.info },
-    NeoTreeRootName = { fg = colors.base },
-    NeoTreeFileName = { fg = colors.fg },
-    NeoTreeFileIcon = { fg = colors.fg },
-    NeoTreeGitAdded = { fg = colors.success },
-    NeoTreeGitModified = { fg = colors.warning },
-    NeoTreeGitDeleted = { fg = colors.error },
+    -- Snacks explorer (flat black background)
+    ExplorerNormal = { fg = '#ffffff', bg = '#000000' },
 
     -- Which-key
     WhichKey = { fg = colors.base },
@@ -436,9 +419,22 @@ function M.setup()
     WhichKeyFloat = { bg = colors.bg_alt },
     WhichKeyValue = { fg = colors.string },
 
-    -- Indent Blankline
-    IblIndent = { fg = colors.bg_alt },
-    IblScope = { fg = colors.comment },
+    -- Indent guides (Snacks.nvim)
+    SnacksIndent = { fg = colors.linenr },
+    SnacksIndentScope = { fg = colors.linenr },
+    -- Rainbow indent variants (if enabled)
+    SnacksIndent1 = { fg = colors.linenr },
+    SnacksIndent2 = { fg = colors.linenr },
+    SnacksIndent3 = { fg = colors.linenr },
+    SnacksIndent4 = { fg = colors.linenr },
+    SnacksIndent5 = { fg = colors.linenr },
+    SnacksIndent6 = { fg = colors.linenr },
+    SnacksIndent7 = { fg = colors.linenr },
+    SnacksIndent8 = { fg = colors.linenr },
+
+    -- Indent Blankline (fallback)
+    IblIndent = { fg = colors.linenr },
+    IblScope = { fg = colors.linenr },
 
     -- Dashboard / Alpha
     DashboardHeader = { fg = colors.base },
