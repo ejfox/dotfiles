@@ -158,6 +158,59 @@ Last feature addition: Sep 28, 2025 - mermaid-ascii tmux integration
 
 **Commit**: 185fcad - feat(tmux): add 2025 modern workflows (sessionizer removed later)
 
+## Essential Plugins for Daily Driver (Nov 16, 2025):
+**Status**: ✅ INSTALLED - oil.nvim, vim-tmux-navigator, tmux-thumbs
+
+### oil.nvim - Filesystem as a Buffer
+**Location**: `~/.config/nvim/lua/plugins/oil.lua`
+
+Edit your filesystem like any Vim buffer:
+- `-` → Open parent directory (vim-vinegar style)
+- `<CR>` → Open file/directory
+- Delete a line → Delete file
+- Edit a line → Rename file
+- Create new line → Create new file
+- `g.` → Toggle hidden files
+- `<C-s>` → Open in vertical split
+- `<C-h>` → Open in horizontal split
+
+**Why it's better than file trees:**
+- No separate UI, just buffers and motions
+- Vim muscle memory applies to filesystem
+- Fast and minimal
+
+### vim-tmux-navigator - Seamless Navigation
+**Location**: `~/.config/nvim/lua/plugins/vim-tmux-navigator.lua`
+
+Single keybindings work across BOTH Nvim splits AND tmux panes:
+- `Ctrl-h` → Move left (vim window or tmux pane)
+- `Ctrl-j` → Move down (vim window or tmux pane)
+- `Ctrl-k` → Move up (vim window or tmux pane)
+- `Ctrl-l` → Move right (vim window or tmux pane)
+- `Ctrl-\` → Previous split
+
+**Perfect for pane-based workflow:**
+- No mental overhead about "am I in vim or tmux?"
+- Just move in any direction, it works
+- Essential for multi-pane development
+
+### tmux-thumbs - Vimium-Style Hints
+**Location**: `~/.tmux.conf` (plugin: fcsonline/tmux-thumbs)
+
+Hit `prefix + Space`, get letter hints on all visible text:
+- Type letters to copy text to clipboard
+- Uppercase hint = copy + paste
+- Home row keys (asdfghjkl) for hints
+- **Way faster than mouse selection or tmux copy mode**
+
+**Replaced tmux-fingers** (Rust rewrite, much faster)
+
+**Common use cases:**
+- Copy URLs from terminal output
+- Grab error messages
+- Copy file paths from ls output
+- Extract API tokens from logs
+
 ## Nvim + Sketchybar Major Updates (Nov 15, 2025):
 **Status**: ✅ COMPLETE - Transparency, CIPHER coach, security cleanup
 
