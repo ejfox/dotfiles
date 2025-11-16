@@ -24,6 +24,13 @@ return {
         preview = {
           hide_on_startup = false,
         },
+        -- Custom keybindings
+        mappings = {
+          i = {
+            ["<C-v>"] = false,  -- disable default
+            ["<C-_>"] = "select_vertical",
+          },
+        },
       },
       pickers = {
         find_files = {
