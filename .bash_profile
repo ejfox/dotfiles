@@ -1,7 +1,6 @@
-export bot_consumer_key="REDACTED_BOT_CONSUMER_KEY"
-export bot_consumer_secret="REDACTED_BOT_CONSUMER_SECRET"
-export bot_access_token="REDACTED_BOT_ACCESS_TOKEN"
-export bot_access_token_secret="REDACTED_BOT_ACCESS_TOKEN_SECRET"
+# Twitter bot credentials moved to .env
+# Source .env for secrets
+[ -f ~/.env ] && source ~/.env
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
