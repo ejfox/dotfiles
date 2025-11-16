@@ -2,11 +2,17 @@ return {
   {
     "nvim-lualine/lualine.nvim",
     opts = function()
-      -- Helper function to get one level of path
-      local function one_level_path()
+      -- Helper function to get path with context (2 preceding dirs)
+      local function context_path()
         local path = vim.fn.expand("%:~:.")
         local parts = vim.split(path, "/")
-        if #parts > 1 then
+
+        -- Show last 3 parts (2 dirs + filename) for better context
+        if #parts > 3 then
+          return parts[#parts-2] .. "/" .. parts[#parts-1] .. "/" .. parts[#parts]
+        elseif #parts > 2 then
+          return parts[#parts-1] .. "/" .. parts[#parts]
+        elseif #parts > 1 then
           return parts[#parts-1] .. "/" .. parts[#parts]
         end
         return path
@@ -76,8 +82,8 @@ return {
           lualine_a = {},
           lualine_b = {},
           lualine_c = {
-            { 
-              one_level_path,
+            {
+              context_path,
               symbols = { modified = " ◆", readonly = " ◇", unnamed = "[No Name]" },
             },
           },
@@ -90,7 +96,7 @@ return {
           lualine_z = {},
         },
         inactive_sections = {
-          lualine_c = { one_level_path },
+          lualine_c = { context_path },
           lualine_x = {},
         },
       }
