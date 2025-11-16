@@ -5,18 +5,31 @@ return {
       -- Disable smooth scrolling (you have vim.opt.smoothscroll = false already)
       scroll = { enabled = false },
 
+      -- File explorer configuration
+      picker = {
+        sources = {
+          explorer = {
+            win = {
+              list = {
+                wo = {
+                  winhighlight = "Normal:ExplorerNormal,NormalNC:ExplorerNormal,EndOfBuffer:ExplorerNormal,SignColumn:ExplorerNormal",
+                },
+              },
+            },
+          },
+        },
+      },
+
       -- Dashboard on startup
       dashboard = {
         width = 60,
         preset = {
           header = [[
- _______  _______  __   __
-|       ||       ||  |_|  |
-|    ___||   _   ||       |
-|   |___ |  | |  ||       |
-|    ___||  |_|  | |     |
-|   |    |       ||   _   |
-|___|    |_______||__| |__|
+
+
+                  🦊
+
+
           ]],
           keys = {
             { icon = " ", key = "f", desc = "Find File", action = ":lua Snacks.dashboard.pick('files')" },
