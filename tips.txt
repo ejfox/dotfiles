@@ -1,50 +1,92 @@
-Just typing 'ls' now shows detailed listings with icons and colors thanks to lsd!
-Use 'grep' to search with ripgrep - it's WAY faster and supports regex by default.
-'find' now uses fd under the hood - try 'find image' to find all files with 'image' in the name.
-Try 'df' to see a beautiful disk usage overview with duf.
-'du' now uses dust for a visual breakdown of disk usage - great for finding space hogs.
-'diff' is enhanced with difftastic - showing side-by-side color diffs.
-'cat' now uses bat with syntax highlighting - your code will look beautiful.
-'top' now launches btop with CPU, memory, network, and process monitoring.
-Press 'z' followed by a partial directory name to jump to your most frequent folders.
-Type 'vd' to open CSV, JSON, or Excel files in the terminal with VisiData.
-The default 'ls' shows hidden files (-a) and human-readable sizes (-h) automatically.
-In neofetch, you'll get a daily I Ching hexagram and wisdom quote.
-Your terminal shows an I Ching quote and hexagram with neofetch.
-Use 'jcurl' to curl a JSON API and automatically pretty-print the output.
-Remember 'pbjson' alias for pretty-printing JSON from your clipboard.
-If you forget an alias, check ~/TIPS.txt for help.
-Neofetch displays a daily I Ching hexagram based on the day of the year.
-'du ~/Downloads' will show a visual breakdown of your Downloads folder.
-Try 'df' to see free disk space in a much nicer format.
-'find' is smart - it uses fd for simple queries but falls back to regular find for complex ones.
-Your 'cat' command now does syntax highlighting for over 200 languages.
-'top' is now interactive - use arrow keys, m to sort by memory, c to sort by CPU.
-'grep' is now lightning fast thanks to ripgrep under the hood.
-All your enhanced commands (ls, cat, find, etc.) fall back to standard versions on remote servers.
-Your terminal is officially l33t hax0r status - all standard commands are supercharged!
-💡 Press 'v' to open nvim quickly
-🗂️ Press 'n' to browse current directory with oil.nvim
-🔍 Press 'vs' to fuzzy find files with bat preview
-🔎 Press 'vg' to grep file contents and jump to matching lines
-📝 Press 'o' to instantly access your Obsidian vault (sorted by recency)
-⚡ Press 'r' to see recent files across ALL ~/code projects (GAME CHANGER)
-🌲 Press '-' in nvim to toggle oil.nvim filesystem browser
-📁 In oil.nvim: delete a line to delete a file, edit a line to rename it
-🎨 C-a g → lazygit popup (floats over your tmux panes)
-📂 C-a K → yazi file manager popup
-💻 C-a S → scratch terminal toggle (persistent background session)
-📋 C-a C-y → yank entire pane scrollback to clipboard
-📄 C-a M-y → yank last 200 lines to clipboard
-🔗 C-a Space → tmux-thumbs (vimium-style hints for copying text)
-🤖 'commit' → LLM-generated git commit messages with fzf selection
-🔀 C-h/j/k/l → seamless navigation between nvim splits AND tmux panes
-🎯 Oil.nvim trick: visual select multiple files, :d to delete them all
-🚀 tmux-thumbs: type letter hints to copy URLs/paths/errors instantly
-📊 Sketchybar shows CIPHER coach when no calendar events (picks joyful task)
-⚙️ Telescope in nvim: C-_ opens file in vertical split
-🔧 LSP navigation: 'gd' goto definition, 'gr' references, 'gI' implementation, 'gy' type def
-⚔️ Merge conflicts: 'co' choose ours, 'ct' choose theirs, 'cb' both, '[x'/']x' jump between
-🐛 Debug with nvim-dap: <leader>db breakpoint, <leader>dc start, <leader>du toggle UI
-🌐 HTTP testing: create .http files, press Enter to execute requests
-🎨 Nvim 0.11 diagnostics show below lines (virtual lines mode)
+NVIM ALIASES
+v - open nvim
+n - browse current directory with oil.nvim
+vs - fuzzy find files with bat preview
+vg - grep file contents and jump to matching lines
+o - instantly access Obsidian vault (sorted by recency)
+r - recent files across ALL ~/code projects
+- (in nvim) - toggle oil.nvim filesystem browser
+In oil.nvim: delete a line to delete a file, edit a line to rename it
+Oil.nvim trick: visual select multiple files, :d to delete them all
+
+TMUX KEYBINDINGS
+C-a g - lazygit popup (floats over panes)
+C-a K - yazi file manager popup
+C-a S - scratch terminal toggle (persistent)
+C-a C-y - yank entire pane scrollback to clipboard
+C-a M-y - yank last 200 lines to clipboard
+C-a Space - tmux-thumbs (vimium-style hints for copying text)
+C-a - - split pane vertically (current path)
+C-a _ - split pane horizontally (current path)
+C-a > - swap pane down
+C-a < - swap pane up
+C-a H/J/K/L - resize pane left/down/up/right
+C-a h/j/k/l - select pane left/down/up/right
+M-1 through M-9 - select pane by number
+M-h/M-l - previous/next window
+C-a Z - zen mode toggle
+C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
+
+NVIM NAVIGATION
+gd - goto definition
+gr - goto references
+gI - goto implementation
+gy - goto type definition
+Telescope: C-_ opens file in vertical split
+<leader>db - toggle breakpoint
+<leader>dc - start/continue debugging
+<leader>du - toggle debug UI
+In .http files: Enter to execute request
+
+MERGE CONFLICTS
+co - choose ours (current branch)
+ct - choose theirs (incoming)
+cb - choose both
+c0 - choose none
+[x / ]x - jump between conflicts
+
+GIT & GITHUB
+commit - LLM-generated commit messages with fzf selection
+ghpub <name> - create public GitHub repo and push
+?? - gh copilot suggest (ask GitHub Copilot for help)
+
+CLIPBOARD & JSON
+pbjson - pretty-print JSON from clipboard
+jcurl <url> - curl URL and pretty-print JSON
+catcopy - cat file and copy to clipboard
+showcase - open code showcase with clipboard content
+
+PYTHON (UV)
+uvi <tool> - install Python CLI tool
+uvr <file> - run Python file in isolated env
+uvs - sync dependencies
+uvx <tool> - run tool without installing
+fixit - auto-fix Python environment issues
+fuckit - nuke .venv and __pycache__, start fresh
+
+UTILITIES
+nukeyarn - remove yarn.lock and node_modules
+c - clear terminal and refresh
+l/la/ll - various lsd (ls deluxe) formats
+tip - show random tip from this file
+obsidian - cd to Obsidian vault directory
+tmuxkill - kill tmux server
+tmuxnew <name> - create new tmux session
+
+ENHANCED COMMANDS
+ls - lsd with icons and colors
+cat - bat with syntax highlighting
+grep - ripgrep (way faster, regex by default)
+find - fd (blazing fast Rust find alternative)
+top - btop (beautiful process monitor)
+z <partial> - jump to frequently used directory
+
+IRC
+fp / irssi - launch IRC client
+ircsesh - new tmux session running irssi
+irclog - tail IRC logs
+
+MISC
+Sketchybar shows CIPHER coach when no calendar events
+Nvim 0.11 diagnostics show below lines (virtual lines mode)
+Enhanced commands fall back to standard versions on remote servers
