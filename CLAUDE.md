@@ -211,6 +211,21 @@ Added custom mappings:
 - `<C-v>` disabled (removed default behavior)
 - `<C-_>` → `select_vertical` (open in vertical split)
 
+### LSP Navigation Override
+**Location**: `~/.config/nvim/lua/config/keymaps.lua`
+
+Disabled snacks_picker extra for all LSP keybindings (had reliability issues):
+- `gd` → `vim.lsp.buf.definition` (Goto Definition)
+- `gr` → `vim.lsp.buf.references` (Goto References)
+- `gI` → `vim.lsp.buf.implementation` (Goto Implementation)
+- `gy` → `vim.lsp.buf.type_definition` (Goto Type Definition)
+- `<leader>ss` → `vim.lsp.buf.document_symbol` (Document Symbols)
+- `<leader>sS` → `vim.lsp.buf.workspace_symbol` (Workspace Symbols)
+- `gai` → `vim.lsp.buf.incoming_calls` (Incoming Calls)
+- `gao` → `vim.lsp.buf.outgoing_calls` (Outgoing Calls)
+
+All now use native LSP protocol directly instead of snacks.nvim picker layer.
+
 ### Security Cleanup (CRITICAL)
 **Date**: Nov 15, 2025
 
