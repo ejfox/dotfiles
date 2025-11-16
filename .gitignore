@@ -4,3 +4,4 @@
 .netlify
 # NPM auth token
 .npmrc
+claude.json
