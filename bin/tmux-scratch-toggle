@@ -1,0 +1,22 @@
+#!/bin/bash
+# Toggle scratch terminal - creates session if doesn't exist, hides if running
+
+SESSION="scratch"
+
+# Get current session name
+CURRENT_SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+
+# If we're currently in the scratch session, detach (close the popup)
+if [ "$CURRENT_SESSION" = "$SESSION" ]; then
+    tmux detach-client
+    exit 0
+fi
+
+# Otherwise, open/create scratch session in popup
+if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+    # Session doesn't exist, create it
+    tmux new-session -d -s "$SESSION"
+fi
+
+# Show in popup
+tmux display-popup -E -w 90% -h 90% "tmux attach-session -t $SESSION"
