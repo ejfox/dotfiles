@@ -54,9 +54,9 @@ function M.setup()
     -- ============================================================================
     -- EDITOR UI
     -- ============================================================================
-    Normal = { fg = colors.fg, bg = colors.bg },
+    Normal = { fg = colors.fg, bg = 'none' },
     NormalFloat = { fg = colors.fg, bg = colors.bg_alt },
-    NormalNC = { fg = colors.fg, bg = colors.bg },
+    NormalNC = { fg = colors.fg, bg = 'none' },
     FloatBorder = { fg = colors.base, bg = colors.bg_alt },
     FloatTitle = { fg = colors.base, bg = colors.bg_alt },
 
@@ -73,9 +73,9 @@ function M.setup()
     LineNrAbove = { fg = colors.comment },
     LineNrBelow = { fg = colors.comment },
 
-    SignColumn = { bg = colors.bg },
+    SignColumn = { bg = 'none' },
     SignColumnSB = { link = 'SignColumn' },
-    FoldColumn = { fg = colors.comment, bg = colors.bg },
+    FoldColumn = { fg = colors.comment, bg = 'none' },
     Folded = { fg = colors.comment, bg = colors.bg_alt },
     ColorColumn = { bg = colors.bg_alt },
 
@@ -98,12 +98,12 @@ function M.setup()
     PmenuExtraSel = { fg = colors.bg, bg = colors.comment },
 
     StatusLine = { fg = colors.fg, bg = colors.bg_alt },
-    StatusLineNC = { fg = colors.comment, bg = colors.bg },
-    WinBar = { fg = colors.fg, bg = colors.bg },
-    WinBarNC = { fg = colors.comment, bg = colors.bg },
+    StatusLineNC = { fg = colors.comment, bg = 'none' },
+    WinBar = { fg = colors.fg, bg = 'none' },
+    WinBarNC = { fg = colors.comment, bg = 'none' },
 
-    TabLine = { fg = colors.comment, bg = colors.bg },
-    TabLineFill = { bg = colors.bg },
+    TabLine = { fg = colors.comment, bg = 'none' },
+    TabLineFill = { bg = 'none' },
     TabLineSel = { fg = colors.fg, bg = colors.bg_alt },
 
     VertSplit = { fg = colors.bg_alt },
@@ -121,7 +121,7 @@ function M.setup()
     NonText = { fg = colors.comment },
     SpecialKey = { fg = colors.comment },
     Whitespace = { fg = colors.comment },
-    EndOfBuffer = { fg = colors.bg },
+    EndOfBuffer = { fg = 'none' },
 
     -- Spell checking
     SpellBad = { sp = colors.error, undercurl = true },
@@ -187,10 +187,10 @@ function M.setup()
     DiagnosticHint = { fg = colors.hint },
     DiagnosticOk = { fg = colors.success },
 
-    DiagnosticVirtualTextError = { fg = colors.error, bg = colors.bg },
-    DiagnosticVirtualTextWarn = { fg = colors.warning, bg = colors.bg },
-    DiagnosticVirtualTextInfo = { fg = colors.info, bg = colors.bg },
-    DiagnosticVirtualTextHint = { fg = colors.hint, bg = colors.bg },
+    DiagnosticVirtualTextError = { fg = colors.error, bg = 'none' },
+    DiagnosticVirtualTextWarn = { fg = colors.warning, bg = 'none' },
+    DiagnosticVirtualTextInfo = { fg = colors.info, bg = 'none' },
+    DiagnosticVirtualTextHint = { fg = colors.hint, bg = 'none' },
 
     DiagnosticUnderlineError = { sp = colors.error },
     DiagnosticUnderlineWarn = { sp = colors.warning, underline = true },
@@ -202,10 +202,10 @@ function M.setup()
     DiagnosticFloatingInfo = { fg = colors.info, bg = colors.bg_alt },
     DiagnosticFloatingHint = { fg = colors.hint, bg = colors.bg_alt },
 
-    DiagnosticSignError = { fg = colors.error, bg = colors.bg },
-    DiagnosticSignWarn = { fg = colors.warning, bg = colors.bg },
-    DiagnosticSignInfo = { fg = colors.info, bg = colors.bg },
-    DiagnosticSignHint = { fg = colors.hint, bg = colors.bg },
+    DiagnosticSignError = { fg = colors.error, bg = 'none' },
+    DiagnosticSignWarn = { fg = colors.warning, bg = 'none' },
+    DiagnosticSignInfo = { fg = colors.info, bg = 'none' },
+    DiagnosticSignHint = { fg = colors.hint, bg = 'none' },
 
     -- LSP Semantic Token Groups
     ['@lsp.type.class'] = { link = 'Type' },
