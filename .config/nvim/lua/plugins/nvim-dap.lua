@@ -68,41 +68,14 @@ return {
   },
 
   -- JavaScript/TypeScript debugger
-  {
-    "mxsdev/nvim-dap-vscode-js",
-    dependencies = {
-      "microsoft/vscode-js-debug",
-      build = "npm install --legacy-peer-deps && npx gulp vsDebugServerBundle && mv dist out",
-    },
-    config = function()
-      require("dap-vscode-js").setup({
-        debugger_path = vim.fn.stdpath("data") .. "/lazy/vscode-js-debug",
-        adapters = { "pwa-node", "pwa-chrome", "pwa-msedge", "node-terminal", "pwa-extensionHost" },
-      })
-
-      local dap = require("dap")
-
-      -- Node.js debugging
-      for _, language in ipairs({ "typescript", "javascript", "typescriptreact", "javascriptreact" }) do
-        dap.configurations[language] = {
-          {
-            type = "pwa-node",
-            request = "launch",
-            name = "Launch file",
-            program = "${file}",
-            cwd = "${workspaceFolder}",
-            sourceMaps = true,
-          },
-          {
-            type = "pwa-node",
-            request = "attach",
-            name = "Attach",
-            processId = require("dap.utils").pick_process,
-            cwd = "${workspaceFolder}",
-            sourceMaps = true,
-          },
-        }
-      end
-    end,
-  },
+  -- DISABLED: vscode-js-debug is janky, re-enable if needed for actual JS debugging
+  -- {
+  --   "mxsdev/nvim-dap-vscode-js",
+  --   dependencies = {
+  --     {
+  --       "microsoft/vscode-js-debug",
+  --       build = "npm install --legacy-peer-deps && npx gulp vsDebugServerBundle && mv dist out",
+  --     },
+  --   },
+  -- },
 }
