@@ -211,6 +211,66 @@ Hit `prefix + Space`, get letter hints on all visible text:
 - Copy file paths from ls output
 - Extract API tokens from logs
 
+### nvim-dap - Debugging
+**Location**: `~/.config/nvim/lua/plugins/nvim-dap.lua`
+
+Full debugging for TypeScript/JavaScript/Vue:
+- `<leader>db` → Toggle breakpoint
+- `<leader>dc` → Start/continue debugging
+- `<leader>di` → Step into
+- `<leader>do` → Step over
+- `<leader>dO` → Step out
+- `<leader>dt` → Terminate
+- `<leader>du` → Toggle debug UI
+- `<leader>de` → Eval expression (normal/visual)
+
+**Features:**
+- Console output visible in bottom panel
+- Variable scopes, call stack, watches in right panel
+- Inline virtual text shows variable values
+- Auto-opens UI when debugging starts
+- No more console.log hell
+
+### kulala.nvim - HTTP Client
+**Location**: `~/.config/nvim/lua/plugins/kulala.lua`
+
+Test APIs without leaving nvim:
+- Create `.http` files with requests
+- `<CR>` → Execute request under cursor
+- `[r` / `]r` → Jump between requests
+- `<leader>ri` → Inspect request
+- `<leader>rc` → Copy as cURL
+
+**Example .http file:**
+```http
+### Get user
+GET https://api.example.com/users/1
+Authorization: Bearer {{token}}
+
+### Create user
+POST https://api.example.com/users
+Content-Type: application/json
+
+{
+  "name": "John Doe"
+}
+```
+
+Better than Postman for quick API tests, keeps requests in version control.
+
+### git-conflict.nvim - Merge Conflicts
+**Location**: `~/.config/nvim/lua/plugins/minimal-git.lua`
+
+Handle merge conflicts visually:
+- `co` → Choose ours (current branch)
+- `ct` → Choose theirs (incoming)
+- `cb` → Choose both
+- `c0` → Choose none
+- `[x` / `]x` → Jump between conflicts
+
+Green highlight = incoming, gray highlight = current.
+Fast resolution without manual marker editing.
+
 ## Nvim + Sketchybar Major Updates (Nov 15, 2025):
 **Status**: ✅ COMPLETE - Transparency, CIPHER coach, security cleanup
 
