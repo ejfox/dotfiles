@@ -86,7 +86,41 @@ IRC (ZSH)
 (zsh) ircsesh - new tmux session running irssi
 (zsh) irclog - tail IRC logs
 
+ADVANCED NVIM FEATURES
+(nvim) ma - set mark 'a' at cursor position
+(nvim) 'a - jump to mark 'a'
+(nvim) mA - set GLOBAL mark (works across files!)
+(nvim) 'A - jump to global mark A
+(nvim) :marks - see all marks
+(nvim/telescope) <leader>fk - search all keymaps/keybindings
+(nvim/telescope) <leader>fh - search help tags/vim docs
+(nvim/telescope) <leader>fo - oldfiles (recent files)
+(nvim/telescope) <leader>fc - search vim commands
+(nvim/telescope) <leader>fm - jump to bookmarks/marks
+(nvim/telescope) <leader>fr - see all registers content
+(nvim/telescope) <leader>fj - navigate jump history
+(nvim/yanky) <leader>p - cycle through yank history
+(nvim/yanky) deleted something then copied something else? <leader>p gets the first thing back
+
+TMUX COPY MODE
+(tmux) C-a [ - enter copy mode (use vim motions!)
+(tmux/copy-mode) v - start visual selection
+(tmux/copy-mode) y - yank selection to clipboard
+(tmux/copy-mode) q - quit copy mode
+(tmux/copy-mode) / - search forward
+(tmux/copy-mode) ? - search backward
+(tmux/copy-mode) Space - start selection (alternative to v)
+(tmux/copy-mode) Enter - copy selection and exit
+
+GIT WORKTREES
+(git) git worktree add ../feature-name feature-branch - work on multiple branches simultaneously
+(git) git worktree list - see all active worktrees
+(git) git worktree remove ../feature-name - remove worktree
+(git) work on PR in one pane, develop in another, no stashing/switching
+
 MISC
 (sketchybar) CIPHER coach shows when no calendar events in next 4 hours
 (nvim) diagnostics show below lines (virtual lines mode, not inline)
 (zsh) enhanced commands fall back to standard versions on remote servers
+(nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
+(tmux) copy mode uses vim motions - hjkl to move, w/b for words, $ for end of line
