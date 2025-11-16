@@ -157,3 +157,104 @@ Last feature addition: Sep 28, 2025 - mermaid-ascii tmux integration
 - Back to your panes exactly as you left them
 
 **Commit**: 185fcad - feat(tmux): add 2025 modern workflows (sessionizer removed later)
+
+## Nvim + Sketchybar Major Updates (Nov 15, 2025):
+**Status**: ✅ COMPLETE - Transparency, CIPHER coach, security cleanup
+
+### Nvim Transparency (Ghostty Integration)
+**Location**: `~/.config/nvim/colors/vulpes-reddishnovember-{dark,light}.lua`
+
+Made editor background fully transparent to use Ghostty's transparent background:
+- Set `Normal`, `NormalNC` backgrounds → `'none'`
+- Set `SignColumn`, `FoldColumn`, `WinBar`, `TabLine` backgrounds → `'none'`
+- Set diagnostic signs and virtual text backgrounds → `'none'`
+- Applied to both dark and light colorscheme variants
+
+**Restart nvim** or run `:colorscheme vulpes-reddishnovember-dark` to reload.
+
+### Sketchybar CIPHER Coach
+**Location**: `~/.config/sketchybar/plugins/next_event.sh`
+
+Intelligent calendar event display with Things task integration:
+- Shows next timed event with countdown ("in 15m", "at 3:00")
+- Skips all-day events entirely
+- Strips ANSI codes from icalBuddy output
+- Uses LLM to format event titles with emoji
+
+**CIPHER Mode** (when no events in next 4 hours):
+- Reads today's tasks from Things via AppleScript
+- Picks most joyful/appealing task and highlights it
+- "Supportive coach, not taskmaster" tone
+- Caches messages to avoid excessive API calls
+- Updates only when: hour changes, tasks change, or completions change
+
+**Styling**:
+- 10pt font (smaller, subtle)
+- Dark grey text (0xff666666)
+- Update frequency: 60 seconds
+
+**Config**: `~/.config/sketchybar/sketchybarrc` line 43-45
+
+### Battery Fade Effect
+**Location**: `~/.config/sketchybar/plugins/battery.sh`
+
+Smooth gradient from black to red as battery drains:
+- 20 minutes = black background (normal)
+- Gradually increases red intensity as time decreases
+- 0 minutes = full red alarm
+- Formula: `RED_INTENSITY = 255 * (20 - MINS) / 20`
+
+### Telescope Keybindings
+**Location**: `~/.config/nvim/lua/plugins/minimal-telescope.lua`
+
+Added custom mappings:
+- `<C-v>` disabled (removed default behavior)
+- `<C-_>` → `select_vertical` (open in vertical split)
+
+### Security Cleanup (CRITICAL)
+**Date**: Nov 15, 2025
+
+**9 API keys scrubbed from git history**:
+1. Anthropic API key (sk-ant-...)
+2. OpenRouter API key (sk-or-...) - exposed publicly, auto-disabled
+3. OpenAI project key (sk-proj-...)
+4. Twitter bot OAuth (4 tokens: consumer key/secret, access token/secret)
+5. Twitter bearer token
+6. Supabase anon key (JWT)
+
+**145 files removed** from Library/ (Adobe, Sketch, VLC prefs, 8MB Unreal Engine binary)
+
+**Secrets moved to ~/.env** (gitignored):
+- .bash_profile cleaned of all hardcoded credentials
+- Now sources ~/.env for secrets
+- NEVER commit ~/.env
+
+**Improved .gitignore**:
+```gitignore
+# Secrets and credentials
+.env
+.env.*
+*.key
+*.pem
+claude.json
+
+# macOS application state
+Library/
+*.app/
+
+# Temporary files
+*.swp
+*~
+```
+
+**Action items**:
+- ✅ All keys scrubbed from entire git history (119 commits rewritten)
+- ✅ Force pushed cleaned history
+- ⚠️ ROTATE ALL THOSE KEYS - they were publicly visible
+- ⚠️ Check GitHub security alerts: https://github.com/ejfox/dotfiles/security
+
+### LazyVim Config
+**Disabled plugins**:
+- Harpoon (not using this workflow) - `~/.config/nvim/lua/plugins/harpoon.lua` line 4
+
+**Commit**: f25883c - chore: remove secrets from .bash_profile, improve .gitignore
