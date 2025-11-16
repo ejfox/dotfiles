@@ -91,15 +91,26 @@ else
   COLOR="0xffa9b1d6"  # Normal purple-ish
 fi
 
-# Check if we need to make the entire bar red for critical battery
-if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]] && [[ ${BASH_REMATCH[1]} -lt 10 ]]; then
-  # Less than 10 minutes remaining - red bar background
-  BAR_COLOR="0xffff0000"
-elif [[ "$TIME_LABEL" == "9m" ]] || [[ "$TIME_LABEL" == "8m" ]] || [[ "$TIME_LABEL" == "7m" ]] || [[ "$TIME_LABEL" == "6m" ]] || [[ "$TIME_LABEL" == "5m" ]] || [[ "$TIME_LABEL" == "4m" ]] || [[ "$TIME_LABEL" == "3m" ]] || [[ "$TIME_LABEL" == "2m" ]] || [[ "$TIME_LABEL" == "1m" ]]; then
-  # Definitely less than 10 minutes - red bar
-  BAR_COLOR="0xffff0000"
+# Fade bar background to red as battery gets critical
+if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]]; then
+  MINS=${BASH_REMATCH[1]}
+
+  if [ "$MINS" -le 20 ]; then
+    # Calculate fade: 20 mins = black (0x000000), 0 mins = full red (0xff0000)
+    # Fade formula: red_intensity increases as minutes decrease
+    RED_INTENSITY=$((255 * (20 - MINS) / 20))
+
+    # Convert to hex (0-255)
+    RED_HEX=$(printf "%02x" $RED_INTENSITY)
+
+    # Create color with faded red background (0xff + RR + 0000)
+    BAR_COLOR="0xff${RED_HEX}0000"
+  else
+    # Normal bar color
+    BAR_COLOR="0xff000000"
+  fi
 else
-  # Normal bar color
+  # Normal bar color (charging or no time estimate)
   BAR_COLOR="0xff000000"
 fi
 
