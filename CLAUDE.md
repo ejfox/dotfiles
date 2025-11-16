@@ -113,3 +113,62 @@ tmux send-keys -t 0:6.2 "watch -n 0.5 'cat /tmp/mermaid_display 2>/dev/null || e
 
 Last major restore: May 27, 2025 - Merged September backup with current config
 Last feature addition: Sep 28, 2025 - mermaid-ascii tmux integration
+
+## Tmux 2025 Modern Workflows (Nov 15, 2025):
+**Status**: ✅ ACTIVE - Modern popup workflows, sessionizer, .t files
+
+### New Keybindings Added:
+**Session Management:**
+- `C-a T` → Sesh sessionizer (fuzzy find projects with zoxide)
+  - Inside popup: `Ctrl-a` (all), `Ctrl-t` (tmux only), `Ctrl-z` (zoxide), `Ctrl-f` (find)
+  - Auto-runs `.t` files when creating new sessions
+
+**Popup Workflows:**
+- `C-a g` → Lazygit popup in current directory (GAME CHANGER)
+- `C-a K` → Yazi file manager popup
+- `C-a S` → Scratch terminal toggle (persistent, hide/show with same key)
+
+**Pane Capture:**
+- `C-a C-y` → Yank entire pane (all scrollback) to clipboard
+- `C-a M-y` → Yank last 200 lines to clipboard
+
+### .t Files - Project Auto-Startup:
+**Location**: `~/code/project-name/.t` (executable bash script)
+
+When sesh creates a session, it auto-runs the .t file to set up your workspace.
+
+**Example** (`~/code/website2/.t`):
+```bash
+#!/bin/bash
+# 4-pane layout: editor + dev server + claude + lazygit
+
+tmux split-window -v -p 30
+tmux split-window -h -p 50
+tmux send-keys "lazygit" C-m
+tmux select-pane -t 1
+tmux send-keys "claude" C-m
+tmux select-pane -t 0
+tmux split-window -v -p 25
+tmux send-keys "npm run dev" C-m
+tmux select-pane -t 0
+tmux send-keys "nvim" C-m
+```
+
+### Helper Scripts:
+- `~/.local/bin/sesh-connect-smart` - Wraps sesh to run .t files
+- `~/.local/bin/tmux-scratch-toggle` - Toggle scratch terminal with persistence
+- Both scripts are tracked in `~/.dotfiles/bin/`
+
+### Dependencies Installed:
+- `sesh` (via homebrew) - Go-powered sessionizer with zoxide integration
+- Already had: `zoxide`, `fzf`, `lazygit`, `yazi`
+
+### Daily Workflow:
+1. `C-a T` → type project name → Enter (auto-creates session with .t layout)
+2. `C-a g` → quick git operations without disrupting layout
+3. `C-a S` → scratch terminal for one-off commands, toggles away when done
+
+### Documentation:
+Full guide at: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox/robots/tmux-2025-workflows.md`
+
+**Commit**: 185fcad - feat(tmux): add 2025 modern workflows
