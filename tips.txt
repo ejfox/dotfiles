@@ -1,0 +1,50 @@
+Just typing 'ls' now shows detailed listings with icons and colors thanks to lsd!
+Use 'grep' to search with ripgrep - it's WAY faster and supports regex by default.
+'find' now uses fd under the hood - try 'find image' to find all files with 'image' in the name.
+Try 'df' to see a beautiful disk usage overview with duf.
+'du' now uses dust for a visual breakdown of disk usage - great for finding space hogs.
+'diff' is enhanced with difftastic - showing side-by-side color diffs.
+'cat' now uses bat with syntax highlighting - your code will look beautiful.
+'top' now launches btop with CPU, memory, network, and process monitoring.
+Press 'z' followed by a partial directory name to jump to your most frequent folders.
+Type 'vd' to open CSV, JSON, or Excel files in the terminal with VisiData.
+The default 'ls' shows hidden files (-a) and human-readable sizes (-h) automatically.
+In neofetch, you'll get a daily I Ching hexagram and wisdom quote.
+Your terminal shows an I Ching quote and hexagram with neofetch.
+Use 'jcurl' to curl a JSON API and automatically pretty-print the output.
+Remember 'pbjson' alias for pretty-printing JSON from your clipboard.
+If you forget an alias, check ~/TIPS.txt for help.
+Neofetch displays a daily I Ching hexagram based on the day of the year.
+'du ~/Downloads' will show a visual breakdown of your Downloads folder.
+Try 'df' to see free disk space in a much nicer format.
+'find' is smart - it uses fd for simple queries but falls back to regular find for complex ones.
+Your 'cat' command now does syntax highlighting for over 200 languages.
+'top' is now interactive - use arrow keys, m to sort by memory, c to sort by CPU.
+'grep' is now lightning fast thanks to ripgrep under the hood.
+All your enhanced commands (ls, cat, find, etc.) fall back to standard versions on remote servers.
+Your terminal is officially l33t hax0r status - all standard commands are supercharged!
+💡 Press 'v' to open nvim quickly
+🗂️ Press 'n' to browse current directory with oil.nvim
+🔍 Press 'vs' to fuzzy find files with bat preview
+🔎 Press 'vg' to grep file contents and jump to matching lines
+📝 Press 'o' to instantly access your Obsidian vault (sorted by recency)
+⚡ Press 'r' to see recent files across ALL ~/code projects (GAME CHANGER)
+🌲 Press '-' in nvim to toggle oil.nvim filesystem browser
+📁 In oil.nvim: delete a line to delete a file, edit a line to rename it
+🎨 C-a g → lazygit popup (floats over your tmux panes)
+📂 C-a K → yazi file manager popup
+💻 C-a S → scratch terminal toggle (persistent background session)
+📋 C-a C-y → yank entire pane scrollback to clipboard
+📄 C-a M-y → yank last 200 lines to clipboard
+🔗 C-a Space → tmux-thumbs (vimium-style hints for copying text)
+🤖 'commit' → LLM-generated git commit messages with fzf selection
+🔀 C-h/j/k/l → seamless navigation between nvim splits AND tmux panes
+🎯 Oil.nvim trick: visual select multiple files, :d to delete them all
+🚀 tmux-thumbs: type letter hints to copy URLs/paths/errors instantly
+📊 Sketchybar shows CIPHER coach when no calendar events (picks joyful task)
+⚙️ Telescope in nvim: C-_ opens file in vertical split
+🔧 LSP navigation: 'gd' goto definition, 'gr' references, 'gI' implementation, 'gy' type def
+⚔️ Merge conflicts: 'co' choose ours, 'ct' choose theirs, 'cb' both, '[x'/']x' jump between
+🐛 Debug with nvim-dap: <leader>db breakpoint, <leader>dc start, <leader>du toggle UI
+🌐 HTTP testing: create .http files, press Enter to execute requests
+🎨 Nvim 0.11 diagnostics show below lines (virtual lines mode)

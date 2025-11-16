@@ -196,6 +196,9 @@ alias vg='nvim $(rg --line-number --no-heading --color=always . | fzf --ansi --p
 alias o='cd ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox && nvim "$(fd -e md -E .trash -E attachments -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|^\./||" | fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap --with-nth=-2.. --delimiter=/)"'
 alias r='nvim "$(fd -t f -e js -e ts -e vue -e md -e jsx -e tsx -e css -e scss -e py -e go -e rs -E node_modules -E dist -E build -E .next -E .nuxt -E out -E target -E vendor . ~/code -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|$HOME/code/||" | fzf --preview "bat --color=always --style=numbers ~/code/{}" --preview-window=right:60% --prompt=\"  \" --pointer=\"\" --marker=\"󰄲\" | sed "s|^|$HOME/code/|")"'
 
+# Show a random tip from ~/tips.txt
+alias tip='shuf -n 1 ~/tips.txt'
+
 alias dev="yarn dev"
 alias yarni="yarn install"
 alias nodei="node index.js"
