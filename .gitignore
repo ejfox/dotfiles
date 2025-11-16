@@ -1,7 +1,37 @@
+# Secrets and credentials
 .env
-.tmux.conf.local
-# Local Netlify folder
-.netlify
-# NPM auth token
-.npmrc
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*_rsa
+*_dsa
+*_ed25519
 claude.json
+
+# Application configs that may contain secrets
+.npmrc
+.yarnrc
+.docker/config.json
+
+# Local configs
+.tmux.conf.local
+
+# Build/deploy artifacts
+.netlify
+node_modules/
+dist/
+build/
+
+# macOS application state (should never be in dotfiles)
+Library/
+*.app/
+.DS_Store
+.Trash/
+
+# Temporary files
+*.swp
+*.swo
+*~
+.*.tmp
