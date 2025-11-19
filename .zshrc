@@ -15,7 +15,7 @@ alias \?\?="gh copilot suggest $0"
 
 # Path to the cache file
 CACHE_FILE="$HOME/.cache/startup_script_cache"
-CACHE_DURATION=10800  # 3 hours in seconds
+CACHE_DURATION=1800  # 30 minutes in seconds
 
 # Function to get the last modification time of the cache file (works on macOS and Linux)
 function get_cache_mod_time {
@@ -45,7 +45,7 @@ function run_startup_script {
 run_startup_script
 
 # If you come from bash you might have to change your $PATH.
-export PATH=$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
+export PATH=$HOME/.claude/local:$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -104,7 +104,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-plugins=(git zsh-autosuggestions zsh-lux)
+plugins=(git zsh-autosuggestions)
 
 # Skip global compinit for faster loading (OMZ will handle it)
 skip_global_compinit=1
@@ -158,8 +158,7 @@ export NVM_DIR="$HOME/.nvm"
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+PATH=~/.console-ninja/.bin:$PATH
 
 # Terminal settings
 export TERM="xterm-256color"
@@ -167,15 +166,133 @@ export COLORTERM="truecolor"
 touch ~/.hushlogin
 export MAILCHECK=0
 
+# Vulpes theme integration - MUST load before p10k for colors to work
+# Unified theme switcher functions (switches ZSH, Yazi, and Lazygit)
+vulpes-dark() {
+  # ZSH colors
+  source ~/.config/zsh/themes/vulpes-reddishnovember-dark.zsh
 
+  # Yazi theme symlink
+  ln -sf ~/.config/yazi/vulpes-reddishnovember-dark.toml ~/.config/yazi/theme.toml
+
+  # Lazygit config
+  cp ~/.config/lazygit/config.yml ~/.config/lazygit/config.yml.bak 2>/dev/null
+  cat > ~/.config/lazygit/config.yml << 'EOF'
+# vulpes-reddishnovember-dark - Lazygit Theme
+gui:
+  theme:
+    activeBorderColor: ['#e60067', bold]
+    inactiveBorderColor: ['#ffffff']
+    searchingActiveBorderColor: ['#ff0022', bold]
+    optionsTextColor: ['#ff0095']
+    selectedLineBgColor: ['#1a1a1a']
+    selectedRangeBgColor: ['#1a1a1a']
+    cherryPickedCommitBgColor: ['#ff0095']
+    cherryPickedCommitFgColor: ['#0d0d0d']
+    unstagedChangesColor: ['#ff001e']
+    defaultFgColor: ['#f2cfdf']
+  commitLength:
+    show: true
+  showFileTree: true
+  showListFooter: true
+  showRandomTip: true
+  showBranchCommitHash: false
+  showBottomLine: true
+  showCommandLog: true
+  authorColors:
+    "*": '#e60067'
+  branchColors:
+    "main": '#ffffff'
+    "master": '#ffffff'
+    "develop": '#ff0095'
+    "feature/*": '#ff0022'
+    "fix/*": '#ff001e'
+EOF
+
+  echo "✓ Switched to vulpes-reddishnovember-dark (ZSH, Yazi, Lazygit)"
+  echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
+}
+
+vulpes-light() {
+  # ZSH colors
+  source ~/.config/zsh/themes/vulpes-reddishnovember-light.zsh
+
+  # Yazi theme symlink
+  ln -sf ~/.config/yazi/vulpes-reddishnovember-light.toml ~/.config/yazi/theme.toml
+
+  # Lazygit config
+  cp ~/.config/lazygit/config.yml ~/.config/lazygit/config.yml.bak 2>/dev/null
+  cat > ~/.config/lazygit/config.yml << 'EOF'
+# vulpes-reddishnovember-light - Lazygit Theme
+gui:
+  theme:
+    activeBorderColor: ['#fa0070', bold]
+    inactiveBorderColor: ['#000000']
+    searchingActiveBorderColor: ['#e0001e', bold]
+    optionsTextColor: ['#e00083']
+    selectedLineBgColor: ['#efefef']
+    selectedRangeBgColor: ['#efefef']
+    cherryPickedCommitBgColor: ['#e00083']
+    cherryPickedCommitFgColor: ['#f7f7f7']
+    unstagedChangesColor: ['#e0001a']
+    defaultFgColor: ['#501630']
+  commitLength:
+    show: true
+  showFileTree: true
+  showListFooter: true
+  showRandomTip: true
+  showBranchCommitHash: false
+  showBottomLine: true
+  showCommandLog: true
+  authorColors:
+    "*": '#fa0070'
+  branchColors:
+    "main": '#d60044'
+    "master": '#d60044'
+    "develop": '#e00083'
+    "feature/*": '#e0001e'
+    "fix/*": '#e0001a'
+EOF
+
+  echo "✓ Switched to vulpes-reddishnovember-light (ZSH, Yazi, Lazygit)"
+  echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
+}
+
+# Auto-detect macOS system appearance and apply theme
+vulpes-auto() {
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # Check macOS appearance mode
+    if defaults read -g AppleInterfaceStyle &>/dev/null; then
+      # Dark mode is on (suppress output on startup)
+      if [[ "$1" != "silent" ]]; then
+        vulpes-dark
+      else
+        source ~/.config/zsh/themes/vulpes-reddishnovember-dark.zsh >/dev/null 2>&1
+        ln -sf ~/.config/yazi/vulpes-reddishnovember-dark.toml ~/.config/yazi/theme.toml 2>/dev/null
+      fi
+    else
+      # Light mode is on (suppress output on startup)
+      if [[ "$1" != "silent" ]]; then
+        vulpes-light
+      else
+        source ~/.config/zsh/themes/vulpes-reddishnovember-light.zsh >/dev/null 2>&1
+        ln -sf ~/.config/yazi/vulpes-reddishnovember-light.toml ~/.config/yazi/theme.toml 2>/dev/null
+      fi
+    fi
+  else
+    echo "Auto-detection only supported on macOS"
+    echo "Manually run: vulpes-dark or vulpes-light"
+  fi
+}
+
+# Auto-sync themes with system appearance on shell startup
+vulpes-auto silent
+
+# ZSH syntax highlighting - load after theme
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Initialize theme based on system appearance (powered by zsh-lux)
-if macos_is_dark; then
-  theme-dark
-else
-  theme-light
-fi
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # Smart git commit with LLM integration
 alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
@@ -187,17 +304,6 @@ alias la='lsd -lAh'
 alias ll='lsd -lht'
 alias ls='lsd -G'
 alias lsa='lsd -lah'
-
-# Nvim aliases - fuzzy finding and searching
-alias v='nvim'
-alias n='nvim .'
-alias vs='nvim $(fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap)'
-alias vg='nvim $(rg --line-number --no-heading --color=always . | fzf --ansi --preview "echo {} | cut -d: -f1,2 | xargs -I {} sh -c \"bat --color=always --highlight-line \$(echo {} | cut -d: -f2) \$(echo {} | cut -d: -f1)\"" --delimiter ":" --preview-window=right:60%:wrap | cut -d: -f1)'
-alias o='cd ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox && nvim "$(fd -e md -E .trash -E attachments -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|^\./||" | fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap --with-nth=-2.. --delimiter=/)"'
-alias r='nvim "$(fd -t f -e js -e ts -e vue -e md -e jsx -e tsx -e css -e scss -e py -e go -e rs -E node_modules -E dist -E build -E .next -E .nuxt -E out -E target -E vendor . ~/code -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|$HOME/code/||" | fzf --preview "bat --color=always --style=numbers ~/code/{}" --preview-window=right:60% --prompt=\"  \" --pointer=\"\" --marker=\"󰄲\" | sed "s|^|$HOME/code/|")"'
-
-# Show a random tip from ~/tips.txt
-alias tip='shuf -n 1 ~/tips.txt'
 
 alias dev="yarn dev"
 alias yarni="yarn install"
@@ -320,11 +426,16 @@ export VISUAL="nvim"
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
 alias sw="smallweb"
-
-# ========================================
-# UV FOREVER 🚀 - Modern Python tooling
-# ========================================
+alias pip="uv pip"
+alias pip3="uv pip"
 export UV_SYSTEM_PYTHON=1
+
+# UV FOREVER 🚀
+alias python="uv run python"
+alias pip="uv pip"
+alias pip3="uv pip"
+alias venv="uv venv"
+alias install="uv tool install"
 
 # Quick uv commands
 alias uvi="uv tool install"      # install any Python CLI tool
@@ -332,7 +443,13 @@ alias uvr="uv run"               # run in isolated env
 alias uvs="uv sync"              # sync dependencies
 alias uvx="uvx"                  # run without installing
 
-# Override pip/python with helpful reminders (functions, not aliases)
+# Never see pip conflicts again
+export UV_SYSTEM_PYTHON=1
+# ========================================
+# UV HELPERS - Remind you to use uv instead
+# ========================================
+
+# Override pip to remind about uv
 function pip() {
   echo "💡 Use uv instead:"
   echo "  • uv add <package>        (in a project)"
@@ -344,7 +461,13 @@ function pip() {
 }
 
 function pip3() {
-  pip "$@"  # Just call pip function
+  echo "💡 Use uv instead:"
+  echo "  • uv add <package>        (in a project)"
+  echo "  • uv tool install <tool>  (for CLI tools)"
+  echo "  • uv pip install <pkg>    (if you really need pip)"
+  echo ""
+  echo "Running traditional pip3..."
+  command pip3 "$@"
 }
 
 # Override python to suggest uv for projects
@@ -358,143 +481,145 @@ function python() {
 }
 
 function python3() {
-  python "$@"  # Just call python function
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
+    echo "💡 Python project detected! Use: uv run python"
+    echo "   This ensures correct dependencies are loaded"
+    echo ""
+  fi
+  command python3 "$@"
 }
 
-# Override venv commands - helpful reminders to break old habits
+# Override venv commands
 alias venv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias virtualenv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias activate='echo "💡 No activation needed! Just use: uv run python"'
 alias deactivate='echo "💡 No deactivation needed with uv!"'
 
-# More aggressive overrides for common venv patterns
-alias "source venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
-alias "source .venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
-alias ". venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
-alias ". .venv/bin/activate"='echo "💡 Stop! Use: uv run python"'
+# fuck it, zoxide is cd now
+alias cd='z'
+alias stream-motd='rm -f /tmp/startup_cache/reflection_cache.txt && ~/.startup.sh --instant'
 
-# ========================================
-# UV HELPER FUNCTIONS
-# ========================================
+# Random tip from tips.txt (video game loading screen style)
+alias tip='shuf -n 1 ~/tips.txt'
 
-# Quick reference
-alias halp='echo "
-📦 UV QUICK REFERENCE:
-  uv init              → start new project
-  uv add <package>     → install package (like npm install)
-  uv remove <package>  → uninstall package
-  uv sync              → install all deps from pyproject.toml
-  uv run <script>      → run in project env
-  uv tool install      → install CLI tools globally
-  uvx <tool>           → run tool without installing
-"'
+# Nvim fuzzy finder aliases
+alias v='nvim'
+alias vs='nvim $(fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap)'
+alias vg='nvim $(rg --line-number --no-heading --color=always . | fzf --ansi --preview "echo {} | cut -d: -f1,2 | xargs -I {} sh -c \"bat --color=always --highlight-line \$(echo {} | cut -d: -f2) \$(echo {} | cut -d: -f1)\"" --delimiter ":" --preview-window=right:60%:wrap | cut -d: -f1)'
+alias o='cd ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox && nvim "$(fd -e md -E .trash -E attachments -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|^\./||" | fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap --with-nth=-2.. --delimiter=/)"'
+alias r='nvim "$(fd -t f -e js -e ts -e vue -e md -e jsx -e tsx -e css -e scss -e py -e go -e rs -E node_modules -E dist -E build -E .next -E .nuxt -E out -E target -E vendor . ~/code -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|$HOME/code/||" | fzf --preview "bat --color=always --style=numbers ~/code/{}" --preview-window=right:60% --prompt=\"  \" --pointer=\"\" --marker=\"󰄲\" | sed "s|^|$HOME/code/|")"'
 
-# Smart python that knows what you want
-function py() {
-  if [[ -f "pyproject.toml" ]]; then
-    echo "🚀 Running with uv in project..."
-    uv run python "$@"
-  elif [[ -f "requirements.txt" ]]; then
-    echo "📦 Found requirements.txt, using uv..."
-    uv pip sync requirements.txt
-    uv run python "$@"
+
+# JINA_CLI_BEGIN
+
+## autocomplete
+if [[ ! -o interactive ]]; then
+    return
+fi
+
+compctl -K _jina jina
+
+_jina() {
+  local words completions
+  read -cA words
+
+  if [ "${#words}" -eq 2 ]; then
+    completions="$(jina commands)"
   else
-    echo "🐍 No project found, using system python..."
-    /usr/bin/python3 "$@"
+    completions="$(jina completions ${words[2,-2]})"
   fi
+
+  reply=(${(ps:
+:)completions})
 }
 
-# Install packages smartly
-function install() {
-  if [[ -f "pyproject.toml" ]]; then
-    echo "📦 Adding to project with uv..."
-    uv add "$@"
-  elif [[ -f "package.json" ]]; then
-    echo "📦 npm project detected..."
-    npm install "$@"
-  else
-    echo "🔧 Installing as global tool..."
-    uv tool install "$@"
-  fi
-}
 
-# Auto-reminder when cd into Python project
-function cd() {
-  builtin cd "$@"
-  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
-    echo "🐍 Python project detected! Commands:"
-    echo "  • py script.py    (auto-runs with uv)"
-    echo "  • install <pkg>   (auto-adds with uv)"
-    echo "  • uv sync         (install all deps)"
-  fi
-}
 
-# Quick fixes
-alias fixit='uv pip sync requirements.txt 2>/dev/null || uv sync 2>/dev/null || uv init'
-alias fuckit='rm -rf .venv __pycache__ && uv sync'
 
-# Quick new project
-function pyproject() {
-  mkdir -p "$1" && cd "$1"
-  uv init
-  echo "✨ Project $1 created! Now do: install <packages>"
-}
 
-alias refresh-motd='rm -f /tmp/startup_cache/reflection_cache.txt && ~/.startup.sh'
+
+
+
+alias y='yazi'
+alias n='nvim .'
+
+# session-wise fix
+ulimit -n 4096
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
+# JINA_CLI_END
+
+
+# Initialize rbenv
+eval "$(rbenv init - zsh)"
+
+# Email shortcuts
+alias m='neomutt'
+alias ei='email-insights'
 
 # IRC shortcuts
 alias fp='irssi'
 alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
 alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
-alias fp="irssi"
 
-# Theme switching - vulpes-reddish2 light/dark mode for shell (nvim handles its own via auto-dark-mode)
-theme-dark() {
-  # vulpes-reddish2 colors for dark mode
-  ZSH_HIGHLIGHT_STYLES=(
-    'alias:fg=#f30061'
-    'builtin:fg=#ff5703'
-    'command:fg=#da0000'
-    'function:fg=#f30061'
-    'hashed-command:fg=#da0000'
-    'reserved-word:fg=#ff6e0e'
-    'string:fg=#ff8e0e'
-    'comment:fg=#c00000,bold'
-    'globbing:fg=#f300a2'
-    'history-expansion:fg=#ff279a'
-    'default:fg=#e5dcdc'
-  )
+# cmus YouTube integration 
+alias yt="~/.config/cmus/cmus-yt.sh"
+alias ytp="~/.config/cmus/yt-playlist.sh"
+alias cm="cmus"
+alias cmp="cmus-remote -u"  # pause/play toggle
+alias cmn="cmus-remote -n"  # next
+alias cmr="cmus-remote -r"  # previous
+alias cms="cmus-remote -s"  # stop
+alias cmq="cmus-remote -Q"  # current track info
+# This line has been cleaned up - the duplicate paths and VMware Fusion issue have been resolved
+# The PATH is now managed by the earlier export PATH statements in this file
 
-  export FZF_DEFAULT_OPTS=$'--color=fg:#e5dcdc,bg:#000000,hl:#da0000 \
-    --color=fg+:#e5dcdc,bg+:#1a1a1a,hl+:#da0000 \
-    --color=info:#ff279a,prompt:#da0000,pointer:#da0000 \
-    --color=marker:#ff8e0e,spinner:#f300a2,header:#c00000 \
-    --color=border:#1a1a1a,label:#e5dcdc,query:#e5dcdc'
+# Mermaid ASCII tool configuration
+export PATH="$HOME/bin:$PATH"
 
-  echo "🌙 Switched to dark mode (vulpes-reddish2)"
+# Mermaid ASCII aliases
+alias mermaid="mermaid-ascii"
+alias ascii-mermaid="mermaid-ascii"
+alias mmd="mermaid-ascii"
+
+# Tmux + Mermaid functions
+send-mermaid() {
+    local target_pane=${1}
+    if [[ -z "$target_pane" ]]; then
+        echo "Usage: send-mermaid <pane_target>"
+        echo "Available panes:"
+        tmux list-panes -a -F "  #{session_name}:#{window_index}.#{pane_index} - #{pane_title} (#{pane_current_command})"
+        echo ""
+        echo "Example: echo 'graph TD"$'\n'"A --> B"$'\n'"B --> C' | send-mermaid 0:6.2"
+        echo "NOTE: Use multiline syntax, NOT semicolons!"
+        return 1
+    fi
+    local temp_file="/tmp/mermaid_$(date +%s).txt"
+
+    # Use ASCII-only mode (-a flag) for terminal compatibility
+    if mermaid-ascii -a -f - > "$temp_file" 2>/dev/null; then
+        tmux send-keys -t "$target_pane" "clear && echo '🎯 MERMAID DIAGRAM:' && cat '$temp_file' && rm '$temp_file'" Enter
+    else
+        echo "❌ Error: Failed to generate mermaid diagram"
+        echo "Check your syntax - use multiline format:"
+        echo "graph TD"
+        echo "A --> B"
+        echo "B --> C"
+        echo ""
+        echo "NOT: graph TD; A-->B; B-->C"
+        rm -f "$temp_file"
+        return 1
+    fi
 }
 
-theme-light() {
-  # vulpes-reddish2 colors for light mode
-  ZSH_HIGHLIGHT_STYLES=(
-    'alias:fg=#ea005e'
-    'builtin:fg=#f45100'
-    'command:fg=#ff0404'
-    'function:fg=#ea005e'
-    'hashed-command:fg=#ff0404'
-    'reserved-word:fg=#e05a00'
-    'string:fg=#f48200'
-    'comment:fg=#ff3737,bold'
-    'globbing:fg=#ea009c'
-    'history-expansion:fg=#ff048a'
-    'default:fg=#3b2b2b'
-  )
-
-  export FZF_DEFAULT_OPTS=$'--color=fg:#3b2b2b,bg:#f7f7f7,hl:#ff0404 \
-    --color=fg+:#3b2b2b,bg+:#e6e6e6,hl+:#ff0404 \
-    --color=info:#ff048a,prompt:#ff0404,pointer:#ff0404 \
-    --color=marker:#f48200,spinner:#ea009c,header:#ff3737 \
-    --color=border:#e6e6e6,label:#3b2b2b,query:#3b2b2b'
-
-  echo "☀️ Switched to light mode (vulpes-reddish2)"
+list-panes() {
+    tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index} - #{pane_title} (#{pane_current_command})"
 }
+
+# Auto-sync lazygit theme with system appearance
+if [[ -x "$HOME/.local/bin/lazygit-theme-sync" ]]; then
+    "$HOME/.local/bin/lazygit-theme-sync" &>/dev/null
+fi
+
+
+
