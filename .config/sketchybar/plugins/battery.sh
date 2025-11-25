@@ -80,15 +80,15 @@ else
   esac
 fi
 
-# Color based on state and percentage (vulpes palette)
-if [ "$IS_CHARGING" = "Yes" ]; then
-  COLOR="0xfff5d0dc"  # Light pink for charging
-elif [ "$PERCENT" -le 10 ]; then
-  COLOR="0xffff0055"  # Bright red for critical
+# Color based on state (vulpes with meaning)
+if [ "$PERCENT" -le 10 ]; then
+  COLOR="0xffff0055"  # Red - critical (<10%)
 elif [ "$PERCENT" -le 20 ]; then
-  COLOR="0xffff1865"  # Pink-red for low
+  COLOR="0xfff5d0dc"  # Pink - low (10-20%)
+elif [ "$IS_CHARGING" = "Yes" ]; then
+  COLOR="0xfff5d0dc"  # Pink - charging
 else
-  COLOR="0xffffffff"  # White for normal
+  COLOR="0xffffffff"  # White - normal
 fi
 
 # Fade bar background to red as battery gets critical
