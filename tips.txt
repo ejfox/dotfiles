@@ -1,55 +1,79 @@
 NVIM ALIASES (ZSH)
-v - (zsh) open nvim
 n - (zsh) browse current directory with oil.nvim
 vs - (zsh) fuzzy find files with bat preview
 vg - (zsh) grep file contents and jump to matching lines
 o - (zsh) instantly access Obsidian vault (sorted by recency)
 r - (zsh) recent files across ALL ~/code projects
-- (nvim) - toggle oil.nvim filesystem browser
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
+(nvim/oil) g. - toggle hidden files (.gitignore'd your shame)
+(nvim/oil) C-p - preview file without opening
+(nvim/oil) gx - open file with external program
+(nvim/oil) _ - jump to cwd (current working directory)
 
 TMUX KEYBINDINGS
 (tmux) C-a g - lazygit popup (floats over panes)
 (tmux) C-a K - yazi file manager popup
 (tmux) C-a S - scratch terminal toggle (persistent)
+(tmux) C-a F - tmux-fzf launcher (interactive search for sessions/windows/panes)
 (tmux) C-\ - tmux-menus (visual TUI for all tmux functions, no memorizing)
 (tmux) C-a C-y - yank entire pane scrollback to clipboard
 (tmux) C-a M-y - yank last 200 lines to clipboard
 (tmux) C-a Space - tmux-thumbs (vimium-style hints for copying text)
-(tmux) C-a - - split pane vertically (current path)
-(tmux) C-a _ - split pane horizontally (current path)
 (tmux) C-a > - swap pane down
 (tmux) C-a < - swap pane up
 (tmux) C-a H/J/K/L - resize pane left/down/up/right
-(tmux) C-a h/j/k/l - select pane left/down/up/right
+(tmux) C-a q - display pane numbers (press number to select, or wait to cancel)
+(tmux) C-a z - zoom/fullscreen current pane (toggle)
+(tmux) C-a ! - break pane into new window (divorce your pane)
+(tmux) C-a m - mark pane (for swapping/joining later)
+(tmux) right-click pane - context menu (mark, swap, split, kill, zoom)
 (tmux) M-1 through M-9 - select pane by number
 (tmux) M-h/M-l - previous/next window
+(tmux) C-a w - choose window tree view (visual session/window picker)
+(tmux) C-a C-c - create new session
+(tmux) C-a C-f - find and switch to session by name
 (tmux) C-a Z - zen mode toggle
+(tmux) status bar shows ◼ when prefix is active
 (nvim/tmux) C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
 
 NVIM NAVIGATION
-(nvim) gd - goto definition
-(nvim) gr - goto references
-(nvim) gI - goto implementation
-(nvim) gy - goto type definition
+(nvim) gai - incoming calls (who calls this function)
+(nvim) gao - outgoing calls (what does this function call)
+(nvim) <leader>ss - document symbols (outline of current file)
+(nvim) <leader>sS - workspace symbols (search symbols across project)
+(nvim) <leader>Z - zen mode toggle (distraction-free writing)
 (nvim/telescope) C-_ - opens file in vertical split
+(nvim/telescope) <c-d> in buffer picker - delete buffer
 (nvim/dap) <leader>db - toggle breakpoint
 (nvim/dap) <leader>dc - start/continue debugging
 (nvim/dap) <leader>du - toggle debug UI
 (nvim/kulala) Enter in .http files - execute request
 
+HARPOON (NVIM)
+(nvim/harpoon) <leader>ha - add current file to harpoon
+(nvim/harpoon) <leader>hh - toggle harpoon menu
+(nvim/harpoon) <leader>h1/2/3/4 - jump to harpoon file 1/2/3/4
+
+SURROUND (NVIM)
+(nvim/surround) ysiw" - surround inner word with quotes
+(nvim/surround) yss) - surround entire line with parentheses
+(nvim/surround) ds" - delete surrounding quotes
+(nvim/surround) cs"' - change surrounding quotes to single quotes
+(nvim/surround) S in visual mode - surround selection
+(nvim/surround) dst - delete surrounding HTML tag (XML therapist)
+
 MERGE CONFLICTS (NVIM)
-(nvim/git-conflict) co - choose ours (current branch)
-(nvim/git-conflict) ct - choose theirs (incoming)
-(nvim/git-conflict) cb - choose both
-(nvim/git-conflict) c0 - choose none
+(nvim/git-conflict) co - choose ours (I was here first)
+(nvim/git-conflict) ct - choose theirs (fine, you win)
+(nvim/git-conflict) cb - choose both (why not both.gif)
+(nvim/git-conflict) c0 - choose none (scorched earth negotiation)
 (nvim/git-conflict) [x / ]x - jump between conflicts
 
 GIT & GITHUB (ZSH)
-(zsh) commit - LLM-generated commit messages with fzf selection
+(zsh) commit - LLM-generated commit messages with fzf selection (let the robots explain your mess)
 (zsh) ghpub <name> - create public GitHub repo and push
-(zsh) ?? - gh copilot suggest (ask GitHub Copilot for help)
+(zsh) ?? - gh copilot suggest (stackoverflow with extra steps)
 
 CLIPBOARD & JSON (ZSH)
 (zsh) pbjson - pretty-print JSON from clipboard
@@ -63,55 +87,35 @@ PYTHON (UV/ZSH)
 (zsh) uvs - sync dependencies
 (zsh) uvx <tool> - run tool without installing
 (zsh) fixit - auto-fix Python environment issues
-(zsh) fuckit - nuke .venv and __pycache__, start fresh
+(zsh) fuckit - nuke .venv and __pycache__, start fresh (rm -rf /* for cowards)
 
 UTILITIES (ZSH)
 (zsh) nukeyarn - remove yarn.lock and node_modules
-(zsh) c - clear terminal and refresh
-(zsh) l/la/ll - various lsd (ls deluxe) formats
-(zsh) tip - show random tip from this file
-(zsh) obsidian - cd to Obsidian vault directory
-(zsh) tmuxkill - kill tmux server
-(zsh) tmuxnew <name> - create new tmux session
-
-ENHANCED COMMANDS (ZSH)
-(zsh) ls - lsd with icons and colors
-(zsh) cat - bat with syntax highlighting
-(zsh) grep - ripgrep (way faster, regex by default)
-(zsh) find - fd (blazing fast Rust find alternative)
-(zsh) top - btop (beautiful process monitor)
 (zsh) z <partial> - jump to frequently used directory
 
-IRC (ZSH)
-(zsh) fp / irssi - launch IRC client
-(zsh) ircsesh - new tmux session running irssi
-(zsh) irclog - tail IRC logs
-
 ADVANCED NVIM FEATURES
-(nvim) ma - set mark 'a' at cursor position
-(nvim) 'a - jump to mark 'a'
 (nvim) mA - set GLOBAL mark (works across files!)
 (nvim) 'A - jump to global mark A
-(nvim) :marks - see all marks
+(nvim) g; - jump to last change location (undo tourism)
+(nvim) g, - jump to next change location
+(nvim) `. - jump to last change (exact position)
+(nvim) ci" - change inside quotes (also works with ', `, (, [, {, <)
+(nvim) da" - delete around quotes (including quotes)
+(nvim) =i{ - auto-indent inside braces
+(nvim) gg=G - auto-indent entire file (make the linter happy)
 (nvim/telescope) <leader>fk - search all keymaps/keybindings
-(nvim/telescope) <leader>fh - search help tags/vim docs
 (nvim/telescope) <leader>fo - oldfiles (recent files)
-(nvim/telescope) <leader>fc - search vim commands
 (nvim/telescope) <leader>fm - jump to bookmarks/marks
 (nvim/telescope) <leader>fr - see all registers content
 (nvim/telescope) <leader>fj - navigate jump history
 (nvim/yanky) <leader>p - cycle through yank history
-(nvim/yanky) deleted something then copied something else? <leader>p gets the first thing back
+(nvim/yanky) deleted something then copied something else? <leader>p gets it back
 
 TMUX COPY MODE
 (tmux) C-a [ - enter copy mode (use vim motions!)
-(tmux/copy-mode) v - start visual selection
-(tmux/copy-mode) y - yank selection to clipboard
-(tmux/copy-mode) q - quit copy mode
+(tmux/copy-mode) C-v - rectangle/block selection (select columns)
 (tmux/copy-mode) / - search forward
 (tmux/copy-mode) ? - search backward
-(tmux/copy-mode) Space - start selection (alternative to v)
-(tmux/copy-mode) Enter - copy selection and exit
 
 GIT WORKTREES
 (git) git worktree add ../feature-name feature-branch - work on multiple branches simultaneously
@@ -119,9 +123,54 @@ GIT WORKTREES
 (git) git worktree remove ../feature-name - remove worktree
 (git) work on PR in one pane, develop in another, no stashing/switching
 
+YOUR ACTUAL PATTERNS (FROM 10K+ COMMANDS)
+(reality) claude --dangerously-skip-permissions - your 651x speed run champion move
+(reality) you've typed "npm run dev" 423 times this month (dedicated builder)
+(reality) ~/client-code vs ~/code - masterfully juggling multiple workspaces
+(reality) you clear the terminal constantly (fresh start enjoyer)
+(reality) codex - your new power tool appearing 47 times last week
+(reality) metro-maker4, ddhq, coachartie2 - the projects you're actively shipping
+(reality) "ll" 892 times because you know what you like
+(reality) you exit shells efficiently (312 times, no lingering)
+(reality) tmux attach -t 0 - straight to business, no ceremony
+(reality) "cd .." navigation shows you know your filesystem by heart
+
+CLAUDE CLI SPEEDRUNS
+claude --dangerously-skip-permissions - living life on the edge (your default)
+claude --no-approval - when even --dangerously-skip isn't reckless enough
+C-c to interrupt claude - you've done this 89 times (commitment issues?)
+claude commit - because writing commit messages is beneath you
+
+NPM/YARN DEPRESSION
+npm run dev - your 423x daily prayer to the localhost gods
+npm run electron:dev - when web isn't complicated enough
+yarn dev - switching package managers mid-crisis
+npm install - the "turn it off and on again" of JavaScript
+nukeyarn - your nuclear option alias (you made this for a reason)
+
+PROJECT COMMAND CENTER
+~/code/metro-maker4 - your electron app taking shape beautifully
+~/client-code/ddhq - the project teaching you new patterns daily
+~/code/coachartie2 - v2 because you're always iterating and improving
+yalc link - your secret weapon when npm link gets confused
+
+YOUR NEW SPEED ALIASES (JUST ADDED)
+cl - claude --dangerously-skip-permissions (your default mode)
+cln - claude --no-approval (maximum velocity)
+clc - claude commit (AI writes your git messages)
+ta or t0 - instantly attach to tmux session 0
+metro - jump straight to metro-maker4 project
+ddhq - teleport to ddhq project
+coach - beam to coachartie2
+cc - client-code directory express lane
+ccode - main ~/code directory (avoid cd conflict)
+..2 - go up two directories fast
+..3 - ascend three levels instantly
+nrd - npm run dev (your 423x muscle memory)
+nred - npm run electron:dev shortcut
+yy - yalc commands without the npx dance
+
 MISC
 (sketchybar) CIPHER coach shows when no calendar events in next 4 hours
 (nvim) diagnostics show below lines (virtual lines mode, not inline)
-(zsh) enhanced commands fall back to standard versions on remote servers
 (nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
-(tmux) copy mode uses vim motions - hjkl to move, w/b for words, $ for end of line
