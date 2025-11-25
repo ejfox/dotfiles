@@ -2,6 +2,7 @@
 
 # Get calendar events with smart display
 # - Shows compact time list: "1pm, 3:30pm, 5pm"
+# - Only shows events with attendees (real meetings, not personal blocks)
 # - Red glow if within 15 minutes
 # - Inverted (red bg, black text) if currently happening
 
@@ -12,8 +13,8 @@ COLOR_ACTIVE_BG="0xffff0055"   # Red background when in meeting
 COLOR_ACTIVE_FG="0xff0d0d0d"   # Black text when in meeting
 COLOR_DIM="0xff73264a"         # Muted mauve
 
-# Get events today in parseable format
-EVENTS=$(icalBuddy -nc -n -iep "title,datetime" -po "datetime,title" -df "" -tf "%H:%M" -b "• " eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+# Get events today with attendee info
+EVENTS=$(icalBuddy -nc -n -iep "title,datetime,attendees" -po "datetime,title,attendees" -df "" -tf "%H:%M" -b "• " eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
 
 if [ -z "$EVENTS" ]; then
   sketchybar --set "$NAME" drawing=off
@@ -23,78 +24,124 @@ fi
 NOW=$(date +%s)
 TODAY=$(date +%Y-%m-%d)
 
-# Collect all upcoming events (deduplicated by start time)
+# Collect all upcoming events (deduplicated by start time, only with attendees)
 declare -a EVENT_TIMES=()
 declare -a EVENT_TIMESTAMPS=()
-SEEN_TIMES=""  # Track seen start times for deduplication (space-separated)
+SEEN_TIMES=""  # Track seen start times for deduplication
 IN_MEETING=false
 URGENT=false
 
-while IFS= read -r EVENT_LINE; do
-  [ -z "$EVENT_LINE" ] && continue
-  [[ ! "$EVENT_LINE" =~ ^•\  ]] && continue
+# Parse events - need to look ahead for attendees line
+CURRENT_TIME=""
+CURRENT_START_TS=""
+CURRENT_END_TS=""
+HAS_ATTENDEES=false
 
-  # Extract start and end time
-  START_TIME=$(echo "$EVENT_LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | head -1)
-  END_TIME=$(echo "$EVENT_LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | tail -1)
+while IFS= read -r LINE; do
+  # Time line starts with bullet
+  if [[ "$LINE" =~ ^•\  ]]; then
+    # Process previous event if it had attendees
+    if [ -n "$CURRENT_TIME" ] && $HAS_ATTENDEES; then
+      # Skip if already seen this time
+      if ! echo "$SEEN_TIMES" | grep -q "$CURRENT_TIME"; then
+        SEEN_TIMES="$SEEN_TIMES $CURRENT_TIME"
 
-  [ -z "$START_TIME" ] && continue
+        # Check if currently in this meeting
+        if [ $NOW -ge $CURRENT_START_TS ] && [ $NOW -lt $CURRENT_END_TS ]; then
+          IN_MEETING=true
+        fi
 
-  # Calculate timestamps
-  START_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $START_TIME" +%s 2>/dev/null)
-  [ -z "$START_TS" ] && continue
+        # Skip past events
+        if [ $NOW -lt $CURRENT_END_TS ]; then
+          # Check if upcoming within 15 minutes
+          TIME_DIFF=$((CURRENT_START_TS - NOW))
+          if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
+            URGENT=true
+          fi
 
-  END_TS=$START_TS
-  if [ -n "$END_TIME" ] && [ "$END_TIME" != "$START_TIME" ]; then
-    END_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $END_TIME" +%s 2>/dev/null)
+          # Format time for display
+          HOUR=$(echo "$CURRENT_TIME" | cut -d: -f1 | sed 's/^0//')
+          MIN=$(echo "$CURRENT_TIME" | cut -d: -f2)
+
+          if [ $HOUR -gt 12 ]; then
+            HOUR=$((HOUR - 12))
+            SUFFIX="pm"
+          elif [ $HOUR -eq 12 ]; then
+            SUFFIX="pm"
+          elif [ $HOUR -eq 0 ]; then
+            HOUR=12
+            SUFFIX="am"
+          else
+            SUFFIX="am"
+          fi
+
+          if [ "$MIN" = "00" ]; then
+            DISPLAY_TIME="${HOUR}${SUFFIX}"
+          else
+            DISPLAY_TIME="${HOUR}:${MIN}${SUFFIX}"
+          fi
+
+          EVENT_TIMES+=("$DISPLAY_TIME")
+        fi
+      fi
+    fi
+
+    # Start new event
+    CURRENT_TIME=$(echo "$LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | head -1)
+    END_TIME=$(echo "$LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | tail -1)
+    HAS_ATTENDEES=false
+
+    if [ -n "$CURRENT_TIME" ]; then
+      CURRENT_START_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $CURRENT_TIME" +%s 2>/dev/null)
+      CURRENT_END_TS=$CURRENT_START_TS
+      if [ -n "$END_TIME" ] && [ "$END_TIME" != "$CURRENT_TIME" ]; then
+        CURRENT_END_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $END_TIME" +%s 2>/dev/null)
+      fi
+    fi
+  # Attendees line
+  elif [[ "$LINE" =~ ^[[:space:]]*attendees: ]]; then
+    HAS_ATTENDEES=true
   fi
-
-  # Check if currently in this meeting
-  if [ $NOW -ge $START_TS ] && [ $NOW -lt $END_TS ]; then
-    IN_MEETING=true
-  fi
-
-  # Skip past events (that have ended)
-  [ $NOW -ge $END_TS ] && continue
-
-  # Skip if we've already seen this start time (deduplication)
-  if echo "$SEEN_TIMES" | grep -q "$START_TIME"; then
-    continue
-  fi
-  SEEN_TIMES="$SEEN_TIMES $START_TIME"
-
-  # Check if upcoming within 15 minutes
-  TIME_DIFF=$((START_TS - NOW))
-  if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
-    URGENT=true
-  fi
-
-  # Format time for display (convert 24h to 12h, strip leading zero)
-  HOUR=$(echo "$START_TIME" | cut -d: -f1 | sed 's/^0//')
-  MIN=$(echo "$START_TIME" | cut -d: -f2)
-
-  if [ $HOUR -gt 12 ]; then
-    HOUR=$((HOUR - 12))
-    SUFFIX="pm"
-  elif [ $HOUR -eq 12 ]; then
-    SUFFIX="pm"
-  elif [ $HOUR -eq 0 ]; then
-    HOUR=12
-    SUFFIX="am"
-  else
-    SUFFIX="am"
-  fi
-
-  if [ "$MIN" = "00" ]; then
-    DISPLAY_TIME="${HOUR}${SUFFIX}"
-  else
-    DISPLAY_TIME="${HOUR}:${MIN}${SUFFIX}"
-  fi
-
-  EVENT_TIMES+=("$DISPLAY_TIME")
-  EVENT_TIMESTAMPS+=("$START_TS")
-
 done <<< "$EVENTS"
+
+# Process last event
+if [ -n "$CURRENT_TIME" ] && $HAS_ATTENDEES; then
+  if ! echo "$SEEN_TIMES" | grep -q "$CURRENT_TIME"; then
+    if [ $NOW -ge $CURRENT_START_TS ] && [ $NOW -lt $CURRENT_END_TS ]; then
+      IN_MEETING=true
+    fi
+
+    if [ $NOW -lt $CURRENT_END_TS ]; then
+      TIME_DIFF=$((CURRENT_START_TS - NOW))
+      if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
+        URGENT=true
+      fi
+
+      HOUR=$(echo "$CURRENT_TIME" | cut -d: -f1 | sed 's/^0//')
+      MIN=$(echo "$CURRENT_TIME" | cut -d: -f2)
+
+      if [ $HOUR -gt 12 ]; then
+        HOUR=$((HOUR - 12))
+        SUFFIX="pm"
+      elif [ $HOUR -eq 12 ]; then
+        SUFFIX="pm"
+      elif [ $HOUR -eq 0 ]; then
+        HOUR=12
+        SUFFIX="am"
+      else
+        SUFFIX="am"
+      fi
+
+      if [ "$MIN" = "00" ]; then
+        DISPLAY_TIME="${HOUR}${SUFFIX}"
+      else
+        DISPLAY_TIME="${HOUR}:${MIN}${SUFFIX}"
+      fi
+
+      EVENT_TIMES+=("$DISPLAY_TIME")
+    fi
+  fi
+fi
 
 # Build display string
 if [ ${#EVENT_TIMES[@]} -eq 0 ]; then
