@@ -209,7 +209,16 @@ gui:
     "fix/*": '#ff001e'
 EOF
 
-  echo "✓ Switched to vulpes-reddishnovember-dark (ZSH, Yazi, Lazygit)"
+  # FZF colors - vulpes red dark
+  export FZF_DEFAULT_OPTS="
+    --color=fg:#f5d0dc,bg:#0d0d0d,hl:#ff0055
+    --color=fg+:#ffffff,bg+:#2d1a22,hl+:#ff3344
+    --color=info:#ff0077,prompt:#ff0055,pointer:#ff0055
+    --color=marker:#ff0055,spinner:#ff0077,header:#73264a
+    --color=border:#73264a
+  "
+
+  echo "✓ Switched to vulpes-reddishnovember-dark (ZSH, Yazi, Lazygit, FZF)"
   echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
 }
 
@@ -254,7 +263,16 @@ gui:
     "fix/*": '#e0001a'
 EOF
 
-  echo "✓ Switched to vulpes-reddishnovember-light (ZSH, Yazi, Lazygit)"
+  # FZF colors - vulpes red light
+  export FZF_DEFAULT_OPTS="
+    --color=fg:#2d1a22,bg:#fff5f8,hl:#cc0044
+    --color=fg+:#0d0d0d,bg+:#f5e0e8,hl+:#dd2244
+    --color=info:#cc0055,prompt:#cc0044,pointer:#cc0044
+    --color=marker:#cc0044,spinner:#cc0055,header:#d4a0b0
+    --color=border:#d4a0b0
+  "
+
+  echo "✓ Switched to vulpes-reddishnovember-light (ZSH, Yazi, Lazygit, FZF)"
   echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
 }
 
@@ -324,6 +342,23 @@ alias nukeyarn="rm yarn.lock;rm -rf node_modules"
 alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
 alias sshvps='ssh -i ~/.ssh/2024-mbp.pem debian@208.113.130.118'
 alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
+
+# Based on your actual usage patterns (you're welcome)
+alias cl='claude --dangerously-skip-permissions'  # Your 651x favorite command
+alias cln='claude --no-approval'  # When you need even more speed
+alias clc='claude commit'  # Let the robots write your commit messages
+alias ta='tmux attach -t 0'  # Your default tmux session
+alias t0='tmux attach -t 0'  # Alternative for muscle memory
+alias metro='z ~/code/metro-maker4'  # Jump to metro-maker4 (using z)
+alias ddhq='z ~/client-code/ddhq'  # Jump to ddhq (using z)
+alias coach='z ~/code/coachartie2'  # Jump to coachartie2 (using z)
+alias cc='z ~/client-code'  # Client code directory (using z)
+alias ccode='z ~/code'  # Main code directory (renamed to avoid conflict)
+alias ..2='cd ../..'  # Go up two directories (renamed)
+alias ..3='cd ../../..'  # Go up three directories (renamed)
+alias nrd='npm run dev'  # Your 423x daily ritual (renamed to avoid conflict)
+alias nred='npm run electron:dev'  # When you need electron (renamed)
+alias yy='npx yalc'  # Shortcut for yalc commands (shortened)
 alias newsketch='
   ART_DIR=~/art
   TODAY=$(date +"%m-%d")

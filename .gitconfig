@@ -15,3 +15,34 @@
 	required = true
 [init]
 	defaultBranch = main
+
+[core]
+	pager = delta
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	dark = true
+	side-by-side = false
+	line-numbers = true
+	# Vulpes red theme
+	minus-style = syntax "#3d1a22"
+	minus-emph-style = syntax "#5d1a2a"
+	plus-style = syntax "#1a2d22"
+	plus-emph-style = syntax "#1a4d2a"
+	line-numbers-minus-style = "#ff5577"
+	line-numbers-plus-style = "#77ff99"
+	line-numbers-zero-style = "#73264a"
+	hunk-header-style = file line-number syntax
+	hunk-header-decoration-style = "#ff0055" box
+	file-style = "#ff0055" bold
+	file-decoration-style = "#ff0055" ul
+	commit-decoration-style = "#ff0077" box ul
+
+[merge]
+	conflictstyle = diff3
+
+[diff]
+	colorMoved = default
