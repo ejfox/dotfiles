@@ -3,15 +3,13 @@
 # Get calendar events with smart display
 # - Shows compact time list: "1pm, 3:30pm, 5pm"
 # - Only shows events with attendees (real meetings, not personal blocks)
-# - Red glow if within 15 minutes
-# - Inverted (red bg, black text) if currently happening
+# - White: normal | Red: within 10m | Green: currently active
 
-# Vulpes colors
-COLOR_NORMAL="0xfff5d0dc"      # Light pink text
-COLOR_URGENT="0xffff0055"      # Bright red (within 15m)
-COLOR_ACTIVE_BG="0xffff0055"   # Red background when in meeting
-COLOR_ACTIVE_FG="0xff0d0d0d"   # Black text when in meeting
-COLOR_DIM="0xff73264a"         # Muted mauve
+# Colors
+COLOR_NORMAL="0xffffffff"      # White text (default)
+COLOR_URGENT="0xffff0055"      # Bright red (within 10m)
+COLOR_ACTIVE="0xff00ff55"      # Green (currently in meeting)
+COLOR_DIM="0xff666666"         # Dim grey
 
 # Get events today with attendee info
 EVENTS=$(icalBuddy -nc -n -iep "title,datetime,attendees" -po "datetime,title,attendees" -df "" -tf "%H:%M" -b "• " eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
@@ -53,9 +51,9 @@ while IFS= read -r LINE; do
 
         # Skip past events
         if [ $NOW -lt $CURRENT_END_TS ]; then
-          # Check if upcoming within 15 minutes
+          # Check if upcoming within 10 minutes
           TIME_DIFF=$((CURRENT_START_TS - NOW))
-          if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
+          if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 600 ]; then
             URGENT=true
           fi
 
@@ -113,7 +111,7 @@ if [ -n "$CURRENT_TIME" ] && $HAS_ATTENDEES; then
 
     if [ $NOW -lt $CURRENT_END_TS ]; then
       TIME_DIFF=$((CURRENT_START_TS - NOW))
-      if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
+      if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 600 ]; then
         URGENT=true
       fi
 
@@ -154,25 +152,21 @@ LABEL=$(IFS=', '; echo "${EVENT_TIMES[*]}")
 
 # Set colors based on state
 if $IN_MEETING; then
-  # Currently in meeting - inverted red
+  # Currently in meeting - green
   sketchybar --set "$NAME" \
     label="▶ $LABEL" \
-    label.color="$COLOR_ACTIVE_FG" \
-    background.color="$COLOR_ACTIVE_BG" \
-    background.drawing=on \
-    background.corner_radius=4 \
-    background.padding_left=6 \
-    background.padding_right=6 \
+    label.color="$COLOR_ACTIVE" \
+    background.drawing=off \
     drawing=on
 elif $URGENT; then
-  # Within 15 minutes - red glow
+  # Within 10 minutes - red
   sketchybar --set "$NAME" \
     label="$LABEL" \
     label.color="$COLOR_URGENT" \
     background.drawing=off \
     drawing=on
 else
-  # Normal upcoming events
+  # Normal upcoming events - white
   sketchybar --set "$NAME" \
     label="$LABEL" \
     label.color="$COLOR_NORMAL" \
