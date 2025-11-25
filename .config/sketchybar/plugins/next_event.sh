@@ -23,9 +23,10 @@ fi
 NOW=$(date +%s)
 TODAY=$(date +%Y-%m-%d)
 
-# Collect all upcoming events
+# Collect all upcoming events (deduplicated by start time)
 declare -a EVENT_TIMES=()
 declare -a EVENT_TIMESTAMPS=()
+SEEN_TIMES=""  # Track seen start times for deduplication (space-separated)
 IN_MEETING=false
 URGENT=false
 
@@ -55,6 +56,12 @@ while IFS= read -r EVENT_LINE; do
 
   # Skip past events (that have ended)
   [ $NOW -ge $END_TS ] && continue
+
+  # Skip if we've already seen this start time (deduplication)
+  if echo "$SEEN_TIMES" | grep -q "$START_TIME"; then
+    continue
+  fi
+  SEEN_TIMES="$SEEN_TIMES $START_TIME"
 
   # Check if upcoming within 15 minutes
   TIME_DIFF=$((START_TS - NOW))
