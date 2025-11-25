@@ -418,7 +418,7 @@
       # Styling for up-to-date Git status.
       local       meta='%f'     # default foreground
       local      clean='%204F'  # pink foreground (vulpes)
-      local   modified='%209F'  # salmon foreground (vulpes)
+      local   modified='%197F'  # red-pink foreground (vulpes)
       local  untracked='%167F'  # muted red foreground (vulpes)
       local conflicted='%196F'  # red foreground
     else
@@ -548,7 +548,7 @@
   # These settings are used for repositories other than Git or when gitstatusd fails and
   # Powerlevel10k has to fall back to using vcs_info - vulpes red theme
   typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=174           # Dusty rose (clean)
-  typeset -g POWERLEVEL9K_VCS_UNTRACKED_FOREGROUND=209       # Salmon (untracked)
+  typeset -g POWERLEVEL9K_VCS_UNTRACKED_FOREGROUND=197       # Salmon (untracked)
   typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=196        # Bright red (modified)
 
   ##########################[ status: exit code of the last command ]###########################
@@ -611,7 +611,7 @@
 
   #######################[ direnv: direnv status (https://direnv.net/) ]########################
   # Direnv color.
-  typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=209
+  typeset -g POWERLEVEL9K_DIRENV_FOREGROUND=197
   # Custom icon.
   # typeset -g POWERLEVEL9K_DIRENV_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -746,7 +746,7 @@
   # typeset -g POWERLEVEL9K_ASDF_PHP_SHOW_ON_UPGLOB='*.foo|*.bar'
 
   # Haskell version from asdf.
-  typeset -g POWERLEVEL9K_ASDF_HASKELL_FOREGROUND=209
+  typeset -g POWERLEVEL9K_ASDF_HASKELL_FOREGROUND=197
   # typeset -g POWERLEVEL9K_ASDF_HASKELL_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # typeset -g POWERLEVEL9K_ASDF_HASKELL_SHOW_ON_UPGLOB='*.foo|*.bar'
 
@@ -766,13 +766,13 @@
 
   #################[ ranger: ranger shell (https://github.com/ranger/ranger) ]##################
   # Ranger shell color.
-  typeset -g POWERLEVEL9K_RANGER_FOREGROUND=209
+  typeset -g POWERLEVEL9K_RANGER_FOREGROUND=197
   # Custom icon.
   # typeset -g POWERLEVEL9K_RANGER_VISUAL_IDENTIFIER_EXPANSION='⭐'
   
   ####################[ yazi: yazi shell (https://github.com/sxyazi/yazi) ]#####################
   # Yazi shell color.
-  typeset -g POWERLEVEL9K_YAZI_FOREGROUND=209
+  typeset -g POWERLEVEL9K_YAZI_FOREGROUND=197
   # Custom icon.
   # typeset -g POWERLEVEL9K_YAZI_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -802,7 +802,7 @@
 
   ######[ midnight_commander: midnight commander shell (https://midnight-commander.org/) ]######
   # Midnight Commander shell color.
-  typeset -g POWERLEVEL9K_MIDNIGHT_COMMANDER_FOREGROUND=209
+  typeset -g POWERLEVEL9K_MIDNIGHT_COMMANDER_FOREGROUND=197
   # Custom icon.
   # typeset -g POWERLEVEL9K_MIDNIGHT_COMMANDER_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -828,7 +828,7 @@
   ##################################[ disk_usage: disk usage ]##################################
   # Colors for different levels of disk usage.
   typeset -g POWERLEVEL9K_DISK_USAGE_NORMAL_FOREGROUND=174
-  typeset -g POWERLEVEL9K_DISK_USAGE_WARNING_FOREGROUND=209
+  typeset -g POWERLEVEL9K_DISK_USAGE_WARNING_FOREGROUND=197
   typeset -g POWERLEVEL9K_DISK_USAGE_CRITICAL_FOREGROUND=160
   # Thresholds for different levels of disk usage (percentage points).
   typeset -g POWERLEVEL9K_DISK_USAGE_WARNING_LEVEL=90
@@ -856,9 +856,9 @@
   # Load color when load is under 50%.
   typeset -g POWERLEVEL9K_LOAD_NORMAL_FOREGROUND=131
   # Load color when load is between 50% and 70%.
-  typeset -g POWERLEVEL9K_LOAD_WARNING_FOREGROUND=209
+  typeset -g POWERLEVEL9K_LOAD_WARNING_FOREGROUND=197
   # Load color when load is over 70%.
-  typeset -g POWERLEVEL9K_LOAD_CRITICAL_FOREGROUND=166
+  typeset -g POWERLEVEL9K_LOAD_CRITICAL_FOREGROUND=196
   # Custom icon.
   # typeset -g POWERLEVEL9K_LOAD_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
@@ -933,7 +933,7 @@
 
   ################################[ cpu_arch: CPU architecture ]################################
   # CPU architecture color.
-  typeset -g POWERLEVEL9K_CPU_ARCH_FOREGROUND=209
+  typeset -g POWERLEVEL9K_CPU_ARCH_FOREGROUND=197
 
   # Hide the segment when on a specific CPU architecture.
   # typeset -g POWERLEVEL9K_CPU_ARCH_X86_64_CONTENT_EXPANSION=
@@ -944,7 +944,7 @@
 
   ##################################[ context: user@hostname ]##################################
   # Context color when running with privileges.
-  typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=209
+  typeset -g POWERLEVEL9K_CONTEXT_ROOT_FOREGROUND=197
   # Context color in SSH without privileges.
   typeset -g POWERLEVEL9K_CONTEXT_{REMOTE,REMOTE_SUDO}_FOREGROUND=180
   # Default context color (no privileges, no SSH).
@@ -1259,7 +1259,7 @@
 
   ##########[ haskell_stack: haskell version from stack (https://haskellstack.org/) ]###########
   # Haskell color.
-  typeset -g POWERLEVEL9K_HASKELL_STACK_FOREGROUND=209
+  typeset -g POWERLEVEL9K_HASKELL_STACK_FOREGROUND=197
   # Hide haskell version if it doesn't come from one of these sources.
   #
   #   shell:  version is set by STACK_YAML
@@ -1429,7 +1429,7 @@
       # '*prod*'  PROD    # These values are examples that are unlikely
       # '*test*'  TEST    # to match your needs. Customize them as needed.
       '*'       DEFAULT)
-  typeset -g POWERLEVEL9K_AWS_DEFAULT_FOREGROUND=209
+  typeset -g POWERLEVEL9K_AWS_DEFAULT_FOREGROUND=197
   # typeset -g POWERLEVEL9K_AWS_DEFAULT_VISUAL_IDENTIFIER_EXPANSION='⭐'
 
   # AWS segment format. The following parameters are available within the expansion.
@@ -1579,7 +1579,7 @@
 
   ##############[ toolbox: toolbox name (https://github.com/containers/toolbox) ]###############
   # Toolbox color.
-  typeset -g POWERLEVEL9K_TOOLBOX_FOREGROUND=209
+  typeset -g POWERLEVEL9K_TOOLBOX_FOREGROUND=197
   # Don't display the name of the toolbox if it matches fedora-toolbox-*.
   typeset -g POWERLEVEL9K_TOOLBOX_CONTENT_EXPANSION='${P9K_TOOLBOX_NAME:#fedora-toolbox-*}'
   # Custom icon.
@@ -1644,7 +1644,7 @@
   # Show battery in pink when it's charging or fully charged - vulpes red theme.
   typeset -g POWERLEVEL9K_BATTERY_{CHARGING,CHARGED}_FOREGROUND=174
   # Show battery in salmon when it's discharging.
-  typeset -g POWERLEVEL9K_BATTERY_DISCONNECTED_FOREGROUND=209
+  typeset -g POWERLEVEL9K_BATTERY_DISCONNECTED_FOREGROUND=197
   # Battery pictograms going from low to high level of charge.
   typeset -g POWERLEVEL9K_BATTERY_STAGES='\UF008E\UF007A\UF007B\UF007C\UF007D\UF007E\UF007F\UF0080\UF0081\UF0082\UF0079'
   # Don't show the remaining time to charge/discharge.
