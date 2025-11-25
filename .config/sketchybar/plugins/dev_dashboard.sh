@@ -77,19 +77,19 @@ generate_dev_metrics() {
         fi
     fi
     
-    # Determine color based on productivity
+    # Determine color based on productivity (vulpes palette)
     local color="0xffffffff" # Default white
-    
+
     # High productivity
     if [ "$commit_count" -gt 5 ] || [ "$completed_tasks" -gt 5 ]; then
-        color="0xff83c746" # Green
+        color="0xffff1865" # Pink-red (vulpes)
     # Medium productivity
     elif [ "$commit_count" -gt 0 ] || [ "$completed_tasks" -gt 1 ]; then
-        color="0xffE0AF68" # Amber/gold
+        color="0xfff5d0dc" # Light pink (vulpes)
     # Low/no productivity yet
     else
         # Softer color, not negative
-        color="0xff7dcfff" # Light blue
+        color="0xff666666" # Dim grey
     fi
     
     # Check for streaks (simple implementation)
