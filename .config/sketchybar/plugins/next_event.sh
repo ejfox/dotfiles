@@ -134,7 +134,9 @@ FIRST_COLOR="${MEETING_COLORS[0]}"
 sketchybar --set "$NAME" \
   label="$FIRST_LABEL" \
   label.color="$FIRST_COLOR" \
+  label.padding_left=0 \
   label.padding_right=0 \
+  padding_left=12 \
   padding_right=0 \
   drawing=on
 
