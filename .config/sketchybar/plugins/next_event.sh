@@ -3,12 +3,12 @@
 # Get calendar events with smart display
 # - Shows compact time list with INDIVIDUAL colors per meeting
 # - Only shows events with attendees (real meetings, not personal blocks)
-# - White: normal | Red: within 10m | Green: currently active
+# - White: upcoming | Red: <10m | Pink: in meeting
 
-# Colors
-COLOR_NORMAL="0xffffffff"      # White text (default)
-COLOR_URGENT="0xffff0055"      # Bright red (within 10m)
-COLOR_ACTIVE="0xff00ff55"      # Green (currently in meeting)
+# Colors (vulpes palette with meaning)
+COLOR_NORMAL="0xffffffff"      # White - upcoming
+COLOR_URGENT="0xffff0055"      # Red - within 10m (act now!)
+COLOR_ACTIVE="0xfff5d0dc"      # Pink - currently in meeting
 
 MAX_MEETINGS=5  # Maximum meetings to display
 
