@@ -134,28 +134,29 @@ FIRST_COLOR="${MEETING_COLORS[0]}"
 sketchybar --set "$NAME" \
   label="$FIRST_LABEL" \
   label.color="$FIRST_COLOR" \
+  label.padding_right=0 \
+  padding_right=0 \
   drawing=on
 
 # Create/update additional items for remaining meetings
 for i in $(seq 1 $((MAX_MEETINGS))); do
-  idx=$i  # Array index (0-based would be i, but we start from 1)
+  idx=$i
   item_name="${NAME}.${i}"
 
   if [ $idx -lt $NUM_MEETINGS ]; then
     meeting_label="${MEETING_TIMES[$idx]}"
     meeting_color="${MEETING_COLORS[$idx]}"
 
-    # Add comma prefix for visual separation
-    meeting_label=", ${meeting_label}"
-
     # Check if item exists, if not create it
     if ! sketchybar --query "$item_name" &>/dev/null; then
       sketchybar --add item "$item_name" left \
         --set "$item_name" \
-          label.font="SF Pro:Medium:12.0" \
-          label.padding_left=0 \
-          label.padding_right=0 \
-          background.drawing=off
+          label.font="Monaspace Krypton:Regular:10.0" \
+          background.drawing=off \
+          padding_left=0 \
+          padding_right=0 \
+          label.padding_left=4 \
+          label.padding_right=0
     fi
 
     sketchybar --set "$item_name" \
