@@ -1,170 +1,127 @@
 #!/bin/bash
 
-# Get next calendar event with time awareness
-# Skips all-day events and shows only upcoming timed events
+# Get calendar events with smart display
+# - Shows compact time list: "1pm, 3:30pm, 5pm"
+# - Red glow if within 15 minutes
+# - Inverted (red bg, black text) if currently happening
 
-# Cache file for CIPHER messages to avoid excessive LLM calls
-CACHE_FILE="/tmp/sketchybar_cipher_cache"
+# Vulpes colors
+COLOR_NORMAL="0xfff5d0dc"      # Light pink text
+COLOR_URGENT="0xffff0055"      # Bright red (within 15m)
+COLOR_ACTIVE_BG="0xffff0055"   # Red background when in meeting
+COLOR_ACTIVE_FG="0xff0d0d0d"   # Black text when in meeting
+COLOR_DIM="0xff73264a"         # Muted mauve
 
-# Get events today (strip ANSI codes)
-EVENTS=$(icalBuddy -nc -n -f eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
+# Get events today in parseable format
+EVENTS=$(icalBuddy -nc -n -iep "title,datetime" -po "datetime,title" -df "" -tf "%H:%M" -b "• " eventsToday 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
 
 if [ -z "$EVENTS" ]; then
   sketchybar --set "$NAME" drawing=off
   exit 0
 fi
 
-# Loop through events to find next timed event
 NOW=$(date +%s)
 TODAY=$(date +%Y-%m-%d)
-FOUND=false
+
+# Collect all upcoming events
+declare -a EVENT_TIMES=()
+declare -a EVENT_TIMESTAMPS=()
+IN_MEETING=false
+URGENT=false
 
 while IFS= read -r EVENT_LINE; do
-  # Skip empty lines
   [ -z "$EVENT_LINE" ] && continue
+  [[ ! "$EVENT_LINE" =~ ^•\  ]] && continue
 
-  # Extract title and time
-  EVENT_TITLE=$(echo "$EVENT_LINE" | sed 's/^• //' | sed 's/ ([0-9].*$//')
-  EVENT_TIME=$(echo "$EVENT_LINE" | grep -o '([0-9][0-9]:[0-9][0-9]' | tr -d '(')
+  # Extract start and end time
+  START_TIME=$(echo "$EVENT_LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | head -1)
+  END_TIME=$(echo "$EVENT_LINE" | grep -o '[0-9][0-9]:[0-9][0-9]' | tail -1)
 
-  # Skip all-day events (no time)
-  [ -z "$EVENT_TIME" ] && continue
+  [ -z "$START_TIME" ] && continue
 
-  # Calculate timestamp
-  EVENT_TIMESTAMP=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $EVENT_TIME" +%s 2>/dev/null)
-  [ -z "$EVENT_TIMESTAMP" ] && continue
+  # Calculate timestamps
+  START_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $START_TIME" +%s 2>/dev/null)
+  [ -z "$START_TS" ] && continue
 
-  # Skip past events
-  TIME_DIFF=$((EVENT_TIMESTAMP - NOW))
-  [ $TIME_DIFF -lt 0 ] && continue
+  END_TS=$START_TS
+  if [ -n "$END_TIME" ] && [ "$END_TIME" != "$START_TIME" ]; then
+    END_TS=$(date -j -f "%Y-%m-%d %H:%M" "$TODAY $END_TIME" +%s 2>/dev/null)
+  fi
 
-  # Found next event!
-  FOUND=true
+  # Check if currently in this meeting
+  if [ $NOW -ge $START_TS ] && [ $NOW -lt $END_TS ]; then
+    IN_MEETING=true
+  fi
 
-  # Format time remaining
-  if [ $TIME_DIFF -lt 3600 ]; then
-    MINS=$((TIME_DIFF / 60))
-    TIME_STR="in ${MINS}m"
-  elif [ $TIME_DIFF -lt 7200 ]; then
-    TIME_STR="in 1h"
+  # Skip past events (that have ended)
+  [ $NOW -ge $END_TS ] && continue
+
+  # Check if upcoming within 15 minutes
+  TIME_DIFF=$((START_TS - NOW))
+  if [ $TIME_DIFF -gt 0 ] && [ $TIME_DIFF -le 900 ]; then
+    URGENT=true
+  fi
+
+  # Format time for display (convert 24h to 12h, strip leading zero)
+  HOUR=$(echo "$START_TIME" | cut -d: -f1 | sed 's/^0//')
+  MIN=$(echo "$START_TIME" | cut -d: -f2)
+
+  if [ $HOUR -gt 12 ]; then
+    HOUR=$((HOUR - 12))
+    SUFFIX="pm"
+  elif [ $HOUR -eq 12 ]; then
+    SUFFIX="pm"
+  elif [ $HOUR -eq 0 ]; then
+    HOUR=12
+    SUFFIX="am"
   else
-    TIME_STR="at $EVENT_TIME"
+    SUFFIX="am"
   fi
 
-  # Use LLM to intelligently shorten/format event title
-  if command -v /opt/homebrew/bin/llm &>/dev/null; then
-    PROMPT="Shorten this calendar event to 3-4 words max, add one relevant emoji at start. Just output the result, nothing else: \"$EVENT_TITLE\""
-    FORMATTED_TITLE=$(echo "$PROMPT" | /opt/homebrew/bin/llm -m gpt-4o-mini -o max_tokens 15 2>/dev/null | tr -d '"' | head -n 1)
-
-    if [ -n "$FORMATTED_TITLE" ] && [ ${#FORMATTED_TITLE} -lt 30 ]; then
-      EVENT_TITLE="$FORMATTED_TITLE"
-    elif [ ${#EVENT_TITLE} -gt 20 ]; then
-      EVENT_TITLE="${EVENT_TITLE:0:17}..."
-    fi
-  elif [ ${#EVENT_TITLE} -gt 20 ]; then
-    EVENT_TITLE="${EVENT_TITLE:0:17}..."
+  if [ "$MIN" = "00" ]; then
+    DISPLAY_TIME="${HOUR}${SUFFIX}"
+  else
+    DISPLAY_TIME="${HOUR}:${MIN}${SUFFIX}"
   fi
 
-  LABEL="$EVENT_TITLE $TIME_STR"
-  break
+  EVENT_TIMES+=("$DISPLAY_TIME")
+  EVENT_TIMESTAMPS+=("$START_TS")
+
 done <<< "$EVENTS"
 
-if [ "$FOUND" = true ]; then
-  # Check if event is more than 4 hours away
-  if [ $TIME_DIFF -gt 14400 ]; then
-    # More than 4 hours - show cipher message instead
-    if command -v /opt/homebrew/bin/llm &>/dev/null; then
-      HOUR=$(date +%H)
+# Build display string
+if [ ${#EVENT_TIMES[@]} -eq 0 ]; then
+  sketchybar --set "$NAME" drawing=off
+  exit 0
+fi
 
-      # Get Things context
-      TODAY_TASKS=$(osascript -e 'tell application "Things3" to get name of to dos of list "Today"' 2>/dev/null)
-      COMPLETED_TODAY=$(osascript -e 'tell application "Things3" to get name of to dos whose status is completed and completion date is (current date)' 2>/dev/null)
-      TASK_COUNT=$(echo "$TODAY_TASKS" | grep -o ',' | wc -l | xargs)
-      COMPLETED_COUNT=$(echo "$COMPLETED_TODAY" | grep -o ',' | wc -l | xargs)
+# Join times with comma
+LABEL=$(IFS=', '; echo "${EVENT_TIMES[*]}")
 
-      # Create state hash from actual task content (not just count)
-      TASKS_HASH=$(echo "$TODAY_TASKS" | md5)
-      STATE_HASH="${HOUR}_${TASKS_HASH}_${COMPLETED_COUNT}_far"
-
-      # Check cache
-      if [ -f "$CACHE_FILE" ]; then
-        CACHED_STATE=$(head -n 1 "$CACHE_FILE")
-        if [ "$CACHED_STATE" = "$STATE_HASH" ]; then
-          # State unchanged, use cached message
-          CIPHER_MSG=$(tail -n 1 "$CACHE_FILE")
-        fi
-      fi
-
-      # Generate new message if no cache hit
-      if [ -z "$CIPHER_MSG" ]; then
-        PROMPT="You are CIPHER, a supportive coach (not a taskmaster). Here are today's tasks: $TODAY_TASKS
-
-Pick the most joyful/appealing one and highlight it in a brief, encouraging way (~10 words max). Focus on what makes it interesting or rewarding. No generic motivation - be specific to the task. Just output the message, nothing else."
-        CIPHER_MSG=$(echo "$PROMPT" | /opt/homebrew/bin/llm -m gpt-4o-mini -o max_tokens 25 2>/dev/null | head -n 1)
-
-        # Cache the result
-        if [ -n "$CIPHER_MSG" ]; then
-          echo "$STATE_HASH" > "$CACHE_FILE"
-          echo "$CIPHER_MSG" >> "$CACHE_FILE"
-        fi
-      fi
-
-      if [ -n "$CIPHER_MSG" ]; then
-        sketchybar --set "$NAME" label="$CIPHER_MSG" drawing=on
-      else
-        sketchybar --set "$NAME" drawing=off
-      fi
-    else
-      sketchybar --set "$NAME" drawing=off
-    fi
-  else
-    # Event within 4 hours - show normally
-    sketchybar --set "$NAME" label="$LABEL" drawing=on
-  fi
+# Set colors based on state
+if $IN_MEETING; then
+  # Currently in meeting - inverted red
+  sketchybar --set "$NAME" \
+    label="▶ $LABEL" \
+    label.color="$COLOR_ACTIVE_FG" \
+    background.color="$COLOR_ACTIVE_BG" \
+    background.drawing=on \
+    background.corner_radius=4 \
+    background.padding_left=6 \
+    background.padding_right=6 \
+    drawing=on
+elif $URGENT; then
+  # Within 15 minutes - red glow
+  sketchybar --set "$NAME" \
+    label="$LABEL" \
+    label.color="$COLOR_URGENT" \
+    background.drawing=off \
+    drawing=on
 else
-  # No upcoming timed events at all - cipher message
-  if command -v /opt/homebrew/bin/llm &>/dev/null; then
-    HOUR=$(date +%H)
-
-    # Get Things context
-    TODAY_TASKS=$(osascript -e 'tell application "Things3" to get name of to dos of list "Today"' 2>/dev/null)
-    COMPLETED_TODAY=$(osascript -e 'tell application "Things3" to get name of to dos whose status is completed and completion date is (current date)' 2>/dev/null)
-    TASK_COUNT=$(echo "$TODAY_TASKS" | grep -o ',' | wc -l | xargs)
-    COMPLETED_COUNT=$(echo "$COMPLETED_TODAY" | grep -o ',' | wc -l | xargs)
-
-    # Create state hash from actual task content (not just count)
-    TASKS_HASH=$(echo "$TODAY_TASKS" | md5)
-    STATE_HASH="${HOUR}_${TASKS_HASH}_${COMPLETED_COUNT}_none"
-
-    # Check cache
-    if [ -f "$CACHE_FILE" ]; then
-      CACHED_STATE=$(head -n 1 "$CACHE_FILE")
-      if [ "$CACHED_STATE" = "$STATE_HASH" ]; then
-        # State unchanged, use cached message
-        CIPHER_MSG=$(tail -n 1 "$CACHE_FILE")
-      fi
-    fi
-
-    # Generate new message if no cache hit
-    if [ -z "$CIPHER_MSG" ]; then
-      PROMPT="You are CIPHER, a supportive coach (not a taskmaster). Here are today's tasks: $TODAY_TASKS
-
-Pick the most joyful/appealing one and highlight it in a brief, encouraging way (~10 words max). Focus on what makes it interesting or rewarding. No generic motivation - be specific to the task. Just output the message, nothing else."
-      CIPHER_MSG=$(echo "$PROMPT" | /opt/homebrew/bin/llm -m gpt-4o-mini -o max_tokens 25 2>/dev/null | head -n 1)
-
-      # Cache the result
-      if [ -n "$CIPHER_MSG" ]; then
-        echo "$STATE_HASH" > "$CACHE_FILE"
-        echo "$CIPHER_MSG" >> "$CACHE_FILE"
-      fi
-    fi
-
-    if [ -n "$CIPHER_MSG" ]; then
-      sketchybar --set "$NAME" label="$CIPHER_MSG" drawing=on
-    else
-      sketchybar --set "$NAME" drawing=off
-    fi
-  else
-    sketchybar --set "$NAME" drawing=off
-  fi
+  # Normal upcoming events
+  sketchybar --set "$NAME" \
+    label="$LABEL" \
+    label.color="$COLOR_NORMAL" \
+    background.drawing=off \
+    drawing=on
 fi
