@@ -220,3 +220,49 @@ shift-shift S is your scratch pad terminal. toggles on/off. remembers state.
 prefix S = persistent scratch terminal. your floating command line.
 ⇧⇧ S → scratch shell → do quick thing → ⇧⇧ S → gone but not forgotten
 floating scratch terminal: shift-shift S. use it for quick tests and notes.
+
+YAZI → OIL → NVIM → LAZYGIT FLOW (THE DREAM)
+⇧⇧ K to browse files in yazi → enter opens in nvim → - for oil → ⇧⇧ g for git
+the flow: yazi (browse) → nvim (edit) → oil (manage) → lazygit (commit)
+shift-shift K finds the file, nvim edits it, - manages siblings, shift-shift g commits
+yazi popup (⇧⇧ K) is your visual entry point into any project
+from yazi, enter drops you into nvim. from nvim, - drops you into oil.
+oil.nvim: press - to go up. edit filenames to rename. delete lines to delete files.
+in nvim, - opens oil in parent dir. navigate, then enter to edit a file.
+oil is a buffer. yank/paste files. visual select + :d to bulk delete.
+done editing? ⇧⇧ g for lazygit popup. stage, commit, push. q to close.
+the loop: ⇧⇧ K → find file → edit → - → organize → ⇧⇧ g → commit → repeat
+yazi for discovery, oil for manipulation, lazygit for version control
+shift-shift K when you don't know where the file is
+- (minus) in nvim when you need to see/manage neighboring files
+shift-shift g when you're ready to commit your changes
+(oil) g. toggles hidden files - see your .gitignore'd shame
+(oil) C-p previews without opening - peek before you leap
+(oil) gx opens with external program - preview images, pdfs, etc
+(yazi) space to select multiple files, then yank/paste/delete
+(yazi) . shows hidden files, z jumps to frequent directories
+yazi → enter → you're in nvim. press - → you're in oil. it's seamless.
+oil treats your filesystem like a vim buffer. delete lines = delete files.
+rename in oil: just edit the filename text. :w saves the rename.
+create file in oil: type a new filename on a blank line. :w creates it.
+lazygit popup (⇧⇧ g) - stage with space, commit with c, push with P
+in lazygit: ? shows all keybindings. it's a whole TUI. explore it.
+lazygit: tab switches panels (files/branches/commits/stash)
+the muscle memory: K for find, - for manage, g for git
+⇧⇧ K → ⇧⇧ g is your outer loop. - is your inner file management.
+you're in nvim, need to rename the file? - then edit the line. done.
+you're in nvim, need sibling files? - shows them all. enter to open.
+you're in nvim, done with changes? ⇧⇧ g, stage, commit, push, q. back to work.
+oil + lazygit popup = you never need a separate terminal for file ops
+browse with yazi (⇧⇧ K), edit in nvim, manage with oil (-), commit with lazygit (⇧⇧ g)
+this is the way: visual browse → edit → filesystem ops → version control
+yazi is your map. oil is your workbench. lazygit is your checkpoint.
+⇧⇧ K to explore, - to organize, ⇧⇧ g to save your progress
+(nvim) - is oil. it's always there. one keystroke to filesystem mode.
+oil.nvim makes the filesystem feel like just another buffer
+in oil, :w writes your filesystem changes. it's beautifully vim-like.
+visual select in oil → :d → confirm → bulk delete. powerful and scary.
+yazi popup closes, you're back in your panes. lazygit popup closes, same.
+popups preserve your tmux layout. use them. ⇧⇧ K and ⇧⇧ g.
+the holy trinity: yazi (find), oil (manage), lazygit (commit)
+shift-shift K, minus, shift-shift g. that's the whole workflow.
