@@ -175,202 +175,126 @@ MISC
 (nvim) diagnostics show below lines (virtual lines mode, not inline)
 (nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
 
-TMUX POPUPS
-⇧⇧ g = lazygit
-⇧⇧ K = yazi
-⇧⇧ S = scratch
-lazygit popup: ⇧⇧ g
-yazi popup: ⇧⇧ K
-scratch popup: ⇧⇧ S
-git? ⇧⇧ g
-files? ⇧⇧ K
-quick terminal? ⇧⇧ S
-⇧⇧ g floats
-⇧⇧ K floats
-⇧⇧ S toggles
-q closes lazygit
-q closes yazi
-⇧⇧ S again closes scratch
-popups don't mess with panes
-use ⇧⇧ g for git
-use ⇧⇧ K for browsing
-use ⇧⇧ S for quick stuff
-stop opening panes for git
-⇧⇧ g exists. use it.
-⇧⇧ K exists. use it.
-lazygit = ⇧⇧ g
-yazi = ⇧⇧ K
-scratch = ⇧⇧ S
-
-THE FLOW: ⇧⇧K → - → ⇧⇧g
-⇧⇧ K = yazi popup
-- = oil
-⇧⇧ g = lazygit popup
-yazi → nvim → oil → lazygit
-K finds, - manages, g commits
-⇧⇧ K: browse files
-- : parent dir in oil
-⇧⇧ g: git popup
-oil: edit line = rename
-oil: delete line = delete file
-oil: :w saves changes
-oil: g. = hidden files
-oil: C-p = preview
-oil: gx = open external
-lazygit: space = stage
-lazygit: c = commit
-lazygit: P = push
-lazygit: ? = help
-lazygit: tab = switch panel
-lazygit: q = close
-yazi: enter = open in nvim
-yazi: space = select
-yazi: . = hidden files
-yazi: z = jump frequent
-K, -, g. that's it.
-find → edit → manage → commit
-⇧⇧K → ⇧⇧g outer loop
-- is inner loop
-popups don't break panes
-- in nvim = oil always
-rename? - then edit
-delete? - then dd
-sibling files? just -
-done? ⇧⇧ g
-stage, commit, push, q
-back to work
-
-LAZYVIM TOGGLES (space u)
-space u w = toggle wrap
-space u l = toggle line numbers
-space u L = toggle relative numbers
-space u s = toggle spell check
-space u c = toggle conceal
-space u d = toggle diagnostics
-space u h = toggle inlay hints
-space u f = toggle format on save
-space u T = toggle treesitter highlight
-space u b = toggle background light/dark
-space u g = toggle git signs
-space u i = toggle indent guides
-space u n = toggle notifications
-wrap? space u w
-numbers? space u l
-relative? space u L
-spelling? space u s
-diagnostics off? space u d
-inlay hints? space u h
-format on save? space u f
-dark/light? space u b
-
-MORE NVIM QUICKIES
-gd = go to definition
-gr = go to references
-K = hover docs
-space c a = code action
-space c r = rename symbol
-space f f = find files
-space f g = live grep
-space f b = buffers
-space f r = recent files
-space e = file explorer
-space g g = lazygit (in nvim)
-space x x = trouble diagnostics
-space s s = document symbols
-] d = next diagnostic
-[ d = prev diagnostic
-] ] = next function
-[ [ = prev function
-gcc = comment line
-gc = comment selection
-za = toggle fold
-zR = open all folds
-zM = close all folds
-ctrl-o = jump back
-ctrl-i = jump forward
-* = search word under cursor
-# = search word backwards
-ciw = change inner word
-diw = delete inner word
-yiw = yank inner word
-vi" = select inside quotes
-va" = select around quotes
-dt. = delete to period
-ct, = change to comma
-f( = jump to next (
-; = repeat f/t forward
-, = repeat f/t backward
-. = repeat last change
-u = undo
-ctrl-r = redo
-:w = save
-:q = quit
-:wq = save quit
-ZZ = save quit fast
-ZQ = quit no save
-
-BUFFER NAV
-space b d = close buffer
-space b o = close others
-space b p = pin buffer
-] b = next buffer
-[ b = prev buffer
-space , = switch buffer
-space ` = alternate buffer
-
-WINDOW NAV
-ctrl-h = left
-ctrl-j = down
-ctrl-k = up
-ctrl-l = right
-space w d = close window
-space w - = split below
-space w | = split right
-space w = = equal size
-
-SEARCH/REPLACE
-space s r = search replace
-:%s/old/new/g = replace all
-:s/old/new/g = replace in line
-/pattern = search
-n = next match
-N = prev match
-* = search current word
-space / = grep in project
-
-GIT IN NVIM
-] h = next hunk
-[ h = prev hunk
-space g s = stage hunk
-space g r = reset hunk
-space g p = preview hunk
-space g b = blame line
-space g d = diff this
-
-TELESCOPE
-ctrl-/ = show keymaps in picker
-ctrl-q = send to quickfix
-tab = select multiple
-esc = close
-enter = open
-ctrl-x = open split
-ctrl-v = open vsplit
-
-TERMINAL
-space f t = float terminal
-ctrl-\ = toggle terminal
-exit = close terminal
-
-MISC SPEED
-J = join lines
-~ = swap case
-gu = lowercase
-gU = uppercase
-> = indent
-< = dedent
-= = auto indent
-ctrl-a = increment number
-ctrl-x = decrement number
-g ctrl-a = sequential increment
-gq = format text
-gw = format keep cursor
+ ⇧⇧ g →  lazygit popup
+ ⇧⇧ K →  yazi popup
+ ⇧⇧ S →  scratch terminal
+ git? ⇧⇧ g
+ files? ⇧⇧ K
+ quick shell? ⇧⇧ S
+ ⇧⇧ g floats over panes
+ ⇧⇧ K floats over panes
+ ⇧⇧ S toggles on/off
+ q closes  lazygit
+ q closes  yazi
+ ⇧⇧ S again closes scratch
+ popups preserve your layout
+ stop opening panes for git
+ ⇧⇧ g → do git → q → done
+ ⇧⇧ K →  yazi
+ ⇧⇧ g →  lazygit
+ ⇧⇧ S →  scratch
+ K finds, - manages, g commits
+ ⇧⇧ K →  → - →  → ⇧⇧ g
+  - opens oil (parent dir)
+ oil: edit line = rename
+ oil: dd = delete file
+ oil: :w saves changes
+ oil: g. = hidden files
+ oil: C-p = preview
+ oil: gx = open external
+ lazygit: space = stage
+ lazygit: c = commit
+ lazygit: P = push
+ lazygit: ? = help
+ lazygit: tab = panels
+ yazi: enter = open
+ yazi: space = select
+ yazi: . = hidden
+ yazi: z = frecency jump
+ rename?  - then edit line
+ delete?  - then dd
+ sibling files? just  -
+ done editing? ⇧⇧ g
+  space u w → toggle wrap
+  space u l → line numbers
+  space u L → relative numbers
+  space u s → spell check
+  space u d → diagnostics
+  space u h → inlay hints
+  space u f → format on save
+  space u b → dark/light
+  space u g → git signs
+  space u i → indent guides
+  gd → definition
+  gr → references
+  K → hover docs
+  space c a → code action
+  space c r → rename
+  space f f → find files
+  space f g → live grep
+  space f b → buffers
+  space f r → recent
+  space e → explorer
+  space g g →  lazygit
+  space x x → diagnostics
+  space s s → symbols
+ ] d → next diagnostic
+ [ d → prev diagnostic
+ ] ] → next function
+ [ [ → prev function
+  gcc → comment line
+  gc → comment selection
+ za → toggle fold
+ zR → open all folds
+ zM → close all folds
+ ctrl-o → jump back
+ ctrl-i → jump forward
+ * → search word
+ # → search backwards
+ ciw → change word
+ diw → delete word
+ yiw → yank word
+ vi" → select in quotes
+ va" → select around quotes
+ dt. → delete to .
+ ct, → change to ,
+ f( → find (
+ ; → repeat f/t
+ . → repeat change
+ u → undo
+ ctrl-r → redo
+ ZZ → save quit
+ ZQ → quit no save
+  space b d → close buffer
+  space b o → close others
+ ] b → next buffer
+ [ b → prev buffer
+  space , → switch buffer
+  ctrl-h/j/k/l → navigate
+  space w d → close window
+  space w - → split below
+  space w | → split right
+  :%s/old/new/g → replace all
+ n → next match
+ N → prev match
+  space / → grep project
+ ] h → next hunk
+ [ h → prev hunk
+  space g s → stage hunk
+  space g r → reset hunk
+  space g p → preview hunk
+  space g b → blame
+ ctrl-q → send to quickfix
+ tab → select multiple
+ ctrl-x → open split
+ ctrl-v → open vsplit
+  space f t → float terminal
+  ctrl-\ → toggle terminal
+ J → join lines
+ ~ → swap case
+ gu → lowercase
+ gU → uppercase
+ > → indent
+ < → dedent
+ ctrl-a → increment
+ ctrl-x → decrement
