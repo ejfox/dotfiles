@@ -80,38 +80,45 @@ else
   esac
 fi
 
-# Color based on state (vulpes with meaning)
+# Vulpes color palette - vibrant reds and pinks
+# base: #f30061 (magenta), secondary: #fd0022 (red), tertiary: #ff279a (pink), accent: #ff1865
 if [ "$PERCENT" -le 10 ]; then
-  COLOR="0xffff0055"  # Red - critical (<10%)
+  COLOR="0xfffd0022"  # Vulpes red - critical (<10%)
 elif [ "$PERCENT" -le 20 ]; then
-  COLOR="0xfff5d0dc"  # Pink - low (10-20%)
+  COLOR="0xfff30061"  # Vulpes magenta - low (10-20%)
+elif [ "$PERCENT" -le 40 ]; then
+  COLOR="0xffff1865"  # Vulpes accent - getting low (20-40%)
 elif [ "$IS_CHARGING" = "Yes" ]; then
-  COLOR="0xfff5d0dc"  # Pink - charging
+  COLOR="0xffff279a"  # Vulpes pink - charging (lively!)
 else
-  COLOR="0xffffffff"  # White - normal
+  COLOR="0xffe5dcdc"  # Vulpes muted pink - normal (subtle)
 fi
 
-# Fade bar background to red as battery gets critical
+# Fade bar background to vulpes magenta as battery gets critical
 if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]]; then
   MINS=${BASH_REMATCH[1]}
 
   if [ "$MINS" -le 20 ]; then
-    # Calculate fade: 20 mins = black (0x000000), 0 mins = full red (0xff0000)
-    # Fade formula: red_intensity increases as minutes decrease
-    RED_INTENSITY=$((255 * (20 - MINS) / 20))
+    # Calculate fade: 20 mins = dark (0x0d0d0d), 0 mins = vulpes magenta (#5c0030)
+    INTENSITY=$((100 * (20 - MINS) / 20))
 
-    # Convert to hex (0-255)
-    RED_HEX=$(printf "%02x" $RED_INTENSITY)
+    # Fade from 0x0d to target values (#5c, 0x00, 0x30)
+    RED=$(( 13 + (79 * INTENSITY / 100) ))     # 0x0d -> 0x5c
+    GREEN=$((13 - (13 * INTENSITY / 100)))     # 0x0d -> 0x00
+    BLUE=$((13 + (35 * INTENSITY / 100)))      # 0x0d -> 0x30
 
-    # Create color with faded red background (0xff + RR + 0000)
-    BAR_COLOR="0xff${RED_HEX}0000"
+    RED_HEX=$(printf "%02x" $RED)
+    GREEN_HEX=$(printf "%02x" $GREEN)
+    BLUE_HEX=$(printf "%02x" $BLUE)
+
+    BAR_COLOR="0xff${RED_HEX}${GREEN_HEX}${BLUE_HEX}"
   else
-    # Normal bar color
-    BAR_COLOR="0xff000000"
+    # Normal dark bar
+    BAR_COLOR="0xff0d0d0d"
   fi
 else
-  # Normal bar color (charging or no time estimate)
-  BAR_COLOR="0xff000000"
+  # Normal dark bar (charging or no time estimate)
+  BAR_COLOR="0xff0d0d0d"
 fi
 
 # Update bar background color
