@@ -31,7 +31,7 @@ function M.setup()
     string = '#f5f5f5',
     number = '#ff33c5',
     boolean = '#ff1043',
-    func = '#ff0022',
+    func = '#ffffff',  -- White methods/functions to stand out
     const = '#ff1043',
     type = '#ff24ab',
     variable = '#ff0a89',
@@ -45,10 +45,10 @@ function M.setup()
     punctuation = '#f82470',
     heading = '#ff2453',
 
-    selection = '#ff3388',      -- Pink theme selection
-    selection_fg = '#0d0d0d',   -- Dark fg for contrast
+    selection = '#6b1a3d',      -- Darker pink (bloom-friendly)
+    selection_fg = '#ffffff',   -- White fg for readability
     cursor = '#e60067',
-    cursorline = '#1a1a1a',
+    cursorline = '#2a1520',  -- Subtle dark pink tint, more visible
   }
 
   local highlights = {
@@ -80,17 +80,17 @@ function M.setup()
     Folded = { fg = colors.comment, bg = colors.bg_alt },
     ColorColumn = { bg = colors.bg_alt },
 
-    -- Selections & Search
-    Visual = { fg = colors.selection_fg, bg = colors.selection },
+    -- Selections & Search (bloom-friendly: darker bg, white text)
+    Visual = { fg = colors.selection_fg, bg = colors.selection, bold = true },
     VisualNOS = { fg = colors.selection_fg, bg = colors.selection },
     Search = { fg = colors.bg, bg = colors.warning },
-    IncSearch = { fg = colors.bg, bg = colors.base },
-    CurSearch = { fg = colors.bg, bg = colors.base },
+    IncSearch = { fg = '#ffffff', bg = '#5c0030', bold = true },  -- Darker red, white text
+    CurSearch = { fg = '#ffffff', bg = '#5c0030', bold = true },
     Substitute = { fg = colors.bg, bg = colors.error },
 
-    -- UI Elements
+    -- UI Elements (bloom-friendly completions)
     Pmenu = { fg = colors.fg, bg = colors.bg_alt },
-    PmenuSel = { fg = colors.bg, bg = colors.base },
+    PmenuSel = { fg = '#ffffff', bg = '#5c0030', bold = true },  -- Darker, readable
     PmenuSbar = { bg = colors.bg_alt },
     PmenuThumb = { bg = colors.base },
     PmenuKind = { fg = colors.type, bg = colors.bg_alt },
@@ -103,15 +103,30 @@ function M.setup()
     WinBar = { fg = colors.fg, bg = 'none' },
     WinBarNC = { fg = colors.comment, bg = 'none' },
 
-    TabLine = { fg = colors.comment, bg = 'none' },
+    TabLine = { fg = colors.linenr, bg = 'none' },
     TabLineFill = { bg = 'none' },
-    TabLineSel = { fg = colors.fg, bg = colors.bg_alt },
+    TabLineSel = { fg = colors.base, bg = colors.bg_alt, bold = true },  -- Pink text active tab
+
+    -- BufferLine (active buffer = pink text, inactive = muted)
+    BufferLineBufferSelected = { fg = colors.base, bg = colors.bg_alt, bold = true },
+    BufferLineIndicatorSelected = { fg = colors.base },
+    BufferLineBuffer = { fg = colors.linenr, bg = 'none' },
+    BufferLineBackground = { fg = colors.linenr, bg = 'none' },
+    BufferLineFill = { bg = 'none' },
+    BufferLineTab = { fg = colors.linenr, bg = 'none' },
+    BufferLineTabSelected = { fg = colors.base, bg = colors.bg_alt, bold = true },
+    BufferLineTabClose = { fg = colors.linenr, bg = 'none' },
+    BufferLineSeparator = { fg = colors.bg, bg = 'none' },  -- Invisible
+    BufferLineSeparatorSelected = { fg = colors.bg, bg = 'none' },  -- Also invisible
+    BufferLineSeparatorVisible = { fg = colors.bg, bg = 'none' },  -- Gone
+    BufferLineModified = { fg = colors.base },
+    BufferLineModifiedSelected = { fg = colors.base, bold = true },
 
     VertSplit = { fg = colors.bg_alt },
     WinSeparator = { fg = colors.bg_alt },
 
     Title = { fg = colors.base },
-    Directory = { fg = colors.info },
+    Directory = { fg = '#c490a8' },  -- Muted pink, bloom-friendly
     Question = { fg = colors.success },
     MoreMsg = { fg = colors.success },
     ModeMsg = { fg = colors.base },

@@ -41,3 +41,15 @@ keybind = cmd+shift+enter=toggle_fullscreen
 clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SHADERS - from hackr-sh/ghostty-shaders (battle-tested)
+# ═══════════════════════════════════════════════════════════════════════════
+# Order matters: they stack. Reload with Cmd+Shift+,
+# Originals from: https://github.com/hackr-sh/ghostty-shaders
+
+# Order: cursor → bloom → vignette → tft
+custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-subtle.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
