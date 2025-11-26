@@ -404,3 +404,62 @@ Library/
 - Harpoon (not using this workflow) - `~/.config/nvim/lua/plugins/harpoon.lua` line 4
 
 **Commit**: f25883c - chore: remove secrets from .bash_profile, improve .gitignore
+
+## Vulpes Shader System (Nov 25, 2025):
+**Status**: ✅ ACTIVE - Custom GLSL shaders for Ghostty with vulpes aesthetic
+
+### Shader Stack (Order matters!)
+**Location**: `~/.config/ghostty/shaders/`
+
+Shaders stack in order (configured in `~/.config/ghostty/config`):
+1. **cursor-blaze-vulpes.glsl** - Hot pink cursor trail (#ff268c)
+   - Quad easing: `t * t` for smooth deceleration
+   - Duration: 0.6s, tail lingers beautifully
+   - Colors: TRAIL_COLOR #ff268c, ACCENT #850045
+
+2. **bloom-vulpes.glsl** - Red-selective glow effect
+   - Only blooms red/pink pixels via `isWarmColor()` filter
+   - Bloom output tinted red (not white): `r *= 1.3, g *= 0.85`
+   - Intensity: 0.21 (tuned through many iterations)
+   - LUM_THRESHOLD: 0.15, RED_DOMINANCE: 0.25
+
+3. **vignette-subtle.glsl** - Very subtle edge darkening
+   - Radius: 0.95 (only darkens very edges)
+   - Softness: 0.55, Strength: 0.75 (barely visible)
+
+4. **tft-subtle.glsl** - LCD subpixel effect
+   - Resolution: 3.0, Strength: 0.20
+
+### Bloom-Friendly Design Rules
+When bloom is active, avoid bright saturated colors for UI elements:
+- **Bad**: Bright pink/red selections → blooms into unreadable mess
+- **Good**: Darker background + white text + bold = readable with bloom
+
+Applied to:
+- nvim Visual selection: `#6b1a3d` bg + white text
+- nvim IncSearch/CurSearch: `#5c0030` bg + white text
+- nvim Directory: muted pink `#c490a8` (no harsh bloom)
+- nvim Functions/methods: white (stand out from red theme)
+- tmux mode-style: `#8a0050` bg + white text
+
+### Reload Shaders
+`Cmd+Shift+,` in Ghostty to reload config/shaders
+
+### Dependencies
+Base shaders from: https://github.com/hackr-sh/ghostty-shaders
+
+**Commit**: 83e330a - feat(ghostty): vulpes shader system with red-selective bloom
+
+## mini.animate for nvim (Nov 25, 2025):
+**Location**: `~/.config/nvim/lua/plugins/mini-animate.lua`
+
+Subtle animations without distraction:
+- **Cursor**: 80ms cubic easing (smooth jump between positions)
+- **Resize**: 60ms cubic (window resize feels snappy)
+- **Open/Close**: 60ms cubic (window transitions)
+- **Scroll**: DISABLED (too distracting for daily use)
+
+```lua
+local timing_fast = animate.gen_timing.cubic({ duration = 60, unit = "total" })
+local timing_cursor = animate.gen_timing.cubic({ duration = 80, unit = "total" })
+```
