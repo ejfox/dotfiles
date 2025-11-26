@@ -176,47 +176,47 @@ MISC
 (nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
 
 TMUX POPUP REMINDERS (BECAUSE YOU KEEP FORGETTING)
-C-a g opens lazygit as a floating popup - stop opening new panes for git
+shift-shift g opens lazygit as a floating popup - stop opening new panes for git
 prefix + g = lazygit popup. it floats. it's beautiful. use it.
-lazygit popup: C-a g. floats over your panes. press q to dismiss.
-need git? C-a g. popup lazygit. no pane management required.
-(tmux) C-a g is lazygit in a popup window - your panes stay untouched
-git status? git commit? git push? C-a g. lazygit popup. done.
-why open a new pane for git when C-a g gives you a floating lazygit?
-C-a g = floating lazygit. press escape/q to close. panes stay put.
-tmux popup lazygit is C-a g - it's the move
-(tmux) lazygit floats with C-a g - stop disrupting your pane layout
-you have a lazygit popup. it's C-a g. please use it.
+lazygit popup: ⇧⇧ g. floats over your panes. press q to dismiss.
+need git? shift-shift g. popup lazygit. no pane management required.
+(tmux) ⇧⇧ g is lazygit in a popup window - your panes stay untouched
+git status? git commit? git push? shift-shift g. lazygit popup. done.
+why open a new pane for git when ⇧⇧ g gives you a floating lazygit?
+shift-shift g = floating lazygit. press escape/q to close. panes stay put.
+tmux popup lazygit is ⇧⇧ g - it's the move
+(tmux) lazygit floats with shift-shift g - stop disrupting your pane layout
+you have a lazygit popup. it's ⇧⇧ g. please use it.
 prefix g = lazygit popup. it's so good. why aren't you using it?
-C-a g → lazygit popup → do git stuff → q to close → back to work
-git workflow: C-a g, do the thing, q, done. no panes harmed.
-(tmux) floating lazygit is ONE KEYSTROKE: C-a g
-that lazygit popup you set up? C-a g. that's it. that's the tip.
-C-a g for git. it pops up. it goes away. it's perfect.
-stop making new tmux panes for lazygit. C-a g exists.
+⇧⇧ g → lazygit popup → do git stuff → q to close → back to work
+git workflow: shift-shift g, do the thing, q, done. no panes harmed.
+(tmux) floating lazygit is ONE KEYSTROKE AFTER PREFIX: ⇧⇧ g
+that lazygit popup you set up? shift-shift g. that's it. that's the tip.
+⇧⇧ g for git. it pops up. it goes away. it's perfect.
+stop making new tmux panes for lazygit. shift-shift g exists.
 
-C-a K opens yazi file manager as a popup - browse files without leaving
+shift-shift K opens yazi file manager as a popup - browse files without leaving
 prefix + K = yazi popup. navigate files visually. float over everything.
-yazi file manager popup: C-a K. browse, preview, navigate.
-need to find a file? C-a K for floating yazi.
-(tmux) C-a K = yazi popup - visual file browsing without disrupting panes
-file manager popup is C-a K - yazi floats, you browse, you close
-why cd around when C-a K gives you yazi in a popup?
-C-a K is your floating file browser. yazi. use it.
-(tmux) yazi popup = C-a K. visual file navigation. popup style.
+yazi file manager popup: ⇧⇧ K. browse, preview, navigate.
+need to find a file? shift-shift K for floating yazi.
+(tmux) ⇧⇧ K = yazi popup - visual file browsing without disrupting panes
+file manager popup is shift-shift K - yazi floats, you browse, you close
+why cd around when ⇧⇧ K gives you yazi in a popup?
+shift-shift K is your floating file browser. yazi. use it.
+(tmux) yazi popup = ⇧⇧ K. visual file navigation. popup style.
 prefix K opens yazi file manager. it floats. it's convenient.
-C-a K → yazi popup → find your file → enter → done
-browse files visually with C-a K - yazi popup, no pane clutter
+⇧⇧ K → yazi popup → find your file → enter → done
+browse files visually with shift-shift K - yazi popup, no pane clutter
 
-C-a S toggles a scratch terminal - persistent floating shell
+shift-shift S toggles a scratch terminal - persistent floating shell
 prefix + S = scratch terminal. toggle it on/off. it persists.
-scratch terminal: C-a S. quick commands. toggle away. comes back.
-need a quick terminal? C-a S. scratch popup. persistent.
-(tmux) C-a S = scratch terminal toggle - floating, persistent, convenient
-quick shell for one-off commands: C-a S scratch terminal
-why open a new pane when C-a S gives you a floating scratch shell?
-C-a S is your scratch pad terminal. toggles on/off. remembers state.
-(tmux) scratch terminal popup = C-a S. test something quick. toggle away.
+scratch terminal: ⇧⇧ S. quick commands. toggle away. comes back.
+need a quick terminal? shift-shift S. scratch popup. persistent.
+(tmux) ⇧⇧ S = scratch terminal toggle - floating, persistent, convenient
+quick shell for one-off commands: shift-shift S scratch terminal
+why open a new pane when ⇧⇧ S gives you a floating scratch shell?
+shift-shift S is your scratch pad terminal. toggles on/off. remembers state.
+(tmux) scratch terminal popup = ⇧⇧ S. test something quick. toggle away.
 prefix S = persistent scratch terminal. your floating command line.
-C-a S → scratch shell → do quick thing → C-a S → gone but not forgotten
-floating scratch terminal: C-a S. use it for quick tests and notes.
+⇧⇧ S → scratch shell → do quick thing → ⇧⇧ S → gone but not forgotten
+floating scratch terminal: shift-shift S. use it for quick tests and notes.
