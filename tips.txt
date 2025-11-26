@@ -175,94 +175,90 @@ MISC
 (nvim) diagnostics show below lines (virtual lines mode, not inline)
 (nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
 
-TMUX POPUP REMINDERS (BECAUSE YOU KEEP FORGETTING)
-shift-shift g opens lazygit as a floating popup - stop opening new panes for git
-prefix + g = lazygit popup. it floats. it's beautiful. use it.
-lazygit popup: ⇧⇧ g. floats over your panes. press q to dismiss.
-need git? shift-shift g. popup lazygit. no pane management required.
-(tmux) ⇧⇧ g is lazygit in a popup window - your panes stay untouched
-git status? git commit? git push? shift-shift g. lazygit popup. done.
-why open a new pane for git when ⇧⇧ g gives you a floating lazygit?
-shift-shift g = floating lazygit. press escape/q to close. panes stay put.
-tmux popup lazygit is ⇧⇧ g - it's the move
-(tmux) lazygit floats with shift-shift g - stop disrupting your pane layout
-you have a lazygit popup. it's ⇧⇧ g. please use it.
-prefix g = lazygit popup. it's so good. why aren't you using it?
-⇧⇧ g → lazygit popup → do git stuff → q to close → back to work
-git workflow: shift-shift g, do the thing, q, done. no panes harmed.
-(tmux) floating lazygit is ONE KEYSTROKE AFTER PREFIX: ⇧⇧ g
-that lazygit popup you set up? shift-shift g. that's it. that's the tip.
-⇧⇧ g for git. it pops up. it goes away. it's perfect.
-stop making new tmux panes for lazygit. shift-shift g exists.
+TMUX POPUPS
+⇧⇧ g = lazygit
+⇧⇧ K = yazi
+⇧⇧ S = scratch
+lazygit popup: ⇧⇧ g
+yazi popup: ⇧⇧ K
+scratch popup: ⇧⇧ S
+git? ⇧⇧ g
+files? ⇧⇧ K
+quick terminal? ⇧⇧ S
+⇧⇧ g floats
+⇧⇧ K floats
+⇧⇧ S toggles
+q closes lazygit
+q closes yazi
+⇧⇧ S again closes scratch
+popups don't mess with panes
+use ⇧⇧ g for git
+use ⇧⇧ K for browsing
+use ⇧⇧ S for quick stuff
+stop opening panes for git
+⇧⇧ g exists. use it.
+⇧⇧ K exists. use it.
+lazygit = ⇧⇧ g
+yazi = ⇧⇧ K
+scratch = ⇧⇧ S
 
-shift-shift K opens yazi file manager as a popup - browse files without leaving
-prefix + K = yazi popup. navigate files visually. float over everything.
-yazi file manager popup: ⇧⇧ K. browse, preview, navigate.
-need to find a file? shift-shift K for floating yazi.
-(tmux) ⇧⇧ K = yazi popup - visual file browsing without disrupting panes
-file manager popup is shift-shift K - yazi floats, you browse, you close
-why cd around when ⇧⇧ K gives you yazi in a popup?
-shift-shift K is your floating file browser. yazi. use it.
-(tmux) yazi popup = ⇧⇧ K. visual file navigation. popup style.
-prefix K opens yazi file manager. it floats. it's convenient.
-⇧⇧ K → yazi popup → find your file → enter → done
-browse files visually with shift-shift K - yazi popup, no pane clutter
+THE FLOW: ⇧⇧K → - → ⇧⇧g
+⇧⇧ K = yazi popup
+- = oil
+⇧⇧ g = lazygit popup
+yazi → nvim → oil → lazygit
+K finds, - manages, g commits
+⇧⇧ K: browse files
+- : parent dir in oil
+⇧⇧ g: git popup
+oil: edit line = rename
+oil: delete line = delete file
+oil: :w saves changes
+oil: g. = hidden files
+oil: C-p = preview
+oil: gx = open external
+lazygit: space = stage
+lazygit: c = commit
+lazygit: P = push
+lazygit: ? = help
+lazygit: tab = switch panel
+lazygit: q = close
+yazi: enter = open in nvim
+yazi: space = select
+yazi: . = hidden files
+yazi: z = jump frequent
+K, -, g. that's it.
+find → edit → manage → commit
+⇧⇧K → ⇧⇧g outer loop
+- is inner loop
+popups don't break panes
+- in nvim = oil always
+rename? - then edit
+delete? - then dd
+sibling files? just -
+done? ⇧⇧ g
+stage, commit, push, q
+back to work
 
-shift-shift S toggles a scratch terminal - persistent floating shell
-prefix + S = scratch terminal. toggle it on/off. it persists.
-scratch terminal: ⇧⇧ S. quick commands. toggle away. comes back.
-need a quick terminal? shift-shift S. scratch popup. persistent.
-(tmux) ⇧⇧ S = scratch terminal toggle - floating, persistent, convenient
-quick shell for one-off commands: shift-shift S scratch terminal
-why open a new pane when ⇧⇧ S gives you a floating scratch shell?
-shift-shift S is your scratch pad terminal. toggles on/off. remembers state.
-(tmux) scratch terminal popup = ⇧⇧ S. test something quick. toggle away.
-prefix S = persistent scratch terminal. your floating command line.
-⇧⇧ S → scratch shell → do quick thing → ⇧⇧ S → gone but not forgotten
-floating scratch terminal: shift-shift S. use it for quick tests and notes.
-
-YAZI → OIL → NVIM → LAZYGIT FLOW (THE DREAM)
-⇧⇧ K to browse files in yazi → enter opens in nvim → - for oil → ⇧⇧ g for git
-the flow: yazi (browse) → nvim (edit) → oil (manage) → lazygit (commit)
-shift-shift K finds the file, nvim edits it, - manages siblings, shift-shift g commits
-yazi popup (⇧⇧ K) is your visual entry point into any project
-from yazi, enter drops you into nvim. from nvim, - drops you into oil.
-oil.nvim: press - to go up. edit filenames to rename. delete lines to delete files.
-in nvim, - opens oil in parent dir. navigate, then enter to edit a file.
-oil is a buffer. yank/paste files. visual select + :d to bulk delete.
-done editing? ⇧⇧ g for lazygit popup. stage, commit, push. q to close.
-the loop: ⇧⇧ K → find file → edit → - → organize → ⇧⇧ g → commit → repeat
-yazi for discovery, oil for manipulation, lazygit for version control
-shift-shift K when you don't know where the file is
-- (minus) in nvim when you need to see/manage neighboring files
-shift-shift g when you're ready to commit your changes
-(oil) g. toggles hidden files - see your .gitignore'd shame
-(oil) C-p previews without opening - peek before you leap
-(oil) gx opens with external program - preview images, pdfs, etc
-(yazi) space to select multiple files, then yank/paste/delete
-(yazi) . shows hidden files, z jumps to frequent directories
-yazi → enter → you're in nvim. press - → you're in oil. it's seamless.
-oil treats your filesystem like a vim buffer. delete lines = delete files.
-rename in oil: just edit the filename text. :w saves the rename.
-create file in oil: type a new filename on a blank line. :w creates it.
-lazygit popup (⇧⇧ g) - stage with space, commit with c, push with P
-in lazygit: ? shows all keybindings. it's a whole TUI. explore it.
-lazygit: tab switches panels (files/branches/commits/stash)
-the muscle memory: K for find, - for manage, g for git
-⇧⇧ K → ⇧⇧ g is your outer loop. - is your inner file management.
-you're in nvim, need to rename the file? - then edit the line. done.
-you're in nvim, need sibling files? - shows them all. enter to open.
-you're in nvim, done with changes? ⇧⇧ g, stage, commit, push, q. back to work.
-oil + lazygit popup = you never need a separate terminal for file ops
-browse with yazi (⇧⇧ K), edit in nvim, manage with oil (-), commit with lazygit (⇧⇧ g)
-this is the way: visual browse → edit → filesystem ops → version control
-yazi is your map. oil is your workbench. lazygit is your checkpoint.
-⇧⇧ K to explore, - to organize, ⇧⇧ g to save your progress
-(nvim) - is oil. it's always there. one keystroke to filesystem mode.
-oil.nvim makes the filesystem feel like just another buffer
-in oil, :w writes your filesystem changes. it's beautifully vim-like.
-visual select in oil → :d → confirm → bulk delete. powerful and scary.
-yazi popup closes, you're back in your panes. lazygit popup closes, same.
-popups preserve your tmux layout. use them. ⇧⇧ K and ⇧⇧ g.
-the holy trinity: yazi (find), oil (manage), lazygit (commit)
-shift-shift K, minus, shift-shift g. that's the whole workflow.
+LAZYVIM TOGGLES (space u)
+space u w = toggle wrap
+space u l = toggle line numbers
+space u L = toggle relative numbers
+space u s = toggle spell check
+space u c = toggle conceal
+space u d = toggle diagnostics
+space u h = toggle inlay hints
+space u f = toggle format on save
+space u T = toggle treesitter highlight
+space u b = toggle background light/dark
+space u g = toggle git signs
+space u i = toggle indent guides
+space u n = toggle notifications
+wrap? space u w
+numbers? space u l
+relative? space u L
+spelling? space u s
+diagnostics off? space u d
+inlay hints? space u h
+format on save? space u f
+dark/light? space u b
