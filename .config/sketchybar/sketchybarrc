@@ -34,8 +34,10 @@ sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
   label.animation_duration=250 \
   background.animation_duration=250
 
-##### Next Calendar Event #####
+##### Plugin Directory #####
 PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+
+##### Next Calendar Event #####
 sketchybar --add item next_event left \
            --set next_event update_freq=60 \
                             script="$PLUGIN_DIR/next_event.sh" \
@@ -113,6 +115,9 @@ sketchybar --add item battery right \
 sketchybar --add item clock right \
   --set clock update_freq=1 \
   position=right \
+  label.width=70 \
+  padding_left=8 \
+  padding_right=12 \
   script="$HOME/.config/sketchybar/plugins/clock.sh"
 
 ###### Next Todo #####
@@ -121,10 +126,13 @@ sketchybar --add item clock right \
 #  position=right \
 #  script="$HOME/.config/sketchybar/plugins/top_task.sh"
 
-##### Words This Month #####
+##### Words Today/Month #####
 sketchybar --add item words right \
   --set words update_freq=60 \
   position=right \
+  label.width=75 \
+  padding_left=4 \
+  padding_right=4 \
   script="$HOME/.config/sketchybar/plugins/words.sh" \
   click_script="open https://ejfox.com/blog" \
   --subscribe words system_woke
