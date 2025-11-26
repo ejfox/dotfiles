@@ -262,3 +262,115 @@ diagnostics off? space u d
 inlay hints? space u h
 format on save? space u f
 dark/light? space u b
+
+MORE NVIM QUICKIES
+gd = go to definition
+gr = go to references
+K = hover docs
+space c a = code action
+space c r = rename symbol
+space f f = find files
+space f g = live grep
+space f b = buffers
+space f r = recent files
+space e = file explorer
+space g g = lazygit (in nvim)
+space x x = trouble diagnostics
+space s s = document symbols
+] d = next diagnostic
+[ d = prev diagnostic
+] ] = next function
+[ [ = prev function
+gcc = comment line
+gc = comment selection
+za = toggle fold
+zR = open all folds
+zM = close all folds
+ctrl-o = jump back
+ctrl-i = jump forward
+* = search word under cursor
+# = search word backwards
+ciw = change inner word
+diw = delete inner word
+yiw = yank inner word
+vi" = select inside quotes
+va" = select around quotes
+dt. = delete to period
+ct, = change to comma
+f( = jump to next (
+; = repeat f/t forward
+, = repeat f/t backward
+. = repeat last change
+u = undo
+ctrl-r = redo
+:w = save
+:q = quit
+:wq = save quit
+ZZ = save quit fast
+ZQ = quit no save
+
+BUFFER NAV
+space b d = close buffer
+space b o = close others
+space b p = pin buffer
+] b = next buffer
+[ b = prev buffer
+space , = switch buffer
+space ` = alternate buffer
+
+WINDOW NAV
+ctrl-h = left
+ctrl-j = down
+ctrl-k = up
+ctrl-l = right
+space w d = close window
+space w - = split below
+space w | = split right
+space w = = equal size
+
+SEARCH/REPLACE
+space s r = search replace
+:%s/old/new/g = replace all
+:s/old/new/g = replace in line
+/pattern = search
+n = next match
+N = prev match
+* = search current word
+space / = grep in project
+
+GIT IN NVIM
+] h = next hunk
+[ h = prev hunk
+space g s = stage hunk
+space g r = reset hunk
+space g p = preview hunk
+space g b = blame line
+space g d = diff this
+
+TELESCOPE
+ctrl-/ = show keymaps in picker
+ctrl-q = send to quickfix
+tab = select multiple
+esc = close
+enter = open
+ctrl-x = open split
+ctrl-v = open vsplit
+
+TERMINAL
+space f t = float terminal
+ctrl-\ = toggle terminal
+exit = close terminal
+
+MISC SPEED
+J = join lines
+~ = swap case
+gu = lowercase
+gU = uppercase
+> = indent
+< = dedent
+= = auto indent
+ctrl-a = increment number
+ctrl-x = decrement number
+g ctrl-a = sequential increment
+gq = format text
+gw = format keep cursor
