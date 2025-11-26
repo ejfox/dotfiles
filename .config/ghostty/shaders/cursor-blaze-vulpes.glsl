@@ -52,6 +52,18 @@ float antialising(float distance) {
     return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
 }
 
+// Simple hash for particle dithering
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// Particle/dust dither - breaks up the solid trail
+float particleDither(vec2 uv, float density) {
+    vec2 cell = floor(uv * 180.0);  // grid size for particles
+    float noise = hash(cell + floor(iTime * 2.0));  // subtle shimmer
+    return step(1.0 - density, noise);
+}
+
 float determineStartVertexFactor(vec2 a, vec2 b) {
     float condition1 = step(b.x, a.x) * step(a.y, b.y);
     float condition2 = step(a.x, b.x) * step(b.y, a.y);
@@ -63,14 +75,14 @@ vec2 getRectangleCenter(vec4 rectangle) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VULPES HOT PINK - more pink, less pure red
+// VULPES HOT PINK - subtle morning edition
 // ═══════════════════════════════════════════════════════════════════════════
-const vec4 TRAIL_COLOR = vec4(1.0, 0.15, 0.55, 1.0);       // Hot pink #ff268c
-const vec4 TRAIL_COLOR_ACCENT = vec4(0.85, 0.05, 0.45, 1.0); // Deep magenta
+const vec4 TRAIL_COLOR = vec4(1.0, 0.15, 0.55, 0.45);       // Hot pink, reduced alpha
+const vec4 TRAIL_COLOR_ACCENT = vec4(0.85, 0.05, 0.45, 0.35); // Deep magenta, softer
 const vec4 CURRENT_CURSOR_COLOR = TRAIL_COLOR;
 const vec4 PREVIOUS_CURSOR_COLOR = TRAIL_COLOR;
 
-const float DURATION = .60;  // 80% of previous
+const float DURATION = .55;  // slightly snappier fade
 const float DRAW_THRESHOLD = 1.5;
 const bool HIDE_TRAILS_ON_THE_SAME_LINE = false;
 
@@ -115,9 +127,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         float sdfCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
         float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
 
+        // Particle dither - density fades with distance from cursor
+        float particleMask = particleDither(fragCoord, 0.65 * (1.0 - alphaModifier));
+
         newColor = mix(newColor, TRAIL_COLOR_ACCENT, 1.0 - smoothstep(sdfTrail, -0.01, 0.001));
-        newColor = mix(newColor, TRAIL_COLOR, antialising(sdfTrail));
-        newColor = mix(fragColor, newColor, 1.0 - alphaModifier);
+        newColor = mix(newColor, TRAIL_COLOR, antialising(sdfTrail) * particleMask);
+        newColor = mix(fragColor, newColor, (1.0 - alphaModifier) * particleMask);
         fragColor = mix(newColor, fragColor, step(sdfCursor, 0));
     }
 }
