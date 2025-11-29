@@ -1,13 +1,18 @@
-// Vulpes Cursor Blaze - NEON RED trail
-// Based on: https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088
+// Vulpes Cursor Blaze - velocity-reactive hot pink trail
+// Based on https://gist.github.com/chardskarth/95874c54e29da6b5a36ab7b50ae2d088
 
-// Quad ease out - smooth deceleration, tail lingers beautifully
 float ease(float x) {
-    float t = 1.0 - x;
-    return t * t;  // easeOutQuad: 1 - (1-t)^2
+    return pow(1.0 - x, 10.0);
 }
 
-float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b) {
+float sdBox(in vec2 p, in vec2 xy, in vec2 b)
+{
+    vec2 d = abs(p - xy) - b;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+
+float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
+{
     vec2 d = abs(p - xy) - b;
     return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
@@ -32,10 +37,12 @@ float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
 float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
     float s = 1.0;
     float d = dot(p - v0, p - v0);
+
     d = seg(p, v0, v3, s, d);
     d = seg(p, v1, v0, s, d);
     d = seg(p, v2, v1, s, d);
     d = seg(p, v3, v2, s, d);
+
     return s * sqrt(d);
 }
 
@@ -43,25 +50,14 @@ vec2 normalize(vec2 value, float isPosition) {
     return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
 }
 
-float blend(float t) {
+float blend(float t)
+{
     float sqr = t * t;
     return sqr / (2.0 * (sqr - t) + 1.0);
 }
 
 float antialising(float distance) {
     return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
-}
-
-// Simple hash for particle dithering
-float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-// Particle/dust dither - breaks up the solid trail
-float particleDither(vec2 uv, float density) {
-    vec2 cell = floor(uv * 180.0);  // grid size for particles
-    float noise = hash(cell + floor(iTime * 2.0));  // subtle shimmer
-    return step(1.0 - density, noise);
 }
 
 float determineStartVertexFactor(vec2 a, vec2 b) {
@@ -75,18 +71,18 @@ vec2 getRectangleCenter(vec4 rectangle) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VULPES HOT PINK - subtle morning edition
+// VULPES CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
-const vec4 TRAIL_COLOR = vec4(1.0, 0.15, 0.55, 0.45);       // Hot pink, reduced alpha
-const vec4 TRAIL_COLOR_ACCENT = vec4(0.85, 0.05, 0.45, 0.35); // Deep magenta, softer
-const vec4 CURRENT_CURSOR_COLOR = TRAIL_COLOR;
-const vec4 PREVIOUS_CURSOR_COLOR = TRAIL_COLOR;
-
-const float DURATION = .55;  // slightly snappier fade
+const vec4 TRAIL_COLOR = vec4(1.0, 0.0, 0.33, 1.0);         // #ff0055 tmux border red
+const vec4 TRAIL_COLOR_ACCENT = vec4(0.45, 0.15, 0.29, 1.0); // #73264a tmux inactive border
+const float BASE_DURATION = 0.25;   // small moves: quick fade
+const float MAX_DURATION = 0.55;    // big moves: longer trail
 const float DRAW_THRESHOLD = 1.5;
+const float TELEPORT_THRESHOLD = 0.25;  // >25% screen = pane switch, no trail
 const bool HIDE_TRAILS_ON_THE_SAME_LINE = false;
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+void mainImage(out vec4 fragColor, in vec2 fragCoord)
+{
     #if !defined(WEB)
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
     #endif
@@ -107,9 +103,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
     vec4 newColor = vec4(fragColor);
 
-    float progress = blend(clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1));
-    float easedProgress = ease(progress);
-
     vec2 centerCC = getRectangleCenter(currentCursor);
     vec2 centerCP = getRectangleCenter(previousCursor);
     float cursorSize = max(currentCursor.z, currentCursor.w);
@@ -118,21 +111,37 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
     bool isFarEnough = lineLength > trailThreshold;
     bool isOnSeparateLine = HIDE_TRAILS_ON_THE_SAME_LINE ? currentCursor.y != previousCursor.y : true;
+    bool isTeleport = lineLength > TELEPORT_THRESHOLD;  // pane switch detection
 
-    if (isFarEnough && isOnSeparateLine) {
+    if (isFarEnough && isOnSeparateLine && !isTeleport) {
+        // Velocity: 0.0 (small) to 1.0 (big jump)
+        float velocity = clamp(lineLength * 4.0, 0.0, 1.0);
+
+        // Duration scales with velocity
+        float duration = mix(BASE_DURATION, MAX_DURATION, velocity);
+
+        // Opacity: small moves = 25%, big moves = 60%
+        float opacityScale = mix(0.25, 0.6, velocity);
+
+        float progress = blend(clamp((iTime - iTimeCursorChange) / duration, 0.0, 1.0));
+        float easedProgress = ease(progress);
+
         float distanceToEnd = distance(vu.xy, centerCC);
-        float alphaModifier = distanceToEnd / (lineLength * (easedProgress));
-        if (alphaModifier > 1.0) alphaModifier = 1.0;
+        float alphaModifier = distanceToEnd / (lineLength * easedProgress);
+
+        if (alphaModifier > 1.0) {
+            alphaModifier = 1.0;
+        }
 
         float sdfCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
         float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
 
-        // Particle dither - density fades with distance from cursor
-        float particleMask = particleDither(fragCoord, 0.65 * (1.0 - alphaModifier));
+        // Final alpha combines distance fade + velocity scaling
+        float finalAlpha = (1.0 - alphaModifier) * opacityScale;
 
         newColor = mix(newColor, TRAIL_COLOR_ACCENT, 1.0 - smoothstep(sdfTrail, -0.01, 0.001));
-        newColor = mix(newColor, TRAIL_COLOR, antialising(sdfTrail) * particleMask);
-        newColor = mix(fragColor, newColor, (1.0 - alphaModifier) * particleMask);
+        newColor = mix(newColor, TRAIL_COLOR, antialising(sdfTrail));
+        newColor = mix(fragColor, newColor, finalAlpha);
         fragColor = mix(newColor, fragColor, step(sdfCursor, 0));
     }
 }
