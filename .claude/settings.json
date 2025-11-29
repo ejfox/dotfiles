@@ -16,5 +16,6 @@
     "lastShownTime": 1754094052483
   },
   "statusline": "/Users/ejfox/.config/claude/statusline.sh",
-  "theme": "dark"
+  "theme": "dark",
+  "model": "haiku"
 }
