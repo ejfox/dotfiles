@@ -8,41 +8,12 @@ alias \?\?="gh copilot suggest $0"
 #   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 # fi
 
-# custom startup script
-# [ -f ~/.startup.sh ] && source ~/.startup.sh
+# Startup script (execute as subprocess to avoid job control noise)
+[ -f ~/.startup.sh ] && ~/.startup.sh
 
-# Cache the startup script output to improve terminal startup speed
-
-# Path to the cache file
-CACHE_FILE="$HOME/.cache/startup_script_cache"
-CACHE_DURATION=1800  # 30 minutes in seconds
-
-# Function to get the last modification time of the cache file (works on macOS and Linux)
-function get_cache_mod_time {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    stat -f "%m" "$CACHE_FILE"  # For macOS
-  else
-    stat -c "%Y" "$CACHE_FILE"  # For Linux
-  fi
-}
-
-# Function to run the startup script and cache the output
-function run_startup_script {
-  current_time=$(date +%s)
-  if [ -f "$CACHE_FILE" ]; then
-    cache_mod_time=$(get_cache_mod_time)
-    if (( current_time - cache_mod_time < CACHE_DURATION )); then
-      cat "$CACHE_FILE"
-      return
-    fi
-  fi
-  # If cache is missing or outdated, run the startup script and cache the output
-  ~/.startup.sh > "$CACHE_FILE"
-  cat "$CACHE_FILE"
-}
-
-# Display cached or freshly generated MOTD
-run_startup_script
+# OLD caching mechanism (backup reference):
+# The new script handles caching internally and displays instantly
+# No need for external caching wrapper anymore
 
 # If you come from bash you might have to change your $PATH.
 export PATH=$HOME/.claude/local:$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
@@ -165,6 +136,18 @@ export TERM="xterm-256color"
 export COLORTERM="truecolor"
 touch ~/.hushlogin
 export MAILCHECK=0
+
+# Vulpes red man page colors (LESS_TERMCAP)
+export LESS_TERMCAP_mb=$'\e[1;38;5;204m'      # begin bold - pink-red
+export LESS_TERMCAP_md=$'\e[1;38;5;204m'      # begin blink - pink-red (headers)
+export LESS_TERMCAP_me=$'\e[0m'               # end bold/blink
+export LESS_TERMCAP_so=$'\e[38;5;0;48;5;174m' # begin standout - dark on dusty rose
+export LESS_TERMCAP_se=$'\e[0m'               # end standout
+export LESS_TERMCAP_us=$'\e[4;38;5;167m'      # begin underline - orange-red
+export LESS_TERMCAP_ue=$'\e[0m'               # end underline
+
+# Vulpes autosuggestion color (subtle mauve)
+export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=131'
 
 # Vulpes theme integration - MUST load before p10k for colors to work
 # Unified theme switcher functions (switches ZSH, Yazi, and Lazygit)
@@ -343,6 +326,50 @@ alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
 alias sshvps='ssh -i ~/.ssh/2024-mbp.pem debian@208.113.130.118'
 alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
 
+# Cracked SSH helpers - never lose your VPS session again
+vps() {
+  # Try mosh first (handles disconnects like a boss), fall back to SSH
+  if command -v mosh &> /dev/null; then
+    echo "🚀 Connecting with mosh (roaming mode)..."
+
+    # Try mosh connection
+    if ! mosh vps -- tmux new-session -A -s main 2>/dev/null; then
+      echo "⚠️  Mosh failed (server might not have it installed)"
+      echo "📦 Auto-installing mosh on VPS..."
+
+      # Copy setup script and run it
+      scp -q -i ~/.ssh/2024-mbp.pem ~/.dotfiles/scripts/setup-vps-mosh.sh debian@208.113.130.118:/tmp/ 2>/dev/null
+      ssh -t vps 'bash /tmp/setup-vps-mosh.sh && rm /tmp/setup-vps-mosh.sh'
+
+      echo ""
+      echo "✓ Setup complete! Connecting with mosh..."
+      mosh vps -- tmux new-session -A -s main
+    fi
+  else
+    echo "📡 Mosh not found locally, using SSH (install: brew install mosh)"
+    ssh -t vps 'tmux new-session -A -s main'
+  fi
+}
+
+# Quick reconnect - respawns pane with same command
+vpsreconnect() {
+  if [ -n "$TMUX" ]; then
+    tmux respawn-pane -k "vps"
+  else
+    vps
+  fi
+}
+
+# Keep SSH session alive by sending data every 60s
+sshkeepalive() {
+  local host="${1:-vps}"
+  while true; do
+    ssh -o ServerAliveInterval=60 -t "$host" 'tmux new-session -A -s main'
+    echo "⚠️  Connection lost. Reconnecting in 3s..."
+    sleep 3
+  done
+}
+
 # Based on your actual usage patterns (you're welcome)
 alias cl='claude --dangerously-skip-permissions'  # Your 651x favorite command
 alias cln='claude --no-approval'  # When you need even more speed
@@ -380,6 +407,9 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 . "/Users/ejfox/.deno/env"
 # Load environment variables from ~/.env (not committed to git)
 [ -f ~/.env ] && source ~/.env
+
+# Load local customizations (1Password helpers, etc)
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
 scraps() {
   local limit=${1:-10}     # Default to 10 rows
@@ -532,7 +562,7 @@ alias deactivate='echo "💡 No deactivation needed with uv!"'
 
 # fuck it, zoxide is cd now
 alias cd='z'
-alias stream-motd='rm -f /tmp/startup_cache/reflection_cache.txt && ~/.startup.sh --instant'
+alias stream-motd='rm -rf /tmp/startup_cache/* && ~/.startup.sh'
 
 # Random tip from tips.txt (video game loading screen style)
 alias tip='shuf -n 1 ~/tips.txt'
@@ -658,3 +688,6 @@ fi
 
 
 
+
+# RSS reader alias
+alias rss="newsboat"
