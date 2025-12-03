@@ -271,3 +271,16 @@ r - (zsh) recent files across ALL ~/code projects
 (reading) the wise person acts but does not take credit.
 (reading) we can't actually be aware unless we pay attention.
 (reading) the professional cannot live like that. he is on a mission.
+(strudel.nvim) :StrudelLaunch - opens Strudel in browser, syncs with current buffer
+(strudel.nvim) :StrudelToggle - play/stop playback
+(strudel.nvim) :StrudelUpdate - evaluate/update code (hear changes without stopping)
+(strudel.nvim) :StrudelQuit - close browser session
+(strudel.nvim) edit in nvim OR browser - changes sync both ways automatically
+(strudel.nvim) cursor syncs in real-time between nvim and browser
+(strudel.nvim) evaluation errors show as nvim notifications
+(strudel.nvim) works with .str and .std file extensions
+(strudel.nvim) hydra integration - live code visuals from nvim
+(strudel.nvim) uses Puppeteer + Chromium for browser automation
+(strudel.nvim) prereqs: neovim 0.9+, node 16+, chromium-based browser
+(strudel.nvim) install: { "gruvw/strudel.nvim", build = "npm ci", config = function() require("strudel").setup() end }
+(strudel.nvim) github: https://github.com/gruvw/strudel.nvim
