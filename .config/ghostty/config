@@ -36,6 +36,7 @@ resize-overlay = never
 # Actual working keybinds for tmux workflow
 keybind = cmd+k=clear_screen
 keybind = cmd+shift+enter=toggle_fullscreen
+keybind = cmd+shift+r=reload_config
 
 # Better clipboard  
 clipboard-read = allow
@@ -48,8 +49,7 @@ clipboard-paste-protection = false
 # Order matters: they stack. Reload with Cmd+Shift+,
 # Originals from: https://github.com/hackr-sh/ghostty-shaders
 
-# Order: cursor → bloom → vignette → tft
+# Order: cursor → mood-ink → tft
 custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
-custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
-custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-subtle.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/mood-ink.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl

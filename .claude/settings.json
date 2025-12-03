@@ -17,5 +17,5 @@
   },
   "statusline": "/Users/ejfox/.config/claude/statusline.sh",
   "theme": "dark",
-  "model": "haiku"
+  "model": "sonnet"
 }

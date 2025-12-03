@@ -32,6 +32,7 @@ const vec3[24] samples = {
 const float BLOOM_INTENSITY = 0.21;  // Dialed back 25%
 const float LUM_THRESHOLD = 0.15;    // Low threshold since we're very color-selective
 const float RED_DOMINANCE = 0.25;    // Strict - red must REALLY dominate
+const float LIGHT_MODE_THRESHOLD = 0.5;  // If bg is brighter than this, skip bloom
 
 float lum(vec4 c) {
   return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
@@ -51,6 +52,17 @@ bool isWarmColor(vec4 c) {
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 uv = fragCoord.xy / iResolution.xy;
   vec4 color = texture(iChannel0, uv);
+
+  // Detect light mode by sampling bottom-left (avoids tmux bar at top)
+  vec4 corner = texture(iChannel0, vec2(0.01, 0.99));
+  float bgLum = lum(corner);
+
+  // In light mode, just pass through - no bloom
+  if (bgLum > LIGHT_MODE_THRESHOLD) {
+    fragColor = color;
+    return;
+  }
+
   vec2 step = vec2(1.414) / iResolution.xy;
 
   for (int i = 0; i < 24; i++) {
