@@ -32,7 +32,17 @@ vim.opt.smartcase = true
 
 -- Display invisible chars (optional, but nice if you tweak it)
 vim.opt.list = true
-vim.opt.listchars = { tab = "→ ", trail = "·", nbsp = "␣" }
+-- eol = "·" is a subtle dot, or use "" to hide entirely
+vim.opt.listchars = { tab = "→ ", trail = "·", nbsp = "␣", eol = "·" }
+
+-- Make end-of-line character extremely subtle (barely visible)
+vim.api.nvim_create_autocmd("ColorScheme", {
+  pattern = "*",
+  callback = function()
+    -- Nearly invisible eol/newline markers
+    vim.api.nvim_set_hl(0, "NonText", { fg = "#262626", ctermfg = 235 }) -- very dark gray
+  end,
+})
 
 -- Minimal UI settings
 vim.opt.cmdheight = 0 -- Hide command line unless typing
