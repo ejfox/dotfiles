@@ -96,8 +96,8 @@
     command_execution_time  # duration of the last command
     background_jobs         # presence of background jobs
     battery                 # battery level (essential for laptops)
-    nvm                     # node.js version from nvm
-    package                 # name@version from package.json (dev context)
+    # nvm                     # node.js version from nvm
+    # package                 # name@version from package.json (dev context)
     virtualenv              # python virtual environment
     direnv                  # direnv status
     # node_version          # node.js version
@@ -151,6 +151,7 @@
     # time                  # current time
     # =========================[ Line #2 ]=========================
     newline
+    random_tip              # fortune cookie from tips.txt
     # ip                    # ip address and bandwidth usage for a specified network interface
     # public_ip             # public IP address
     # proxy                 # system-wide http/https/ftp proxy
@@ -1698,6 +1699,22 @@
   function prompt_example() {
     p10k segment -f 208 -i '⭐' -t 'hello, %n'
   }
+
+  # Random tip from tips.txt - shows once per session on first prompt
+  function prompt_random_tip() {
+    # Only show once per shell session
+    [[ -n "$_P9K_TIP_SHOWN" ]] && return
+    export _P9K_TIP_SHOWN=1
+
+    local tips_file="$HOME/.dotfiles/tips.txt"
+    [[ -f "$tips_file" ]] || return
+    local tip=$(shuf -n 1 "$tips_file" 2>/dev/null || sort -R "$tips_file" | head -1)
+    # Truncate to 60 chars if too long
+    [[ ${#tip} -gt 60 ]] && tip="${tip:0:57}..."
+    # Muted gray color (240), subtle icon
+    p10k segment -f 240 -i '💡' -t "$tip"
+  }
+  # No instant_prompt_random_tip - tips change each time, breaks instant prompt
 
   # User-defined prompt segments may optionally provide an instant_prompt_* function. Its job
   # is to generate the prompt segment for display in instant prompt. See
