@@ -94,18 +94,18 @@ else
   COLOR="0xffe5dcdc"  # Vulpes muted pink - normal (subtle)
 fi
 
-# Fade bar background to vulpes magenta as battery gets critical
+# Fade bar background to URGENT RED as battery gets critical
 if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]]; then
   MINS=${BASH_REMATCH[1]}
 
-  if [ "$MINS" -le 20 ]; then
-    # Calculate fade: 20 mins = dark (0x0d0d0d), 0 mins = vulpes magenta (#5c0030)
-    INTENSITY=$((100 * (20 - MINS) / 20))
+  if [ "$MINS" -le 30 ]; then
+    # Calculate fade: 30 mins = dark (0x0d0d0d), 0 mins = alarming red (#aa0011)
+    INTENSITY=$((100 * (30 - MINS) / 30))
 
-    # Fade from 0x0d to target values (#5c, 0x00, 0x30)
-    RED=$(( 13 + (79 * INTENSITY / 100) ))     # 0x0d -> 0x5c
+    # Fade from 0x0d to alarming red (#aa, 0x00, 0x11)
+    RED=$(( 13 + (157 * INTENSITY / 100) ))    # 0x0d -> 0xaa (170)
     GREEN=$((13 - (13 * INTENSITY / 100)))     # 0x0d -> 0x00
-    BLUE=$((13 + (35 * INTENSITY / 100)))      # 0x0d -> 0x30
+    BLUE=$((13 + (4 * INTENSITY / 100)))       # 0x0d -> 0x11 (17)
 
     RED_HEX=$(printf "%02x" $RED)
     GREEN_HEX=$(printf "%02x" $GREEN)

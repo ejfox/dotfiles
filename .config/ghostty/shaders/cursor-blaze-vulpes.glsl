@@ -75,17 +75,33 @@ vec2 getRectangleCenter(vec4 rectangle) {
 // ═══════════════════════════════════════════════════════════════════════════
 const vec4 TRAIL_COLOR = vec4(1.0, 0.0, 0.33, 1.0);         // #ff0055 tmux border red
 const vec4 TRAIL_COLOR_ACCENT = vec4(0.45, 0.15, 0.29, 1.0); // #73264a tmux inactive border
+// Light mode variants - deeper/darker for contrast on white
+const vec4 TRAIL_COLOR_LIGHT = vec4(0.85, 0.0, 0.28, 1.0);        // darker pink
+const vec4 TRAIL_COLOR_ACCENT_LIGHT = vec4(0.35, 0.1, 0.22, 1.0); // deeper accent
 const float BASE_DURATION = 0.25;   // small moves: quick fade
 const float MAX_DURATION = 0.55;    // big moves: longer trail
 const float DRAW_THRESHOLD = 1.5;
 const float TELEPORT_THRESHOLD = 0.25;  // >25% screen = pane switch, no trail
 const bool HIDE_TRAILS_ON_THE_SAME_LINE = false;
+const float LIGHT_MODE_THRESHOLD = 0.5;
+
+float calcLum(vec3 c) {
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+}
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     #if !defined(WEB)
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
     #endif
+
+    // Detect light mode (bottom-left to avoid tmux bar at top)
+    vec3 corner = texture(iChannel0, vec2(0.01, 0.99)).rgb;
+    bool lightMode = calcLum(corner) > LIGHT_MODE_THRESHOLD;
+
+    // Pick colors based on mode
+    vec4 trailColor = lightMode ? TRAIL_COLOR_LIGHT : TRAIL_COLOR;
+    vec4 trailAccent = lightMode ? TRAIL_COLOR_ACCENT_LIGHT : TRAIL_COLOR_ACCENT;
 
     vec2 vu = normalize(fragCoord, 1.);
     vec2 offsetFactor = vec2(-.5, 0.5);
@@ -139,8 +155,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         // Final alpha combines distance fade + velocity scaling
         float finalAlpha = (1.0 - alphaModifier) * opacityScale;
 
-        newColor = mix(newColor, TRAIL_COLOR_ACCENT, 1.0 - smoothstep(sdfTrail, -0.01, 0.001));
-        newColor = mix(newColor, TRAIL_COLOR, antialising(sdfTrail));
+        newColor = mix(newColor, trailAccent, 1.0 - smoothstep(sdfTrail, -0.01, 0.001));
+        newColor = mix(newColor, trailColor, antialising(sdfTrail));
         newColor = mix(fragColor, newColor, finalAlpha);
         fragColor = mix(newColor, fragColor, step(sdfCursor, 0));
     }
