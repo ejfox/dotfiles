@@ -1,4 +1,3 @@
-NVIM ALIASES (ZSH)
 n - (zsh) browse current directory with oil.nvim
 vs - (zsh) fuzzy find files with bat preview
 vg - (zsh) grep file contents and jump to matching lines
@@ -6,26 +5,24 @@ o - (zsh) instantly access Obsidian vault (sorted by recency)
 r - (zsh) recent files across ALL ~/code projects
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
-(nvim/oil) g. - toggle hidden files (.gitignore'd your shame)
+(nvim/oil) g. - toggle hidden files
 (nvim/oil) C-p - preview file without opening
 (nvim/oil) gx - open file with external program
 (nvim/oil) _ - jump to cwd (current working directory)
-
-TMUX KEYBINDINGS
 (tmux) C-a g - lazygit popup (floats over panes)
 (tmux) C-a K - yazi file manager popup
 (tmux) C-a S - scratch terminal toggle (persistent)
 (tmux) C-a F - tmux-fzf launcher (interactive search for sessions/windows/panes)
-(tmux) C-\ - tmux-menus (visual TUI for all tmux functions, no memorizing)
+(tmux) C-\ - tmux-menus (visual TUI for all tmux functions)
 (tmux) C-a C-y - yank entire pane scrollback to clipboard
 (tmux) C-a M-y - yank last 200 lines to clipboard
 (tmux) C-a Space - tmux-thumbs (vimium-style hints for copying text)
 (tmux) C-a > - swap pane down
 (tmux) C-a < - swap pane up
 (tmux) C-a H/J/K/L - resize pane left/down/up/right
-(tmux) C-a q - display pane numbers (press number to select, or wait to cancel)
+(tmux) C-a q - display pane numbers (press number to select)
 (tmux) C-a z - zoom/fullscreen current pane (toggle)
-(tmux) C-a ! - break pane into new window (divorce your pane)
+(tmux) C-a ! - break pane into new window
 (tmux) C-a m - mark pane (for swapping/joining later)
 (tmux) right-click pane - context menu (mark, swap, split, kill, zoom)
 (tmux) M-1 through M-9 - select pane by number
@@ -36,8 +33,6 @@ TMUX KEYBINDINGS
 (tmux) C-a Z - zen mode toggle
 (tmux) status bar shows ◼ when prefix is active
 (nvim/tmux) C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
-
-NVIM NAVIGATION
 (nvim) gai - incoming calls (who calls this function)
 (nvim) gao - outgoing calls (what does this function call)
 (nvim) <leader>ss - document symbols (outline of current file)
@@ -49,252 +44,230 @@ NVIM NAVIGATION
 (nvim/dap) <leader>dc - start/continue debugging
 (nvim/dap) <leader>du - toggle debug UI
 (nvim/kulala) Enter in .http files - execute request
-
-HARPOON (NVIM)
-(nvim/harpoon) <leader>ha - add current file to harpoon
-(nvim/harpoon) <leader>hh - toggle harpoon menu
-(nvim/harpoon) <leader>h1/2/3/4 - jump to harpoon file 1/2/3/4
-
-SURROUND (NVIM)
 (nvim/surround) ysiw" - surround inner word with quotes
 (nvim/surround) yss) - surround entire line with parentheses
 (nvim/surround) ds" - delete surrounding quotes
 (nvim/surround) cs"' - change surrounding quotes to single quotes
 (nvim/surround) S in visual mode - surround selection
-(nvim/surround) dst - delete surrounding HTML tag (XML therapist)
-
-MERGE CONFLICTS (NVIM)
-(nvim/git-conflict) co - choose ours (I was here first)
-(nvim/git-conflict) ct - choose theirs (fine, you win)
-(nvim/git-conflict) cb - choose both (why not both.gif)
-(nvim/git-conflict) c0 - choose none (scorched earth negotiation)
+(nvim/surround) dst - delete surrounding HTML tag
+(nvim/git-conflict) co - choose ours (current branch)
+(nvim/git-conflict) ct - choose theirs (incoming)
+(nvim/git-conflict) cb - choose both
+(nvim/git-conflict) c0 - choose none
 (nvim/git-conflict) [x / ]x - jump between conflicts
-
-GIT & GITHUB (ZSH)
-(zsh) commit - LLM-generated commit messages with fzf selection (let the robots explain your mess)
+(zsh) commit - LLM-generated commit messages with fzf selection
 (zsh) ghpub <name> - create public GitHub repo and push
-(zsh) ?? - gh copilot suggest (stackoverflow with extra steps)
-
-CLIPBOARD & JSON (ZSH)
+(zsh) ?? - gh copilot suggest
 (zsh) pbjson - pretty-print JSON from clipboard
 (zsh) jcurl <url> - curl URL and pretty-print JSON
 (zsh) catcopy - cat file and copy to clipboard
 (zsh) showcase - open code showcase with clipboard content
-
-PYTHON (UV/ZSH)
 (zsh) uvi <tool> - install Python CLI tool
 (zsh) uvr <file> - run Python file in isolated env
 (zsh) uvs - sync dependencies
 (zsh) uvx <tool> - run tool without installing
 (zsh) fixit - auto-fix Python environment issues
-(zsh) fuckit - nuke .venv and __pycache__, start fresh (rm -rf /* for cowards)
-
-UTILITIES (ZSH)
+(zsh) fuckit - nuke .venv and __pycache__, start fresh
 (zsh) nukeyarn - remove yarn.lock and node_modules
 (zsh) z <partial> - jump to frequently used directory
-
-ADVANCED NVIM FEATURES
 (nvim) mA - set GLOBAL mark (works across files!)
 (nvim) 'A - jump to global mark A
-(nvim) g; - jump to last change location (undo tourism)
+(nvim) g; - jump to last change location
 (nvim) g, - jump to next change location
 (nvim) `. - jump to last change (exact position)
 (nvim) ci" - change inside quotes (also works with ', `, (, [, {, <)
 (nvim) da" - delete around quotes (including quotes)
 (nvim) =i{ - auto-indent inside braces
-(nvim) gg=G - auto-indent entire file (make the linter happy)
+(nvim) gg=G - auto-indent entire file
 (nvim/telescope) <leader>fk - search all keymaps/keybindings
 (nvim/telescope) <leader>fo - oldfiles (recent files)
 (nvim/telescope) <leader>fm - jump to bookmarks/marks
 (nvim/telescope) <leader>fr - see all registers content
 (nvim/telescope) <leader>fj - navigate jump history
 (nvim/yanky) <leader>p - cycle through yank history
-(nvim/yanky) deleted something then copied something else? <leader>p gets it back
-
-TMUX COPY MODE
+(nvim/yanky) deleted something then copied? <leader>p gets it back
 (tmux) C-a [ - enter copy mode (use vim motions!)
 (tmux/copy-mode) C-v - rectangle/block selection (select columns)
 (tmux/copy-mode) / - search forward
 (tmux/copy-mode) ? - search backward
-
-GIT WORKTREES
 (git) git worktree add ../feature-name feature-branch - work on multiple branches simultaneously
 (git) git worktree list - see all active worktrees
 (git) git worktree remove ../feature-name - remove worktree
-(git) work on PR in one pane, develop in another, no stashing/switching
-
-YOUR ACTUAL PATTERNS (FROM 10K+ COMMANDS)
-(reality) claude --dangerously-skip-permissions - your 651x speed run champion move
-(reality) you've typed "npm run dev" 423 times this month (dedicated builder)
-(reality) ~/client-code vs ~/code - masterfully juggling multiple workspaces
-(reality) you clear the terminal constantly (fresh start enjoyer)
-(reality) codex - your new power tool appearing 47 times last week
-(reality) metro-maker4, ddhq, coachartie2 - the projects you're actively shipping
-(reality) "ll" 892 times because you know what you like
-(reality) you exit shells efficiently (312 times, no lingering)
-(reality) tmux attach -t 0 - straight to business, no ceremony
-(reality) "cd .." navigation shows you know your filesystem by heart
-
-CLAUDE CLI SPEEDRUNS
-claude --dangerously-skip-permissions - living life on the edge (your default)
-claude --no-approval - when even --dangerously-skip isn't reckless enough
-C-c to interrupt claude - you've done this 89 times (commitment issues?)
-claude commit - because writing commit messages is beneath you
-
-NPM/YARN DEPRESSION
-npm run dev - your 423x daily prayer to the localhost gods
-npm run electron:dev - when web isn't complicated enough
-yarn dev - switching package managers mid-crisis
-npm install - the "turn it off and on again" of JavaScript
-nukeyarn - your nuclear option alias (you made this for a reason)
-
-PROJECT COMMAND CENTER
-~/code/metro-maker4 - your electron app taking shape beautifully
-~/client-code/ddhq - the project teaching you new patterns daily
-~/code/coachartie2 - v2 because you're always iterating and improving
-yalc link - your secret weapon when npm link gets confused
-
-YOUR NEW SPEED ALIASES (JUST ADDED)
-cl - claude --dangerously-skip-permissions (your default mode)
-cln - claude --no-approval (maximum velocity)
-clc - claude commit (AI writes your git messages)
-ta or t0 - instantly attach to tmux session 0
-metro - jump straight to metro-maker4 project
-ddhq - teleport to ddhq project
-coach - beam to coachartie2
-cc - client-code directory express lane
-ccode - main ~/code directory (avoid cd conflict)
-..2 - go up two directories fast
-..3 - ascend three levels instantly
-nrd - npm run dev (your 423x muscle memory)
-nred - npm run electron:dev shortcut
-yy - yalc commands without the npx dance
-
-MISC
+(git) worktrees: work on PR in one pane, develop in another, no stashing
+(zsh) cl - claude --dangerously-skip-permissions
+(zsh) cln - claude --no-approval (maximum velocity)
+(zsh) clc - claude commit (AI writes your git messages)
+(zsh) ta or t0 - instantly attach to tmux session 0
+(zsh) nrd - npm run dev
+(zsh) nred - npm run electron:dev
+(zsh) yy - yalc commands without the npx dance
+(zsh) ..2 - go up two directories
+(zsh) ..3 - go up three directories
 (sketchybar) CIPHER coach shows when no calendar events in next 4 hours
-(nvim) diagnostics show below lines (virtual lines mode, not inline)
-(nvim) capital letter marks (mA, mB) are GLOBAL across files, lowercase (ma, mb) are file-local
-
- ⇧⇧ g →  lazygit popup
- ⇧⇧ K →  yazi popup
- ⇧⇧ S →  scratch terminal
- git? ⇧⇧ g
- files? ⇧⇧ K
- quick shell? ⇧⇧ S
- ⇧⇧ g floats over panes
- ⇧⇧ K floats over panes
- ⇧⇧ S toggles on/off
- q closes  lazygit
- q closes  yazi
- ⇧⇧ S again closes scratch
- popups preserve your layout
- stop opening panes for git
- ⇧⇧ g → do git → q → done
- ⇧⇧ K →  yazi
- ⇧⇧ g →  lazygit
- ⇧⇧ S →  scratch
- K finds, - manages, g commits
- ⇧⇧ K →  → - →  → ⇧⇧ g
-  - opens oil (parent dir)
- oil: edit line = rename
- oil: dd = delete file
- oil: :w saves changes
- oil: g. = hidden files
- oil: C-p = preview
- oil: gx = open external
- lazygit: space = stage
- lazygit: c = commit
- lazygit: P = push
- lazygit: ? = help
- lazygit: tab = panels
- yazi: enter = open
- yazi: space = select
- yazi: . = hidden
- yazi: z = frecency jump
- rename?  - then edit line
- delete?  - then dd
- sibling files? just  -
- done editing? ⇧⇧ g
-  space u w → toggle wrap
-  space u l → line numbers
-  space u L → relative numbers
-  space u s → spell check
-  space u d → diagnostics
-  space u h → inlay hints
-  space u f → format on save
-  space u b → dark/light
-  space u g → git signs
-  space u i → indent guides
-  gd → definition
-  gr → references
-  K → hover docs
-  space c a → code action
-  space c r → rename
-  space f f → find files
-  space f g → live grep
-  space f b → buffers
-  space f r → recent
-  space e → explorer
-  space g g →  lazygit
-  space x x → diagnostics
-  space s s → symbols
- ] d → next diagnostic
- [ d → prev diagnostic
- ] ] → next function
- [ [ → prev function
-  gcc → comment line
-  gc → comment selection
- za → toggle fold
- zR → open all folds
- zM → close all folds
- ctrl-o → jump back
- ctrl-i → jump forward
- * → search word
- # → search backwards
- ciw → change word
- diw → delete word
- yiw → yank word
- vi" → select in quotes
- va" → select around quotes
- dt. → delete to .
- ct, → change to ,
- f( → find (
- ; → repeat f/t
- . → repeat change
- u → undo
- ctrl-r → redo
- ZZ → save quit
- ZQ → quit no save
-  space b d → close buffer
-  space b o → close others
- ] b → next buffer
- [ b → prev buffer
-  space , → switch buffer
-  ctrl-h/j/k/l → navigate
-  space w d → close window
-  space w - → split below
-  space w | → split right
-  :%s/old/new/g → replace all
- n → next match
- N → prev match
-  space / → grep project
- ] h → next hunk
- [ h → prev hunk
-  space g s → stage hunk
-  space g r → reset hunk
-  space g p → preview hunk
-  space g b → blame
- ctrl-q → send to quickfix
- tab → select multiple
- ctrl-x → open split
- ctrl-v → open vsplit
-  space f t → float terminal
-  ctrl-\ → toggle terminal
- J → join lines
- ~ → swap case
- gu → lowercase
- gU → uppercase
- > → indent
- < → dedent
- ctrl-a → increment
- ctrl-x → decrement
+(nvim) capital letter marks (mA) are GLOBAL across files, lowercase (ma) are file-local
+(nvim/oil) - opens oil (parent dir)
+(lazygit) space = stage, c = commit, P = push, ? = help
+(yazi) enter = open, space = select, . = hidden, z = frecency jump
+(nvim) space u w - toggle wrap
+(nvim) space u l - line numbers
+(nvim) space u L - relative numbers
+(nvim) space u s - spell check
+(nvim) space u d - toggle diagnostic virtual text
+(nvim) space u h - inlay hints
+(nvim) space u f - format on save
+(nvim) space u b - dark/light toggle
+(nvim) space u g - git signs
+(nvim) space u i - indent guides
+(nvim) gd - jump to definition
+(nvim) gr - find all references
+(nvim) K - hover docs
+(nvim) space c a - code action
+(nvim) space c r - rename symbol across all files
+(nvim) space f f - find files
+(nvim) space f g - live grep
+(nvim) space f b - list open buffers
+(nvim) space f r - recent files
+(nvim) space e - toggle file tree sidebar
+(nvim) space g g - lazygit
+(nvim) space x x - list all errors/warnings in project
+(nvim) space s s - jump to functions/classes in current file
+(nvim) ]d / [d - next/prev diagnostic
+(nvim) ]] / [[ - next/prev function
+(nvim) gcc - comment line
+(nvim) gc - comment selection
+(nvim) za - toggle fold
+(nvim) zR - open all folds
+(nvim) zM - close all folds
+(nvim) ctrl-o - jump back
+(nvim) ctrl-i - jump forward
+(nvim) * - search word under cursor
+(nvim) # - search backwards
+(nvim) ciw - change word
+(nvim) diw - delete word
+(nvim) yiw - yank word
+(nvim) vi" - select in quotes
+(nvim) va" - select around quotes
+(nvim) dt. - delete to period
+(nvim) ct, - change to comma
+(nvim) f( - find next (
+(nvim) ; - repeat f/t motion
+(nvim) . - repeat last change
+(nvim) u - undo
+(nvim) ctrl-r - redo
+(nvim) ZZ - save and quit
+(nvim) ZQ - quit without saving
+(nvim) space b d - close buffer
+(nvim) space b o - close other buffers
+(nvim) ]b / [b - next/prev buffer
+(nvim) space , - switch buffer
+(nvim) ctrl-h/j/k/l - move between splits and tmux panes
+(nvim) space w d - close window
+(nvim) space w - - split below
+(nvim) space w | - split right
+(nvim) :%s/old/new/g - replace all
+(nvim) n / N - next/prev match
+(nvim) space / - grep project
+(nvim) ]h / [h - next/prev git hunk
+(nvim) space g s - stage hunk
+(nvim) space g r - reset hunk
+(nvim) space g p - preview hunk
+(nvim) space g b - git blame line
+(nvim/copilot) Tab - accept ghost text suggestion
+(nvim/copilot) ]s - next AI suggestion
+(nvim/copilot) [s - prev AI suggestion
+(nvim/copilot) C-Right - accept one word
+(nvim/copilot) C-l - accept one line
+(nvim/copilot) C-] - dismiss suggestion
+(nvim/copilot) M-Enter - open panel (browse 3 suggestions)
+(nvim/diffview) space g d - open git diff view (review Claude Code changes)
+(nvim/diffview) space g h - file history for current file
+(nvim/diffview) space g c - close diffview
+(nvim/diffview) ]c / [c - jump between changes in diff
+(nvim/diffview) Tab - cycle through files in diff
+(nvim/diffview) do - obtain (accept) change from other side
+(nvim/diffview) dp - put (apply) change to other side
+(nvim/claude) space y r - yank selection with relative path (paste in Claude Code)
+(nvim/claude) space y a - yank selection with absolute path
+(nvim/hotreload) files auto-reload when Claude Code edits them
+(nvim/hotreload) won't reload if you have unsaved changes (safe!)
+(nvim/hotreload) diffview auto-refreshes when Claude Code commits
+(nvim/telescope) ctrl-q - send results to quickfix
+(nvim/telescope) tab - select multiple
+(nvim/telescope) ctrl-x - open in split
+(nvim/telescope) ctrl-v - open in vsplit
+(nvim) space f t - float terminal
+(nvim) ctrl-\ - toggle terminal
+(nvim) J - join lines
+(nvim) ~ - swap case
+(nvim) gu - lowercase selection
+(nvim) gU - UPPERCASE selection
+(nvim) > / < - indent/dedent selection
+(nvim) ctrl-a - increment number
+(nvim) ctrl-x - decrement number
+(zsh) opin - sign into 1Password
+(zsh) opget "Item" password - grab password from any item
+(zsh) opget "Item" username - grab username
+(zsh) opcp "Item" - copy password to clipboard
+(zsh) opfzf - browse all items with fzf preview
+(zsh) oplist - fuzzy search item names
+(zsh) vpsdb - connect to VPS PostgreSQL (creds from 1Password)
+(zsh) pgop "Item Name" - connect to PostgreSQL using 1Password creds
+(zsh) openv "Item" - export all fields as ENV vars
+(zsh) opsavedb "Title" host user pass - save new DB creds to 1Password
+(1p) op read "op://Vault/Item/field" - read secret in scripts
+(1p) op inject -i .env.template -o .env - inject secrets into templates
+(1p) op run --env-file=.env.op -- npm start - inject secrets for any command
+(1p) op item get "Item" --format=json | jq - full item as JSON
+(combo) tailscale up && vpsdb - connect to VPS db over tailnet securely
+(combo) store tailscale hostnames in 1Password (names don't change, IPs do)
+(zsh) vps - connects with mosh (auto-installs on first run)
+(zsh) vpsreconnect - respawn pane with reconnect
+(zsh) sshkeepalive <host> - auto-reconnect loop
+(tmux) C-a R - respawn pane (instant reconnect)
+(ssh) ControlMaster multiplexes connections (instant subsequent connects)
+(mosh) survives: laptop sleep, wifi changes, IP changes, network drops
+(wisdom) never echo passwords to terminal, use opcp instead
+(wisdom) .env files are for non-secrets, 1Password is for secrets
+(wisdom) connection strings > individual fields (one copy-paste to connect)
+(vibe) you're building something cool right now
+(vibe) take a breath, stretch your wrists
+(vibe) small commits > big commits
+(vibe) if it works, ship it
+(vibe) future you will thank present you for that comment
+(vibe) the bug is always where you're not looking
+(vibe) cmd+shift+r to reload ghostty shaders
+(vibe) have you pushed your work lately?
+(vibe) drink water
+(vibe) the best code is the code you delete
+(workflow) nvim left pane (manual coding) + Claude Code right pane (big refactors)
+(workflow) Tab accepts ghost text, ]s cycles suggestions, space g d reviews changes
+(workflow) select code, space y r, paste in Claude Code (it knows the file!)
+(reading) the professional concentrates on the work and allows rewards to come or not come
+(reading) the most important thing about art is to work. nothing else matters except sitting down every day and trying
+(reading) when we sit down and work, we become like a magnetized rod that attracts iron filings
+(reading) the more important a call is to our soul's evolution, the more Resistance we will feel
+(reading) who knows doesn't talk. who talks doesn't know.
+(reading) to live till you die is to live long enough.
+(reading) noise is any pattern we don't understand.
+(reading) life doesn't happen along interstates. it's against the law.
+(reading) ego stories come naturally because uncertainty is frightening.
+(reading) the love that lasts the longest is the love that is never returned.
+(reading) the first line of attack in this campaign was poetry.
+(reading) be broken to be whole.
+(reading) bullshit is not a modern invention.
+(reading) living people are soft and tender.
+(reading) the five colors blind our eyes.
+(reading) true goodness is like water.
+(reading) thoughts happen to us.
+(reading) study the hard while it's easy.
+(reading) well planted is not uprooted, well kept is not lost.
+(reading) the wind plays the world like an instrument.
+(reading) not everyone wants to get better.
+(reading) by intention, everyone would be in one another's way.
+(reading) in some ways, my moods did and did not exist.
+(reading) today mankind is locked into stealing ravenously from the future.
+(reading) their lack of planning does not make it your emergency.
+(reading) to run things, be undiplomatic.
+(reading) the wise person acts but does not take credit.
+(reading) we can't actually be aware unless we pay attention.
+(reading) the professional cannot live like that. he is on a mission.

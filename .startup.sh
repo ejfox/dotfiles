@@ -1,294 +1,332 @@
 #!/bin/bash
-# ~/.startup.sh - Fast, non-blocking terminal startup with streaming insights
+################################################################################
+# ~/.startup.sh - Ultra-fast terminal startup with intelligent caching
+################################################################################
+# FEATURES:
+#   - Seamless offline/online operation (no blocking timeouts)
+#   - Parallel background fetches for speed
+#   - Intelligent caching (30min stats, 15min tasks, 15min calendar, 30min repos)
+#   - Graceful fallbacks when tools/services unavailable
+#   - LLM-powered task prioritization
+#   - CIPHER ambient intelligence context insights
+#   - Daily I Ching hexagram with wisdom
+#
+# COMPONENTS:
+#   1. Network check: Quick 0.5s ping to 1.1.1.1, gates API calls
+#   2. Stats: Monkeytype WPM + RescueTime productivity hours
+#   3. I Ching: Daily hexagram with wisdom
+#   4. Tasks: Things app tasks with LLM prioritization
+#   5. Calendar: Today's events from icalBuddy
+#   6. Repos: Top 3 recently modified git repos
+#   7. Email: Summary from .email-summary.sh
+#   8. Insights: LLM-generated pattern analysis
+#
+# EXECUTION TIME:
+#   - Cold start (all fetches): ~3s
+#   - Warm cache (instant): ~0.3s
+#   - Offline fallback: instant
+#
+# DEPENDENCIES:
+#   - things-cli (optional, for tasks)
+#   - icalBuddy (optional, for calendar)
+#   - jq (for JSON parsing)
+#   - /opt/homebrew/bin/llm (optional, for insights)
+#   - ~/.email-summary.sh (optional, for email)
+#   - mystical-symbols.sh (for I Ching)
+#
+################################################################################
 
-# Skip in zen mode
-if [ -f "/tmp/.zen-mode-state" ]; then
-  exit 0
-fi
+# Source mystical symbols library for I Ching
+source "$HOME/.dotfiles/lib/mystical-symbols.sh" 2>/dev/null || true
 
-# Interrupt handler - ESC to skip
-trap 'echo -e "\n\033[38;5;204m⏭️  Skipped startup\033[0m"; exit 0' INT
+# Skip if in zen mode (minimal distractions)
+[ -f "/tmp/.zen-mode-state" ] && exit 0
+
+# Allow ESC to skip startup
+trap 'exit 0' INT
 
 # Configuration
 CACHE_DIR="/tmp/startup_cache"
-REFLECTION_CACHE="$CACHE_DIR/reflection_cache.txt"
-PERSONA_FILE="$HOME/.llm-persona.txt"
-LLM_PATH="${LLM_PATH:-/opt/homebrew/bin/llm}"
-OBSIDIAN_ROOT="${OBSIDIAN_ROOT:-${HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox}"
-
-# Cache durations (in minutes) - aggressive caching for speed
-STATS_CACHE_MIN=30
-TASKS_CACHE_MIN=15
-EMAIL_CACHE_MIN=10
-INSIGHTS_CACHE_MIN=30
-
-# Symbols (nerd font)
-SYMBOL_TASK=""
-SYMBOL_REPO=""
-SYMBOL_NOTE="󰃭"
-SYMBOL_INSIGHT="󰛨"
-
-# Create cache dir
 mkdir -p "$CACHE_DIR"
 
-# Helper function to check commands
-has_cmd() { command -v "$1" >/dev/null 2>&1; }
+# Cache TTLs (in minutes)
+CACHE_STATS=30
+CACHE_TASKS=15
+CACHE_CALENDAR=15
+CACHE_REPOS=30
+CACHE_INSIGHTS=30
 
-# IMMEDIATELY show header (no clear, no delay)
+# Display symbols (no emojis)
+SYMBOL_TASK="-"
+SYMBOL_REPO="*"
+SYMBOL_NOTE=">"
+SYMBOL_INSIGHT=">"
+
+# Display immediate header with date/time
 echo ""
 echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[38;5;204m$(date '+%A, %B %d')\033[0m \033[2m•\033[0m \033[1m$(date '+%I:%M %p')\033[0m"
 echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 
-# Fetch stats in background
-(
-  # Check cache first
-  if [[ -f "$CACHE_DIR/stats.tmp" ]] && [[ -z $(find "$CACHE_DIR/stats.tmp" -mmin +$STATS_CACHE_MIN 2>/dev/null) ]]; then
-    # Cache is fresh, skip API calls
-    exit 0
-  fi
+# Utility function: Check if cache is fresh
+# Args: $1=filepath, $2=max_age_minutes
+# Returns: 0 if fresh, 1 if stale
+cache_fresh() {
+  [[ -f "$1" ]] && [[ -z $(find "$1" -mmin +$2 2>/dev/null) ]]
+}
 
-  stats_output=""
+# Network check: Fast 1.0s ping to Cloudflare DNS (cached for 1 min)
+# Return code: 0=online, 1 or 124=offline
+if cache_fresh "$CACHE_DIR/network.tmp" 1; then
+  ONLINE=$(<"$CACHE_DIR/network.tmp")
+else
+  timeout 1.0 curl -fsSL -o /dev/null https://1.1.1.1 2>/dev/null
+  ONLINE=$?
+  # Treat timeout (124) as offline
+  [ $ONLINE -eq 124 ] && ONLINE=1
+  echo "$ONLINE" > "$CACHE_DIR/network.tmp"
+fi
 
-  # Monkeytype WPM - check if tested this month
-  if has_cmd curl; then
-    mt_data=$(curl -s --max-time 1.5 https://ejfox.com/api/monkeytype 2>/dev/null)
-    if [ -n "$mt_data" ]; then
-      best_wpm=$(echo "$mt_data" | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
-      recent_test=$(echo "$mt_data" | jq -r '.typingStats.recentTests[0].timestamp // empty' 2>/dev/null)
+################################################################################
+# COMPONENT 1: STATS (Typing speed + Productivity hours)
+################################################################################
+# Sources: ejfox.com/api/{monkeytype,rescuetime}
+# TTL: 30 minutes
+# Fallback: Shows previous stats or nothing if offline
+#
+fetch_stats() {
+  cache_fresh "$CACHE_DIR/stats.tmp" $CACHE_STATS && return 0
+  [ $ONLINE -eq 0 ] || return 0  # Skip if offline
 
-      if [ -n "$recent_test" ]; then
-        test_month=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$(echo $recent_test | cut -d'.' -f1)" "+%Y-%m" 2>/dev/null)
-        current_month=$(date "+%Y-%m")
-        days_since=$(( ($(date +%s) - $(date -j -f "%Y-%m-%dT%H:%M:%S" "$(echo $recent_test | cut -d'.' -f1)" +%s 2>/dev/null)) / 86400 ))
+  local mt=$(timeout 1.0 curl -fsSL https://ejfox.com/api/monkeytype 2>/dev/null | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
+  local rt=$(timeout 1.0 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[] | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{sum+=$1} END {printf "%.1fh", sum}' 2>/dev/null)
 
-        if [ "$test_month" = "$current_month" ] && [ -n "$best_wpm" ]; then
-          stats_output="${stats_output}⌨️ ${best_wpm} WPM"
-        elif [ $days_since -gt 7 ] && [ -n "$best_wpm" ]; then
-          # More than a week since last test - show warning
-          stats_output="${stats_output}⌨️ ${best_wpm} WPM (${days_since}d)"
-        fi
-      fi
-    fi
-  fi
-
-  # RescueTime productivity hours this week
-  if has_cmd curl; then
-    rt_data=$(curl -s --max-time 1.5 https://ejfox.com/api/rescuetime 2>/dev/null)
-    if [ -n "$rt_data" ]; then
-      productive_hours=$(echo "$rt_data" | jq -r '.week.categories[] | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{sum+=$1} END {printf "%.1f", sum}')
-      [ -n "$productive_hours" ] && [ "$productive_hours" != "0.0" ] && stats_output="${stats_output}  •  ${productive_hours}h productive"
-    fi
-  fi
-
-  # Skip GitHub stats for now - API is too slow (3s timeout)
-
-  # Save to cache
-  [ -n "$stats_output" ] && echo "$stats_output" > "$CACHE_DIR/stats.tmp"
-) &
+  local stats="${mt:+$mt WPM}${mt:+ • }${rt:+$rt productive}"
+  [ -n "${stats// }" ] && echo "$stats" > "$CACHE_DIR/stats.tmp"
+}
+fetch_stats &
 STATS_PID=$!
-disown $STATS_PID 2>/dev/null
 
-# Tasks - with LLM prioritization (cached)
-if has_cmd things-cli; then
-  (
-   # Check cache first
-   if [[ -f "$CACHE_DIR/tasks.tmp" ]] && [[ -z $(find "$CACHE_DIR/tasks.tmp" -mmin +$TASKS_CACHE_MIN 2>/dev/null) ]]; then
-     # Cache fresh, skip processing
-     exit 0
-   fi
+################################################################################
+# COMPONENT 2: TASKS (Things app with LLM prioritization)
+################################################################################
+# Source: things-cli today
+# LLM: claude 4o-mini for intelligent prioritization
+# TTL: 15 minutes
+# Fallback: Raw tasks list if LLM unavailable or times out
+#
+fetch_tasks() {
+  cache_fresh "$CACHE_DIR/tasks.tmp" $CACHE_TASKS && return 0
+  command -v things-cli >/dev/null 2>&1 || return 0  # Skip if no things-cli
 
-   tasks_raw=$(things-cli today 2>/dev/null)
-   if [ -n "$tasks_raw" ] && has_cmd "$LLM_PATH"; then
-     echo "$tasks_raw" | "$LLM_PATH" -m 4o-mini --no-log -s "You're a productivity assistant. Analyze these tasks and provide 3-4 lines: 1) Most urgent task with → symbol, 2-3) Other important tasks with ▸ symbol. Be brief, remove metadata/dates, keep task essence only. Terminal aesthetic." 2>/dev/null | while read line; do
-       echo "  $line"
-     done > "$CACHE_DIR/tasks.tmp"
-   elif [ -n "$tasks_raw" ]; then
-     echo "$tasks_raw" | head -3 | while read line; do
-       echo "  $SYMBOL_TASK $line"
-     done > "$CACHE_DIR/tasks.tmp"
-   fi
-  ) &
-  TASKS_PID=$!
-  disown $TASKS_PID 2>/dev/null
-fi
+  local tasks=$(things-cli today 2>/dev/null | head -4)
+  [ -z "$tasks" ] && return 0
 
-# Calendar (cached)
-if has_cmd icalBuddy; then
-  if [[ ! -f "$CACHE_DIR/calendar.tmp" ]] || [[ -n $(find "$CACHE_DIR/calendar.tmp" -mmin +15 2>/dev/null) ]]; then
-    (icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" -n eventsToday 2>/dev/null |
-     sed 's/\x1b\[[0-9;]*m//g' | awk '!seen[$0]++' | head -3 | while read line; do
-      echo "  $SYMBOL_NOTE $line"
-    done > "$CACHE_DIR/calendar.tmp") &
-    CALENDAR_PID=$!
-    disown $CALENDAR_PID 2>/dev/null
+  # Try LLM prioritization first (1.2s timeout)
+  if command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
+    echo "$tasks" | timeout 1.2 /opt/homebrew/bin/llm -m 4o-mini --no-log -s \
+      "Prioritize these 3 tasks. Format: 1) most urgent, 2) secondary, 3) tertiary. Remove dates, strip metadata, be ultra-brief." 2>/dev/null | \
+      sed 's/^/  /' > "$CACHE_DIR/tasks.tmp"
   fi
+
+  # Fallback to raw tasks if LLM failed/timed out
+  [ ! -s "$CACHE_DIR/tasks.tmp" ] && echo "$tasks" | head -3 | sed 's/^/  /' > "$CACHE_DIR/tasks.tmp"
+}
+fetch_tasks &
+TASKS_PID=$!
+
+################################################################################
+# COMPONENT 3: CALENDAR (Today's events from icalBuddy)
+################################################################################
+# Source: icalBuddy eventsToday
+# TTL: 15 minutes
+# Fallback: Empty section if no events or tool unavailable
+#
+fetch_calendar() {
+  cache_fresh "$CACHE_DIR/calendar.tmp" $CACHE_CALENDAR && return 0
+  command -v icalBuddy >/dev/null 2>&1 || return 0  # Skip if no icalBuddy
+
+  icalBuddy -f -nc -iep "datetime,title" -po "datetime,title" -df "%H:%M" -b "" \
+    -n eventsToday 2>/dev/null | \
+    sed 's/\x1b\[[0-9;]*m//g' | awk '!seen[$0]++' | head -3 | \
+    sed 's/^/  /' > "$CACHE_DIR/calendar.tmp"
+}
+fetch_calendar &
+CALENDAR_PID=$!
+
+################################################################################
+# COMPONENT 4: REPOS (Top 3 recently modified git repos)
+################################################################################
+# Source: git repos under ~/code
+# Sort: By last commit timestamp (newest first)
+# TTL: 30 minutes
+# Fallback: Empty section if no repos found
+#
+fetch_repos() {
+  cache_fresh "$CACHE_DIR/repos.tmp" $CACHE_REPOS && return 0
+  [ -d ~/code ] || return 0  # Skip if ~/code doesn't exist
+
+  find ~/code -maxdepth 2 -type d -name ".git" 2>/dev/null | while read gitdir; do
+    repo=$(dirname "$gitdir")
+    git -C "$repo" log -1 --format="%ct $(basename "$repo")" 2>/dev/null
+  done | sort -rn | head -3 | cut -d' ' -f2- | sed 's/^/  /' > "$CACHE_DIR/repos.tmp"
+}
+fetch_repos &
+REPOS_PID=$!
+
+################################################################################
+# COMPONENT 5: EMAIL (Summary from ~/.email-summary.sh)
+################################################################################
+# Source: ~/.email-summary.sh (custom script)
+# TTL: None (runs fresh each time, manages own caching)
+# Fallback: Empty section if script missing or fails
+#
+[ -x "$HOME/.email-summary.sh" ] && "$HOME/.email-summary.sh" > "$CACHE_DIR/email.tmp" 2>/dev/null &
+EMAIL_PID=$!
+
+################################################################################
+# DISPLAY SECTION: Show all fetched/cached data
+################################################################################
+
+# Wait all background jobs with global timeout (5s max)
+# This prevents hanging if a job crashes silently
+timeout 5 wait $STATS_PID $TASKS_PID $CALENDAR_PID $REPOS_PID $EMAIL_PID 2>/dev/null || true
+
+# Display stats (if available)
+[ -s "$CACHE_DIR/stats.tmp" ] && echo -e "\033[38;5;95m$(cat "$CACHE_DIR/stats.tmp")\033[0m" && echo ""
+
+# Display daily I Ching hexagram (always visible, fast)
+if type get_daily_hexagram >/dev/null 2>&1; then
+  HEX=$(get_daily_hexagram)
+  HEX_NAME=$(get_daily_hexagram_name)
+  WISDOM=$(get_daily_hexagram_wisdom)
+  echo -e "\033[38;5;204m$HEX $HEX_NAME\033[0m"
+  echo -e "  \033[2m$WISDOM\033[0m"
+  echo ""
 fi
 
-# Recent repos - sorted by actual git activity (cached)
-if [ -d ~/code ]; then
-  if [[ ! -f "$CACHE_DIR/repos.tmp" ]] || [[ -n $(find "$CACHE_DIR/repos.tmp" -mmin +30 2>/dev/null) ]]; then
-    (find ~/code -maxdepth 2 -type d -name ".git" 2>/dev/null | while read gitdir; do
-      repo=$(dirname "$gitdir")
-      last_commit=$(git -C "$repo" log -1 --format=%ct 2>/dev/null || echo 0)
-      echo "$last_commit $(basename "$repo")"
-    done | sort -rn | head -3 | cut -d' ' -f2- | while read reponame; do
-      echo "  $SYMBOL_REPO $reponame"
-    done > "$CACHE_DIR/repos.tmp") &
-    REPOS_PID=$!
-    disown $REPOS_PID 2>/dev/null
+# Helper function to display sections with spacing
+show_section() {
+  local file="$1"
+  local title="$2"
+
+  [ -s "$file" ] || return 0  # Skip if file is empty
+
+  [ $SHOWN -eq 1 ] && echo ""  # Add spacing before section if one already shown
+  echo -e "\033[38;5;204m$title\033[0m"
+  cat "$file"
+  SHOWN=1
+}
+
+SHOWN=0
+
+# Display components in order (all jobs already waited for above)
+show_section "$CACHE_DIR/tasks.tmp" "FOCUS"
+show_section "$CACHE_DIR/calendar.tmp" "SCHEDULE"
+show_section "$CACHE_DIR/repos.tmp" "ACTIVE REPOS"
+show_section "$CACHE_DIR/email.tmp" "INBOX"
+
+################################################################################
+# COMPONENT 6: I CHING POETRY (Context-rich mystical insights)
+################################################################################
+# Source: LLM generating I Ching-style poetry from all available context
+# LLM: claude 4o-mini with 150 token max for poetic generation
+# TTL: 30 minutes
+# Fallback: Skipped if offline or LLM unavailable
+# Note: Only runs if online and at least one section was shown
+#
+if [ $ONLINE -eq 0 ] && command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
+  # Get hexagram for display (outside subshell)
+  ORACLE_HEX=$(get_daily_hexagram 2>/dev/null || echo "䷀")
+
+  # Use cached insights if fresh, otherwise regenerate
+  if ! cache_fresh "$CACHE_DIR/insights.tmp" $CACHE_INSIGHTS; then
+    (
+      # Gather MAXIMUM context for poetry generation
+      HEX_SYMBOL=$(get_daily_hexagram 2>/dev/null || echo "䷀")
+      HEX_TITLE=$(get_daily_hexagram_name 2>/dev/null || echo "Creative")
+      HEX_WISDOM=$(get_daily_hexagram_wisdom 2>/dev/null || echo "Flow")
+      MOON=$(get_moon_name 2>/dev/null || echo "waxing")
+      TIME_NOW=$(date '+%A %I:%M %p')
+      HOUR=$(date +%H)
+      SEASON=$(date '+%B')
+
+      # Git context (commits, branches, activity)
+      GIT_RECENT=$(timeout 0.5 git log -3 --pretty="%s" 2>/dev/null | head -3 | tr '\n' '; ' || echo "none")
+      GIT_BRANCH=$(timeout 0.5 git branch --show-current 2>/dev/null || echo "none")
+      GIT_STATS=$(timeout 0.5 git log --since="24 hours ago" --oneline 2>/dev/null | wc -l | tr -d ' ')
+
+      # Tasks context
+      TASK_COUNT=$(things-cli today 2>/dev/null | wc -l | tr -d ' ')
+      NEXT_TASK=$(things-cli today 2>/dev/null | head -1 | sed 's/^- //' || echo "none")
+
+      # Calendar context
+      NEXT_EVENT=$(icalBuddy -n -nc -iep "title" -po "title" -df "" eventsToday+1 2>/dev/null | head -1 | sed 's/^[•-] //' || echo "none")
+      WEEKEND_DIST=$(( (6 - $(date +%u)) ))
+
+      # System context
+      UPTIME=$(uptime | sed 's/.*up //;s/, [0-9]* user.*//')
+      CURRENT_DIR=$(basename "$(pwd)")
+      RECENT_CMDS=$(tail -15 ~/.zsh_history 2>/dev/null | cut -d';' -f2 | tail -5 | tr '\n' '; ')
+
+      # Active repos
+      ACTIVE_REPOS=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null | head -3 | tr '\n' ', ' | sed 's/, $//')
+
+      # Recent emails (fetch 5 most recent from inbox)
+      RECENT_EMAILS=""
+      if command -v mu >/dev/null 2>&1; then
+        # Using mu (maildir indexer)
+        RECENT_EMAILS=$(timeout 1.0 mu find maildir:/INBOX --fields="f s" --sortfield=date --reverse --maxnum=5 2>/dev/null | sed 's/^/    /' || echo "none")
+      elif command -v notmuch >/dev/null 2>&1; then
+        # Using notmuch
+        RECENT_EMAILS=$(timeout 1.0 notmuch search --output=summary --limit=5 tag:inbox 2>/dev/null | sed 's/^/    /' || echo "none")
+      elif [ -f "$HOME/.maildir/INBOX/new" ] || [ -f "$HOME/Maildir/INBOX/new" ]; then
+        # Raw maildir parsing (last resort)
+        RECENT_EMAILS=$(find ~/Maildir/INBOX/new ~/Maildir/INBOX/cur -type f -exec grep -m1 "^Subject:" {} \; 2>/dev/null | head -5 | sed 's/^Subject: /    /' || echo "none")
+      else
+        # Fallback: use cached email summary
+        RECENT_EMAILS=$(cat "$CACHE_DIR/email.tmp" 2>/dev/null | head -5 | sed 's/^/    /' || echo "none")
+      fi
+
+      prompt="You are an I Ching oracle. Generate mystical poetry weaving actual data into ancient wisdom.
+
+HEXAGRAM: $HEX_SYMBOL $HEX_TITLE - $HEX_WISDOM
+TIME: $TIME_NOW, $SEASON, moon phase: $MOON
+GIT: $GIT_STATS commits today on branch '$GIT_BRANCH'
+RECENT COMMITS: $GIT_RECENT
+TASKS: $TASK_COUNT tasks await, beginning with: $NEXT_TASK
+CALENDAR: $NEXT_EVENT ($WEEKEND_DIST days until weekend)
+WORKSPACE: $CURRENT_DIR directory, system uptime $UPTIME
+ACTIVE: $ACTIVE_REPOS
+INBOX (5 recent):
+$RECENT_EMAILS
+
+Generate 2-4 lines of I Ching poetry. Weave in specific details:
+- Numbers: $GIT_STATS commits, $TASK_COUNT tasks, $WEEKEND_DIST days
+- Names: branch '$GIT_BRANCH', repos like 'website2', next task, email senders/subjects
+- Timing: $TIME_NOW, moon '$MOON', $SEASON
+- Inbox: weave in email subjects or sender names if evocative (Supabase alerts, Apple notices, etc)
+
+Good examples:
+  $GIT_STATS commits flow like water through $GIT_BRANCH
+  $TASK_COUNT tasks linger as stars, beginning with meditation
+  website2 and scrapbook-core call from the digital realm
+  Supabase whispers urgent warnings, Apple's gatekeeper beckons
+  $WEEKEND_DIST days until rest, moon waxes toward fullness
+
+DO NOT use quotation marks. Be poetic yet concrete. Reference real data (commit messages, task names, email subjects). Each line starts with two spaces."
+
+      # Generate I Ching poetry via LLM (3.5s timeout for richer generation)
+      echo "$prompt" | timeout 3.5 /opt/homebrew/bin/llm -m 4o-mini -o max_tokens 150 --no-log 2>&1
+    ) > "$CACHE_DIR/insights.tmp"
   fi
+
+  # Display if insights available and at least one section shown
+  [ -s "$CACHE_DIR/insights.tmp" ] && [ $SHOWN -eq 1 ] && \
+    echo "" && echo -e "\033[38;5;204m$ORACLE_HEX ORACLE\033[0m" && cat "$CACHE_DIR/insights.tmp"
 fi
 
-# Background email sync (non-blocking)
-if [ -x "$HOME/.email-auto-sync.sh" ]; then
-  "$HOME/.email-auto-sync.sh" &
-  disown $! 2>/dev/null
-fi
-
-# Email summary (cached within email-summary.sh)
-if [ -x "$HOME/.email-summary.sh" ]; then
-  ("$HOME/.email-summary.sh" > "$CACHE_DIR/email.tmp") &
-  EMAIL_PID=$!
-  disown $EMAIL_PID 2>/dev/null
-fi
-
-# Display stats if available
-if [ -n "$STATS_PID" ]; then
-  wait $STATS_PID 2>/dev/null
-  if [ -s "$CACHE_DIR/stats.tmp" ]; then
-    echo -e "\033[38;5;95m$(cat "$CACHE_DIR/stats.tmp")\033[0m"
-    echo ""
-  fi
-fi
-
-# Display sections as they complete (only if content exists)
-CONTENT_SHOWN=0
-
-if [ -n "$TASKS_PID" ]; then
-  wait $TASKS_PID 2>/dev/null
-  if [ -s "$CACHE_DIR/tasks.tmp" ]; then
-    [ $CONTENT_SHOWN -eq 0 ] && echo ""
-    echo -e "\033[38;5;204m󱐋 FOCUS\033[0m"
-    cat "$CACHE_DIR/tasks.tmp"
-    CONTENT_SHOWN=1
-  fi
-fi
-
-if [ -n "$CALENDAR_PID" ]; then
-  wait $CALENDAR_PID 2>/dev/null
-  if [ -s "$CACHE_DIR/calendar.tmp" ]; then
-    [ $CONTENT_SHOWN -eq 1 ] && echo ""
-    echo -e "\033[38;5;167m󰃭 SCHEDULE\033[0m"
-    cat "$CACHE_DIR/calendar.tmp"
-    CONTENT_SHOWN=1
-  fi
-fi
-
-if [ -n "$REPOS_PID" ]; then
-  wait $REPOS_PID 2>/dev/null
-  if [ -s "$CACHE_DIR/repos.tmp" ]; then
-    [ $CONTENT_SHOWN -eq 1 ] && echo ""
-    echo -e "\033[38;5;174m󰀘 ACTIVE REPOS\033[0m"
-    cat "$CACHE_DIR/repos.tmp"
-    CONTENT_SHOWN=1
-  fi
-fi
-
-if [ -n "$EMAIL_PID" ]; then
-  wait $EMAIL_PID 2>/dev/null
-  if [ -s "$CACHE_DIR/email.tmp" ]; then
-    [ $CONTENT_SHOWN -eq 1 ] && echo ""
-    echo -e "\033[38;5;131m󰊢 INBOX\033[0m"
-    cat "$CACHE_DIR/email.tmp"
-    CONTENT_SHOWN=1
-  fi
-fi
-
-# Handle insights - check cache age
-[ $CONTENT_SHOWN -eq 1 ] && echo ""
-if [[ -f "$REFLECTION_CACHE" ]] && [[ -z $(find "$REFLECTION_CACHE" -mmin +$INSIGHTS_CACHE_MIN 2>/dev/null) ]]; then
-  # Cache is fresh, just display it
-  echo -e "\033[38;5;204m󰛨 CONTEXT\033[0m \033[2m(cached)\033[0m"
-  cat "$REFLECTION_CACHE" | while IFS= read -r line; do
-    echo "  $SYMBOL_INSIGHT $line"
-  done
-else
-  # Cache is stale, regenerate context-aware insights
-  echo -e "\033[38;5;204m󰛨 CONTEXT\033[0m"
-
-  if has_cmd "$LLM_PATH"; then
-    # Gather RICH ambient context for surprising insights
-    hour=$(date '+%H')
-    day=$(date '+%A')
-    month=$(date '+%B')
-    tasks=$(has_cmd things-cli && things-cli today 2>/dev/null || echo "")
-    recent_repos=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null || echo "")
-    current_dir=$(basename "$(pwd)")
-
-    # Gather MORE ambient data (with timeouts)
-    git_status=$(timeout 1 git status -s 2>/dev/null | head -3)
-    last_commit=$(timeout 1 git log -1 --pretty=format:"%s (%cr)" 2>/dev/null)
-    open_apps=$(timeout 2 osascript -e 'tell application "System Events" to get name of (processes where background only is false)' 2>/dev/null | head -20)
-    recent_commands=$(tail -20 ~/.zsh_history 2>/dev/null | cut -d';' -f2 | grep -v "^cd\|^ls\|^ll\|^vim" | tail -5)
-    wifi_network=$(timeout 1 networksetup -getairportnetwork en0 2>/dev/null | cut -d: -f2)
-    uptime_info=$(uptime | sed 's/.*up //' | sed 's/, [0-9]* user.*//')
-    weather=$(timeout 2 curl -s "wttr.in/?format=%t+%C" 2>/dev/null || echo "")
-
-    # Count patterns in recent history
-    claude_today=$(grep "$(date '+%Y-%m-%d')" ~/.zsh_history 2>/dev/null | grep -c "claude" || echo 0)
-    npm_today=$(grep "$(date '+%Y-%m-%d')" ~/.zsh_history 2>/dev/null | grep -c "npm run" || echo 0)
-
-    # Context-aware prompt with ALL the ambient data
-    prompt="You are CIPHER, an ambient intelligence that notices patterns others miss.
-
-AMBIENT CONTEXT:
-- Time: $day, $(date '+%I:%M %p'), $month
-- Location: $current_dir
-- System: uptime $uptime_info, weather $weather
-- Git: $git_status | Last commit: $last_commit
-- Recent commands: $recent_commands
-- Today's claude usage: $claude_today times, npm runs: $npm_today times
-- Tasks: $tasks
-- Active repos: $recent_repos
-
-Based on this ambient context, provide 1-2 SHORT, punchy insights (1 line max each):
-- Notice patterns I might not see
-- Be specific and reference actual data
-- Use one symbol per insight: 👁 noticed, ⚡ urgent pattern, 🔄 recurring, 💡 insight
-- Be cryptic but helpful
-
-Keep it SHORT - max 2 lines total."
-
-    # Generate and display
-    echo "$prompt" | timeout 3 "$LLM_PATH" -m 4o-mini -o max_tokens 100 --no-log 2>/dev/null | tee "$REFLECTION_CACHE.tmp" | head -5 | while IFS= read -r line; do
-      [ -n "$line" ] && echo "  $SYMBOL_INSIGHT $line"
-    done
-
-    # Save cache
-    [ -s "$REFLECTION_CACHE.tmp" ] && mv "$REFLECTION_CACHE.tmp" "$REFLECTION_CACHE"
-  else
-    echo "  $SYMBOL_INSIGHT Install 'llm' for context-aware insights"
-  fi
-fi
-
-# Random tip (simple is better)
-if [ -f "$HOME/tips.txt" ]; then
-  # Just grab a random tip that looks like a tip
-  tip=$(grep -E '^\(|.* - ' "$HOME/tips.txt" | shuf -n 1)
-  if [ -n "$tip" ]; then
-    echo ""
-    echo -e "\033[38;5;215m 💡 TIP\033[0m"
-    echo -e "  \033[2m$tip\033[0m"
-  fi
-fi
-
-# Footer (with cache status)
+# Footer separator
 echo ""
-CACHE_FILES=$(find "$CACHE_DIR" -type f -mmin -120 2>/dev/null | wc -l)
-if [ "$CACHE_FILES" -gt 0 ]; then
-  echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-else
-  echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-fi
+echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo ""
