@@ -71,6 +71,58 @@ return {
         return vim.api.nvim_buf_line_count(0) .. "L"
       end
 
+      -- Copilot status (AI ready indicator)
+      local function copilot_status()
+        local ok, copilot = pcall(require, "copilot.client")
+        if not ok then return "" end
+
+        -- Check if copilot is attached to buffer
+        local attached = false
+        for _, client in ipairs(vim.lsp.get_active_clients({ bufnr = 0 })) do
+          if client.name == "copilot" then
+            attached = true
+            break
+          end
+        end
+
+        if not attached then
+          return "" -- Hidden when not active
+        end
+
+        -- AI ready - simple text since nerdfonts not working
+        return "AI"
+      end
+
+      -- Hotreload status - only shows when file was just reloaded
+      local function hotreload_status()
+        -- Check for recent reload flag
+        if vim.g.file_just_reloaded then
+          return "⟳" -- Just reloaded by Claude Code
+        end
+        return ""
+      end
+
+      -- Modified/unsaved changes indicator
+      local function modified_status()
+        if vim.bo.modified then
+          return "●" -- Unsaved changes
+        end
+        return ""
+      end
+
+      -- Diffview status
+      local function diffview_status()
+        local ok, diffview = pcall(require, "diffview")
+        if not ok then return "" end
+
+        local view = diffview.get_current_view()
+        if view then
+          -- Diffview open - simple unicode
+          return "Δ" -- Delta (changes/diff)
+        end
+        return ""
+      end
+
       return {
         options = {
           theme = "auto",
@@ -88,6 +140,10 @@ return {
             },
           },
           lualine_x = {
+            { modified_status, color = { fg = "#ff6666" } },   -- Red dot (unsaved!)
+            { hotreload_status, color = { fg = "#66ff66" } },  -- Green (just reloaded)
+            { copilot_status, color = { fg = "#888888" } },    -- Dim gray (AI ready)
+            { diffview_status, color = { fg = "#6666ff" } },   -- Blue (reviewing)
             { line_count },
             { minimal_diagnostics },
             { lsp_status },
