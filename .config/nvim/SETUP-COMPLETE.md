@@ -26,6 +26,7 @@ You now have the EXACT setup from the Xata article - but better!
 ### 3. **Auto-Refreshing Diffview** 🔍
 **Review Claude Code changes in real-time:**
 - `<leader>gd` - Open git diff view
+- `]c` / `[c` - Jump between changed files (overrides treesitter class nav)
 - Automatically refreshes when Claude Code commits
 - Watches `.git/` directory for changes
 - Side-by-side diffs with inline editing
@@ -45,18 +46,41 @@ src/components/Button.tsx:42-55
 
 Claude Code immediately knows the file + line numbers!
 
+### 5. **Hardtime Training Mode** 🥋
+**Khabib-style vim motion coaching:**
+- Blocks hjkl spam after 1 press (brother, you know this)
+- Shows custom hints for better motions
+- Suggests `w`, `b`, `f`, `}`, `]f`, `]d`, `/` instead of arrow keys
+- Arrow keys completely disabled (no mercy mode)
+
+**Example hints:**
+> "Brother, use '}' for paragraph, ']f' for function, ']d' for diagnostic, '/' for search. This is Dagestani way."
+
+### 6. **Auto Config Validation** ✅
+**Silent background checks on nvim startup:**
+- Validates all plugin Lua files for syntax errors
+- Runs in background, doesn't slow startup
+- Only notifies if configs are broken
+- Prevents broken configs from going unnoticed
+
 ## Files Created
 
 ```
-~/.config/nvim/lua/
-├── plugins/
-│   ├── copilot-inline.lua          # Inline ghost text
-│   ├── nvim-cmp-lean.lua           # LSP completions only
-│   └── claude-code-workflow.lua    # Diffview + reload
-└── custom/
-    ├── directory-watcher.lua       # Filesystem watcher
-    ├── hotreload.lua               # Auto-reload system
-    └── git-diff-hotreload.lua      # Diffview auto-refresh
+~/.config/nvim/
+├── lua/
+│   ├── plugins/
+│   │   ├── copilot-inline.lua          # Inline ghost text
+│   │   ├── nvim-cmp-lean.lua           # LSP completions only
+│   │   ├── claude-code-workflow.lua    # Diffview + reload + ]c nav
+│   │   └── hardtime.lua                # Training mode with Khabib hints
+│   ├── custom/
+│   │   ├── directory-watcher.lua       # Filesystem watcher
+│   │   ├── hotreload.lua               # Auto-reload system
+│   │   └── git-diff-hotreload.lua      # Diffview auto-refresh
+│   └── config/
+│       ├── autocmds.lua                # Auto-validation on startup
+│       └── keymaps.lua                 # ]c override for git diffs
+└── check-plugins.sh                    # Syntax validation script
 ```
 
 **Old files backed up:**
@@ -109,7 +133,7 @@ Then reopen nvim - everything will be active!
 - `<leader>gd` - Open diffview
 - `<leader>gh` - File history
 - `<leader>gc` - Close diffview
-- `]c` / `[c` - Jump changes (in diff)
+- `]c` / `[c` - Jump between changed files (git diffs only, not treesitter)
 
 ### Copy Code
 - `<leader>yr` - Yank with relative path
