@@ -20,10 +20,11 @@ function M.setup()
         watcher.watch_directory(git_dir, function()
           vim.schedule(function()
             -- Refresh diffview file list if it's open
-            if diffview.get_current_view() then
+            local ok, view = pcall(diffview.get_current_view)
+            if ok and view and view.update_files then
               -- Call internal update function
               pcall(function()
-                diffview.get_current_view():update_files()
+                view:update_files()
               end)
             end
           end)
@@ -34,9 +35,10 @@ function M.setup()
       local cwd = vim.fn.getcwd()
       watcher.watch_directory(cwd, function()
         vim.schedule(function()
-          if diffview.get_current_view() then
+          local ok, view = pcall(diffview.get_current_view)
+          if ok and view and view.update_files then
             pcall(function()
-              diffview.get_current_view():update_files()
+              view:update_files()
             end)
           end
         end)

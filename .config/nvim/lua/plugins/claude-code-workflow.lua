@@ -34,6 +34,16 @@ return {
           layout = "diff2_horizontal",
         },
       },
+      keymaps = {
+        view = {
+          ["]c"] = "actions.select_next_entry",
+          ["[c"] = "actions.select_prev_entry",
+        },
+        file_panel = {
+          ["]c"] = "actions.select_next_entry",
+          ["[c"] = "actions.select_prev_entry",
+        },
+      },
     },
   },
 
