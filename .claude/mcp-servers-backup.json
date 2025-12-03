@@ -1,0 +1,12 @@
+{
+  "obsidian": {
+    "type": "stdio",
+    "command": "uvx",
+    "args": [
+      "obsidian-mcp"
+    ],
+    "env": {
+      "OBSIDIAN_VAULT_PATH": "/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+    }
+  }
+}
