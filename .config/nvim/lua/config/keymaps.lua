@@ -18,3 +18,7 @@ vim.keymap.set("n", "<leader>sS", vim.lsp.buf.workspace_symbol, { desc = "Worksp
 vim.keymap.set("n", "gai", vim.lsp.buf.incoming_calls, { desc = "Incoming Calls" })
 vim.keymap.set("n", "gao", vim.lsp.buf.outgoing_calls, { desc = "Outgoing Calls" })
 
+-- Disable treesitter class navigation - we use ]c/[c for git diffs
+vim.keymap.del("n", "]c")
+vim.keymap.del("n", "[c")
+
