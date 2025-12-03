@@ -8,5 +8,21 @@
     "env": {
       "OBSIDIAN_VAULT_PATH": "/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
     }
+  },
+  "github": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-github"
+    ]
+  },
+  "things": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@wenbopan/things-mcp"
+    ]
   }
 }
