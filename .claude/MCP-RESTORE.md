@@ -3,9 +3,9 @@
 **Created:** December 3, 2025
 **Purpose:** Easy recovery of MCP server configs
 
-## Installed MCP Servers
+## Installed MCP Servers (3/3 slots used)
 
-### obsidian-mcp
+### 1. obsidian-mcp
 - **Package:** `obsidian-mcp` (via uvx)
 - **Purpose:** Direct filesystem access to Obsidian vault
 - **Vault path:** `/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox`
@@ -17,12 +17,42 @@
 - Manage TODOs
 - Frontmatter/metadata management
 
+### 2. github
+- **Package:** `@modelcontextprotocol/server-github` (via npx)
+- **Purpose:** GitHub repo integration
+
+**Capabilities:**
+- Check issues and PRs
+- Create/update issues
+- Read repo files and READMEs
+- Check CI/CD status
+- Search repos and code
+
+### 3. things
+- **Package:** `@wenbopan/things-mcp` (via npx)
+- **Purpose:** Things.app task management integration
+
+**Capabilities:**
+- Create/update tasks
+- View task lists and projects
+- Mark tasks complete
+- Query task status
+- Sync with Things.app via URL scheme
+
 ## Quick Restore
 
 ### Option 1: Claude CLI (Easiest)
 ```bash
 cd ~/path/to/your/project
+
+# Obsidian MCP
 claude mcp add -e OBSIDIAN_VAULT_PATH="/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox" --transport stdio obsidian uvx obsidian-mcp
+
+# GitHub MCP
+claude mcp add --transport stdio github -- npx -y @modelcontextprotocol/server-github
+
+# Things MCP
+claude mcp add --transport stdio things -- npx -y @wenbopan/things-mcp
 ```
 
 ### Option 2: Manual JSON Edit
