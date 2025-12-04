@@ -1,0 +1,13 @@
+{
+  "name": "tmux-mcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for tmux control",
+  "main": "tmux-server.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "bin": {
+    "tmux-server": "./tmux-server.js"
+  }
+}
