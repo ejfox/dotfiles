@@ -269,52 +269,59 @@ if [ $ONLINE -eq 0 ] && command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
       CURRENT_DIR=$(basename "$(pwd)")
       RECENT_CMDS=$(tail -15 ~/.zsh_history 2>/dev/null | cut -d';' -f2 | tail -5 | tr '\n' '; ')
 
-      # Active repos
-      ACTIVE_REPOS=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null | head -3 | tr '\n' ', ' | sed 's/, $//')
+      # Capture ACTUAL displayed content from cache files
+      STATS_CONTENT=$(cat "$CACHE_DIR/stats.tmp" 2>/dev/null || echo "none")
+      TASKS_CONTENT=$(cat "$CACHE_DIR/tasks.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
+      CALENDAR_CONTENT=$(cat "$CACHE_DIR/calendar.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
+      REPOS_CONTENT=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
+      EMAIL_CONTENT=$(cat "$CACHE_DIR/email.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
 
-      # Recent emails (fetch 5 most recent from inbox)
-      RECENT_EMAILS=""
-      if command -v mu >/dev/null 2>&1; then
-        # Using mu (maildir indexer)
-        RECENT_EMAILS=$(timeout 1.0 mu find maildir:/INBOX --fields="f s" --sortfield=date --reverse --maxnum=5 2>/dev/null | sed 's/^/    /' || echo "none")
-      elif command -v notmuch >/dev/null 2>&1; then
-        # Using notmuch
-        RECENT_EMAILS=$(timeout 1.0 notmuch search --output=summary --limit=5 tag:inbox 2>/dev/null | sed 's/^/    /' || echo "none")
-      elif [ -f "$HOME/.maildir/INBOX/new" ] || [ -f "$HOME/Maildir/INBOX/new" ]; then
-        # Raw maildir parsing (last resort)
-        RECENT_EMAILS=$(find ~/Maildir/INBOX/new ~/Maildir/INBOX/cur -type f -exec grep -m1 "^Subject:" {} \; 2>/dev/null | head -5 | sed 's/^Subject: /    /' || echo "none")
-      else
-        # Fallback: use cached email summary
-        RECENT_EMAILS=$(cat "$CACHE_DIR/email.tmp" 2>/dev/null | head -5 | sed 's/^/    /' || echo "none")
-      fi
+      prompt="You are an I Ching oracle generating a passage of ancient wisdom.
 
-      prompt="You are an I Ching oracle. Generate mystical poetry weaving actual data into ancient wisdom.
+CONTEXT - Everything the user has seen before this oracle passage:
+
+STATS DISPLAYED:
+$STATS_CONTENT
 
 HEXAGRAM: $HEX_SYMBOL $HEX_TITLE - $HEX_WISDOM
-TIME: $TIME_NOW, $SEASON, moon phase: $MOON
-GIT: $GIT_STATS commits today on branch '$GIT_BRANCH'
-RECENT COMMITS: $GIT_RECENT
-TASKS: $TASK_COUNT tasks await, beginning with: $NEXT_TASK
-CALENDAR: $NEXT_EVENT ($WEEKEND_DIST days until weekend)
-WORKSPACE: $CURRENT_DIR directory, system uptime $UPTIME
-ACTIVE: $ACTIVE_REPOS
-INBOX (5 recent):
-$RECENT_EMAILS
 
-Generate 2-4 lines of I Ching poetry. Weave in specific details:
-- Numbers: $GIT_STATS commits, $TASK_COUNT tasks, $WEEKEND_DIST days
-- Names: branch '$GIT_BRANCH', repos like 'website2', next task, email senders/subjects
-- Timing: $TIME_NOW, moon '$MOON', $SEASON
-- Inbox: weave in email subjects or sender names if evocative (Supabase alerts, Apple notices, etc)
+FOCUS (tasks displayed):
+$TASKS_CONTENT
 
-Good examples:
-  $GIT_STATS commits flow like water through $GIT_BRANCH
-  $TASK_COUNT tasks linger as stars, beginning with meditation
-  website2 and scrapbook-core call from the digital realm
-  Supabase whispers urgent warnings, Apple's gatekeeper beckons
-  $WEEKEND_DIST days until rest, moon waxes toward fullness
+SCHEDULE (calendar displayed):
+$CALENDAR_CONTENT
 
-DO NOT use quotation marks. Be poetic yet concrete. Reference real data (commit messages, task names, email subjects). Each line starts with two spaces."
+ACTIVE REPOS (displayed):
+$REPOS_CONTENT
+
+INBOX (displayed):
+$EMAIL_CONTENT
+
+ADDITIONAL CONTEXT:
+- Time: $TIME_NOW, $SEASON
+- Moon phase: $MOON
+- Git: $GIT_STATS commits on '$GIT_BRANCH'
+- Recent commits: $GIT_RECENT
+- Workspace: $CURRENT_DIR directory
+- Days until weekend: $WEEKEND_DIST
+
+Generate an I Ching passage (4-8 lines) that synthesizes ALL this context into ancient wisdom. CRITICAL RULES:
+- DO NOT rhyme. This is a contemplative passage, not a poem.
+- DO NOT use markdown, quotes, or code blocks. Plaintext only for terminal display.
+- Reference specific details from the displayed content (task names, repo names, email subjects, commit messages).
+- Write in the style of I Ching hexagram interpretations: observational, oracular, contemplative.
+- Each line starts with two spaces.
+- Use line breaks for pacing and breath, not for rhyme structure.
+
+Style examples (I Ching passage style, NOT rhyming):
+  The hexagram speaks of patience. Twelve tasks await their time.
+  Filing taxes with TurboTax marks the threshold of completion.
+
+  Website2 stirs in the repository. The code accumulates like autumn leaves.
+  Supabase sends warnings across the digital realm.
+
+  Two days separate now from rest. The moon waxes toward fullness.
+  In this moment, $TIME_NOW, the way forward reveals itself through stillness."
 
       # Generate I Ching poetry via LLM (6s timeout for complex prompt)
       # Use temp file to avoid partial writes if timeout kills process
