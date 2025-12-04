@@ -122,9 +122,9 @@ fetch_tasks() {
   local tasks=$(things-cli today 2>/dev/null | head -4)
   [ -z "$tasks" ] && return 0
 
-  # Try LLM prioritization first (1.2s timeout)
+  # Try LLM prioritization first (2.0s timeout, using fast 3.5-turbo)
   if command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
-    echo "$tasks" | timeout 1.2 /opt/homebrew/bin/llm -m 4o-mini --no-log -s \
+    echo "$tasks" | timeout 2.0 /opt/homebrew/bin/llm -m 3.5 --no-log -s \
       "Prioritize these 3 tasks. Format: 1) most urgent, 2) secondary, 3) tertiary. Remove dates, strip metadata, be ultra-brief." 2>/dev/null | \
       sed 's/^/  /' > "$CACHE_DIR/tasks.tmp"
   fi
