@@ -34,7 +34,7 @@ cd ~/.dotfiles
   - `tmux-thumbs` - Vimium-style hints for copying text (Rust, fast)
   - `tmux-menus` - Visual TUI menu (Ctrl-\) for all tmux functions
   - `tmux-fzf` - Fuzzy finder for sessions/windows/panes
-  - `tmux-resurrect` + `tmux-continuum` - Auto-save/restore sessions
+  - `tmux-resurrect` + `tmux-continuum` - Auto-save/restore sessions with smart process resurrection
 
 ### 📝 **Editor (Neovim 0.11.5)**
 - LazyVim-based config with 45+ plugins
@@ -89,7 +89,24 @@ C-\         # tmux-menus (visual TUI for all functions, no memorizing)
 C-a Space   # tmux-thumbs (vimium hints for copying text)
 C-a C-y     # Yank entire pane scrollback to clipboard
 C-a M-y     # Yank last 200 lines to clipboard
+C-a C-s     # Save session manually
+C-a C-r     # Restore session manually
 ```
+
+### Tmux Session Resurrection
+**Auto-save**: Every 15 minutes (via tmux-continuum)
+**Auto-restore**: On tmux startup (if enabled)
+**Save location**: `~/.local/share/tmux/resurrect/`
+
+**Smart process restoration** (based on actual usage patterns):
+- **Editors**: `nvim`, `vim`, `vi`
+- **Viewers**: `man`, `less`, `more`, `tail`
+- **TUIs**: `neomutt`, `yazi`, `lazygit`, `codex`, `toot`
+- **REPLs**: `node`, `psql`
+- **Dev servers**: Restores exact commands like `npm run dev`, `yarn dev`, `pnpm dev`
+- **Claude Code**: Restores with `--dangerously-skip-permissions` flag intact
+
+When you restore a session, all these processes restart in their original panes with the same working directories. Dev servers auto-start, editors reopen, database connections restore.
 
 ### Neovim Daily Driver Plugins
 **oil.nvim** - Filesystem editing
