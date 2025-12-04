@@ -316,9 +316,19 @@ Good examples:
 
 DO NOT use quotation marks. Be poetic yet concrete. Reference real data (commit messages, task names, email subjects). Each line starts with two spaces."
 
-      # Generate I Ching poetry via LLM (3.5s timeout for richer generation)
-      echo "$prompt" | timeout 3.5 /opt/homebrew/bin/llm -m 4o-mini -o max_tokens 150 --no-log 2>&1
-    ) > "$CACHE_DIR/insights.tmp"
+      # Generate I Ching poetry via LLM (6s timeout for complex prompt)
+      # Use temp file to avoid partial writes if timeout kills process
+      tmp_insights="$CACHE_DIR/insights.tmp.$$"
+      if echo "$prompt" | timeout 6.0 /opt/homebrew/bin/llm -m 4o-mini -o max_tokens 200 --no-log 2>&1 > "$tmp_insights"; then
+        # Success: move temp file to actual cache
+        mv "$tmp_insights" "$CACHE_DIR/insights.tmp"
+      else
+        # Timeout (124) or other error: remove partial output
+        rm -f "$tmp_insights"
+        # If we have old cache, keep it; otherwise create empty file
+        [ ! -f "$CACHE_DIR/insights.tmp" ] && touch "$CACHE_DIR/insights.tmp"
+      fi
+    )
   fi
 
   # Display if insights available and at least one section shown
