@@ -124,8 +124,13 @@ fetch_tasks() {
 
   # Try LLM prioritization first (2.0s timeout, using fast 3.5-turbo)
   if command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
+    # Get today's hexagram for context
+    local hex=$(get_daily_hexagram 2>/dev/null || echo "䷀")
+    local hex_name=$(get_daily_hexagram_name 2>/dev/null || echo "Creative")
+    local hex_wisdom=$(get_daily_hexagram_wisdom 2>/dev/null || echo "Flow")
+
     echo "$tasks" | timeout 2.0 /opt/homebrew/bin/llm -m 3.5 --no-log -s \
-      "Prioritize these 3 tasks. Format: 1) most urgent, 2) secondary, 3) tertiary. Remove dates, strip metadata, be ultra-brief." 2>/dev/null | \
+      "Let your response be guided by hexagram $hex $hex_name - $hex_wisdom. Prioritize these tasks. Format: 1) most urgent, 2) secondary, 3) tertiary. Remove dates, strip metadata, be ultra-brief." 2>/dev/null | \
       sed 's/^/  /' > "$CACHE_DIR/tasks.tmp"
   fi
 
@@ -276,7 +281,9 @@ if [ $ONLINE -eq 0 ] && command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
       REPOS_CONTENT=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
       EMAIL_CONTENT=$(cat "$CACHE_DIR/email.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
 
-      prompt="You are an I Ching oracle generating a passage of ancient wisdom.
+      prompt="Let your response be guided by hexagram $HEX_SYMBOL $HEX_TITLE - $HEX_WISDOM.
+
+You are an I Ching oracle generating a passage of ancient wisdom.
 
 CONTEXT - Everything the user has seen before this oracle passage:
 
