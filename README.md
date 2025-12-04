@@ -22,7 +22,8 @@ cd ~/.dotfiles
 
 ### 🔧 **Shell & Terminal**
 - `.zshrc` - Modern shell with LLM integration + fuzzy finder aliases
-- `.startup.sh` - AI-powered MOTD with contextual information
+- `.startup.sh` - AI-powered MOTD with I Ching Oracle passages
+- `lib/mystical-symbols.sh` - Daily I Ching hexagrams, moon phases, cosmic symbols
 - `.zen-mode.sh` - Toggle minimal UI mode across all apps
 - `.p10k.zsh` - Minimal Powerlevel10k prompt configuration
 - `tips.txt` - Comprehensive reference for all custom shortcuts (videogame loading screen style)
@@ -131,6 +132,40 @@ When you restore a session, all these processes restart in their original panes 
 - `cb` → Choose both
 - `[x` / `]x` → Jump between conflicts
 
+### Daily I Ching Oracle
+Your terminal greets you with ancient wisdom every morning via `.startup.sh`:
+
+**Daily Hexagram System** (`lib/mystical-symbols.sh`):
+- One hexagram per day, deterministic from date: `(YYYYMMDD % 64)`
+- Same hexagram all day across all terminals
+- Automatically changes at midnight
+- 64 hexagrams with names and wisdom phrases
+
+**Oracle Passage** (LLM-generated):
+- Synthesizes all MOTD context into contemplative I Ching-style wisdom
+- References your actual tasks, calendar, repos, inbox subjects
+- Non-rhyming, observational style (not poetry)
+- Uses `gpt-4o-mini` for nuanced language generation
+
+Example:
+```
+䷄ Waiting
+  Wait with patience
+
+FOCUS
+  1) Figure out documents for IRS
+  2) File 2023 taxes
+  ...
+
+䷄ ORACLE
+  The hexagram invites a pause amidst the flurry of tasks.
+  Documents for the IRS lie before you, a testament to diligence.
+
+  Action required on the edges of the inbox whispers caution.
+  While the repositories accumulate like branches in a grove,
+  The moon waxes gibbous, guiding reflection and steady choice.
+```
+
 ### Sketchybar CIPHER Coach
 Intelligent calendar + task integration:
 - Shows next timed event with countdown ("in 15m", "at 3:00")
@@ -208,6 +243,8 @@ g.           # Toggle hidden files
 | Application | Config Location | Description |
 |------------|-----------------|-------------|
 | **Shell (Zsh)** | `.zshrc` (447 lines) | Main shell config with fuzzy finder aliases, PATH setup |
+| **Startup MOTD** | `.startup.sh` | AI-powered MOTD with daily I Ching Oracle |
+| **Mystical Symbols** | `lib/mystical-symbols.sh` | Reusable library: I Ching hexagrams, moon phases, cosmic glyphs |
 | **Powerlevel10k** | `.p10k.zsh` | Terminal prompt theme |
 | **Neovim** | `.config/nvim/` | LazyVim with 45+ plugins [See PLUGINS.md](./.config/nvim/PLUGINS.md) |
 | **Tmux** | `.tmux.conf` (200 lines) | Pane-based workflow with popups |
