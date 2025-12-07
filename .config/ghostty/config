@@ -49,7 +49,7 @@ clipboard-paste-protection = false
 # Order matters: they stack. Reload with Cmd+Shift+,
 # Originals from: https://github.com/hackr-sh/ghostty-shaders
 
-# Order: cursor → mood-ink → tft
+# Order: cursor trail → BLOOM (red-selective, CRANKED 🔥) → LCD subpixel
 custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
-custom-shader = /Users/ejfox/.config/ghostty/shaders/mood-ink.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl

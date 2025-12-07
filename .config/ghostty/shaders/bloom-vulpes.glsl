@@ -29,9 +29,9 @@ const vec3[24] samples = {
 };
 
 // TUNING KNOBS:
-const float BLOOM_INTENSITY = 0.21;  // Dialed back 25%
-const float LUM_THRESHOLD = 0.15;    // Low threshold since we're very color-selective
-const float RED_DOMINANCE = 0.25;    // Strict - red must REALLY dominate
+const float BLOOM_INTENSITY = 0.38;  // Actually in the middle this time
+const float LUM_THRESHOLD = 0.14;    // Actual middle ground
+const float RED_DOMINANCE = 0.18;    // Between strict and loose
 const float LIGHT_MODE_THRESHOLD = 0.5;  // If bg is brighter than this, skip bloom
 
 float lum(vec4 c) {
@@ -79,8 +79,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // Tint the bloom toward vulpes red/pink (boost red channel of the glow)
   vec4 original = texture(iChannel0, uv);
   vec4 bloom_only = color - original;
-  bloom_only.r *= 1.3;  // Push bloom redder
-  bloom_only.g *= 0.85; // Pull back green
+  bloom_only.r *= 1.5;  // Middle ground on red boost
+  bloom_only.g *= 0.75; // Middle ground on green reduction
+  bloom_only.b *= 0.92; // Middle ground on blue
   color = original + bloom_only;
 
   fragColor = color;
