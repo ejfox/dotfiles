@@ -1,0 +1,81 @@
+# NeoMutt Configuration
+
+# Maildir location
+set mbox_type = Maildir
+set folder = "~/Maildir"
+set spoolfile = "+Inbox"
+set record = "+[Gmail]/Sent Mail"
+set postponed = "+[Gmail]/Drafts"
+set trash = "+[Gmail]/Trash"
+
+# Identity
+set realname = "EJ Fox"
+set from = "ejfox@ejfox.com"
+
+# Auto-sync on startup
+startup-hook 'push "<shell-escape>mbsync -a -q && echo Mail synced!<enter>"'
+
+# Refresh/Sync Hotkey - Press G to fetch all mail
+macro index,pager G "<shell-escape>mbsync -a -q && echo 'Mail synced!'<enter><sync-mailbox>" "Fetch all mail (mbsync)"
+
+# Alternative: Shift+O for a quick sync of current mailbox only
+macro index,pager O "<sync-mailbox>" "Sync current mailbox"
+
+# Read/Unread
+bind index N toggle-new
+macro index U "<limit>~U<enter>" "Show only unread"
+macro index A "<limit>all<enter>" "Show all messages"
+
+# Check for new mail every 60 seconds
+set mail_check = 60
+set mail_check_stats = yes
+
+# Better viewing
+set sort = threads
+set sort_aux = reverse-last-date-received
+set date_format = "%b %d %H:%M"
+# Mail status icons via pattern matching
+index-format-hook mail_icon "~D" "✗"
+index-format-hook mail_icon "~N" "●"
+index-format-hook mail_icon "~O" "●"
+index-format-hook mail_icon "~A" " "
+
+set index_format = "%4C %@mail_icon@ %?F?& ? %?X?󰏢& ? %D %-20.20L %s"
+
+# Sidebar (off by default, press B to toggle)
+set sidebar_visible = no
+set sidebar_width = 25
+set sidebar_format = "%B%?F? [%F]?%* %?N?%N/?%S"
+
+# Sidebar navigation
+bind index,pager \Cp sidebar-prev
+bind index,pager \Cn sidebar-next
+bind index,pager \Co sidebar-open
+bind index,pager B sidebar-toggle-visible
+
+# Pager settings
+set pager_index_lines = 10
+set pager_context = 3
+set pager_stop = yes
+
+# Reply settings
+set fast_reply = yes
+set include = yes
+
+# Colors (system default + red highlight)
+color normal default default
+color indicator white red
+color tree default default
+color status default default
+color error red default
+color message default default
+color signature default default
+color attachment default default
+color search black yellow
+color hdrdefault default default
+color quoted default default
+color quoted1 default default
+color quoted2 default default
+
+# Deleted messages in blue
+color index blue default "~D"
