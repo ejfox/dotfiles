@@ -1,0 +1,23 @@
+IMAPAccount gmail
+Host imap.gmail.com
+Port 993
+User ejfox@ejfox.com
+PassCmd "security find-internet-password -w -a ejfox@ejfox.com -s imap.gmail.com"
+AuthMechs LOGIN
+TLSType IMAPS
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+Subfolders Verbatim
+Path ~/Maildir/
+Inbox ~/Maildir/Inbox
+
+Channel gmail
+Far :gmail-remote:
+Near :gmail-local:
+Patterns * ![Gmail]* "[Gmail]/Sent Mail" "[Gmail]/Starred" "[Gmail]/All Mail"
+Create Both
+SyncState *
+MaxMessages 500
