@@ -1,0 +1,485 @@
+#!/bin/bash
+# CIPHER Morning Ritual - Life-guiding shell experience
+# Analyzes your world, suggests 3 pomodoros for the day
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+GRAY='\033[0;90m'
+NC='\033[0m'
+
+CACHE_DIR="/tmp/morning_ritual"
+LAST_RUN="$CACHE_DIR/last_run"
+PERSONA_FILE="$HOME/.dotfiles/.llm-persona.txt"
+OBSIDIAN_VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+
+mkdir -p "$CACHE_DIR"
+
+# Check if it's actually morning (before noon)
+check_is_morning() {
+    local hour=$(date +%H)
+    if [ "$hour" -ge 12 ]; then
+        echo -e "${GRAY}◆ CIPHER only speaks at dawn${NC}" >&2
+        exit 0
+    fi
+}
+
+# Check if already run today
+check_already_run() {
+    if [ -f "$LAST_RUN" ]; then
+        last_date=$(cat "$LAST_RUN")
+        today=$(date +%Y-%m-%d)
+        if [ "$last_date" = "$today" ]; then
+            echo -e "${GRAY}◆ CIPHER has already guided your day${NC}" >&2
+            exit 0
+        fi
+    fi
+}
+
+# Gather Things.app tasks
+gather_things_tasks() {
+    echo -e "${GRAY}◇ Reading Things tasks...${NC}" >&2
+
+    local output=""
+
+    # Get today's tasks
+    local today_tasks=$(osascript -e 'tell application "Things3"
+        set todayTodos to to dos of list "Today"
+        set taskList to ""
+        repeat with aTodo in todayTodos
+            set taskList to taskList & name of aTodo & "\n"
+        end repeat
+        return taskList
+    end tell' 2>/dev/null || echo "")
+
+    local today_count=$(echo "$today_tasks" | grep -c . || echo 0)
+
+    output+="=== TODAY ($today_count tasks) ===\n"
+    output+="$today_tasks\n"
+
+    # If today is light (<5 tasks), also grab Anytime list
+    if [ "$today_count" -lt 5 ]; then
+        echo -e "${GRAY}◇ Today is light, reading Anytime tasks...${NC}" >&2
+
+        local anytime_tasks=$(osascript -e 'tell application "Things3"
+            set anytimeTodos to to dos of list "Anytime"
+            set taskList to ""
+            set taskCount to 0
+            repeat with aTodo in anytimeTodos
+                if taskCount < 10 then
+                    set taskList to taskList & name of aTodo & "\n"
+                    set taskCount to taskCount + 1
+                end if
+            end repeat
+            return taskList
+        end tell' 2>/dev/null || echo "")
+
+        output+="\n=== ANYTIME (top 10, for context) ===\n"
+        output+="$anytime_tasks\n"
+    fi
+
+    echo -e "$output"
+}
+
+# Gather calendar events
+gather_calendar() {
+    echo -e "${GRAY}◇ Reading calendar...${NC}" >&2
+
+    if command -v icalBuddy &>/dev/null; then
+        icalBuddy -f -nc -n eventsToday 2>/dev/null | head -10 || echo ""
+    else
+        echo ""
+    fi
+}
+
+# Gather recent git activity
+gather_git_activity() {
+    echo -e "${GRAY}◇ Analyzing git activity...${NC}" >&2
+
+    local repos=""
+    local dirs=(~/code ~/projects ~/work ~/Documents)
+
+    for dir in "${dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            find "$dir" -maxdepth 2 -type d -name ".git" 2>/dev/null | while read gitdir; do
+                repo_dir=$(dirname "$gitdir")
+                cd "$repo_dir" 2>/dev/null
+
+                # Check if worked on in last 7 days (suppress errors from empty repos)
+                if git log --since="7 days ago" --oneline 2>/dev/null | head -1 >/dev/null 2>&1; then
+                    repo_name=$(basename "$repo_dir")
+                    recent_commits=$(git log --since="7 days ago" --oneline 2>/dev/null | wc -l | tr -d ' ')
+                    last_commit=$(git log -1 --format="%s" 2>/dev/null)
+                    branch=$(git branch --show-current 2>/dev/null)
+
+                    echo "Repo: $repo_name ($branch) - $recent_commits commits in 7d"
+                    echo "  Last: $last_commit"
+                fi
+            done
+        fi
+    done
+}
+
+# Gather command history patterns
+gather_command_history() {
+    echo -e "${GRAY}◇ Analyzing command patterns...${NC}" >&2
+
+    if [ -f ~/.zsh_history ]; then
+        # Get last 200 commands, extract patterns (suppress encoding errors)
+        LC_ALL=C tail -n 200 ~/.zsh_history 2>/dev/null | LC_ALL=C sed 's/^[^;]*;//' 2>/dev/null | \
+        LC_ALL=C grep -oE '\b(nvim|code|git|npm|yarn|docker|ssh|cd|python|node|cargo|make)\b' 2>/dev/null | \
+        sort | uniq -c | sort -nr | head -5
+    fi
+}
+
+# Gather GitHub activity (notifications, PRs, comments)
+gather_github_activity() {
+    echo -e "${GRAY}◇ Reading GitHub activity...${NC}" >&2
+
+    if ! command -v gh &>/dev/null; then
+        echo "GitHub CLI not installed"
+        return
+    fi
+
+    local output=""
+
+    # Get unread notifications (limited to 10)
+    local notifications=$(gh api notifications --paginate=false 2>/dev/null | \
+        jq -r '.[] | "[\(.repository.full_name)] \(.subject.title) - \(.reason)"' 2>/dev/null | \
+        head -10)
+
+    if [ -n "$notifications" ]; then
+        output+="=== UNREAD NOTIFICATIONS (top 10) ===\n"
+        output+="$notifications\n\n"
+    fi
+
+    # Get PRs waiting for your review
+    local review_requests=$(gh search prs --review-requested=@me --state=open --limit=10 2>/dev/null | \
+        head -10)
+
+    if [ -n "$review_requests" ]; then
+        output+="=== PRs WAITING FOR YOUR REVIEW ===\n"
+        output+="$review_requests\n\n"
+    fi
+
+    # Get your open PRs and their status
+    local my_prs=$(gh pr list --author=@me --state=open --limit=10 2>/dev/null)
+
+    if [ -n "$my_prs" ]; then
+        output+="=== YOUR OPEN PRs (top 10) ===\n"
+        output+="$my_prs\n\n"
+    fi
+
+    # Get recent comments/activity on your PRs (last 24h)
+    local recent_comments=$(gh api graphql -f query='
+    {
+      viewer {
+        pullRequests(first: 5, orderBy: {field: UPDATED_AT, direction: DESC}) {
+          nodes {
+            repository { nameWithOwner }
+            number
+            title
+            updatedAt
+            comments(last: 3) {
+              nodes {
+                author { login }
+                bodyText
+                createdAt
+              }
+            }
+          }
+        }
+      }
+    }' 2>/dev/null | jq -r '
+      .data.viewer.pullRequests.nodes[] |
+      "[\(.repository.nameWithOwner)#\(.number)] \(.title)" +
+      if (.comments.nodes | length) > 0 then
+        "\n  Recent: " + (.comments.nodes | map("  - @\(.author.login): \(.bodyText | split("\n")[0])") | join("\n"))
+      else "" end
+    ' 2>/dev/null | head -20)
+
+    if [ -n "$recent_comments" ]; then
+        output+="=== RECENT PR ACTIVITY (your PRs) ===\n"
+        output+="$recent_comments\n"
+    fi
+
+    echo -e "$output"
+}
+
+# Gather Obsidian week note
+gather_obsidian_week() {
+    echo -e "${GRAY}◇ Reading Obsidian week note...${NC}" >&2
+
+    if [ -d "$OBSIDIAN_VAULT" ]; then
+        # Find week note (assuming format like "2025-W49")
+        local year=$(date +%Y)
+        local week=$(date +%V)
+        local week_file=$(find "$OBSIDIAN_VAULT" -name "*${year}-W${week}*" -type f | head -1)
+
+        if [ -f "$week_file" ]; then
+            cat "$week_file" 2>/dev/null || echo ""
+        fi
+    fi
+}
+
+# Gather 5 most recent Obsidian docs (smart truncation)
+gather_recent_obsidian() {
+    echo -e "${GRAY}◇ Reading recent Obsidian notes...${NC}" >&2
+
+    if [ -d "$OBSIDIAN_VAULT" ]; then
+        # Find 5 most recently modified .md files
+        find "$OBSIDIAN_VAULT" -name "*.md" -type f -mtime -7 \
+            -exec stat -f "%m %N" {} \; 2>/dev/null | \
+            sort -rn | head -5 | cut -d' ' -f2- | while read file; do
+
+            filename=$(basename "$file")
+            total_chars=$(wc -c < "$file" | tr -d ' ')
+
+            echo "## $filename ($total_chars chars)"
+
+            # First 2000 chars
+            head -c 2000 "$file"
+
+            # If file is longer than 4000 chars, add separator and last 2000
+            if [ "$total_chars" -gt 4000 ]; then
+                echo -e "\n\n[... middle content omitted ...]\n"
+                tail -c 2000 "$file"
+            fi
+
+            echo -e "\n---\n"
+        done
+    fi
+}
+
+# Gather day/time context
+gather_time_context() {
+    local hour=$(date +%H)
+    local day=$(date +%A)
+    local date=$(date +"%B %d, %Y")
+
+    local energy_state=""
+    if [ "$hour" -lt 6 ]; then
+        energy_state="liminal-deep (night owl mode)"
+    elif [ "$hour" -lt 10 ]; then
+        energy_state="morning-clarity (fresh perspective)"
+    elif [ "$hour" -lt 14 ]; then
+        energy_state="peak-focus (maximum creative potential)"
+    elif [ "$hour" -lt 18 ]; then
+        energy_state="afternoon-flow (steady progress)"
+    else
+        energy_state="evening-reflection (synthesis mode)"
+    fi
+
+    # Weekend context
+    local day_vibe=""
+    if [ "$day" = "Saturday" ] || [ "$day" = "Sunday" ]; then
+        day_vibe="WEEKEND - rest day vibes, prioritize recovery/creative/personal over grind"
+    elif [ "$day" = "Friday" ]; then
+        day_vibe="FRIDAY - transition to weekend, wrap up work gracefully"
+    elif [ "$day" = "Monday" ]; then
+        day_vibe="MONDAY - fresh week, set momentum carefully"
+    else
+        day_vibe="WEEKDAY - work mode, balance urgency with sustainability"
+    fi
+
+    echo "Date: $day, $date"
+    echo "Day vibe: $day_vibe"
+    echo "Time: $(date +%H:%M) - $energy_state"
+}
+
+# Main context gathering
+gather_all_context() {
+    echo -e "${CYAN}◆ CIPHER awakens. Analyzing your reality...${NC}\n" >&2
+
+    local context=""
+
+    context+="=== TEMPORAL CONTEXT ===\n"
+    context+="$(gather_time_context)\n\n"
+
+    context+="=== TODAY'S TASKS (Things) ===\n"
+    context+="$(gather_things_tasks)\n\n"
+
+    context+="=== CALENDAR (Next Events) ===\n"
+    context+="$(gather_calendar)\n\n"
+
+    context+="=== RECENT GIT ACTIVITY (7 days) ===\n"
+    context+="$(gather_git_activity)\n\n"
+
+    context+="=== COMMAND PATTERNS (Last 200) ===\n"
+    context+="$(gather_command_history)\n\n"
+
+    context+="=== GITHUB ACTIVITY ===\n"
+    context+="$(gather_github_activity)\n\n"
+
+    context+="=== OBSIDIAN WEEK NOTE ===\n"
+    context+="$(gather_obsidian_week)\n\n"
+
+    context+="=== RECENT OBSIDIAN NOTES (5 most recent, 7 day window) ===\n"
+    context+="$(gather_recent_obsidian)\n\n"
+
+    echo -e "$context"
+}
+
+# Generate pomodoro suggestions with CIPHER
+generate_pomodoros() {
+    local context="$1"
+    local persona=$(cat "$PERSONA_FILE" 2>/dev/null)
+
+    echo -e "${CYAN}◆ CIPHER contemplates your trajectory...${NC}\n" >&2
+
+    # Timeout after 30s to prevent hanging (e.g., if called from within Claude Code)
+    timeout 30 claude --output-format text <<EOF
+$persona
+
+You are analyzing a hacker-journalist's morning context to suggest pomodoro sessions (25-min focused work blocks).
+
+CONTEXT:
+$context
+
+Based on this reality, suggest exactly 12 pomodoro sessions for today, RANKED BY PRIORITY.
+
+CRITICAL: Check the Day vibe context above. If it is WEEKEND (Saturday/Sunday):
+- Prioritize rest, recovery, creative work, and personal projects over grinding
+- Favor the 🌞 emoji tasks (self-care: workout, journal, meditate, read, make/publish)
+- Deprioritize work stuff unless truly urgent or creatively fulfilling
+- Sunday is for recharging, not depleting
+
+Consider for prioritization:
+- Day vibe (WEEKEND vs WEEKDAY - adjust accordingly!)
+- What is actually on their plate (Things tasks)
+- What has calendar deadlines/constraints
+- What has momentum (recent git/command activity)
+- What needs attention (Obsidian notes themes)
+- Energy state (time of day) - match tasks to energy
+- Impact vs effort (quick wins vs deep work)
+- What they are avoiding (longest-delayed tasks)
+
+For each pomodoro, provide:
+1. A terse, CIPHER-style title (4-8 words, lowercase)
+2. A one-line dry observation about why this matters RIGHT NOW
+
+Format (in PRIORITY ORDER, #1 = most urgent/important):
+POMODORO_1: [title]
+WHY: [observation]
+
+POMODORO_2: [title]
+WHY: [observation]
+
+...continue through POMODORO_12...
+
+Rules:
+- Mix quick wins (15-25min tasks) with deep work blocks
+- Include at least one task they are avoiding
+- Match task complexity to current energy state
+- Be brutally honest about what actually matters
+- Keep the dry, competent pessimism vibe
+
+The human will pick 3 from this list. Make the prioritization count.
+EOF
+}
+
+# Parse and format for fzf
+format_for_fzf() {
+    local raw_output="$1"
+
+    # Simple: just grep for POMODORO lines, then get the WHY line after each
+    local line_num=0
+    while IFS= read -r line; do
+        if [[ "$line" == POMODORO_* ]]; then
+            # Extract number and title
+            num=$(echo "$line" | cut -d_ -f2 | cut -d: -f1)
+            title=$(echo "$line" | cut -d: -f2- | xargs)
+
+            # Format number with leading zero
+            if [ "$num" -lt 10 ]; then
+                display_num="#0${num}"
+            else
+                display_num="#${num}"
+            fi
+
+            # Next line should be WHY
+            read -r why_line
+            why=$(echo "$why_line" | cut -d: -f2- | xargs)
+
+            echo "${display_num} ${title} ◆ ${why}"
+        fi
+    done <<< "$raw_output"
+}
+
+# Add selected pomodoro to Things
+add_to_things() {
+    local task="$1"
+
+    # Extract just the title (after #XX, before ◆)
+    # Strip the priority number (#01, #02, etc)
+    local title=$(echo "$task" | sed 's/^#[0-9]\+ //' | cut -d'◆' -f1 | xargs)
+
+    osascript <<EOF
+tell application "Things3"
+    set newTodo to make new to do with properties {name:"$title", due date:current date}
+end tell
+EOF
+
+    echo -e "${CYAN}◆ Added to Things: ${title}${NC}" >&2
+}
+
+# Main flow
+main() {
+    check_is_morning
+    check_already_run
+
+    # Gather context
+    local context=$(gather_all_context)
+
+    # Save context for debugging
+    echo -e "$context" > "$CACHE_DIR/last_context.txt"
+
+    # Generate pomodoros
+    local raw_pomodoros=$(generate_pomodoros "$context")
+
+    # Save raw output
+    echo "$raw_pomodoros" > "$CACHE_DIR/last_raw_output.txt"
+
+    # Format for fzf
+    local formatted=$(format_for_fzf "$raw_pomodoros")
+
+    if [ -z "$formatted" ]; then
+        echo -e "${RED}◆ CIPHER failed to generate wisdom${NC}" >&2
+        echo -e "${GRAY}  (Timeout or API error - try again or run manually)${NC}" >&2
+        exit 1
+    fi
+
+    echo -e "\n${CYAN}◆ CIPHER ranked 12 trajectories by priority. Pick your top 3:${NC}\n" >&2
+
+    # Show in fzf with multi-select
+    local selected=$(echo "$formatted" | fzf \
+        --multi \
+        --height=70% \
+        --reverse \
+        --border \
+        --prompt="Pick 3 pomodoros (TAB to select) > " \
+        --preview="cat $CACHE_DIR/last_context.txt | head -50" \
+        --preview-window=right:55%:wrap \
+        --header="12 pomodoros ranked by priority - #1 is most urgent (Ctrl-C to reject CIPHER)" \
+        --color="fg:#f5d0dc,bg:#0d0d0d,hl:#ff0055,fg+:#ffffff,bg+:#2d1a22,hl+:#ff3344,info:#ff0077,prompt:#ff0055,pointer:#ff0055,marker:#ff0055,spinner:#ff0077,header:#ff6688")
+
+    if [ -z "$selected" ]; then
+        echo -e "${GRAY}◆ You rejected CIPHER's wisdom. Interesting choice.${NC}" >&2
+        exit 0
+    fi
+
+    # Add each selected pomodoro to Things
+    echo "$selected" | while read -r task; do
+        add_to_things "$task"
+    done
+
+    # Mark as run today
+    date +%Y-%m-%d > "$LAST_RUN"
+
+    echo -e "\n${CYAN}◆ CIPHER has spoken. Your trajectory is set.${NC}\n" >&2
+}
+
+main

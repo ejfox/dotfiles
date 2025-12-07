@@ -350,6 +350,15 @@ Style examples (I Ching passage style, NOT rhyming):
     echo "" && echo -e "\033[38;5;204m$ORACLE_HEX ORACLE\033[0m" && cat "$CACHE_DIR/insights.tmp"
 fi
 
+################################################################################
+# CIPHER MORNING RITUAL - Deep context pomodoro planning
+################################################################################
+# Runs once per day on first boot, suggests 3 pomodoros based on deep analysis
+if command -v morning-ritual &>/dev/null; then
+  # Timeout after 60s, suppress EPIPE errors, allow Ctrl-C to skip gracefully
+  timeout 60 morning-ritual 2>&1 | cat || true
+fi
+
 # Footer separator
 echo ""
 echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
