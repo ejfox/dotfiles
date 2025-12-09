@@ -15,6 +15,10 @@ Minimalist terminal configuration focused on functional beauty, speed-of-thought
 ```bash
 git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
+git submodule update --init --recursive  # Initialize tmux-link-grab submodule
+./sync-dotfiles.sh
+```git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
 ./sync-dotfiles.sh
 ```
 
@@ -283,3 +287,30 @@ g.           # Toggle hidden files
 ---
 
 *Every pixel serves a purpose. Maximum functionality, minimum distraction.*
+
+### tmux-link-grab - Elegant Seek Mode for URLs & IPs
+**Keybinding**: `C-a s`
+
+One of the most useful recent additions. Opens an interactive popup where you can instantly grab any URL or IP from your window's scrollback:
+
+```bash
+C-a s       # Enter seek mode
+            # Fzf popup shows all URLs & IPs from window, numbered
+1           # Type a number to select
+↵           # Enter - URL copied to clipboard, status bar flashes
+```
+
+**What it captures:**
+- `https://example.com/path?query=value` - URLs with full protocols
+- `ftp://files.server.com` - FTP links
+- `192.168.1.1` - IPv4 addresses
+- `10.0.0.1:8080` - IPs with ports
+
+**Why it's good:**
+- Searches **entire window** (all panes) not just current pane
+- Searches **last 100 lines** of scrollback
+- Number-based selection (like vim's `s` keybinding)
+- Visual feedback (status bar flashes on copy)
+- Works across macOS/Linux (detects pbcopy/xclip/wl-copy)
+
+**See**: [tmux-link-grab](https://github.com/ejfox/tmux-link-grab) repository for details
