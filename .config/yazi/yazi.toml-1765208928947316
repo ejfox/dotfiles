@@ -5,7 +5,7 @@
 # ln -sf vulpes-reddishnovember-dark.toml theme.toml (or -light.toml)
 # Or set directly in flavors below
 
-[mgr]
+[manager]
 ratio = [1,3,4]
 show_hidden = false
 sort_by = "mtime"

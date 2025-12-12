@@ -2,18 +2,32 @@ return {
   {
     "m4xshen/hardtime.nvim",
     dependencies = { "MunifTanjim/nui.nvim" },
-    enabled = true,  -- TRAINING CAMP - KHABIB MODE
+    enabled = false,  -- disabled - gotta ship
     opts = {
       restriction_mode = "block",  -- Zero tolerance brother
       max_count = 1,  -- ONE TIME ONLY. You know this.
+
+      -- Bypass vim.notify entirely, call nvim-notify directly
+      callback = function(text)
+        local ok, notify = pcall(require, "notify")
+        if ok then
+          notify(text, "warn", {
+            title = "Hardtime",
+            timeout = 5000,
+            render = "wrapped-compact",
+          })
+        else
+          vim.notify(text, vim.log.levels.WARN)
+        end
+      end,
+
       disabled_keys = {
-        ["<Up>"] = { "n", "x", "i" },  -- No arrow keys. This is not amateur hour.
-        ["<Down>"] = { "n", "x", "i" },
         ["<Left>"] = { "n", "x", "i" },
         ["<Right>"] = { "n", "x", "i" },
       },
       hint = true,
       allow_different_key = true,
+      timeout = 5000,  -- 5 seconds before auto-dismiss
 
       -- Coach Khabib's Training Hints
       hints = {
@@ -83,6 +97,7 @@ return {
           end,
           length = 4,
         },
+
       },
     },
   },

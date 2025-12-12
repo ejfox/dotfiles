@@ -19,13 +19,13 @@ function M.setup()
     fg = '#f2cfdf',
     base = '#e60067',
 
-    error = '#00ffff',
+    error = '#a0f7fc',      -- Bright teal (pops for errors)
     warning = '#ffaa00',
     success = '#ffffff',
     info = '#ff0095',
     hint = '#ff4d9d',
 
-    comment = '#ffffff',
+    comment = '#6eedf7',    -- Lighter teal comments
     linenr = '#735865',
     keyword = '#ff1aca',
     string = '#f5f5f5',

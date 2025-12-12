@@ -29,8 +29,8 @@ const vec3[24] samples = {
 };
 
 // TUNING KNOBS:
-const float BLOOM_INTENSITY = 0.38;  // Actually in the middle this time
-const float LUM_THRESHOLD = 0.14;    // Actual middle ground
+const float BLOOM_INTENSITY = 0.05;  // Whisper
+const float LUM_THRESHOLD = 0.2;     // Only bloom on brighter pixels
 const float RED_DOMINANCE = 0.18;    // Between strict and loose
 const float LIGHT_MODE_THRESHOLD = 0.5;  // If bg is brighter than this, skip bloom
 
@@ -38,15 +38,13 @@ float lum(vec4 c) {
   return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
 }
 
-// Check if pixel is reddish/pinkish - STRICT mode
-bool isWarmColor(vec4 c) {
-  // Red must strongly dominate green
-  bool redDominant = (c.r > (c.g + RED_DOMINANCE)) && (c.r > 0.3);
-  // Hot pinks only (red high, blue present, green LOW)
-  bool isPink = (c.r > 0.5) && (c.b > 0.25) && (c.g < c.r * 0.6);
-  // Skip oranges - too close to yellow/white
-
-  return redDominant || isPink;
+// Check if pixel is bright enough to bloom - reds + bright colors
+bool shouldBloom(vec4 c) {
+  // Either: very bright (white/cyan) OR has strong red component (your reds)
+  float brightness = max(max(c.r, c.g), c.b);
+  bool veryBright = brightness > 0.55;  // Higher threshold
+  bool isRed = c.r > 0.75 && c.r > c.g * 1.2;  // Stricter red detection
+  return veryBright || isRed;
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
@@ -63,25 +61,23 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     return;
   }
 
-  vec2 step = vec2(1.414) / iResolution.xy;
+  vec2 step = vec2(1.8) / iResolution.xy;  // Larger bloom radius
 
   for (int i = 0; i < 24; i++) {
     vec3 s = samples[i];
     vec4 c = texture(iChannel0, uv + s.xy * step);
     float l = lum(c);
 
-    // Only bloom if it's bright enough AND warm-colored
-    if (l > LUM_THRESHOLD && isWarmColor(c)) {
+    // Bloom on any bright pixel
+    if (l > LUM_THRESHOLD && shouldBloom(c)) {
       color += l * s.z * c * BLOOM_INTENSITY;
     }
   }
 
-  // Tint the bloom toward vulpes red/pink (boost red channel of the glow)
+  // Subtle red emphasis
   vec4 original = texture(iChannel0, uv);
   vec4 bloom_only = color - original;
-  bloom_only.r *= 1.5;  // Middle ground on red boost
-  bloom_only.g *= 0.75; // Middle ground on green reduction
-  bloom_only.b *= 0.92; // Middle ground on blue
+  bloom_only.r *= 1.1;  // Very light red boost
   color = original + bloom_only;
 
   fragColor = color;

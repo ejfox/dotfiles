@@ -16,6 +16,56 @@
 export PATH=$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 ```
 
+## Wiki Systems (Dec 7, 2025)
+
+EJ has TWO wiki/knowledge systems:
+
+### 1. MediaWiki Archive (archive.ejfox.com)
+**Status**: ✅ Claude has write access
+
+**Credentials**: `~/.claude-secrets` (NOT in dotfiles, chmod 600)
+```bash
+source ~/.claude-secrets
+# WIKI_USER, WIKI_PASS, WIKI_URL
+```
+
+**API Authentication Flow**:
+```bash
+# 1. Get login token
+TOKEN=$(curl -s -c /tmp/wiki-cookies -b /tmp/wiki-cookies \
+  "https://archive.ejfox.com/api.php?action=query&meta=tokens&type=login&format=json" | jq -r '.query.tokens.logintoken')
+
+# 2. Login
+source ~/.claude-secrets
+curl -s -c /tmp/wiki-cookies -b /tmp/wiki-cookies -X POST "https://archive.ejfox.com/api.php" \
+  --data-urlencode "action=login" --data-urlencode "lgname=${WIKI_USER}" \
+  --data-urlencode "lgpassword=${WIKI_PASS}" --data-urlencode "lgtoken=${TOKEN}" \
+  --data-urlencode "format=json"
+
+# 3. Get CSRF token for editing
+CSRF=$(curl -s -c /tmp/wiki-cookies -b /tmp/wiki-cookies \
+  "https://archive.ejfox.com/api.php?action=query&meta=tokens&format=json" | jq -r '.query.tokens.csrftoken')
+
+# 4. Edit a page
+curl -s -c /tmp/wiki-cookies -b /tmp/wiki-cookies -X POST "https://archive.ejfox.com/api.php" \
+  --data-urlencode "action=edit" --data-urlencode "title=PageName" \
+  --data-urlencode "text=Page content here" --data-urlencode "summary=Edit summary" \
+  --data-urlencode "token=${CSRF}" --data-urlencode "format=json"
+```
+
+**Quick read** (no auth needed):
+```bash
+curl -s "https://archive.ejfox.com/api.php?action=query&titles=Projects&prop=revisions&rvprop=content&format=json" | jq -r '.query.pages[].revisions[0]["*"]'
+```
+
+**Key pages**: Main_Page, Projects, Technical, Questions, Learning
+**Claude's user page**: https://archive.ejfox.com/wiki/User:Claude
+
+### 2. Obsidian Vault (local)
+**Path**: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox`
+**Aliases**: `o` (fzf browse), `obsidian` (cd to vault)
+**MCP**: `obsidian-mcp` configured for direct read/write
+
 ### Critical aliases and functions:
 - `commit` - Smart git commit with LLM integration
 - `dev`, `yarni`, `c`, `showcase`, `newsketch` - Development shortcuts
@@ -27,6 +77,277 @@ export PATH=$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 - `quick-diagram <pane> [type]` - Send template diagram to pane
 - `setup-diagram-listener <pane>` - Set up auto-refreshing diagram display
 - `list-panes` - Show all available tmux panes
+
+### AI-Powered Git Commits (Dec 7, 2025):
+**Status**: ✅ ACTIVE - Custom ai-commit script with fzf + Claude Code CLI
+
+**Location**: `~/.dotfiles/bin/ai-commit` (symlinked to `~/bin/ai-commit`)
+
+**How to use**:
+1. Stage files in lazygit (space to stage)
+2. Hit **`a`** key (AI commit)
+3. fzf shows 3 AI-generated conventional commit messages
+4. See live diff preview on the right side
+5. Select with arrows or fuzzy search, Enter to commit
+
+**Architecture**:
+```
+User hits 'a' in lazygit
+    ↓
+ai-commit script gathers context:
+    - git diff --cached (staged changes)
+    - git branch --show-current (e.g., "feat/add-auth")
+    - git log -5 --oneline (recent commit patterns)
+    ↓
+Sends to claude CLI with enhanced prompt
+    ↓
+Claude returns 3 conventional commit messages
+    ↓
+fzf launches with vulpes red theme:
+    - Left: 3 commit options
+    - Right: Full diff preview (60% width)
+    - Fuzzy search enabled
+    ↓
+git commit -m "selected message"
+```
+
+**Lazygit config**: `~/.config/lazygit/config.yml`
+```yaml
+customCommands:
+  - key: "a"
+    context: "files"
+    description: "🤖 AI commit (fzf + Claude)"
+    subprocess: true
+    command: 'MSG=$(ai-commit) && git commit -m "$MSG"'
+```
+
+**Context provided to Claude**:
+- **Staged diff**: Only what's being committed (focused, no noise)
+- **Branch name**: Helps infer scope (feat/user-auth → scope: "auth")
+- **Recent commits**: Claude learns your commit style/patterns
+- **File count**: For user feedback only
+
+**Commit format**: Conventional Commits
+```
+<type>(<scope>): <subject>
+
+Types: feat, fix, docs, style, refactor, perf, test, chore
+Rules:
+- Lowercase, imperative mood, no period at end
+- Max 72 chars total
+- Infer type from diff (new files = feat, fixes = fix)
+- Infer scope from branch name or file paths
+- Match style of recent commits
+```
+
+**fzf UI features**:
+- Fuzzy search: Type "fix" to filter to fix commits
+- Arrow keys: Navigate options
+- Preview pane: See commit message + full diff side-by-side
+- Ctrl-C: Cancel and return to lazygit
+- Custom colors: Matches vulpes red aesthetic
+
+**Example output**:
+```
+feat(auth): add user login functionality
+fix(api): resolve null pointer in auth handler
+chore(deps): update authentication dependencies
+```
+
+**Performance**:
+- Speed: ~2-3 seconds for Claude API call
+- Tokens: ~500-1000 per request (includes diff + context)
+- Cost: ~$0.01-0.02 per commit (Claude Sonnet 4.5)
+- Uses existing ANTHROPIC_API_KEY from ~/.env
+
+**Customization points in script**:
+- Line 63: Number of options ("exactly 3" → "exactly 5")
+- Lines 44-63: Conventional commits template/rules
+- Line 86: Preview size (`right:60%` → `right:70%`)
+- Line 88: fzf color scheme (vulpes red theme)
+- Lines 22-23: Additional context (files, commit depth)
+
+**Error handling**:
+- ✅ No staged changes → error message, exits
+- ✅ Claude API failure → error message, exits
+- ✅ User cancels fzf (Ctrl-C) → exits cleanly
+- ✅ Empty Claude response → error message
+
+**Why this approach**:
+- No API key config needed (uses Claude Code CLI)
+- No npm package dependencies or version conflicts
+- Full control over prompt and UI
+- Respects your existing workflow and aesthetics
+- Tracked in dotfiles for easy portability
+
+**Test example** (from real usage):
+```bash
+Branch: main
+Staged: bin/ai-commit, .config/lazygit/config.yml
+
+Generated:
+1. chore(lazygit): switch theme to dark mode variant
+2. feat(git): add ai-commit script with claude-powered message generation
+3. feat(bin): add interactive ai-commit tool with fzf selection
+```
+
+### CIPHER Morning Ritual (Dec 7, 2025):
+**Status**: ✅ ACTIVE - Futuristic life-guiding shell experience
+
+**Location**: `~/.dotfiles/bin/morning-ritual` (symlinked to `~/bin/morning-ritual`)
+
+**Trigger**: Runs once per day on first boot via `.startup.sh` integration
+
+**What it does**:
+CIPHER analyzes your ENTIRE reality and suggests 12 pomodoros RANKED BY PRIORITY. You pick your top 3 for the day using fzf multi-select.
+
+**Architecture**:
+```
+.startup.sh runs on first boot
+    ↓
+Checks if already run today (/tmp/morning_ritual/last_run)
+    ↓
+Gather ALL context (this is HEAVY):
+    - Things.app tasks (via AppleScript)
+    - Calendar events (icalBuddy)
+    - Recent git activity (all repos in ~/code, ~/projects, etc)
+    - Command history patterns (last 200 commands)
+    - Day/time/energy state
+    - Obsidian week note (finds current week file)
+    - 5 most recent Obsidian docs (first 2000 + last 2000 chars each)
+    ↓
+Send to claude CLI with CIPHER persona from .llm-persona.txt
+    ↓
+CIPHER returns 12 pomodoros RANKED BY PRIORITY with dry observations
+    ↓
+fzf launches with multi-select (TAB):
+    - Left: 12 pomodoros (#01-#12) with CIPHER's WHY
+    - Right: Full context preview (50 lines)
+    - Header shows: "#1 is most urgent"
+    ↓
+User picks top 3 (or any number) via TAB + Enter
+    ↓
+Selected pomodoros added to Things inbox via AppleScript
+    ↓
+Mark as run today, exit
+```
+
+**CIPHER personality** (from `~/.dotfiles/.llm-persona.txt`):
+- Terse, insightful, William Gibson meets Unix philosophy
+- Dry wit with competence: "Your code works. How suspiciously efficient."
+- Subtle absurdism, understated sarcasm, casually profound
+- Brief observations, never more than 280 chars
+- Geometric symbols: ◆ ◇ ○ ●
+
+**Context gathered**:
+1. **Things tasks**: Today's list + Anytime list (if today < 5 tasks, grabs top 10 from Anytime)
+2. **Calendar**: When you have time (avoids meetings)
+3. **Git activity**: What repos have momentum (7 day window)
+4. **Command patterns**: What tools you've been using (nvim, git, docker, etc)
+5. **GitHub activity** (via `gh` CLI):
+   - Unread notifications (top 10)
+   - PRs waiting for your review
+   - Your open PRs and their status
+   - Recent comments/activity on your PRs (last 24h)
+6. **Day/time context**:
+   - Energy state (morning-clarity, peak-focus, evening-reflection, etc)
+   - **Day vibe**: WEEKEND (prioritize rest/creative) vs WEEKDAY (work mode)
+   - Special handling: Sunday = rest day, Friday = wrap up gracefully, Monday = set momentum
+7. **Obsidian week note**: Your weekly plan/reflections
+8. **Recent Obsidian notes**: 5 most recent files edited in last 7 days (smart truncation)
+
+**Example pomodoro suggestions** (showing top 6 of 12):
+```
+#01 finish turbo repo migration before context scatters ◆ chaos phase detected, 47 uncommitted files await coherence
+#02 respond to supabase email before it becomes archaeological ◆ inbox archaeology intensifies, three days is the threshold
+#03 write that thing about keyboard workflows you keep avoiding ◆ obsidian note has grown to 3847 chars, either publish or delete
+#04 review pr for authentication refactor ◆ teammate blocked, your approval required
+#05 update dependencies in vulpes-theme-lab ◆ 12 packages outdated, avoiding won't make them disappear
+#06 outline next dataviz article ◆ momentum from recent commits suggests strike while iron hot
+...6 more ranked by priority...
+```
+
+**fzf features**:
+- 12 ranked options (#01 = most urgent/important)
+- Multi-select with TAB (pick your top 3, or any number)
+- Preview shows full context (Things, calendar, git, Obsidian, etc)
+- Priority visible in listing (#01, #02, etc)
+- Ctrl-C to reject CIPHER's wisdom entirely
+- Vulpes red colorscheme
+- CIPHER commentary: "You rejected CIPHER's wisdom. Interesting choice."
+
+**Output**:
+Selected pomodoros are added to Things inbox with today's date automatically.
+
+**Performance**:
+- Context gathering: ~2-3 seconds (git repo scanning is heaviest)
+- Claude API call: ~3-5 seconds (HEAVY context, lots of tokens)
+- Total: ~5-8 seconds from start to fzf display
+- Token cost: ~2000-4000 tokens (Obsidian notes are big)
+- Cost: ~$0.04-0.08 per morning ritual with Claude Sonnet 4.5
+
+**Caching/State**:
+- `/tmp/morning_ritual/last_run` - Date stamp of last run
+- `/tmp/morning_ritual/last_context.txt` - Full context for debugging
+- `/tmp/morning_ritual/last_raw_output.txt` - Raw CIPHER output
+- Only runs once per day (checks date stamp)
+
+**Manual usage**:
+```bash
+morning-ritual  # Force run even if already run today
+rm /tmp/morning_ritual/last_run && morning-ritual  # Reset today's run
+```
+
+**Integration with .startup.sh**:
+Added at line 357, runs after all other startup components:
+```bash
+if command -v morning-ritual &>/dev/null; then
+  morning-ritual 2>&1 || true
+fi
+```
+
+**Why this is next-level**:
+- Analyzes your ACTUAL work context, not generic task lists
+- **Prioritization AI**: 12 ranked options, #1 is most urgent (considers deadlines, momentum, energy, impact)
+- **Weekend intelligence**: Knows it's Sunday and prioritizes rest/creative/🌞 tasks over work grind
+- CIPHER personality makes it feel like a companion, not a tool
+- Deep Obsidian integration (week notes + recent work)
+- Git momentum detection (suggests continuing active projects)
+- Command pattern analysis (knows what tools you've been in)
+- **Anytime list integration**: Pulls from Anytime when today is light (<5 tasks)
+- One-time-per-day keeps it special, not annoying
+- Multi-select lets you pick what resonates (not forced to pick 3)
+- Feeds directly into Things for execution
+- Priority numbers stripped before adding to Things (clean task names)
+
+**Weekend vs Weekday prioritization**:
+- **Sunday/Saturday**: Prioritize 🌞 tasks (workout, journal, meditate, read, make/publish), creative projects, rest
+- **Friday**: Wrap up work gracefully, transition to weekend mode
+- **Monday**: Set momentum carefully, fresh week energy
+- **Tue-Thu**: Work mode, balance urgency with sustainability
+
+**Visual flow**:
+```
+Terminal boots → .startup.sh runs → Shows stats/calendar/oracle
+                                          ↓
+                      "◆ CIPHER awakens. Analyzing your reality..."
+                                          ↓
+                    Gathers Things, calendar, git, Obsidian, history
+                                          ↓
+                      "◆ CIPHER contemplates your trajectory..."
+                                          ↓
+                     Claude API call (3-5s with CIPHER persona)
+                                          ↓
+                "◆ CIPHER ranked 12 trajectories by priority. Pick your top 3:"
+                                          ↓
+                    fzf with 12 ranked pomodoros (#01-#12) + WHY
+                                          ↓
+                   TAB to multi-select top 3, Enter to accept
+                                          ↓
+                    "◆ Added to Things: [pomodoro title]"
+                                          ↓
+                  "◆ CIPHER has spoken. Your trajectory is set."
+```
 
 ### Tmux Pane Communication:
 **General pane operations**:
@@ -413,21 +734,18 @@ Library/
 
 Shaders stack in order (configured in `~/.config/ghostty/config`):
 1. **cursor-blaze-vulpes.glsl** - Hot pink cursor trail (#ff268c)
-   - Quad easing: `t * t` for smooth deceleration
-   - Duration: 0.6s, tail lingers beautifully
+   - Velocity-reactive: small moves = 0.32s, big jumps = 0.65s
+   - Opacity scales: 45% (small) to 85% (big moves)
    - Colors: TRAIL_COLOR #ff268c, ACCENT #850045
+   - Teleport detection: >25% screen = pane switch, no trail
 
 2. **bloom-vulpes.glsl** - Red-selective glow effect
    - Only blooms red/pink pixels via `isWarmColor()` filter
-   - Bloom output tinted red (not white): `r *= 1.3, g *= 0.85`
-   - Intensity: 0.21 (tuned through many iterations)
-   - LUM_THRESHOLD: 0.15, RED_DOMINANCE: 0.25
+   - Bloom output tinted red: `r *= 1.5, g *= 0.75, b *= 0.92`
+   - Intensity: 0.38 (tuned sweet spot)
+   - LUM_THRESHOLD: 0.14, RED_DOMINANCE: 0.18
 
-3. **vignette-subtle.glsl** - Very subtle edge darkening
-   - Radius: 0.95 (only darkens very edges)
-   - Softness: 0.55, Strength: 0.75 (barely visible)
-
-4. **tft-subtle.glsl** - LCD subpixel effect
+3. **tft-subtle.glsl** - LCD subpixel effect
    - Resolution: 3.0, Strength: 0.20
 
 ### Bloom-Friendly Design Rules

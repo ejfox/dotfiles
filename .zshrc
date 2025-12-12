@@ -331,26 +331,20 @@ alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
 
 # Cracked SSH helpers - never lose your VPS session again
 vps() {
-  # Try mosh first (handles disconnects like a boss), fall back to SSH
+  # Check Tailscale is running (required for mosh)
+  if ! tailscale status &>/dev/null; then
+    echo "❌ Tailscale not running. Start it first:"
+    echo "   open /Applications/Tailscale.app"
+    return 1
+  fi
+
+  # Mosh via Tailscale (UDP doesn't traverse the public IP)
   if command -v mosh &> /dev/null; then
-    echo "🚀 Connecting with mosh (roaming mode)..."
-
-    # Try mosh connection
-    if ! mosh vps -- tmux new-session -A -s main 2>/dev/null; then
-      echo "⚠️  Mosh failed (server might not have it installed)"
-      echo "📦 Auto-installing mosh on VPS..."
-
-      # Copy setup script and run it
-      scp -q -i ~/.ssh/2024-mbp.pem ~/.dotfiles/scripts/setup-vps-mosh.sh debian@208.113.130.118:/tmp/ 2>/dev/null
-      ssh -t vps 'bash /tmp/setup-vps-mosh.sh && rm /tmp/setup-vps-mosh.sh'
-
-      echo ""
-      echo "✓ Setup complete! Connecting with mosh..."
-      mosh vps -- tmux new-session -A -s main
-    fi
+    echo "🚀 Connecting with mosh via Tailscale..."
+    mosh vps-ts -- tmux new-session -A -s main
   else
     echo "📡 Mosh not found locally, using SSH (install: brew install mosh)"
-    ssh -t vps 'tmux new-session -A -s main'
+    ssh -t vps-ts 'tmux new-session -A -s main'
   fi
 }
 
