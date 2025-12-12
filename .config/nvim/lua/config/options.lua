@@ -21,7 +21,17 @@ vim.opt.smoothscroll = false
 vim.opt.virtualedit = "all"
 
 -- keep cursor in the center
--- vim.opt.scrolloff = 8
+vim.opt.scrolloff = 999
+vim.opt.sidescrolloff = 8
+
+-- wrap lines by default
+vim.opt.wrap = true
+
+-- highlight current line
+vim.opt.cursorline = true
+
+-- faster CursorHold (better for hotreload + general responsiveness)
+vim.opt.updatetime = 250
 
 -- Preview substitutions live as you type
 vim.opt.inccommand = "split"

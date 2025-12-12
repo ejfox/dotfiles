@@ -49,7 +49,10 @@ clipboard-paste-protection = false
 # Order matters: they stack. Reload with Cmd+Shift+,
 # Originals from: https://github.com/hackr-sh/ghostty-shaders
 
-# Order: cursor trail → BLOOM (red-selective, CRANKED 🔥) → LCD subpixel
+# Order: cursor trail → chromatic aberration → bloom → LCD subpixel → vignette → DEBUG TIME BARS
 custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/phosphor-chromatic-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-vulpes.glsl
+custom-shader = /Users/ejfox/.config/ghostty/shaders/debug-time-display-text.glsl

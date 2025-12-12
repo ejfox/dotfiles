@@ -1,174 +1,174 @@
 # Yazi Keybindings
 
 # Navigation
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "k" ]
 run = "arrow -1"
 desc = "Move up"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "j" ]
 run = "arrow 1"
 desc = "Move down"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "h" ]
 run = "leave"
 desc = "Go to parent directory"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "l" ]
 run = "enter"
 desc = "Enter directory"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Up>" ]
 run = "arrow -1"
 desc = "Move up"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Down>" ]
 run = "arrow 1"
 desc = "Move down"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Left>" ]
 run = "leave"
 desc = "Go to parent directory"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Right>" ]
 run = "enter"
 desc = "Enter directory"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "g", "g" ]
 run = "arrow -99999999"
 desc = "Move to top"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "G" ]
 run = "arrow 99999999"
 desc = "Move to bottom"
 
 # File operations
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Enter>" ]
 run = "open"
 desc = "Open file"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "y" ]
 run = "yank"
 desc = "Yank (copy)"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "x" ]
 run = "yank --cut"
 desc = "Cut"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "p" ]
 run = "paste"
 desc = "Paste"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "d" ]
 run = "remove"
 desc = "Delete"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "r" ]
 run = "rename"
 desc = "Rename"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "/" ]
 run = "find"
 desc = "Find"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "n" ]
 run = "find_arrow"
 desc = "Go to next found"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "N" ]
 run = "find_arrow --previous"
 desc = "Go to previous found"
 
 # View options
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "z", "h" ]
 run = "hidden toggle"
 desc = "Toggle hidden files"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "s" ]
 run = "search"
 desc = "Search"
 
 # Quit
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "q" ]
 run = "quit"
 desc = "Quit"
 
 # Selection
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "<Space>" ]
 run = [ "select --state=none", "arrow 1" ]
 desc = "Toggle selection"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "v" ]
 run = "visual_mode"
 desc = "Enter visual mode"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "V" ]
 run = "visual_mode --unset"
 desc = "Exit visual mode"
 
 # FZF plugin - fuzzy search files
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "ctrl-f" ]
 run = "plugin fzf"
 desc = "Find files with fzf"
 
 # Bookmarks plugin - manage bookmarks
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "ctrl-b" ]
 run = "plugin bookmarks --list"
 desc = "Toggle bookmarks"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "ctrl-a" ]
 run = "plugin bookmarks --add"
 desc = "Add current directory to bookmarks"
 
 # Jump to bookmarks with leader+number
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "b", "1" ]
 run = "plugin bookmarks --jump 1"
 desc = "Jump to bookmark 1"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "b", "2" ]
 run = "plugin bookmarks --jump 2"
 desc = "Jump to bookmark 2"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "b", "3" ]
 run = "plugin bookmarks --jump 3"
 desc = "Jump to bookmark 3"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "b", "4" ]
 run = "plugin bookmarks --jump 4"
 desc = "Jump to bookmark 4"
 
-[[mgr.keymap]]
+[[manager.keymap]]
 on = [ "b", "5" ]
 run = "plugin bookmarks --jump 5"
 desc = "Jump to bookmark 5"

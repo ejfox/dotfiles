@@ -19,10 +19,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 center = vec2(0.5, 0.5);
     float dist = distance(uv, center);
 
-    // Vignette settings - VERY subtle
-    float radius = 0.95;      // Only affects very edges
-    float softness = 0.55;    // Very gradual fade
-    float strength = 0.75;    // Barely visible (closer to 1 = less effect)
+    // Vignette settings - MORE DRAMATIC 🔥
+    float radius = 0.80;      // Reaches further in
+    float softness = 0.70;    // Wider falloff
+    float strength = 0.50;    // Much more visible (closer to 0 = stronger)
 
     // Calculate vignette amount (0 at edges, 1 at center)
     float vignette = smoothstep(radius, radius - softness, dist);
