@@ -236,17 +236,23 @@ gather_recent_obsidian() {
             sort -rn | head -5 | cut -d' ' -f2- | while read file; do
 
             filename=$(basename "$file")
-            total_chars=$(wc -c < "$file" | tr -d ' ')
+
+            # Skip if file can't be read (iCloud sync issues, permissions, etc)
+            if ! timeout 1.0 wc -c < "$file" >/dev/null 2>&1; then
+                continue
+            fi
+
+            total_chars=$(timeout 1.0 wc -c < "$file" 2>/dev/null | tr -d ' ')
 
             echo "## $filename ($total_chars chars)"
 
-            # First 2000 chars
-            head -c 2000 "$file"
+            # First 2000 chars (with timeout to prevent iCloud hangs)
+            timeout 1.0 head -c 2000 "$file" 2>/dev/null || true
 
             # If file is longer than 4000 chars, add separator and last 2000
-            if [ "$total_chars" -gt 4000 ]; then
+            if [ -n "$total_chars" ] && [ "$total_chars" -gt 4000 ]; then
                 echo -e "\n\n[... middle content omitted ...]\n"
-                tail -c 2000 "$file"
+                timeout 1.0 tail -c 2000 "$file" 2>/dev/null || true
             fi
 
             echo -e "\n---\n"

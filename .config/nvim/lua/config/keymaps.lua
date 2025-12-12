@@ -19,6 +19,5 @@ vim.keymap.set("n", "gai", vim.lsp.buf.incoming_calls, { desc = "Incoming Calls"
 vim.keymap.set("n", "gao", vim.lsp.buf.outgoing_calls, { desc = "Outgoing Calls" })
 
 -- Disable treesitter class navigation - we use ]c/[c for git diffs
-vim.keymap.del("n", "]c")
-vim.keymap.del("n", "[c")
+-- (mappings don't exist by default, so skip the delete)
 

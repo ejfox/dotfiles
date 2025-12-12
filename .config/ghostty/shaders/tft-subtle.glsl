@@ -4,7 +4,7 @@
 float resolution = 3.0;
 
 /** Strength - lower = more subtle */
-float strength = 0.20;
+float strength = 0.26;
 
 /** Light mode threshold */
 const float LIGHT_MODE_THRESHOLD = 0.5;

@@ -240,124 +240,26 @@ show_section "$CACHE_DIR/email.tmp" "INBOX"
 # Fallback: Skipped if offline or LLM unavailable
 # Note: Only runs if online and at least one section was shown
 #
+# LLM INSIGHTS DISABLED FOR SPEED
+# The I Ching oracle generation was adding 6+ seconds to startup
+# Re-enable if you want the poetic insights (uncomment below)
+# To restore, uncomment the entire section above this comment
+
+: <<'DISABLED_LLM_INSIGHTS'
 if [ $ONLINE -eq 0 ] && command -v /opt/homebrew/bin/llm >/dev/null 2>&1; then
-  # Get hexagram for display (outside subshell)
-  ORACLE_HEX=$(get_daily_hexagram 2>/dev/null || echo "䷀")
-
-  # Use cached insights if fresh, otherwise regenerate
-  if ! cache_fresh "$CACHE_DIR/insights.tmp" $CACHE_INSIGHTS; then
-    (
-      # Gather MAXIMUM context for poetry generation
-      HEX_SYMBOL=$(get_daily_hexagram 2>/dev/null || echo "䷀")
-      HEX_TITLE=$(get_daily_hexagram_name 2>/dev/null || echo "Creative")
-      HEX_WISDOM=$(get_daily_hexagram_wisdom 2>/dev/null || echo "Flow")
-      MOON=$(get_moon_name 2>/dev/null || echo "waxing")
-      TIME_NOW=$(date '+%A %I:%M %p')
-      HOUR=$(date +%H)
-      SEASON=$(date '+%B')
-
-      # Git context (commits, branches, activity)
-      GIT_RECENT=$(timeout 0.5 git log -3 --pretty="%s" 2>/dev/null | head -3 | tr '\n' '; ' || echo "none")
-      GIT_BRANCH=$(timeout 0.5 git branch --show-current 2>/dev/null || echo "none")
-      GIT_STATS=$(timeout 0.5 git log --since="24 hours ago" --oneline 2>/dev/null | wc -l | tr -d ' ')
-
-      # Tasks context
-      TASK_COUNT=$(things-cli today 2>/dev/null | wc -l | tr -d ' ')
-      NEXT_TASK=$(things-cli today 2>/dev/null | head -1 | sed 's/^- //' || echo "none")
-
-      # Calendar context
-      NEXT_EVENT=$(icalBuddy -n -nc -iep "title" -po "title" -df "" eventsToday+1 2>/dev/null | head -1 | sed 's/^[•-] //' || echo "none")
-      WEEKEND_DIST=$(( (6 - $(date +%u)) ))
-
-      # System context
-      UPTIME=$(uptime | sed 's/.*up //;s/, [0-9]* user.*//')
-      CURRENT_DIR=$(basename "$(pwd)")
-      RECENT_CMDS=$(tail -15 ~/.zsh_history 2>/dev/null | cut -d';' -f2 | tail -5 | tr '\n' '; ')
-
-      # Capture ACTUAL displayed content from cache files
-      STATS_CONTENT=$(cat "$CACHE_DIR/stats.tmp" 2>/dev/null || echo "none")
-      TASKS_CONTENT=$(cat "$CACHE_DIR/tasks.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
-      CALENDAR_CONTENT=$(cat "$CACHE_DIR/calendar.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
-      REPOS_CONTENT=$(cat "$CACHE_DIR/repos.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
-      EMAIL_CONTENT=$(cat "$CACHE_DIR/email.tmp" 2>/dev/null | sed 's/^  //' || echo "none")
-
-      prompt="Let your response be guided by hexagram $HEX_SYMBOL $HEX_TITLE - $HEX_WISDOM.
-
-You are an I Ching oracle generating a passage of ancient wisdom.
-
-CONTEXT - Everything the user has seen before this oracle passage:
-
-STATS DISPLAYED:
-$STATS_CONTENT
-
-HEXAGRAM: $HEX_SYMBOL $HEX_TITLE - $HEX_WISDOM
-
-FOCUS (tasks displayed):
-$TASKS_CONTENT
-
-SCHEDULE (calendar displayed):
-$CALENDAR_CONTENT
-
-ACTIVE REPOS (displayed):
-$REPOS_CONTENT
-
-INBOX (displayed):
-$EMAIL_CONTENT
-
-ADDITIONAL CONTEXT:
-- Time: $TIME_NOW, $SEASON
-- Moon phase: $MOON
-- Git: $GIT_STATS commits on '$GIT_BRANCH'
-- Recent commits: $GIT_RECENT
-- Workspace: $CURRENT_DIR directory
-- Days until weekend: $WEEKEND_DIST
-
-Generate an I Ching passage (4-8 lines) that synthesizes ALL this context into ancient wisdom. CRITICAL RULES:
-- DO NOT rhyme. This is a contemplative passage, not a poem.
-- DO NOT use markdown, quotes, or code blocks. Plaintext only for terminal display.
-- Reference specific details from the displayed content (task names, repo names, email subjects, commit messages).
-- Write in the style of I Ching hexagram interpretations: observational, oracular, contemplative.
-- Each line starts with two spaces.
-- Use line breaks for pacing and breath, not for rhyme structure.
-
-Style examples (I Ching passage style, NOT rhyming):
-  The hexagram speaks of patience. Twelve tasks await their time.
-  Filing taxes with TurboTax marks the threshold of completion.
-
-  Website2 stirs in the repository. The code accumulates like autumn leaves.
-  Supabase sends warnings across the digital realm.
-
-  Two days separate now from rest. The moon waxes toward fullness.
-  In this moment, $TIME_NOW, the way forward reveals itself through stillness."
-
-      # Generate I Ching poetry via LLM (6s timeout for complex prompt)
-      # Use temp file to avoid partial writes if timeout kills process
-      tmp_insights="$CACHE_DIR/insights.tmp.$$"
-      if echo "$prompt" | timeout 6.0 /opt/homebrew/bin/llm -m 4o-mini -o max_tokens 200 --no-log 2>&1 > "$tmp_insights"; then
-        # Success: move temp file to actual cache
-        mv "$tmp_insights" "$CACHE_DIR/insights.tmp"
-      else
-        # Timeout (124) or other error: remove partial output
-        rm -f "$tmp_insights"
-        # If we have old cache, keep it; otherwise create empty file
-        [ ! -f "$CACHE_DIR/insights.tmp" ] && touch "$CACHE_DIR/insights.tmp"
-      fi
-    )
-  fi
-
-  # Display if insights available and at least one section shown
-  [ -s "$CACHE_DIR/insights.tmp" ] && [ $SHOWN -eq 1 ] && \
-    echo "" && echo -e "\033[38;5;204m$ORACLE_HEX ORACLE\033[0m" && cat "$CACHE_DIR/insights.tmp"
+  # ... old LLM insights code ...
 fi
+DISABLED_LLM_INSIGHTS
 
 ################################################################################
-# CIPHER MORNING RITUAL - Deep context pomodoro planning
+# CIPHER MORNING RITUAL - DISABLED FOR SPEED
 ################################################################################
-# Runs once per day on first boot, suggests 3 pomodoros based on deep analysis
-if command -v morning-ritual &>/dev/null; then
-  # Timeout after 60s, suppress EPIPE errors, allow Ctrl-C to skip gracefully
-  timeout 60 morning-ritual 2>&1 | cat || true
-fi
+# Was adding 5-10s overhead on startup due to osascript calls to Things3
+# Run manually when you want: morning-ritual
+#
+# if command -v morning-ritual &>/dev/null; then
+#   timeout 60 morning-ritual 2>/dev/null || true
+# fi
 
 # Footer separator
 echo ""

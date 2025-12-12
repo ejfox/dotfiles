@@ -2,7 +2,7 @@
 -- No scroll animation (respecting your preference)
 return {
   {
-    "echasnovski/mini.animate",
+    "nvim-mini/mini.animate",
     event = "VeryLazy",
     opts = function()
       local animate = require("mini.animate")
