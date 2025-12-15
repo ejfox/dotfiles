@@ -324,6 +324,7 @@ alias tmuxnew="tmux new -s"
 alias showcase="open \"https://ejfox-codeshowcase.web.val.run/?code=$(pbpaste | jq -sRr @uri)\""
 alias obsidian="cd /Users/ejfox/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
 alias obs="~/.dotfiles/bin/obs"
+alias pub="~/.dotfiles/bin/pub"
 alias pico8="/Applications/PICO-8.app/Contents/MacOS/pico8"
 alias nukeyarn="rm yarn.lock;rm -rf node_modules"
 alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
