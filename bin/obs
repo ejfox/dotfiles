@@ -1,0 +1,136 @@
+#!/bin/bash
+# obs - Obsidian CLI wrapper with publishing utilities
+# Quick access to vault operations + publishing helpers
+
+set -e
+
+VAULT_PATH="/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+usage() {
+  cat << EOF
+${BLUE}obs${NC} - Obsidian CLI wrapper for publishing workflows
+
+${YELLOW}USAGE${NC}
+  obs <command> [arguments]
+
+${YELLOW}COMMANDS${NC}
+  print <note>              Print note content to stdout
+  search <term>            Fuzzy search note titles
+  content <term>           Search note contents
+  create <name>            Create new note
+  export-by-tag <tag>      Export all notes with tag (YAML frontmatter aware)
+  export-ready            Export all notes with status: ready
+  daily                   Open/create today's daily note
+  open <note>             Open note in Obsidian
+  list-tags               List all tags in vault
+
+${YELLOW}EXAMPLES${NC}
+  obs print index.md
+  obs search "draft"
+  obs export-ready > /tmp/ready-notes.txt
+  obs export-by-tag "blog"
+
+EOF
+}
+
+cmd_print() {
+  [ -z "$1" ] && { echo "Error: note name required"; exit 1; }
+  obsidian-cli print "$1"
+}
+
+cmd_search() {
+  [ -z "$1" ] && { echo "Error: search term required"; exit 1; }
+  obsidian-cli search "$1"
+}
+
+cmd_content() {
+  [ -z "$1" ] && { echo "Error: search term required"; exit 1; }
+  obsidian-cli search-content "$1"
+}
+
+cmd_create() {
+  [ -z "$1" ] && { echo "Error: note name required"; exit 1; }
+  obsidian-cli create "$1"
+}
+
+cmd_daily() {
+  obsidian-cli daily
+}
+
+cmd_open() {
+  [ -z "$1" ] && { echo "Error: note name required"; exit 1; }
+  obsidian-cli open "$1"
+}
+
+# Export notes with specific tag
+cmd_export_by_tag() {
+  [ -z "$1" ] && { echo "Error: tag required"; exit 1; }
+  local tag="$1"
+
+  echo -e "${YELLOW}Exporting notes with tag: ${tag}${NC}"
+
+  find "$VAULT_PATH" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
+    if grep -q "- ${tag}" "$file" 2>/dev/null || grep -q "tags:.*${tag}" "$file" 2>/dev/null; then
+      echo "---"
+      echo "File: $(basename "$file")"
+      cat "$file"
+    fi
+  done
+}
+
+# Export notes marked as ready for publishing
+cmd_export_ready() {
+  echo -e "${YELLOW}Exporting notes with status: ready${NC}"
+
+  find "$VAULT_PATH" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
+    if grep -q "status: ready" "$file" 2>/dev/null; then
+      echo "---"
+      echo "File: $(basename "$file")"
+      echo "Path: $file"
+      cat "$file"
+      echo ""
+    fi
+  done
+}
+
+# List all tags
+cmd_list_tags() {
+  echo -e "${YELLOW}Tags in vault:${NC}"
+  find "$VAULT_PATH" -type f -name "*.md" -print0 | xargs -0 grep -h "^tags:" 2>/dev/null | \
+    sed 's/tags://' | \
+    sed 's/\[//g' | sed 's/\]//g' | \
+    sed 's/, /\n/g' | \
+    sed 's/"//g' | \
+    sort | uniq -c | sort -rn
+}
+
+# Main dispatcher
+[ $# -eq 0 ] && { usage; exit 0; }
+
+cmd="$1"
+shift
+
+case "$cmd" in
+  print)        cmd_print "$@" ;;
+  search|s)     cmd_search "$@" ;;
+  content|c)    cmd_content "$@" ;;
+  create)       cmd_create "$@" ;;
+  export-by-tag) cmd_export_by_tag "$@" ;;
+  export-ready) cmd_export_ready ;;
+  daily|d)      cmd_daily ;;
+  open|o)       cmd_open "$@" ;;
+  tags)         cmd_list_tags ;;
+  help|h|--help|-h) usage ;;
+  *)
+    echo -e "${RED}Unknown command: $cmd${NC}"
+    usage
+    exit 1
+    ;;
+esac
