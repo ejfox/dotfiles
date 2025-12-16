@@ -306,3 +306,11 @@ r - (zsh) recent files across ALL ~/code projects
 (vibe) Obsidian is your brain. Website2 is your voice. Keep them in sync.
 (vibe) small changes ship instantly with pub watch
 (vibe) nothing is lost - everything versions in git
+(pipeline) scrap list -limit 20 | jq -r '.[].content' | llm "Synthesize into key insights" - process scraps with AI
+(pipeline) obs print "drafts/idea.md" | llm -s "Expand into 3 angles" | scrap save --title "Expanded" - enhance notes with Claude
+(pipeline) scraps --tag "research" | jq -r '.[].content' | llm "Create blog outline" | obs create "blog/outline.md" - scrap → article
+(pipeline) obs print "blog/*.md" | while read f; do llm -s "Quality 1-10?"; done - batch quality check all drafts
+(pipeline) pub status && obs search "status:ready" | llm "Which should I publish first?" - AI-powered priority queue
+(pipeline) scraps | jq -r '.[].tags[]' | sort -u | while read tag; do obs tags | grep -q "$tag" || echo "Gap: $tag"; done - find content gaps
+(pipeline) find ~/.obsidian/robots -name "*.md" -mtime -7 | xargs -I {} obs print {} | llm "Weekly synthesis" | scrap save - weekly digest
+(pipeline) for note in $(obs export-ready); do llm -s "Quality check this" | obs create "reviews/$note.md"; done - async review queue
