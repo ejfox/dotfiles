@@ -261,6 +261,21 @@ DISABLED_LLM_INSIGHTS
 #   timeout 60 morning-ritual 2>/dev/null || true
 # fi
 
+################################################################################
+# TIPS - Random shortcut from tips.txt (video game loading screen style)
+################################################################################
+# Shows a random tip from ~/tips.txt on each terminal session
+# Great for learning new shortcuts passively over time
+# Disable: comment out the lines below
+#
+if [ -f "$HOME/tips.txt" ]; then
+  TIP=$(shuf -n 1 "$HOME/tips.txt" 2>/dev/null)
+  if [ ! -z "$TIP" ]; then
+    echo -e "\033[38;5;240m💡 TIP: $TIP\033[0m"
+    echo ""
+  fi
+fi
+
 # Footer separator
 echo ""
 echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
