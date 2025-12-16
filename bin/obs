@@ -26,7 +26,7 @@ ${YELLOW}COMMANDS${NC}
   content <term>           Search note contents
   create <name>            Create new note
   export-by-tag <tag>      Export all notes with tag (YAML frontmatter aware)
-  export-ready            Export all notes with status: ready
+  export-ready            Export all notes in year folders (not in drafts/)
   daily                   Open/create today's daily note
   open <note>             Open note in Obsidian
   list-tags               List all tags in vault
@@ -86,17 +86,17 @@ cmd_export_by_tag() {
 }
 
 # Export notes marked as ready for publishing
+# Convention: Notes in year folders (2025/, 2024/, etc) are export-ready
+# Notes in /drafts/ are NOT export-ready
 cmd_export_ready() {
-  echo -e "${YELLOW}Exporting notes with status: ready${NC}"
+  echo -e "${YELLOW}Exporting notes from year folders (not in drafts)${NC}"
 
-  find "$VAULT_PATH" -type f -name "*.md" -print0 | while IFS= read -r -d '' file; do
-    if grep -q "status: ready" "$file" 2>/dev/null; then
-      echo "---"
-      echo "File: $(basename "$file")"
-      echo "Path: $file"
-      cat "$file"
-      echo ""
-    fi
+  find "$VAULT_PATH" -type f -name "*.md" | grep -E '/[0-9]{4}/' | grep -v '/drafts/' | while read file; do
+    echo "---"
+    echo "File: $(basename "$file")"
+    echo "Path: $file"
+    cat "$file"
+    echo ""
   done
 }
 
