@@ -65,32 +65,149 @@ warn() {
 }
 
 cmd_status() {
-  log "Checking publishing status..."
+  echo ""
+  echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BLUE}║${NC}            Publishing Status Dashboard                         ${BLUE}║${NC}"
+  echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
 
+  # --- Obsidian Vault Stats ---
+  echo -e "${YELLOW}📚 Obsidian Vault Stats${NC}"
+  local vault_size=$(du -sh "$OBS_VAULT" 2>/dev/null | cut -f1)
+  local total_files=$(find "$OBS_VAULT" -type f -name "*.md" | wc -l)
+  local total_words=$(find "$OBS_VAULT" -type f -name "*.md" -exec wc -w {} + 2>/dev/null | tail -1 | awk '{print $1}')
+
+  echo "  Size: $vault_size"
+  echo "  Total files: $total_files"
+  # Format with commas (handle empty gracefully)
+  if [ ! -z "$total_words" ] && [ "$total_words" != "0" ]; then
+    echo "  Total words: $(echo $total_words | sed ':a;s/\B[0-9]\{3\}\>/,&/g;ta')"
+  fi
+
+  # Vault breakdown by type
+  local blog_files=$(find "$OBS_VAULT/blog" -name "*.md" 2>/dev/null | wc -l)
+  local robots_files=$(find "$OBS_VAULT/robots" -name "*.md" 2>/dev/null | wc -l)
+  local weeknotes_files=$(find "$OBS_VAULT/week-notes" -name "*.md" 2>/dev/null | wc -l)
+  local drafts_files=$(find "$OBS_VAULT/drafts" -name "*.md" 2>/dev/null | wc -l)
+
+  echo "  ├─ blog: $blog_files"
+  echo "  ├─ robots: $robots_files"
+  echo "  ├─ week-notes: $weeknotes_files"
+  echo "  └─ drafts: $drafts_files"
+  echo ""
+
+  # --- Website2 Git Status ---
+  echo -e "${YELLOW}🔧 Website2 Git Status${NC}"
   cd "$WEB_DIR"
 
-  # Check git status
+  local branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
   local changes=$(git status --porcelain | wc -l)
-  local commits_ahead=$(git rev-list @{u}..HEAD 2>/dev/null | wc -l)
+  local commits_ahead=$(git rev-list @{u}..HEAD 2>/dev/null | wc -l || echo "0")
+  local last_commit=$(git log -1 --format='%h - %s (%ar)' 2>/dev/null)
 
-  if [ "$changes" -gt 0 ]; then
-    warn "Uncommitted changes: $changes files"
-    git status --short | head -5
-  else
-    success "Working tree clean"
-  fi
+  echo "  Branch: $branch"
+  echo "  Last commit: $last_commit"
 
   if [ "$commits_ahead" -gt 0 ]; then
-    warn "Commits ahead of origin: $commits_ahead"
+    warn "  Commits ahead of origin: $commits_ahead"
+  else
+    success "  In sync with origin"
   fi
 
-  # Check recent posts
-  log "Recent content in website2:"
-  find "$WEB_CONTENT/blog" -name "*.md" -type f | sort -r | head -5 | while read f; do
-    local name=$(basename "$f" .md)
-    local mtime=$(stat -f%Sm -t%Y-%m-%d "$f")
-    echo "  $mtime  $name"
-  done
+  if [ "$changes" -gt 0 ]; then
+    warn "  Uncommitted changes: $changes files"
+    echo "  Changed files:"
+    git status --short | head -8 | sed 's/^/    /'
+  else
+    success "  Working tree clean"
+  fi
+  echo ""
+
+  # --- Website2 Content Stats ---
+  echo -e "${YELLOW}📄 Website2 Content${NC}"
+  local blog_count=$(find "$WEB_CONTENT/blog" -name "*.md" 2>/dev/null | wc -l)
+  local weeknote_count=$(find "$WEB_CONTENT/week-notes" -name "*.md" 2>/dev/null | wc -l)
+  local robot_count=$(find "$WEB_CONTENT" -name "*robot*" -type d 2>/dev/null | wc -l)
+  local content_size=$(du -sh "$WEB_CONTENT" 2>/dev/null | cut -f1)
+
+  echo "  Published content: $content_size"
+  echo "  ├─ blog posts: $blog_count"
+  echo "  ├─ week notes: $weeknote_count"
+  echo "  └─ robots: $robot_count"
+
+  # Recent updates
+  echo ""
+  echo "  Recent updates:"
+  find "$WEB_CONTENT" -name "*.md" -type f -newer "$OBS_VAULT/.obsidian" 2>/dev/null | \
+    sort -r | head -3 | while read f; do
+      local name=$(basename "$f" .md)
+      local mtime=$(stat -f%Sm -t%m-%d\ %H:%M "$f" 2>/dev/null)
+      echo "    ↳ [$mtime] $name"
+    done
+  echo ""
+
+  # --- Site Health Check ---
+  echo -e "${YELLOW}🌐 Site Status${NC}"
+  local site_url="https://ejfox.com"
+  local http_code=$(curl -s -o /dev/null -w "%{http_code}" "$site_url" 2>/dev/null)
+  local response_time=$(curl -s -o /dev/null -w "%{time_total}s" "$site_url" 2>/dev/null)
+
+  if [ "$http_code" = "200" ]; then
+    success "  Website is live ($http_code OK)"
+    echo "  Response time: ${response_time}"
+  elif [ "$http_code" = "000" ]; then
+    error "  Cannot reach $site_url (network error)"
+  else
+    warn "  Website returned HTTP $http_code"
+  fi
+
+  # Check specific endpoints
+  local api_code=$(curl -s -o /dev/null -w "%{http_code}" "$site_url/api/stats.get" 2>/dev/null)
+  if [ "$api_code" = "200" ]; then
+    success "  API is responding"
+  else
+    warn "  API returned HTTP $api_code"
+  fi
+  echo ""
+
+  # --- Deployment Info ---
+  echo -e "${YELLOW}🚀 Deployment Info${NC}"
+  if [ -f "$WEB_DIR/.env.local" ]; then
+    success "  .env.local configured"
+  fi
+
+  local node_modules_size=$(du -sh "$WEB_DIR/node_modules" 2>/dev/null | cut -f1)
+  echo "  node_modules: $node_modules_size"
+
+  local build_dir_size=$(du -sh "$WEB_DIR/.output" 2>/dev/null | cut -f1)
+  if [ ! -z "$build_dir_size" ]; then
+    echo "  .output (build): $build_dir_size"
+  fi
+
+  # Check package.json scripts
+  if grep -q '"publish"' "$WEB_DIR/package.json" 2>/dev/null; then
+    success "  publish script available"
+  fi
+  echo ""
+
+  # --- Recent Activity ---
+  echo -e "${YELLOW}📊 Recent Activity${NC}"
+  echo "  Last 3 vault changes:"
+  find "$OBS_VAULT" -type f -name "*.md" ! -path "*/.obsidian/*" -newer "$OBS_VAULT/.obsidian/workspace.json" 2>/dev/null | \
+    head -3 | while read f; do
+      local name=$(basename "$f")
+      local mtime=$(stat -f%Sm -t%H:%M "$f" 2>/dev/null)
+      echo "    ↳ [$mtime] $name"
+    done
+  echo ""
+
+  # --- Quick Commands ---
+  echo -e "${YELLOW}⚡ Quick Commands${NC}"
+  echo "  pub import        → Run import pipeline"
+  echo "  pub watch         → Auto-import on vault changes"
+  echo "  pub publish       → Full publish workflow"
+  echo "  obs search <term> → Find notes in vault"
+  echo ""
 }
 
 cmd_import() {
