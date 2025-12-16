@@ -287,7 +287,7 @@ r - (zsh) recent files across ALL ~/code projects
 (obs) obs print <file> - get note content from Obsidian vault
 (obs) obs search <term> - fuzzy search vault note titles
 (obs) obs content <term> - search within note contents
-(obs) obs export-ready - bulk export all notes marked status: ready
+(obs) obs export-ready - bulk export notes from year folders (not /drafts/)
 (obs) obs export-by-tag <tag> - export all notes with specific tag
 (obs) obs tags - list all tags in vault with frequency count
 (obs) obs daily - create or open today's daily note
@@ -298,6 +298,8 @@ r - (zsh) recent files across ALL ~/code projects
 (pub) pub publish - full workflow: import → build → git push
 (pub) pub preview <type> - preview posts by type (blog, robot, weeknote)
 (pub) pub info <file> - show metadata for a file
+(obsidian) export-ready = notes in year folders (2025/, 2024/), NOT in /drafts/
+(obsidian) location-based = simple to understand, enforces workflow
 (obsidian) hotkeys/plugins/css are symlinked to ~/.dotfiles/.obsidian-config/ (git-controlled)
 (obsidian) any keybind changes auto-version-control in dotfiles
 (obsidian) obs/pub commands bridge Obsidian ↔ website2 publishing pipeline

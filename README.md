@@ -271,7 +271,7 @@ Direct access to vault from terminal:
 obs print index.md            # Read note content
 obs search "draft"            # Fuzzy search note titles
 obs content "publish"         # Search within note contents
-obs export-ready              # Bulk export all status: ready notes
+obs export-ready              # Bulk export notes from year folders (not /drafts)
 obs export-by-tag "blog"      # Export notes with specific tag
 obs tags                       # List all tags with frequency
 obs daily                      # Create/open today's daily note
@@ -282,6 +282,11 @@ obs open "note-name"          # Open in Obsidian GUI
 - Built on [obsidian-cli](https://github.com/Yakitrak/obsidian-cli) (Go, single binary)
 - Configured for: `/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox`
 - Portable across vaults via `--vault` flag
+
+**Export Ready Convention**:
+- Notes in year folders (`2025/`, `2024/`, etc.) are export-ready
+- Notes in `/drafts/` are never export-ready
+- Location-based = simple to understand and enforces workflow naturally
 
 ### `pub` - Publishing Workflow Orchestration
 
