@@ -284,3 +284,25 @@ r - (zsh) recent files across ALL ~/code projects
 (strudel.nvim) prereqs: neovim 0.9+, node 16+, chromium-based browser
 (strudel.nvim) install: { "gruvw/strudel.nvim", build = "npm ci", config = function() require("strudel").setup() end }
 (strudel.nvim) github: https://github.com/gruvw/strudel.nvim
+(obs) obs print <file> - get note content from Obsidian vault
+(obs) obs search <term> - fuzzy search vault note titles
+(obs) obs content <term> - search within note contents
+(obs) obs export-ready - bulk export all notes marked status: ready
+(obs) obs export-by-tag <tag> - export all notes with specific tag
+(obs) obs tags - list all tags in vault with frequency count
+(obs) obs daily - create or open today's daily note
+(obs) obs open <file> - open note in Obsidian GUI
+(pub) pub status - full publishing dashboard (vault stats, site health, git status)
+(pub) pub import - run import pipeline (Obsidian → website2)
+(pub) pub watch - watch vault for changes and auto-import to website2
+(pub) pub publish - full workflow: import → build → git push
+(pub) pub preview <type> - preview posts by type (blog, robot, weeknote)
+(pub) pub info <file> - show metadata for a file
+(obsidian) hotkeys/plugins/css are symlinked to ~/.dotfiles/.obsidian-config/ (git-controlled)
+(obsidian) any keybind changes auto-version-control in dotfiles
+(obsidian) obs/pub commands bridge Obsidian ↔ website2 publishing pipeline
+(workflow) write in Obsidian → obs print to preview → pub publish to deploy
+(workflow) pub status shows everything: vault, git, site health, response times
+(vibe) Obsidian is your brain. Website2 is your voice. Keep them in sync.
+(vibe) small changes ship instantly with pub watch
+(vibe) nothing is lost - everything versions in git
