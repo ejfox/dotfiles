@@ -259,6 +259,105 @@ g.           # Toggle hidden files
 | **Tips** | `tips.txt` | Reference system for all shortcuts |
 | **Git** | `.gitconfig`, `.gitignore` | Version control settings |
 
+## 🧠 Obsidian Publishing Pipeline
+
+Seamless bridge between knowledge base (Obsidian) and blog (website2) with CLI tools.
+
+### `obs` - Obsidian Vault CLI
+
+Direct access to vault from terminal:
+
+```bash
+obs print index.md            # Read note content
+obs search "draft"            # Fuzzy search note titles
+obs content "publish"         # Search within note contents
+obs export-ready              # Bulk export all status: ready notes
+obs export-by-tag "blog"      # Export notes with specific tag
+obs tags                       # List all tags with frequency
+obs daily                      # Create/open today's daily note
+obs open "note-name"          # Open in Obsidian GUI
+```
+
+**Configuration**:
+- Built on [obsidian-cli](https://github.com/Yakitrak/obsidian-cli) (Go, single binary)
+- Configured for: `/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox`
+- Portable across vaults via `--vault` flag
+
+### `pub` - Publishing Workflow Orchestration
+
+Full pipeline from vault to live site:
+
+```bash
+pub status                    # Dashboard: vault stats, git status, site health
+pub import                    # Pull from Obsidian → website2 content
+pub watch                     # Auto-import on vault changes
+pub publish                   # Full workflow: import → build → git push
+pub preview blog              # Quick look at blog posts
+pub info filename.md          # Show file metadata
+```
+
+**Dashboard** (`pub status`):
+- 📚 Vault stats (size, file count, word count, breakdown by type)
+- 🔧 Git status (branch, commits, working tree, recent changes)
+- 📄 Published content counts and recent updates
+- 🌐 Site health check (HTTP status + response time via curl)
+- 🚀 Deployment info (node_modules, build size, scripts)
+- 📊 Recent activity in vault
+
+**Architecture**:
+- Bridges Obsidian ↔ website2
+- Integrates with existing `scripts/blog/import.mjs` pipeline
+- Watches vault for changes via `fswatch`
+- Builds site with `yarn build`
+- Publishes via git commits
+
+### Obsidian Configuration as Code
+
+Your Obsidian settings are backed up and symlinked:
+
+```
+~/.dotfiles/.obsidian-config/
+├── hotkeys.json              # Custom keybindings
+├── community-plugins.json    # Installed plugins
+└── snippets/text.css         # Custom CSS tweaks
+```
+
+**Benefits**:
+- Version control your settings
+- Replicate across vaults
+- Changes in Obsidian auto-sync to dotfiles
+- Review keybind changes in git diff
+
+**Installed Plugins** (9 active):
+- obsidian-linter - Auto-format markdown
+- oz-image-plugin - Image handling
+- better-word-count - Word stats
+- obsidian-hider - Hide UI elements
+- obsidian-minimal-settings - Theme customization
+- cm-editor-syntax-highlight - Syntax highlighting
+- file-tree-alternative - Better file explorer
+- published-url - Publish link management
+- obsidian-minimal-settings - Theme tweaker
+
+### Typical Workflow
+
+```
+1. Write in Obsidian (vault auto-syncs via iCloud)
+2. obs print "draft" to preview how it looks
+3. pub import to sync to website2
+4. pub watch for auto-import while iterating
+5. pub publish when ready (builds + pushes)
+6. pub status to verify everything shipped
+```
+
+### Tips
+
+- `obs search <term>` finds things in seconds (fuzzy)
+- `pub status` is your dashboard - run anytime
+- `pub watch` is great for iterating on posts
+- Settings symlinks mean one edit applies everywhere
+- All content is version-controlled in git
+
 ## Security Notes
 
 **Secrets handling:**
