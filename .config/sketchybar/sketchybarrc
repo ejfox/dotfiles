@@ -40,6 +40,7 @@ PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
 ##### Next Calendar Event #####
 sketchybar --add item next_event left \
            --set next_event update_freq=60 \
+                            updates=on \
                             script="$PLUGIN_DIR/next_event.sh" \
                             icon.drawing=off \
                             label.font="$FONT:Regular:10.0" \
