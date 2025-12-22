@@ -11,6 +11,9 @@ return {
 
       -- Initialize git diff auto-refresh
       require("custom.git-diff-hotreload").setup()
+
+      -- OSC52 clipboard sync (works over SSH + tmux)
+      require("custom.clipboard")
     end,
   },
 
