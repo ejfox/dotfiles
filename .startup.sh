@@ -263,6 +263,179 @@ DISABLED_LLM_INSIGHTS
 # fi
 
 ################################################################################
+# MIRROR - Automatic pattern detection from APIs and local signals
+################################################################################
+# Philosophy: the system infers your state from data, mirrors it back
+# Uses: ejfox.com/api/*, local git, vault activity, season, time
+# No manual input. Reads the shape of your life.
+#
+surface_mirror() {
+  local wisdom=""
+  local show_chance=4
+
+  # === TIME/SEASON CONTEXT ===
+  local now=$(date +%s)
+  local month=$(date +%m)
+  local hour=$(date +%H)
+  local dow=$(date +%u)
+
+  local season="spring"
+  case $month in
+    12|01|02) season="winter" ;;
+    03|04|05) season="spring" ;;
+    06|07|08) season="summer" ;;
+    09|10|11) season="fall" ;;
+  esac
+
+  # === API SIGNALS (use cached data from stats fetch) ===
+  local productive_week=0
+  local productive_month=0
+  local distracting_month=0
+  local github_contributions=0
+
+  # Read from cache if available (populated by fetch_stats)
+  if [ -f "$CACHE_DIR/rescuetime.json" ]; then
+    productive_week=$(jq -r '.week.summary.productive.time.hoursDecimal // 0' "$CACHE_DIR/rescuetime.json" 2>/dev/null)
+    productive_month=$(jq -r '.month.summary.productive.time.hoursDecimal // 0' "$CACHE_DIR/rescuetime.json" 2>/dev/null)
+    distracting_month=$(jq -r '.month.summary.distracting.time.hoursDecimal // 0' "$CACHE_DIR/rescuetime.json" 2>/dev/null)
+  fi
+  if [ -f "$CACHE_DIR/github.json" ]; then
+    github_contributions=$(jq -r '.stats.totalContributions // 0' "$CACHE_DIR/github.json" 2>/dev/null)
+  fi
+
+  # Ensure numeric defaults (jq can return empty/null)
+  [[ "$productive_week" =~ ^[0-9.]+$ ]] || productive_week=0
+  [[ "$productive_month" =~ ^[0-9.]+$ ]] || productive_month=0
+  [[ "$distracting_month" =~ ^[0-9.]+$ ]] || distracting_month=0
+  [[ "$github_contributions" =~ ^[0-9]+$ ]] || github_contributions=0
+
+  # === LOCAL SIGNALS (fast, no network) ===
+  local vault="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+  local vault_active=$(find "$vault" -name "*.md" -type f -mtime -7 2>/dev/null | wc -l | tr -d ' ')
+  [[ "$vault_active" =~ ^[0-9]+$ ]] || vault_active=0
+
+  local days_since_publish=999
+  local last_blog=$(find "$vault/blog" -name "*.md" -type f -exec stat -f "%m" {} \; 2>/dev/null | sort -rn | head -1)
+  [ -n "$last_blog" ] && days_since_publish=$(( (now - last_blog) / 86400 ))
+
+  # === PHASE INFERENCE ===
+  # Combine API data + local signals to infer state
+  local phase="BUILD"
+
+  # HOLD: low productive hours + high vault activity + long publish gap
+  if [ "${productive_week%.*}" -lt 10 ] && [ "$vault_active" -gt 15 ] && [ "$days_since_publish" -gt 21 ]; then
+    phase="HOLD"
+  # REST: low everything
+  elif [ "${productive_week%.*}" -lt 5 ] && [ "$vault_active" -lt 10 ]; then
+    phase="REST"
+  # SHIP: high productive hours + recent publish
+  elif [ "${productive_week%.*}" -gt 25 ] && [ "$days_since_publish" -lt 14 ]; then
+    phase="SHIP"
+  # BUILD: high productive hours
+  elif [ "${productive_week%.*}" -gt 15 ]; then
+    phase="BUILD"
+  fi
+
+  # Weekend nudge toward REST (unless clearly in HOLD)
+  [ "$dow" -ge 6 ] && [ "$phase" = "BUILD" ] && phase="REST"
+
+  # === CONTEXTUAL MESSAGES ===
+  case "$phase:$season" in
+    HOLD:winter)
+      local msgs=(
+        "${productive_week}h productive this week. vault has ${vault_active} notes moving. winter processing."
+        "low output, high thinking. ${days_since_publish} days since publish. the season holds you."
+        "${vault_active} notes touched. ${productive_week}h at the screen. gestation looks like this."
+      )
+      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
+      ;;
+    HOLD:*)
+      local msgs=(
+        "${productive_week}h this week. ${vault_active} vault notes. you're processing, not producing."
+        "the gap: ${days_since_publish} days since publish. the work is composting."
+      )
+      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
+      ;;
+    REST:*)
+      local msgs=(
+        "${productive_week}h this week. ${vault_active} notes. rest or stuck? the data doesn't judge."
+        "quiet week. ${productive_month}h this month total. fallow is fine."
+      )
+      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
+      show_chance=6
+      ;;
+    SHIP:*)
+      local msgs=(
+        "${productive_week}h this week. published ${days_since_publish}d ago. momentum is real."
+        "shipping mode. ${productive_month}h this month. don't let perfect stop you."
+      )
+      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
+      ;;
+    BUILD:winter)
+      local msgs=(
+        "${productive_week}h this week. ${vault_active} notes touched. winter makes."
+        "${productive_month}h productive this month. solstice energy."
+        "vault: ${vault_active} notes moving. ${productive_week}h screen time. winter work."
+      )
+      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
+      show_chance=5
+      ;;
+    BUILD:summer)
+      wisdom="${productive_week}h this week in summer. peak light. the work wants out."
+      show_chance=3
+      ;;
+    BUILD:fall)
+      wisdom="${productive_week}h this week. ${days_since_publish}d since publish. fall is for finishing."
+      show_chance=3
+      ;;
+    BUILD:*)
+      show_chance=8
+      [ "$days_since_publish" -gt 30 ] && wisdom="${days_since_publish} days since publish. ${productive_month}h this month. the work exists."
+      ;;
+  esac
+
+  # Distraction awareness (if high distracting time relative to productive)
+  if [ -z "$wisdom" ] && [ "${distracting_month%.*}" -gt 15 ]; then
+    local ratio=$(echo "scale=1; $distracting_month / $productive_month * 100" | bc 2>/dev/null || echo "0")
+    [ "${ratio%.*}" -gt 30 ] && wisdom="${distracting_month}h distracting vs ${productive_month}h productive this month. the ratio tells a story."
+  fi
+
+  # Late night overlay
+  if [ "$hour" -ge 23 ] || [ "$hour" -lt 5 ]; then
+    [ -n "$wisdom" ] && wisdom="$wisdom ($(date +%l:%M%p))"
+    [ -z "$wisdom" ] && wisdom="$(date +%l:%M%p). ${productive_week}h this week so far. what's keeping you up?"
+    show_chance=2
+  fi
+
+  # === OUTPUT ===
+  if [ -n "$wisdom" ] && [ $((RANDOM % show_chance)) -eq 0 ]; then
+    echo -e "\033[38;5;95m(mirror) $wisdom\033[0m"
+    echo ""
+  fi
+}
+
+# Fetch API data for mirror (runs in background, caches results)
+fetch_mirror_data() {
+  [ $ONLINE -eq 0 ] || return 0
+
+  # RescueTime (30 min cache)
+  if ! cache_fresh "$CACHE_DIR/rescuetime.json" 30; then
+    timeout 2.0 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null > "$CACHE_DIR/rescuetime.json" &
+  fi
+
+  # GitHub (30 min cache)
+  if ! cache_fresh "$CACHE_DIR/github.json" 30; then
+    timeout 2.0 curl -fsSL https://ejfox.com/api/github 2>/dev/null > "$CACHE_DIR/github.json" &
+  fi
+}
+
+# Fetch mirror data in background
+fetch_mirror_data &
+
+# Run mirror after other displays (data may be cached from previous runs)
+surface_mirror
+
+################################################################################
 # TIPS - Random shortcut from tips.txt (video game loading screen style)
 ################################################################################
 # Shows a random tip from ~/tips.txt on each terminal session
