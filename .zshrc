@@ -719,7 +719,6 @@ alias rss="newsboat"
 
 # DDHQ TUI alias
 alias elections="/Users/ejfox/client-code/ddhq/ddhq-rust-tui/target/release/ddhq-tui"
-export DDHQ_TOKEN="dev_test"
 alias scrap="scrapbook-cli"
 
 # bun completions

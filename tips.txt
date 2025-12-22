@@ -338,3 +338,6 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (pipeline) scraps | jq -r '.[].tags[]' | sort -u | while read tag; do obs tags | grep -q "$tag" || echo "Gap: $tag"; done - find content gaps
 (pipeline) find ~/.obsidian/robots -name "*.md" -mtime -7 | xargs -I {} obs print {} | llm "Weekly synthesis" | scrap save - weekly digest
 (pipeline) for note in $(obs export-ready); do llm -s "Quality check this" | obs create "reviews/$note.md"; done - async review queue
+(wisdom) a computer is a meta-tool — a tool for making tools. defaults are for everyone, meaning no one. yours should be useless to others, perfect for you.
+(weeknotes) screenshots auto-append to YYYY-WW-raw.md (private), actual writing goes to YYYY-WW.md (publishable)
+(weeknotes) Friday ritual: open -raw.md, write 3 sentences in main file from memory while looking at screenshots
