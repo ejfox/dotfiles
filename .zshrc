@@ -150,7 +150,7 @@ export LESS_TERMCAP_us=$'\e[4;38;5;167m'      # begin underline - orange-red
 export LESS_TERMCAP_ue=$'\e[0m'               # end underline
 
 # Vulpes autosuggestion color (subtle mauve)
-export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=131'
+export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=240'
 
 # Vulpes theme integration - MUST load before p10k for colors to work
 # Unified theme switcher functions (switches ZSH, Yazi, and Lazygit)
@@ -323,30 +323,34 @@ alias tmuxkill="tmux kill-server"
 alias tmuxnew="tmux new -s"
 alias showcase="open \"https://ejfox-codeshowcase.web.val.run/?code=$(pbpaste | jq -sRr @uri)\""
 alias obsidian="cd /Users/ejfox/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
-alias obs="~/.dotfiles/bin/obs"
-alias pub="~/.dotfiles/bin/pub"
 alias pico8="/Applications/PICO-8.app/Contents/MacOS/pico8"
 alias nukeyarn="rm yarn.lock;rm -rf node_modules"
 alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
-alias sshvps='ssh -i ~/.ssh/2024-mbp.pem debian@208.113.130.118'
+alias sshvps='vps'  # Use mosh-powered vps() function
 alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
 
 # Cracked SSH helpers - never lose your VPS session again
 vps() {
-  # Check Tailscale is running (required for mosh)
-  if ! tailscale status &>/dev/null; then
-    echo "❌ Tailscale not running. Start it first:"
-    echo "   open /Applications/Tailscale.app"
-    return 1
-  fi
-
-  # Mosh via Tailscale (UDP doesn't traverse the public IP)
+  # Try mosh first (handles disconnects like a boss), fall back to SSH
   if command -v mosh &> /dev/null; then
-    echo "🚀 Connecting with mosh via Tailscale..."
-    mosh vps-ts -- tmux new-session -A -s main
+    echo "🚀 Connecting with mosh (roaming mode)..."
+
+    # Try mosh connection
+    if ! mosh vps -- tmux new-session -A -s 0 2>/dev/null; then
+      echo "⚠️  Mosh failed (server might not have it installed)"
+      echo "📦 Auto-installing mosh on VPS..."
+
+      # Copy setup script and run it
+      scp -q -i ~/.ssh/2024-mbp.pem ~/.dotfiles/scripts/setup-vps-mosh.sh debian@208.113.130.118:/tmp/ 2>/dev/null
+      ssh -t vps 'bash /tmp/setup-vps-mosh.sh && rm /tmp/setup-vps-mosh.sh'
+
+      echo ""
+      echo "✓ Setup complete! Connecting with mosh..."
+      mosh vps -- tmux new-session -A -s 0
+    fi
   else
     echo "📡 Mosh not found locally, using SSH (install: brew install mosh)"
-    ssh -t vps-ts 'tmux new-session -A -s main'
+    ssh -t vps 'tmux new-session -A -s 0'
   fi
 }
 
@@ -486,6 +490,28 @@ atuin() {
 
 export EDITOR="nvim"
 export VISUAL="nvim"
+export MANPAGER='nvim +Man!'
+
+# Quick tips lookup
+tips() { grep -i "${1:-.}" ~/tips.txt | fzf --height=50% --reverse; }
+
+# Quick note to Obsidian inbox
+note() { echo "- $* ($(date '+%H:%M'))" >> ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox/inbox.md && echo "noted"; }
+
+# Re-run last command and copy output
+yy() { fc -e - | pbcopy && echo "output copied"; }
+
+# Ask LLM about clipboard contents
+ask() { pbpaste | llm "$*"; }
+
+# Explain last command output
+explain() { fc -e - | llm "explain this terminal output concisely"; }
+
+# Notify when long command finishes (use: sleep 10; ding)
+ding() { osascript -e "display notification \"Done\" with title \"Terminal\" sound name \"Glass\""; }
+
+# Quick gist from clipboard
+gist() { pbpaste | gh gist create -f "${1:-snippet.txt}" -d "${2:-}" && echo "gisted"; }
 
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
@@ -690,3 +716,15 @@ fi
 
 # RSS reader alias
 alias rss="newsboat"
+
+# DDHQ TUI alias
+alias elections="/Users/ejfox/client-code/ddhq/ddhq-rust-tui/target/release/ddhq-tui"
+export DDHQ_TOKEN="dev_test"
+alias scrap="scrapbook-cli"
+
+# bun completions
+[ -s "/Users/ejfox/.bun/_bun" ] && source "/Users/ejfox/.bun/_bun"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"

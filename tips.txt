@@ -3,6 +3,13 @@ vs - (zsh) fuzzy find files with bat preview
 vg - (zsh) grep file contents and jump to matching lines
 o - (zsh) instantly access Obsidian vault (sorted by recency)
 r - (zsh) recent files across ALL ~/code projects
+tips - (zsh) search this cheatsheet with fzf
+note <text> - (zsh) quick capture to Obsidian inbox.md
+yy - (zsh) re-run last command and copy its output
+ask <question> - (zsh) ask LLM about clipboard contents (e.g. "ask what does this do")
+explain - (zsh) re-run last command, pipe output to LLM for explanation
+ding - (zsh) macOS notification + sound (use: long_command; ding)
+gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
 (nvim/oil) g. - toggle hidden files
@@ -11,12 +18,21 @@ r - (zsh) recent files across ALL ~/code projects
 (nvim/oil) _ - jump to cwd (current working directory)
 (tmux) C-a g - lazygit popup (floats over panes)
 (tmux) C-a K - yazi file manager popup
+(tmux) C-a ? - THIS CHEATSHEET (searchable popup)
 (tmux) C-a S - scratch terminal toggle (persistent)
 (tmux) C-a F - tmux-fzf launcher (interactive search for sessions/windows/panes)
 (tmux) C-\ - tmux-menus (visual TUI for all tmux functions)
 (tmux) C-a C-y - yank entire pane scrollback to clipboard
 (tmux) C-a M-y - yank last 200 lines to clipboard
-(tmux) C-a Space - tmux-thumbs (vimium-style hints for copying text)
+(tmux) M-c - INSTANT copy entire pane (no prefix!)
+(tmux) M-C - INSTANT copy last pane you were in
+(tmux) M-v - INSTANT copy visible portion only
+(tmux) C-a e - open visible pane in nvim (searchable)
+(tmux) C-a E - open entire scrollback in nvim
+(tmux) C-a P - capture pane to tmux buffer (then C-a ] to paste elsewhere)
+(tmux) C-a N - quick note prompt → appends to Obsidian inbox.md
+(tmux) C-a Space - enter copy mode (easier than C-a [, use v to select, y to yank)
+(tmux) Shift+Left/Right - previous/next window (NO PREFIX! huge time saver)
 (tmux) C-a > - swap pane down
 (tmux) C-a < - swap pane up
 (tmux) C-a H/J/K/L - resize pane left/down/up/right
@@ -86,10 +102,16 @@ r - (zsh) recent files across ALL ~/code projects
 (nvim/telescope) <leader>fj - navigate jump history
 (nvim/yanky) <leader>p - cycle through yank history
 (nvim/yanky) deleted something then copied? <leader>p gets it back
-(tmux) C-a [ - enter copy mode (use vim motions!)
+(tmux) C-a [ or C-a Space - enter copy mode (Space is easier!)
+(tmux/copy-mode) v - start selection
+(tmux/copy-mode) y - yank selection to clipboard and exit
 (tmux/copy-mode) C-v - rectangle/block selection (select columns)
 (tmux/copy-mode) / - search forward
 (tmux/copy-mode) ? - search backward
+(tmux/copy-mode) g - go to top of scrollback
+(tmux/copy-mode) G - go to bottom
+(tmux/copy-mode) C-u / C-d - half page up/down
+(tmux/copy-mode) Escape - cancel and exit
 (git) git worktree add ../feature-name feature-branch - work on multiple branches simultaneously
 (git) git worktree list - see all active worktrees
 (git) git worktree remove ../feature-name - remove worktree
