@@ -117,9 +117,10 @@ STATS_PID=$!
 #
 fetch_tasks() {
   cache_fresh "$CACHE_DIR/tasks.tmp" $CACHE_TASKS && return 0
-  command -v things-cli >/dev/null 2>&1 || return 0  # Skip if no things-cli
+  command -v things.sh >/dev/null 2>&1 || return 0  # Skip if no things.sh
 
-  local tasks=$(things-cli today 2>/dev/null | head -4)
+  # things.sh format: "Area|Task|url" - extract just task names
+  local tasks=$(things.sh today 2>/dev/null | cut -d'|' -f2 | head -5)
   [ -z "$tasks" ] && return 0
 
   # Try LLM prioritization first (2.0s timeout, using fast 3.5-turbo)
