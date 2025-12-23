@@ -81,7 +81,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-plugins=(git zsh-autosuggestions)
+plugins=(git zsh-autosuggestions you-should-use)
 
 # Skip global compinit for faster loading (OMZ will handle it)
 skip_global_compinit=1
@@ -296,7 +296,8 @@ vulpes-auto() {
 vulpes-auto silent
 
 # ZSH syntax highlighting - load after theme
-source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# Fast syntax highlighting (faster than zsh-syntax-highlighting)
+source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
