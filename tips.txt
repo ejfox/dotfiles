@@ -73,7 +73,7 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim/git-conflict) [x / ]x - jump between conflicts
 (zsh) commit - LLM-generated commit messages with fzf selection
 (zsh) ghpub <name> - create public GitHub repo and push
-(zsh) ?? - gh copilot suggest
+(zsh) ?? - llm CLI help
 (zsh) pbjson - pretty-print JSON from clipboard
 (zsh) jcurl <url> - curl URL and pretty-print JSON
 (zsh) catcopy - cat file and copy to clipboard
