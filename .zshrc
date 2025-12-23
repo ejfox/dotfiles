@@ -2,7 +2,10 @@
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
 
-alias \?\?="gh copilot suggest $0"
+# Quick CLI help - ask how to do something in the terminal
+?? () {
+  llm -m 4o-mini -s "You are a concise CLI expert. Given a task, respond with ONLY the command(s) needed. No explanations, no markdown, just executable commands. If multiple commands needed, put each on its own line." "$*"
+}
 
 # if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
 #   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
