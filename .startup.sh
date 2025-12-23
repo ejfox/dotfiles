@@ -347,79 +347,44 @@ surface_mirror() {
   # Weekend nudge toward REST (unless clearly in HOLD)
   [ "$dow" -ge 6 ] 2>/dev/null && [ "$phase" = "BUILD" ] && phase="REST"
 
-  # === CONTEXTUAL MESSAGES ===
-  case "$phase:$season" in
-    HOLD:winter)
-      local msgs=(
-        "${productive_week}h productive this week. vault has ${vault_active} notes moving. winter processing."
-        "low output, high thinking. ${days_since_publish} days since publish. the season holds you."
-        "${vault_active} notes touched. ${productive_week}h at the screen. gestation looks like this."
-      )
-      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
-      ;;
-    HOLD:*)
-      local msgs=(
-        "${productive_week}h this week. ${vault_active} vault notes. you're processing, not producing."
-        "the gap: ${days_since_publish} days since publish. the work is composting."
-      )
-      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
-      ;;
-    REST:*)
-      local msgs=(
-        "${productive_week}h this week. ${vault_active} notes. rest or stuck? the data doesn't judge."
-        "quiet week. ${productive_month}h this month total. fallow is fine."
-      )
-      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
-      show_chance=6
-      ;;
-    SHIP:*)
-      local msgs=(
-        "${productive_week}h this week. published ${days_since_publish}d ago. momentum is real."
-        "shipping mode. ${productive_month}h this month. don't let perfect stop you."
-      )
-      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
-      ;;
-    BUILD:winter)
-      local msgs=(
-        "${productive_week}h this week. ${vault_active} notes touched. winter makes."
-        "${productive_month}h productive this month. solstice energy."
-        "vault: ${vault_active} notes moving. ${productive_week}h screen time. winter work."
-      )
-      wisdom="${msgs[$((RANDOM % ${#msgs[@]}))]}"
-      show_chance=5
-      ;;
-    BUILD:summer)
-      wisdom="${productive_week}h this week in summer. peak light. the work wants out."
-      show_chance=3
-      ;;
-    BUILD:fall)
-      wisdom="${productive_week}h this week. ${days_since_publish}d since publish. fall is for finishing."
-      show_chance=3
-      ;;
-    BUILD:*)
-      show_chance=8
-      [ "$days_since_publish" -gt 30 ] && wisdom="${days_since_publish} days since publish. ${productive_month}h this month. the work exists."
-      ;;
-  esac
+  # === LLM-GENERATED OBSERVATION ===
+  # Only run occasionally (1 in 4 chance) and cache result
+  local mirror_cache="$CACHE_DIR/mirror_wisdom.txt"
+  local show_chance=4
 
-  # Distraction awareness (if high distracting time relative to productive)
-  if [ -z "$wisdom" ] && [ "${distracting_month%.*}" -gt 15 ] 2>/dev/null; then
-    local ratio=$(echo "scale=1; $distracting_month / ($productive_month + 0.01) * 100" | bc 2>/dev/null || echo "0")
-    [[ "$ratio" =~ ^[0-9.]+$ ]] || ratio=0
-    [ "${ratio%.*}" -gt 30 ] 2>/dev/null && wisdom="${distracting_month}h distracting vs ${productive_month}h productive this month. the ratio tells a story."
-  fi
-
-  # Late night overlay
+  # Late night = always show
   if [ "$hour" -ge 23 ] 2>/dev/null || [ "$hour" -lt 5 ] 2>/dev/null; then
-    [ -n "$wisdom" ] && wisdom="$wisdom ($(date +%l:%M%p))"
-    [ -z "$wisdom" ] && wisdom="$(date +%l:%M%p). ${productive_week}h this week so far. what's keeping you up?"
-    show_chance=2
+    show_chance=1
   fi
 
-  # === OUTPUT ===
-  # Ensure show_chance is valid (prevent divide by zero)
-  [[ "$show_chance" =~ ^[1-9][0-9]*$ ]] || show_chance=4
-  if [ -n "$wisdom" ] && [ $((RANDOM % show_chance)) -eq 0 ]; then
+  # Roll the dice
+  [ $((RANDOM % show_chance)) -ne 0 ] && return 0
+
+  # Check cache (15 min TTL)
+  if cache_fresh "$mirror_cache" 15 && [ -s "$mirror_cache" ]; then
+    wisdom=$(<"$mirror_cache")
+  else
+    # Load API key if needed
+    [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.env ] && \
+      ANTHROPIC_API_KEY=$(grep ANTHROPIC_API_KEY ~/.env | cut -d'"' -f2)
+
+    if [ -n "$ANTHROPIC_API_KEY" ]; then
+      local prompt="Youre a dry, slightly amused observer. Look at this work data and make ONE observation (15-25 words). Reference specific numbers. No poetry, no metaphors, no advice. Just notice something. Data: ${productive_week}h productive this week, ${productive_month}h this month, ${distracting_month}h distracted, ${vault_active} notes modified in vault this week, ${days_since_publish} days since last blog publish, ${github_contributions} github commits this year, ${season}, hour ${hour}."
+
+      wisdom=$(timeout 3 curl -s https://api.anthropic.com/v1/messages \
+        -H "x-api-key: $ANTHROPIC_API_KEY" \
+        -H "anthropic-version: 2023-06-01" \
+        -H "content-type: application/json" \
+        -d "{\"model\":\"claude-3-5-haiku-latest\",\"max_tokens\":100,\"messages\":[{\"role\":\"user\",\"content\":\"$prompt\"}]}" \
+        2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n')
+
+      # Cache if we got something
+      [ -n "$wisdom" ] && echo "$wisdom" > "$mirror_cache"
+    fi
+  fi
+
+  # Output
+  if [ -n "$wisdom" ]; then
     echo -e "\033[38;5;95m(mirror) $wisdom\033[0m"
     echo ""
   fi
