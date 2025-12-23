@@ -8,12 +8,12 @@ local watcher = require("custom.directory-watcher")
 -- Check if buffer should be reloaded
 local function should_reload_buffer(bufnr)
   -- Skip if buffer is modified (don't lose unsaved work)
-  if vim.api.nvim_buf_get_option(bufnr, "modified") then
+  if vim.bo[bufnr].modified then
     return false
   end
 
   -- Skip special buffers (diffview, neo-tree, etc)
-  local buftype = vim.api.nvim_buf_get_option(bufnr, "buftype")
+  local buftype = vim.bo[bufnr].buftype
   if buftype ~= "" then
     return false
   end

@@ -11,7 +11,7 @@ function M.watch_directory(path, callback, opts)
   local debounce_ms = opts.debounce or 100
 
   -- Debounce to avoid rapid-fire callbacks
-  local timer = vim.loop.new_timer()
+  local timer = vim.uv.new_timer()
   local pending = false
 
   local function trigger_callback()
@@ -26,7 +26,7 @@ function M.watch_directory(path, callback, opts)
   end
 
   -- Create fs_event handle
-  local handle = vim.loop.new_fs_event()
+  local handle = vim.uv.new_fs_event()
   if not handle then
     vim.notify("Failed to create fs_event watcher for " .. path, vim.log.levels.ERROR)
     return nil
