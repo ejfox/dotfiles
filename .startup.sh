@@ -83,9 +83,11 @@ else
   timeout 1.0 curl -fsSL -o /dev/null https://1.1.1.1 2>/dev/null
   ONLINE=$?
   # Treat timeout (124) as offline
-  [ $ONLINE -eq 124 ] && ONLINE=1
+  [ "$ONLINE" -eq 124 ] 2>/dev/null && ONLINE=1
   echo "$ONLINE" > "$CACHE_DIR/network.tmp"
 fi
+# Ensure ONLINE is numeric (default to 1/offline if not)
+[[ "$ONLINE" =~ ^[0-9]+$ ]] || ONLINE=1
 
 ################################################################################
 # COMPONENT 1: STATS (Typing speed + Productivity hours)
@@ -279,12 +281,17 @@ surface_mirror() {
   local hour=$(date +%H)
   local dow=$(date +%u)
 
+  # Ensure numeric (strip leading zeros for arithmetic)
+  hour=$((10#$hour))
+  dow=$((10#$dow))
+  month=$((10#$month))
+
   local season="spring"
   case $month in
-    12|01|02) season="winter" ;;
-    03|04|05) season="spring" ;;
-    06|07|08) season="summer" ;;
-    09|10|11) season="fall" ;;
+    12|1|2) season="winter" ;;
+    3|4|5) season="spring" ;;
+    6|7|8) season="summer" ;;
+    9|10|11) season="fall" ;;
   esac
 
   # === API SIGNALS (use cached data from stats fetch) ===
@@ -316,7 +323,8 @@ surface_mirror() {
 
   local days_since_publish=999
   local last_blog=$(find "$vault/blog" -name "*.md" -type f -exec stat -f "%m" {} \; 2>/dev/null | sort -rn | head -1)
-  [ -n "$last_blog" ] && days_since_publish=$(( (now - last_blog) / 86400 ))
+  [[ "$last_blog" =~ ^[0-9]+$ ]] && days_since_publish=$(( (now - last_blog) / 86400 ))
+  [ "$days_since_publish" -lt 0 ] 2>/dev/null && days_since_publish=0
 
   # === PHASE INFERENCE ===
   # Combine API data + local signals to infer state
@@ -337,7 +345,7 @@ surface_mirror() {
   fi
 
   # Weekend nudge toward REST (unless clearly in HOLD)
-  [ "$dow" -ge 6 ] && [ "$phase" = "BUILD" ] && phase="REST"
+  [ "$dow" -ge 6 ] 2>/dev/null && [ "$phase" = "BUILD" ] && phase="REST"
 
   # === CONTEXTUAL MESSAGES ===
   case "$phase:$season" in
@@ -395,19 +403,22 @@ surface_mirror() {
   esac
 
   # Distraction awareness (if high distracting time relative to productive)
-  if [ -z "$wisdom" ] && [ "${distracting_month%.*}" -gt 15 ]; then
-    local ratio=$(echo "scale=1; $distracting_month / $productive_month * 100" | bc 2>/dev/null || echo "0")
-    [ "${ratio%.*}" -gt 30 ] && wisdom="${distracting_month}h distracting vs ${productive_month}h productive this month. the ratio tells a story."
+  if [ -z "$wisdom" ] && [ "${distracting_month%.*}" -gt 15 ] 2>/dev/null; then
+    local ratio=$(echo "scale=1; $distracting_month / ($productive_month + 0.01) * 100" | bc 2>/dev/null || echo "0")
+    [[ "$ratio" =~ ^[0-9.]+$ ]] || ratio=0
+    [ "${ratio%.*}" -gt 30 ] 2>/dev/null && wisdom="${distracting_month}h distracting vs ${productive_month}h productive this month. the ratio tells a story."
   fi
 
   # Late night overlay
-  if [ "$hour" -ge 23 ] || [ "$hour" -lt 5 ]; then
+  if [ "$hour" -ge 23 ] 2>/dev/null || [ "$hour" -lt 5 ] 2>/dev/null; then
     [ -n "$wisdom" ] && wisdom="$wisdom ($(date +%l:%M%p))"
     [ -z "$wisdom" ] && wisdom="$(date +%l:%M%p). ${productive_week}h this week so far. what's keeping you up?"
     show_chance=2
   fi
 
   # === OUTPUT ===
+  # Ensure show_chance is valid (prevent divide by zero)
+  [[ "$show_chance" =~ ^[1-9][0-9]*$ ]] || show_chance=4
   if [ -n "$wisdom" ] && [ $((RANDOM % show_chance)) -eq 0 ]; then
     echo -e "\033[38;5;95m(mirror) $wisdom\033[0m"
     echo ""
