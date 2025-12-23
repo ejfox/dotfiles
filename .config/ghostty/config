@@ -50,6 +50,7 @@ clipboard-paste-protection = false
 # Originals from: https://github.com/hackr-sh/ghostty-shaders
 
 # Order: cursor trail → chromatic aberration → bloom → LCD subpixel → vignette → DEBUG TIME BARS
+custom-shader-animation = true
 custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/phosphor-chromatic-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
