@@ -3,7 +3,7 @@
 # confirmations, etc.) must go above this block; everything else may go below.
 
 # Quick CLI help - ask how to do something in the terminal
-?? () {
+function '??' {
   llm -m 4o-mini -s "You are a concise CLI expert. Given a task, respond with ONLY the command(s) needed. No explanations, no markdown, just executable commands. If multiple commands needed, put each on its own line." "$*"
 }
 
@@ -502,7 +502,7 @@ tips() { grep -i "${1:-.}" ~/tips.txt | fzf --height=50% --reverse; }
 note() { echo "- $* ($(date '+%H:%M'))" >> ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox/inbox.md && echo "noted"; }
 
 # Re-run last command and copy output
-yy() { fc -e - | pbcopy && echo "output copied"; }
+yank() { fc -e - | pbcopy && echo "output copied"; }
 
 # Ask LLM about clipboard contents
 ask() { pbpaste | llm "$*"; }
