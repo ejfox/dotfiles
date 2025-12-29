@@ -19,7 +19,7 @@ return {
         },
         -- Minimal icons
         file_ignore_patterns = { "node_modules", ".git/" },
-        path_display = { "truncate" },
+        path_display = { "smart" },
         -- Performance
         preview = {
           hide_on_startup = false,

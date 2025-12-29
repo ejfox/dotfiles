@@ -14,8 +14,8 @@ function M.setup()
   vim.g.colors_name = 'vulpes-reddishnovember-dark'
 
   local colors = {
-    bg = '#0d0d0d',
-    bg_alt = '#1a1a1a',
+    bg = '#000000',
+    bg_alt = '#0d0d0d',
     fg = '#f2cfdf',
     base = '#e60067',
 
@@ -391,7 +391,7 @@ function M.setup()
     -- PLUGIN SUPPORT
     -- ============================================================================
 
-    -- Telescope.nvim
+    -- Telescope.nvim (kept for compatibility)
     TelescopeBorder = { fg = colors.base, bg = colors.bg_alt },
     TelescopeNormal = { fg = colors.fg, bg = colors.bg_alt },
     TelescopePromptNormal = { fg = colors.fg, bg = colors.bg_alt },
@@ -401,6 +401,13 @@ function M.setup()
     TelescopeSelectionCaret = { fg = colors.base },
     TelescopeMatching = { fg = colors.warning },
     TelescopePromptPrefix = { fg = colors.base },
+
+    -- Snacks.picker (the actual picker in use)
+    SnacksPickerDir = { fg = '#c490a8' },           -- dirname in paths (was NonText/invisible)
+    SnacksPickerPathHidden = { fg = colors.linenr }, -- hidden files (slightly dimmer)
+    SnacksPickerPathIgnored = { fg = colors.linenr }, -- ignored files
+    SnacksPickerMatch = { fg = colors.warning },    -- search matches
+    SnacksPickerPrompt = { fg = colors.base },      -- prompt icon
 
     -- nvim-cmp
     CmpItemAbbrDeprecated = { fg = colors.comment, strikethrough = true },

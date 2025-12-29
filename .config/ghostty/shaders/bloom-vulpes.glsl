@@ -29,7 +29,7 @@ const vec3[24] samples = {
 };
 
 // TUNING KNOBS:
-const float BLOOM_INTENSITY = 0.05;  // Whisper
+const float BLOOM_INTENSITY = 0.08;  // Soft glow
 const float LUM_THRESHOLD = 0.2;     // Only bloom on brighter pixels
 const float RED_DOMINANCE = 0.18;    // Between strict and loose
 const float LIGHT_MODE_THRESHOLD = 0.5;  // If bg is brighter than this, skip bloom

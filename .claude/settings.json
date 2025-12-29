@@ -11,13 +11,17 @@
     ],
     "deny": []
   },
-  "alwaysThinkingEnabled": false,
-  "feedbackSurveyState": {
-    "lastShownTime": 1754094052483
-  },
   "statusLine": {
     "type": "command",
     "command": "/Users/ejfox/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "alwaysThinkingEnabled": false,
+  "feedbackSurveyState": {
+    "lastShownTime": 1754094052483
   },
   "theme": "dark"
 }
