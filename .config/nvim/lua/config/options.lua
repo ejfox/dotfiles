@@ -20,8 +20,8 @@ vim.opt.smoothscroll = false
 -- set column mode for navigation
 vim.opt.virtualedit = "all"
 
--- keep cursor in the center
-vim.opt.scrolloff = 999
+-- keep cursor within 8 lines of top/bottom edge
+vim.opt.scrolloff = 8
 vim.opt.sidescrolloff = 8
 
 -- wrap lines by default
