@@ -341,3 +341,4 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (wisdom) a computer is a meta-tool — a tool for making tools. defaults are for everyone, meaning no one. yours should be useless to others, perfect for you.
 (weeknotes) screenshots auto-append to YYYY-WW-raw.md (private), actual writing goes to YYYY-WW.md (publishable)
 (weeknotes) Friday ritual: open -raw.md, write 3 sentences in main file from memory while looking at screenshots
+(zsh) btop - beautiful system monitor (CPU, RAM, network, processes) - run it, it's sexy
