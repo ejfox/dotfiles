@@ -32,10 +32,31 @@ const vec3[24] samples = {
 const float BLOOM_INTENSITY = 0.08;  // Soft glow
 const float LUM_THRESHOLD = 0.2;     // Only bloom on brighter pixels
 const float RED_DOMINANCE = 0.18;    // Between strict and loose
-const float LIGHT_MODE_THRESHOLD = 0.4;  // If bg is brighter than this, skip bloom
+const float LIGHT_MODE_THRESHOLD = 0.65;  // Sharp cutoff
 
 float lum(vec4 c) {
   return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+}
+
+float lum3(vec3 c) {
+  return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+}
+
+// Sample 10 pixels in bottom-right corner and average luminance
+float sampleCornerLuminance(sampler2D tex) {
+  float total = 0.0;
+  vec2 base = vec2(0.97, 0.97);
+  total += lum3(texture(tex, base + vec2(0.000, 0.000)).rgb);
+  total += lum3(texture(tex, base + vec2(0.010, 0.000)).rgb);
+  total += lum3(texture(tex, base + vec2(0.020, 0.000)).rgb);
+  total += lum3(texture(tex, base + vec2(0.000, 0.010)).rgb);
+  total += lum3(texture(tex, base + vec2(0.010, 0.010)).rgb);
+  total += lum3(texture(tex, base + vec2(0.020, 0.010)).rgb);
+  total += lum3(texture(tex, base + vec2(0.000, 0.020)).rgb);
+  total += lum3(texture(tex, base + vec2(0.010, 0.020)).rgb);
+  total += lum3(texture(tex, base + vec2(0.020, 0.020)).rgb);
+  total += lum3(texture(tex, base + vec2(0.015, 0.015)).rgb);
+  return total / 10.0;
 }
 
 // Check if pixel is bright enough to bloom - reds + bright colors
@@ -51,9 +72,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 uv = fragCoord.xy / iResolution.xy;
   vec4 color = texture(iChannel0, uv);
 
-  // Detect light mode (top-right to avoid tmux bar at top and vim statusline at bottom)
-  vec4 corner = texture(iChannel0, vec2(0.99, 0.01));
-  float bgLum = lum(corner);
+  // Detect light mode (bottom-right, 10px average, sharp threshold)
+  float bgLum = sampleCornerLuminance(iChannel0);
 
   // In light mode, just pass through - no bloom
   if (bgLum > LIGHT_MODE_THRESHOLD) {
