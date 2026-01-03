@@ -1,19 +1,36 @@
 // Subtle static vignette - darkens edges (dark mode) or lightens edges (light mode)
 // No animation, just depth
 
-const float LIGHT_MODE_THRESHOLD = 0.4;
+const float LIGHT_MODE_THRESHOLD = 0.65;  // Sharp cutoff - only trigger on clearly light backgrounds
 
 float lum(vec3 c) {
     return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+}
+
+// Sample 10 pixels in bottom-right corner and average luminance
+float sampleCornerLuminance(sampler2D tex) {
+    float total = 0.0;
+    vec2 base = vec2(0.97, 0.97);  // Bottom-right corner
+    // 10-pixel grid sample
+    total += lum(texture(tex, base + vec2(0.000, 0.000)).rgb);
+    total += lum(texture(tex, base + vec2(0.010, 0.000)).rgb);
+    total += lum(texture(tex, base + vec2(0.020, 0.000)).rgb);
+    total += lum(texture(tex, base + vec2(0.000, 0.010)).rgb);
+    total += lum(texture(tex, base + vec2(0.010, 0.010)).rgb);
+    total += lum(texture(tex, base + vec2(0.020, 0.010)).rgb);
+    total += lum(texture(tex, base + vec2(0.000, 0.020)).rgb);
+    total += lum(texture(tex, base + vec2(0.010, 0.020)).rgb);
+    total += lum(texture(tex, base + vec2(0.020, 0.020)).rgb);
+    total += lum(texture(tex, base + vec2(0.015, 0.015)).rgb);
+    return total / 10.0;
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = fragCoord.xy / iResolution.xy;
     vec4 texColor = texture(iChannel0, uv);
 
-    // Detect light mode (top-right to avoid tmux bar at top and vim statusline at bottom)
-    vec3 corner = texture(iChannel0, vec2(0.99, 0.01)).rgb;
-    bool lightMode = lum(corner) > LIGHT_MODE_THRESHOLD;
+    // Detect light mode (bottom-right, 10px average, sharp threshold)
+    bool lightMode = sampleCornerLuminance(iChannel0) > LIGHT_MODE_THRESHOLD;
 
     // Distance from center (0.5, 0.5)
     vec2 center = vec2(0.5, 0.5);
