@@ -83,7 +83,7 @@ const float MAX_DURATION = 0.65;    // big moves: longer but reasonable
 const float DRAW_THRESHOLD = 1.5;
 const float TELEPORT_THRESHOLD = 0.25;  // >25% screen = pane switch, no trail
 const bool HIDE_TRAILS_ON_THE_SAME_LINE = false;
-const float LIGHT_MODE_THRESHOLD = 0.5;
+const float LIGHT_MODE_THRESHOLD = 0.4;
 
 float calcLum(vec3 c) {
     return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
@@ -95,8 +95,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
     #endif
 
-    // Detect light mode (bottom-left to avoid tmux bar at top)
-    vec3 corner = texture(iChannel0, vec2(0.01, 0.99)).rgb;
+    // Detect light mode (top-right to avoid tmux bar at top and vim statusline at bottom)
+    vec3 corner = texture(iChannel0, vec2(0.99, 0.01)).rgb;
     bool lightMode = calcLum(corner) > LIGHT_MODE_THRESHOLD;
 
     // Pick colors based on mode

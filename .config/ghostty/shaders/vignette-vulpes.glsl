@@ -2,7 +2,7 @@
 
 const float VIGNETTE_STRENGTH = 0.15;  // How much darkening
 const float VIGNETTE_RADIUS = 1.2;     // How far out the vignette reaches
-const float LIGHT_MODE_THRESHOLD = 0.5;
+const float LIGHT_MODE_THRESHOLD = 0.4;
 
 float lum(vec3 c) {
   return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
@@ -12,8 +12,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 uv = fragCoord.xy / iResolution.xy;
   vec4 color = texture(iChannel0, uv);
 
-  // Detect light mode
-  vec3 corner = texture(iChannel0, vec2(0.01, 0.99)).rgb;
+  // Detect light mode (top-right to avoid tmux bar at top and vim statusline at bottom)
+  vec3 corner = texture(iChannel0, vec2(0.99, 0.01)).rgb;
   bool lightMode = lum(corner) > LIGHT_MODE_THRESHOLD;
 
   // Calculate distance from center
