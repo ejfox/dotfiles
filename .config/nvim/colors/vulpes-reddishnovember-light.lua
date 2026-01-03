@@ -25,6 +25,12 @@ function M.setup()
     info = '#e00083',
     hint = '#ff2e8c',
 
+    -- Diff-specific colors (traditional green/red for instant recognition)
+    diff_add = '#22863a',      -- GitHub-style green (readable on light bg)
+    diff_delete = '#cb2431',   -- GitHub-style red
+    diff_change = '#b08800',   -- Darker yellow/orange for light bg
+    diff_text = '#005cc5',     -- Blue for changed text within line
+
     comment = '#000000',
     keyword = '#000000',
     string = '#000000',
@@ -346,30 +352,44 @@ function M.setup()
     ['@markup.list.checked'] = { fg = colors.success },
     ['@markup.list.unchecked'] = { fg = colors.comment },
 
-    -- Diffs
-    ['@diff.plus'] = { fg = colors.success },
-    ['@diff.minus'] = { fg = colors.error },
-    ['@diff.delta'] = { fg = colors.warning },
+    -- Diffs (treesitter)
+    ['@diff.plus'] = { fg = colors.diff_add },
+    ['@diff.minus'] = { fg = colors.diff_delete },
+    ['@diff.delta'] = { fg = colors.diff_change },
 
     -- ============================================================================
-    -- GIT INTEGRATION
+    -- GIT INTEGRATION (traditional green/red for diffs)
     -- ============================================================================
-    DiffAdd = { fg = colors.success },
-    DiffChange = { fg = colors.warning },
-    DiffDelete = { fg = colors.error },
-    DiffText = { fg = colors.info, bg = colors.bg_alt },
+    DiffAdd = { fg = colors.diff_add },
+    DiffChange = { fg = colors.diff_change },
+    DiffDelete = { fg = colors.diff_delete },
+    DiffText = { fg = colors.diff_text, bg = colors.bg_alt },
+
+    -- Added/Removed (used by some diff views)
+    Added = { fg = colors.diff_add },
+    Removed = { fg = colors.diff_delete },
+    Changed = { fg = colors.diff_change },
 
     -- gitsigns.nvim
-    GitSignsAdd = { fg = colors.success },
-    GitSignsChange = { fg = colors.warning },
-    GitSignsDelete = { fg = colors.error },
-    GitSignsAddNr = { fg = colors.success },
-    GitSignsChangeNr = { fg = colors.warning },
-    GitSignsDeleteNr = { fg = colors.error },
-    GitSignsAddLn = { bg = colors.success, fg = colors.bg },
-    GitSignsChangeLn = { bg = colors.warning, fg = colors.bg },
-    GitSignsDeleteLn = { bg = colors.error, fg = colors.bg },
+    GitSignsAdd = { fg = colors.diff_add },
+    GitSignsChange = { fg = colors.diff_change },
+    GitSignsDelete = { fg = colors.diff_delete },
+    GitSignsAddNr = { fg = colors.diff_add },
+    GitSignsChangeNr = { fg = colors.diff_change },
+    GitSignsDeleteNr = { fg = colors.diff_delete },
+    GitSignsAddLn = { bg = '#d4edda' },  -- Light green bg
+    GitSignsChangeLn = { bg = '#fff3cd' },  -- Light yellow bg
+    GitSignsDeleteLn = { bg = '#f8d7da' },  -- Light red bg
     GitSignsCurrentLineBlame = { fg = colors.comment },
+
+    -- mini.diff
+    MiniDiffSignAdd = { fg = colors.diff_add },
+    MiniDiffSignChange = { fg = colors.diff_change },
+    MiniDiffSignDelete = { fg = colors.diff_delete },
+    MiniDiffOverAdd = { bg = '#d4edda' },     -- Added lines in overlay
+    MiniDiffOverChange = { bg = '#fff3cd' },  -- Changed lines in overlay
+    MiniDiffOverContext = { bg = colors.bg_alt },
+    MiniDiffOverDelete = { bg = '#f8d7da', fg = colors.diff_delete },  -- Deleted in overlay
 
     -- ============================================================================
     -- PLUGIN SUPPORT
