@@ -1,7 +1,7 @@
 // Mood Ink - ambient vignette from screen colors + fresh text bloom
 // Day: classy & refined | Night: neon & hacker-ified
 
-const float LIGHT_MODE_THRESHOLD = 0.5;
+const float LIGHT_MODE_THRESHOLD = 0.4;
 
 // === DAY MODE - barely there, just a whisper ===
 const float DAY_VIGNETTE_STRENGTH = 0.04;
@@ -85,8 +85,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 pixel = 1.0 / iResolution.xy;
     vec4 texColor = texture(iChannel0, uv);
 
-    // Detect light/dark mode (bottom-left to avoid tmux bar)
-    vec3 bgSample = texture(iChannel0, vec2(0.01, 0.99)).rgb;
+    // Detect light/dark mode (top-right to avoid tmux bar at top and vim statusline at bottom)
+    vec3 bgSample = texture(iChannel0, vec2(0.99, 0.01)).rgb;
     float bgLum = lum(bgSample);
     bool lightMode = bgLum > LIGHT_MODE_THRESHOLD;
 
