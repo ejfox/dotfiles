@@ -22,12 +22,12 @@ sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
   label.font="$FONT:Regular:13.0" \
   label.color=0xffffffff \
   background.drawing=off \
-  padding_left=4 \
-  padding_right=4 \
-  label.padding_left=4 \
-  label.padding_right=4 \
-  icon.padding_left=4 \
-  icon.padding_right=4 \
+  padding_left=6 \
+  padding_right=6 \
+  label.padding_left=2 \
+  label.padding_right=0 \
+  icon.padding_left=0 \
+  icon.padding_right=2 \
   y_offset=0 \
   updates=when_shown \
   icon.animation_duration=250 \
@@ -51,17 +51,17 @@ sketchybar --add item next_event left \
                             click_script="open -a Calendar" \
            --subscribe next_event system_woke
 
-##### Mutagen Status #####
-sketchybar --add item mutagen left \
-           --set mutagen update_freq=5 \
-                         script="$PLUGIN_DIR/mutagen.sh" \
-                         icon="" \
-                         icon.font="$NERD_FONT:Regular:13.0" \
-                         label.font="$FONT:Medium:13.0" \
-                         padding_left=12 \
-                         padding_right=0 \
-                         icon.padding_left=0 \
-                         icon.padding_right=0
+##### Mutagen Status ##### (moved to tmux)
+# sketchybar --add item mutagen left \
+#            --set mutagen update_freq=5 \
+#                          script="$PLUGIN_DIR/mutagen.sh" \
+#                          icon="" \
+#                          icon.font="$NERD_FONT:Regular:13.0" \
+#                          label.font="$FONT:Medium:13.0" \
+#                          padding_left=12 \
+#                          padding_right=0 \
+#                          icon.padding_left=0 \
+#                          icon.padding_right=0
 
 ###### Dev Dashboard #####
 #sketchybar --add item dev_dashboard left \
@@ -106,19 +106,13 @@ sketchybar --add item mutagen left \
 ##### Battery #####
 sketchybar --add item battery right \
   --set battery update_freq=10 \
-  icon.font="$NERD_FONT:Regular:16.0" \
-  label.font="$FONT:Regular:11.0" \
-  padding_right=8 \
   script="$HOME/.config/sketchybar/plugins/battery.sh" \
   click_script="pmset -g batt"
 
 ##### Time #####
 sketchybar --add item clock right \
   --set clock update_freq=1 \
-  position=right \
-  label.width=70 \
-  padding_left=8 \
-  padding_right=12 \
+  label.width=58 \
   script="$HOME/.config/sketchybar/plugins/clock.sh"
 
 ###### Next Todo #####
@@ -130,13 +124,22 @@ sketchybar --add item clock right \
 ##### Words Today/Month #####
 sketchybar --add item words right \
   --set words update_freq=60 \
-  position=right \
-  label.width=75 \
-  padding_left=4 \
-  padding_right=4 \
   script="$HOME/.config/sketchybar/plugins/words.sh" \
   click_script="open https://ejfox.com/blog" \
   --subscribe words system_woke
+
+##### Creative Stats (left side, hidden when meetings) #####
+sketchybar --add item demos left \
+  --set demos update_freq=120 \
+  drawing=off \
+  script="$HOME/.config/sketchybar/plugins/demos.sh" \
+  click_script="open ~/demos"
+
+sketchybar --add item notes left \
+  --set notes update_freq=120 \
+  drawing=off \
+  script="$HOME/.config/sketchybar/plugins/notes.sh" \
+  click_script="open 'obsidian://open?vault=ejfox'"
 
 ##### Photos Count #####
 # sketchybar --add item photos right \

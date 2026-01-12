@@ -1,0 +1,27 @@
+#!/bin/bash
+# Minimal mutagen status for tmux - only shows when syncing or error
+# Silent when healthy/synced
+
+MUTAGEN_SCRIPT="/Users/ejfox/code/tmux-mutagen-indicator/mutagen-indicator.sh"
+
+[ ! -f "$MUTAGEN_SCRIPT" ] && echo " err " && exit 0
+
+export MUTAGEN_OUTPUT_FORMAT="sketchybar"
+export MUTAGEN_TMUX_SHOW_STATUS=0
+
+STATUS_JSON=$($MUTAGEN_SCRIPT 2>/dev/null)
+[ -z "$STATUS_JSON" ] && echo " ? " && exit 0
+
+TOOLTIP=$(echo "$STATUS_JSON" | grep -o '"tooltip":"[^"]*"' | cut -d'"' -f4)
+
+# Only show when NOT synced (syncing, error, conflict, etc)
+if echo "$TOOLTIP" | grep -qi "synced"; then
+    # All good - show nothing
+    exit 0
+elif echo "$TOOLTIP" | grep -qi "error\|conflict\|problem"; then
+    # Error state
+    echo " ! "
+else
+    # Syncing or other active state
+    echo "  "
+fi

@@ -1,38 +1,37 @@
 #!/usr/bin/env bash
 
-# Sketchybar plugin for Mutagen status
-# Place this file in ~/.config/sketchybar/plugins/
+# Minimal mutagen status - just icon, color indicates state
+# Green = synced, Yellow = syncing, Red = error
 
-PLUGIN_DIR=$(dirname "$0")
 MUTAGEN_SCRIPT="/Users/ejfox/code/tmux-mutagen-indicator/mutagen-indicator.sh"
 
-# Fallback locations if the main one doesn't work
 if [ ! -f "$MUTAGEN_SCRIPT" ]; then
-    if [ -f "$PLUGIN_DIR/mutagen-indicator.sh" ]; then
-        MUTAGEN_SCRIPT="$PLUGIN_DIR/mutagen-indicator.sh"
-    elif command -v mutagen-indicator.sh >/dev/null 2>&1; then
-        MUTAGEN_SCRIPT="mutagen-indicator.sh"
-    else
-        echo "Error: mutagen-indicator.sh not found" >&2
-        exit 1
-    fi
+    sketchybar --set "$NAME" icon="" icon.color="0xffff6b6b" label="err" drawing=on
+    exit 0
 fi
 
-# Export format for Sketchybar
 export MUTAGEN_OUTPUT_FORMAT="sketchybar"
 export MUTAGEN_TMUX_SHOW_STATUS=0
 
-# Get status from mutagen indicator
-STATUS_JSON=$($MUTAGEN_SCRIPT)
+STATUS_JSON=$($MUTAGEN_SCRIPT 2>/dev/null)
 
-# Parse JSON output
+if [ -z "$STATUS_JSON" ]; then
+    sketchybar --set "$NAME" icon="" icon.color="0xffff6b6b" label="?" drawing=on
+    exit 0
+fi
+
 TEXT=$(echo "$STATUS_JSON" | grep -o '"text":"[^"]*"' | cut -d'"' -f4)
 TOOLTIP=$(echo "$STATUS_JSON" | grep -o '"tooltip":"[^"]*"' | cut -d'"' -f4)
 COLOR=$(echo "$STATUS_JSON" | grep -o '"color":"[^"]*"' | cut -d'"' -f4)
 
-# Update Sketchybar item
-sketchybar --set "$NAME" \
-    label="$TEXT" \
-    icon.color="$COLOR" \
-    label.color="$COLOR" \
-    click_script="osascript -e 'tell app \"Terminal\" to do script \"mutagen sync list; echo; read -p \\\"Press enter to continue...\\\"; exit\"'"
+# Check if synced or has issues
+if echo "$TOOLTIP" | grep -qi "synced"; then
+    # All good - just show icon, no label
+    sketchybar --set "$NAME" icon="" icon.color="$COLOR" label="" drawing=on
+elif echo "$TOOLTIP" | grep -qi "error\|conflict\|problem"; then
+    # Error state - show icon + warning
+    sketchybar --set "$NAME" icon="" icon.color="0xffff6b6b" label="!" label.color="0xffff6b6b" drawing=on
+else
+    # Syncing or other state - show icon only, color indicates state
+    sketchybar --set "$NAME" icon="" icon.color="$COLOR" label="" drawing=on
+fi

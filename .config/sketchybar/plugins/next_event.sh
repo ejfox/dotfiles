@@ -122,8 +122,15 @@ if [ $NUM_MEETINGS -eq 0 ]; then
   for i in $(seq 1 $MAX_MEETINGS); do
     sketchybar --set "${NAME}.${i}" drawing=off 2>/dev/null
   done
+  # Show creative stats when no meetings
+  sketchybar --set demos drawing=on 2>/dev/null
+  sketchybar --set notes drawing=on 2>/dev/null
   exit 0
 fi
+
+# Hide creative stats when meetings exist
+sketchybar --set demos drawing=off 2>/dev/null
+sketchybar --set notes drawing=off 2>/dev/null
 
 # Build label with comma separators between colored items
 # Since we can't color individually in one label, create separate items
