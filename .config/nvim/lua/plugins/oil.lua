@@ -15,6 +15,10 @@ return {
         },
         -- Skip confirmation for simple operations
         skip_confirm_for_simple_edits = true,
+        -- Enable signcolumn for git status
+        win_options = {
+          signcolumn = "yes:2",
+        },
         -- Keymaps in oil buffer
         keymaps = {
           ["g?"] = "actions.show_help",

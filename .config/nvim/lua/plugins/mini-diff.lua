@@ -31,5 +31,12 @@ return {
     keys = {
       { "<leader>go", function() require("mini.diff").toggle_overlay() end, desc = "Toggle diff overlay" },
     },
+    config = function(_, opts)
+      require("mini.diff").setup(opts)
+      -- Enable overlay by default after short delay (let buffers load)
+      vim.defer_fn(function()
+        pcall(require("mini.diff").toggle_overlay)
+      end, 100)
+    end,
   },
 }

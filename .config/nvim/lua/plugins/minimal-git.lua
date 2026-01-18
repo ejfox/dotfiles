@@ -4,12 +4,13 @@ return {
     "lewis6991/gitsigns.nvim",
     opts = {
       signs = {
-        add = { text = "│" },
-        change = { text = "│" },
-        delete = { text = "_" },
-        topdelete = { text = "‾" },
+        -- Line-level indicators (different from file-level p10k symbols)
+        add = { text = "│" },       -- Added lines
+        change = { text = "│" },    -- Changed lines
+        delete = { text = "_" },    -- Deleted lines below
+        topdelete = { text = "‾" }, -- Deleted lines above
         changedelete = { text = "~" },
-        untracked = { text = "┆" },
+        untracked = { text = "?" }, -- Matches p10k untracked symbol
       },
       -- Only show in signcolumn, no virtual text
       signcolumn = true,
