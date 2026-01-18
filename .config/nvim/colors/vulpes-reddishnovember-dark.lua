@@ -26,7 +26,7 @@ function M.setup()
     hint = '#ff4d9d',
 
     -- Diff-specific colors (traditional green/red for instant recognition)
-    diff_add = '#50fa7b',      -- Bright green (Dracula-ish)
+    diff_add = '#00ff66',      -- Pure neon green
     diff_delete = '#ff5555',   -- Soft red (not too close to vulpes pink)
     diff_change = '#ffaa00',   -- Orange/yellow for changes
     diff_text = '#8be9fd',     -- Cyan for changed text within line
@@ -87,16 +87,16 @@ function M.setup()
     ColorColumn = { bg = colors.bg_alt },
 
     -- Selections & Search (bloom-friendly: darker bg, white text)
-    Visual = { fg = colors.selection_fg, bg = colors.selection, bold = true },
+    Visual = { fg = colors.selection_fg, bg = colors.selection },
     VisualNOS = { fg = colors.selection_fg, bg = colors.selection },
     Search = { fg = colors.bg, bg = colors.warning },
-    IncSearch = { fg = '#ffffff', bg = '#5c0030', bold = true },  -- Darker red, white text
-    CurSearch = { fg = '#ffffff', bg = '#5c0030', bold = true },
+    IncSearch = { fg = '#ffffff', bg = '#5c0030' },
+    CurSearch = { fg = '#ffffff', bg = '#5c0030' },
     Substitute = { fg = colors.bg, bg = colors.error },
 
     -- UI Elements (bloom-friendly completions)
     Pmenu = { fg = colors.fg, bg = colors.bg_alt },
-    PmenuSel = { fg = '#ffffff', bg = '#5c0030', bold = true },  -- Darker, readable
+    PmenuSel = { fg = '#ffffff', bg = '#5c0030' },
     PmenuSbar = { bg = colors.bg_alt },
     PmenuThumb = { bg = colors.base },
     PmenuKind = { fg = colors.type, bg = colors.bg_alt },
@@ -142,8 +142,11 @@ function M.setup()
     Conceal = { fg = colors.comment },
     NonText = { fg = colors.comment },
     SpecialKey = { fg = colors.comment },
-    Whitespace = { fg = colors.comment },
+    Whitespace = { fg = '#2a2030' },  -- Dimmer than comments
     EndOfBuffer = { fg = 'none' },
+
+    -- Matching brackets
+    MatchParen = { fg = colors.warning, bg = '#3a2a20', bold = true },
 
     -- Spell checking
     SpellBad = { sp = colors.error, undercurl = true },
@@ -214,7 +217,7 @@ function M.setup()
     DiagnosticVirtualTextInfo = { fg = colors.info, bg = 'none' },
     DiagnosticVirtualTextHint = { fg = colors.hint, bg = 'none' },
 
-    DiagnosticUnderlineError = { sp = colors.error },
+    DiagnosticUnderlineError = { sp = colors.error, undercurl = true },
     DiagnosticUnderlineWarn = { sp = colors.warning, underline = true },
     DiagnosticUnderlineInfo = { sp = colors.info, underline = true },
     DiagnosticUnderlineHint = { sp = colors.hint, underline = true },
@@ -228,6 +231,11 @@ function M.setup()
     DiagnosticSignWarn = { fg = colors.warning, bg = 'none' },
     DiagnosticSignInfo = { fg = colors.info, bg = 'none' },
     DiagnosticSignHint = { fg = colors.hint, bg = 'none' },
+
+    -- LSP References (highlight symbol under cursor)
+    LspReferenceText = { bg = '#2a1a25' },
+    LspReferenceRead = { bg = '#2a1a25' },
+    LspReferenceWrite = { bg = '#3a1a30' },  -- Slightly brighter for writes
 
     -- LSP Semantic Token Groups
     ['@lsp.type.class'] = { link = 'Type' },
@@ -369,21 +377,21 @@ function M.setup()
     ['@markup.list.unchecked'] = { fg = colors.comment },
 
     -- Diffs (treesitter)
-    ['@diff.plus'] = { fg = colors.diff_add },
-    ['@diff.minus'] = { fg = colors.diff_delete },
+    ['@diff.plus'] = { fg = colors.diff_add, bold = true },
+    ['@diff.minus'] = { fg = colors.diff_delete, italic = true },
     ['@diff.delta'] = { fg = colors.diff_change },
 
     -- ============================================================================
     -- GIT INTEGRATION (traditional green/red for diffs)
     -- ============================================================================
-    DiffAdd = { fg = colors.diff_add },
+    DiffAdd = { fg = colors.diff_add, bold = true },
     DiffChange = { fg = colors.diff_change },
-    DiffDelete = { fg = colors.diff_delete },
+    DiffDelete = { fg = colors.diff_delete, italic = true },
     DiffText = { fg = colors.diff_text, bg = colors.bg_alt },
 
     -- Added/Removed (used by some diff views)
-    Added = { fg = colors.diff_add },
-    Removed = { fg = colors.diff_delete },
+    Added = { fg = colors.diff_add, bold = true },
+    Removed = { fg = colors.diff_delete, italic = true },
     Changed = { fg = colors.diff_change },
 
     -- gitsigns.nvim
@@ -399,13 +407,13 @@ function M.setup()
     GitSignsCurrentLineBlame = { fg = colors.comment },
 
     -- mini.diff
-    MiniDiffSignAdd = { fg = colors.diff_add },
+    MiniDiffSignAdd = { fg = colors.diff_add, bold = true },
     MiniDiffSignChange = { fg = colors.diff_change },
-    MiniDiffSignDelete = { fg = colors.diff_delete },
-    MiniDiffOverAdd = { bg = '#1a3d2a' },     -- Added lines in overlay
-    MiniDiffOverChange = { bg = '#3d3a1a' },  -- Changed lines in overlay
+    MiniDiffSignDelete = { fg = colors.diff_delete, italic = true },
+    MiniDiffOverAdd = { bg = '#1a3d2a', bold = true },
+    MiniDiffOverChange = { bg = '#3d3a1a' },
     MiniDiffOverContext = { bg = colors.bg_alt },
-    MiniDiffOverDelete = { bg = '#3d1a1a', fg = colors.diff_delete },  -- Deleted in overlay
+    MiniDiffOverDelete = { bg = '#3d1a1a', fg = colors.diff_delete, italic = true },
 
     -- ============================================================================
     -- PLUGIN SUPPORT

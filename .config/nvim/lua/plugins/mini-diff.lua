@@ -2,7 +2,7 @@
 -- Complements gitsigns with overlay for deleted lines
 return {
   {
-    "echasnovski/mini.diff",
+    "nvim-mini/mini.diff",
     event = "VeryLazy",
     opts = {
       -- Use overlay to show deleted lines inline (gitsigns handles signs)
