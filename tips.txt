@@ -78,8 +78,6 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (zsh) uvr <file> - run Python file in isolated env
 (zsh) uvs - sync dependencies
 (zsh) uvx <tool> - run tool without installing
-(zsh) fixit - auto-fix Python environment issues
-(zsh) fuckit - nuke .venv and __pycache__, start fresh
 (zsh) nukeyarn - remove yarn.lock and node_modules
 (zsh) z <partial> - jump to frequently used directory
 (nvim) mA - set GLOBAL mark (works across files!)
@@ -92,13 +90,26 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) =i{ - auto-indent inside braces
 (nvim) gg=G - auto-indent entire file
 (nvim/treesitter) C-space - expand selection to parent node
+(nvim/treesitter) C-space C-space C-space - word → expr → statement → block → func
 (nvim/treesitter) BS - SHRINK selection back down (in visual mode)
 (nvim/treesitter) vaf/daf/yaf - select/delete/yank AROUND function
 (nvim/treesitter) vif/dif/yif - select/delete/yank INSIDE function
 (nvim/treesitter) vat/dat - select/delete around HTML tag
 (nvim/treesitter) vit/dit - select/delete inside tag (just contents)
 (nvim/treesitter) vaa/via - select around/inside argument
-(motorcycle) C-space is semantic zoom - not lines, not chars, MEANING
+(nvim/treesitter) ]f / [f - jump to next/prev function
+(nvim/treesitter) ]c / [c - jump to next/prev class
+(nvim/treesitter) C-space is semantic zoom - not lines, not chars, MEANING
+(nvim/treesitter) C-space understands your CODE, not just your text
+(wisdom) C-space: the most underrated vim motion you're not using
+(nvim/flash) s + 2 chars - labels appear on ALL matches, hit label to teleport
+(nvim/flash) S - treesitter mode, labels entire NODES (funcs, blocks)
+(nvim/flash) do ciw, then s to flash-jump, then . to repeat = surgical
+(nvim/mini.ai) viq - select inside ANY quote type (smart detection)
+(nvim/mini.ai) vab - select inside ANY bracket type
+(nvim/mini.ai) vin - select inside NEXT pair (finds next bracket/quote)
+(nvim/mini.ai) vil - select inside line (no newline)
+(nvim/flash) flash s + dot repeat = multi-cursor without multi-cursor
 (nvim/telescope) <leader>fk - search all keymaps/keybindings
 (nvim/telescope) <leader>fo - oldfiles (recent files)
 (nvim/telescope) <leader>fm - jump to bookmarks/marks
@@ -147,12 +158,18 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) gd - jump to definition
 (nvim) gr - find all references
 (nvim) K - hover docs
-(nvim) space c a - code action
+(nvim) space c a - code action (auto-import, extract func, convert arrow, etc)
 (nvim) space c r - rename symbol across all files
+(nvim/lsp) space c a is where the IDE magic lives - use it MORE
+(nvim) space space - FAST file finder (same as space f f but quicker)
 (nvim) space f f - find files
 (nvim) space f g - live grep
 (nvim) space f b - list open buffers
-(nvim) space f r - recent files
+(nvim) space f r - recent files (frecency-sorted, the ones you USE)
+(nvim) space <tab> - INSTANT switch to last buffer (flip between 2 files)
+(nvim) space , - buffer picker with preview (when you have 10+ open)
+(nvim) C-o / C-i - jump back/forward through nav history (undo for navigation)
+(nvim) space space to land, space <tab> to flip, C-o to retrace
 (nvim) space e - toggle file tree sidebar
 (nvim) space g g - lazygit
 (nvim) space x x - list all errors/warnings in project
@@ -178,10 +195,28 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) f( - find next (
 (nvim) ; - repeat f/t motion
 (nvim) . - repeat last change
-(nvim) u - undo
 (nvim) ctrl-r - redo
 (nvim) ZZ - save and quit
 (nvim) ZQ - quit without saving
+(nvim) gx - open URL or filepath under cursor in browser
+(nvim) C-w o - close ALL windows except current (instant focus mode)
+(nvim) space u f - toggle format-on-save (for messy codebases)
+(nvim/treesitter) i = inside (just the filling 🫘), a = around (filling + tortilla 🌯)
+(nvim/treesitter) vaf - visual around function (whole thing, signature + body)
+(nvim/treesitter) vif - visual inside function (just the body/guts)
+(nvim/treesitter) daf - delete around function (nuke the whole thing)
+(nvim/treesitter) yif - yank inside function (copy guts to paste elsewhere)
+(nvim/treesitter) caf - change around function (replace entire function)
+(nvim/treesitter) vaa - visual around argument (arg + comma, clean moves)
+(nvim/treesitter) via - visual inside argument (just the value, no comma)
+(nvim/treesitter) daa - delete around argument (removes arg + handles comma!)
+(nvim/treesitter) cia - change inside argument (replace just the value)
+(nvim/treesitter) vat - visual around tag (<div>...</div> whole sandwich)
+(nvim/treesitter) vit - visual inside tag (just the contents between tags)
+(nvim/treesitter) dat - delete around tag (nuke the whole element)
+(nvim/treesitter) dit - delete inside tag (empty the element, keep wrapper)
+(nvim/treesitter) cit - change inside tag (replace contents, keep wrapper)
+(nvim/treesitter) cat - change around tag (replace entire element)
 (nvim) space b d - close buffer
 (nvim) space b o - close other buffers
 (nvim) ]b / [b - next/prev buffer
@@ -260,6 +295,7 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (vibe) have you pushed your work lately?
 (vibe) drink water
 (vibe) the best code is the code you delete
+(vibe) C-space to select, then y/d/c - treesitter is your copilot
 (workflow) nvim left pane + Claude Code right pane
 (workflow) Tab=ghost text, ]s=suggestions, space g d=diff
 (workflow) select code, space y r, paste in Claude Code
@@ -303,40 +339,14 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (strudel.nvim) hydra integration - live code visuals from nvim
 (strudel.nvim) uses Puppeteer + Chromium for browser automation
 (strudel.nvim) prereqs: neovim 0.9+, node 16+, chromium-based browser
-(strudel.nvim) github.com/gruvw/strudel.nvim
-(strudel.nvim) github: https://github.com/gruvw/strudel.nvim
-(obs) obs print <file> - get note content from Obsidian vault
-(obs) obs search <term> - fuzzy search vault note titles
-(obs) obs content <term> - search within note contents
-(obs) obs export-ready - bulk export from year folders
-(obs) obs export-by-tag <tag> - export all notes with specific tag
-(obs) obs tags - list all tags in vault with frequency count
-(obs) obs daily - create or open today's daily note
-(obs) obs open <file> - open note in Obsidian GUI
-(pub) pub status - publishing dashboard
-(pub) pub import - run import pipeline (Obsidian → website2)
-(pub) pub watch - watch vault for changes and auto-import to website2
-(pub) pub publish - full workflow: import → build → git push
-(pub) pub preview <type> - preview posts by type
-(pub) pub info <file> - show metadata for a file
 (obsidian) export-ready = year folders, NOT /drafts/
 (obsidian) location-based = simple to understand, enforces workflow
 (obsidian) config symlinked to ~/.dotfiles/.obsidian-config/
 (obsidian) any keybind changes auto-version-control in dotfiles
-(obsidian) obs/pub bridge Obsidian ↔ website2
-(workflow) Obsidian → obs print → pub publish
-(workflow) pub status = vault + git + site health
 (vibe) Obsidian = brain, Website2 = voice
-(vibe) small changes ship instantly with pub watch
 (vibe) nothing is lost - everything versions in git
 (pipeline) scrap list | jq | llm "synthesize" - AI scraps
-(pipeline) obs print | llm "expand" | scrap save
-(pipeline) scraps --tag X | llm "outline" | obs create
-(pipeline) obs print | llm "quality 1-10?" - batch check
-(pipeline) obs search "ready" | llm "publish first?"
-(pipeline) scraps tags vs obs tags - find content gaps
 (pipeline) find recent .md | llm "weekly synthesis"
-(pipeline) obs export-ready | llm "quality check"
 (wisdom) defaults are for everyone = no one. yours only
 (weeknotes) screenshots → raw.md, writing → main.md
 (weeknotes) Friday: raw.md → write 3 sentences from memory
