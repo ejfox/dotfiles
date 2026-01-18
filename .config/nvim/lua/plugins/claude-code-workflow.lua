@@ -51,36 +51,4 @@ return {
     },
   },
 
-  -- Diffview for reviewing Claude Code changes
-  {
-    "sindrets/diffview.nvim",
-    dependencies = { "nvim-lua/plenary.nvim" },
-    cmd = { "DiffviewOpen", "DiffviewFileHistory" },
-    keys = {
-      { "<leader>gd", "<cmd>DiffviewOpen<cr>", desc = "Git Diff View" },
-      { "<leader>gh", "<cmd>DiffviewFileHistory %<cr>", desc = "File History" },
-      { "<leader>gc", "<cmd>DiffviewClose<cr>", desc = "Close Diffview" },
-    },
-    opts = {
-      enhanced_diff_hl = true,  -- Better diff highlighting
-      view = {
-        default = {
-          layout = "diff2_horizontal",  -- Side-by-side diff
-        },
-        file_history = {
-          layout = "diff2_horizontal",
-        },
-      },
-      keymaps = {
-        view = {
-          ["]c"] = "actions.select_next_entry",
-          ["[c"] = "actions.select_prev_entry",
-        },
-        file_panel = {
-          ["]c"] = "actions.select_next_entry",
-          ["[c"] = "actions.select_prev_entry",
-        },
-      },
-    },
-  },
 }
