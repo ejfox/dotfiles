@@ -25,11 +25,11 @@ function M.setup()
     info = '#e00083',
     hint = '#ff2e8c',
 
-    -- Diff-specific colors (traditional green/red for instant recognition)
-    diff_add = '#116329',      -- Deeper forest green
-    diff_delete = '#cb2431',   -- GitHub-style red
+    -- Diff colors (HCL-harmonized with vulpes base hue ~340°, for light bg)
+    diff_add = '#5a7a20',      -- Dark chartreuse (Hue ~85°) - readable on light
+    diff_delete = '#9e3050',   -- Dark dusty rose (Hue ~350°) - vulpes kin
     diff_change = '#b08800',   -- Darker yellow/orange for light bg
-    diff_text = '#005cc5',     -- Blue for changed text within line
+    diff_text = '#8a4060',     -- Muted rose for changed text (vulpes family)
 
     comment = '#000000',
     keyword = '#000000',
@@ -385,19 +385,19 @@ function M.setup()
     GitSignsAddNr = { fg = colors.diff_add },
     GitSignsChangeNr = { fg = colors.diff_change },
     GitSignsDeleteNr = { fg = colors.diff_delete },
-    GitSignsAddLn = { bg = '#d4edda' },  -- Light green bg
+    GitSignsAddLn = { bg = '#e8f0d8' },  -- Light chartreuse bg (matches new diff_add)
     GitSignsChangeLn = { bg = '#fff3cd' },  -- Light yellow bg
-    GitSignsDeleteLn = { bg = '#f8d7da' },  -- Light red bg
+    GitSignsDeleteLn = { bg = '#f5e0e8' },  -- Light rose bg (matches new diff_delete)
     GitSignsCurrentLineBlame = { fg = colors.comment },
 
     -- mini.diff
     MiniDiffSignAdd = { fg = colors.diff_add, bold = true },
     MiniDiffSignChange = { fg = colors.diff_change },
     MiniDiffSignDelete = { fg = colors.diff_delete, italic = true },
-    MiniDiffOverAdd = { bg = '#d4edda', bold = true },
+    MiniDiffOverAdd = { bg = '#e8f0d8', bold = true },  -- Light chartreuse
     MiniDiffOverChange = { bg = '#fff3cd' },
     MiniDiffOverContext = { bg = colors.bg_alt },
-    MiniDiffOverDelete = { bg = '#f8d7da', fg = colors.diff_delete, italic = true },
+    MiniDiffOverDelete = { bg = '#f5e0e8', fg = colors.diff_delete, italic = true },  -- Light rose
 
     -- ============================================================================
     -- PLUGIN SUPPORT
@@ -413,6 +413,24 @@ function M.setup()
     TelescopeSelectionCaret = { fg = colors.base },
     TelescopeMatching = { fg = colors.warning },
     TelescopePromptPrefix = { fg = colors.base },
+
+    -- Snacks.picker (the actual picker in use)
+    SnacksPickerDir = { fg = '#8a6070' },           -- dirname in paths (muted rose)
+    SnacksPickerPathHidden = { fg = colors.comment }, -- hidden files
+    SnacksPickerPathIgnored = { fg = colors.comment }, -- ignored files
+    SnacksPickerMatch = { fg = colors.warning },    -- search matches
+    SnacksPickerPrompt = { fg = colors.base },      -- prompt icon
+    SnacksPickerSelected = { bg = '#f0d0e0' },      -- vulpes rose selection bg (light)
+    SnacksPickerCurrent = { bg = '#f5e5ed' },       -- current item (subtle rose tint)
+    SnacksPickerBorder = { fg = colors.base },      -- picker border (vulpes pink)
+    SnacksPickerTitle = { fg = colors.base, bold = true },  -- picker title
+
+    -- Snacks explorer
+    ExplorerNormal = { fg = colors.fg, bg = colors.bg },
+
+    -- Snacks indent guides
+    SnacksIndent = { fg = '#e0d8dc' },
+    SnacksIndentScope = { fg = '#d0c0c8' },
 
     -- nvim-cmp
     CmpItemAbbrDeprecated = { fg = colors.comment, strikethrough = true },
