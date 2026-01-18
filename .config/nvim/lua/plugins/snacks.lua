@@ -17,6 +17,19 @@ return {
               },
             },
           },
+          -- Git diff: bottom layout, tall preview (75%)
+          git_diff = {
+            layout = {
+              preset = "bottom",
+              layout = { height = 0.75 },
+            },
+          },
+          -- Git status: ivy style (horizontal at bottom)
+          git_status = {
+            layout = {
+              preset = "ivy",
+            },
+          },
         },
       },
 
