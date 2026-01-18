@@ -26,7 +26,7 @@ function M.setup()
     hint = '#ff2e8c',
 
     -- Diff-specific colors (traditional green/red for instant recognition)
-    diff_add = '#22863a',      -- GitHub-style green (readable on light bg)
+    diff_add = '#116329',      -- Deeper forest green
     diff_delete = '#cb2431',   -- GitHub-style red
     diff_change = '#b08800',   -- Darker yellow/orange for light bg
     diff_text = '#005cc5',     -- Blue for changed text within line
@@ -126,8 +126,11 @@ function M.setup()
     Conceal = { fg = colors.comment },
     NonText = { fg = colors.comment },
     SpecialKey = { fg = colors.comment },
-    Whitespace = { fg = colors.comment },
+    Whitespace = { fg = '#d8d0d4' },  -- Dimmer than comments
     EndOfBuffer = { fg = 'none' },
+
+    -- Matching brackets
+    MatchParen = { fg = colors.warning, bg = '#ffe0b0', bold = true },
 
     -- Spell checking
     SpellBad = { sp = colors.error, undercurl = true },
@@ -198,7 +201,7 @@ function M.setup()
     DiagnosticVirtualTextInfo = { fg = colors.info, bg = 'none' },
     DiagnosticVirtualTextHint = { fg = colors.hint, bg = 'none' },
 
-    DiagnosticUnderlineError = { sp = colors.error },
+    DiagnosticUnderlineError = { sp = colors.error, undercurl = true },
     DiagnosticUnderlineWarn = { sp = colors.warning, underline = true },
     DiagnosticUnderlineInfo = { sp = colors.info, underline = true },
     DiagnosticUnderlineHint = { sp = colors.hint, underline = true },
@@ -212,6 +215,11 @@ function M.setup()
     DiagnosticSignWarn = { fg = colors.warning, bg = 'none' },
     DiagnosticSignInfo = { fg = colors.info, bg = 'none' },
     DiagnosticSignHint = { fg = colors.hint, bg = 'none' },
+
+    -- LSP References (highlight symbol under cursor)
+    LspReferenceText = { bg = '#f0e8ec' },
+    LspReferenceRead = { bg = '#f0e8ec' },
+    LspReferenceWrite = { bg = '#e8d8e0' },  -- Slightly darker for writes
 
     -- LSP Semantic Token Groups
     ['@lsp.type.class'] = { link = 'Type' },
@@ -353,21 +361,21 @@ function M.setup()
     ['@markup.list.unchecked'] = { fg = colors.comment },
 
     -- Diffs (treesitter)
-    ['@diff.plus'] = { fg = colors.diff_add },
-    ['@diff.minus'] = { fg = colors.diff_delete },
+    ['@diff.plus'] = { fg = colors.diff_add, bold = true },
+    ['@diff.minus'] = { fg = colors.diff_delete, italic = true },
     ['@diff.delta'] = { fg = colors.diff_change },
 
     -- ============================================================================
     -- GIT INTEGRATION (traditional green/red for diffs)
     -- ============================================================================
-    DiffAdd = { fg = colors.diff_add },
+    DiffAdd = { fg = colors.diff_add, bold = true },
     DiffChange = { fg = colors.diff_change },
-    DiffDelete = { fg = colors.diff_delete },
+    DiffDelete = { fg = colors.diff_delete, italic = true },
     DiffText = { fg = colors.diff_text, bg = colors.bg_alt },
 
     -- Added/Removed (used by some diff views)
-    Added = { fg = colors.diff_add },
-    Removed = { fg = colors.diff_delete },
+    Added = { fg = colors.diff_add, bold = true },
+    Removed = { fg = colors.diff_delete, italic = true },
     Changed = { fg = colors.diff_change },
 
     -- gitsigns.nvim
@@ -383,13 +391,13 @@ function M.setup()
     GitSignsCurrentLineBlame = { fg = colors.comment },
 
     -- mini.diff
-    MiniDiffSignAdd = { fg = colors.diff_add },
+    MiniDiffSignAdd = { fg = colors.diff_add, bold = true },
     MiniDiffSignChange = { fg = colors.diff_change },
-    MiniDiffSignDelete = { fg = colors.diff_delete },
-    MiniDiffOverAdd = { bg = '#d4edda' },     -- Added lines in overlay
-    MiniDiffOverChange = { bg = '#fff3cd' },  -- Changed lines in overlay
+    MiniDiffSignDelete = { fg = colors.diff_delete, italic = true },
+    MiniDiffOverAdd = { bg = '#d4edda', bold = true },
+    MiniDiffOverChange = { bg = '#fff3cd' },
     MiniDiffOverContext = { bg = colors.bg_alt },
-    MiniDiffOverDelete = { bg = '#f8d7da', fg = colors.diff_delete },  -- Deleted in overlay
+    MiniDiffOverDelete = { bg = '#f8d7da', fg = colors.diff_delete, italic = true },
 
     -- ============================================================================
     -- PLUGIN SUPPORT

@@ -95,6 +95,14 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim) da" - delete around quotes (including quotes)
 (nvim) =i{ - auto-indent inside braces
 (nvim) gg=G - auto-indent entire file
+(nvim/treesitter) C-space - EXPAND selection to parent AST node (keep pressing!)
+(nvim/treesitter) BS - SHRINK selection back down (in visual mode)
+(nvim/treesitter) vaf/daf/yaf - select/delete/yank AROUND function
+(nvim/treesitter) vif/dif/yif - select/delete/yank INSIDE function
+(nvim/treesitter) vat/dat - select/delete around HTML tag (whole element)
+(nvim/treesitter) vit/dit - select/delete inside tag (just contents)
+(nvim/treesitter) vaa/via - select around/inside argument (function params)
+(motorcycle) C-space is semantic zoom - not lines, not chars, MEANING
 (nvim/telescope) <leader>fk - search all keymaps/keybindings
 (nvim/telescope) <leader>fo - oldfiles (recent files)
 (nvim/telescope) <leader>fm - jump to bookmarks/marks
