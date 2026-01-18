@@ -56,18 +56,4 @@ return {
     end,
   },
 
-  -- Minimal diff view (disabled: using claude-code-workflow.lua config instead)
-  {
-    "sindrets/diffview.nvim",
-    enabled = false,
-    cmd = { "DiffviewOpen", "DiffviewClose", "DiffviewToggleFiles" },
-    opts = {
-      enhanced_diff_hl = false,
-      use_icons = false,
-      signs = {
-        fold_closed = "▸",
-        fold_open = "▾",
-      },
-    },
-  },
 }

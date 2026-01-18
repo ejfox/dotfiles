@@ -6,10 +6,10 @@ r - (zsh) recent files across ALL ~/code projects
 tips - (zsh) search this cheatsheet with fzf
 note <text> - (zsh) quick capture to Obsidian inbox.md
 yy - (zsh) re-run last command and copy its output
-ask <question> - (zsh) ask LLM about clipboard contents (e.g. "ask what does this do")
-explain - (zsh) re-run last command, pipe output to LLM for explanation
+ask <question> - (zsh) ask LLM about clipboard contents
+explain - (zsh) re-run last command, pipe to LLM
 ding - (zsh) macOS notification + sound (use: long_command; ding)
-gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
+gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
 (nvim/oil) g. - toggle hidden files
@@ -20,7 +20,7 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (tmux) C-a K - yazi file manager popup
 (tmux) C-a ? - THIS CHEATSHEET (searchable popup)
 (tmux) C-a S - scratch terminal toggle (persistent)
-(tmux) C-a F - tmux-fzf launcher (interactive search for sessions/windows/panes)
+(tmux) C-a F - tmux-fzf launcher (sessions/windows/panes)
 (tmux) C-\ - tmux-menus (visual TUI for all tmux functions)
 (tmux) C-a C-y - yank entire pane scrollback to clipboard
 (tmux) C-a M-y - yank last 200 lines to clipboard
@@ -29,10 +29,10 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (tmux) M-v - INSTANT copy visible portion only
 (tmux) C-a e - open visible pane in nvim (searchable)
 (tmux) C-a E - open entire scrollback in nvim
-(tmux) C-a P - capture pane to tmux buffer (then C-a ] to paste elsewhere)
+(tmux) C-a P - capture pane to buffer (C-a ] to paste)
 (tmux) C-a N - quick note prompt → appends to Obsidian inbox.md
-(tmux) C-a Space - enter copy mode (easier than C-a [, use v to select, y to yank)
-(tmux) Shift+Left/Right - previous/next window (NO PREFIX! huge time saver)
+(tmux) C-a Space - copy mode (v=select, y=yank)
+(tmux) Shift+Left/Right - prev/next window (NO PREFIX!)
 (tmux) C-a > - swap pane down
 (tmux) C-a < - swap pane up
 (tmux) C-a H/J/K/L - resize pane left/down/up/right
@@ -48,7 +48,7 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (tmux) C-a C-f - find and switch to session by name
 (tmux) C-a Z - zen mode toggle
 (tmux) status bar shows ◼ when prefix is active
-(nvim/tmux) C-h/j/k/l - seamless navigation between nvim splits AND tmux panes
+(nvim/tmux) C-h/j/k/l - navigate nvim splits + tmux panes
 (nvim) gai - incoming calls (who calls this function)
 (nvim) gao - outgoing calls (what does this function call)
 (nvim) <leader>ss - document symbols (outline of current file)
@@ -56,10 +56,6 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim) <leader>Z - zen mode toggle (distraction-free writing)
 (nvim/telescope) C-_ - opens file in vertical split
 (nvim/telescope) <c-d> in buffer picker - delete buffer
-(nvim/dap) <leader>db - toggle breakpoint
-(nvim/dap) <leader>dc - start/continue debugging
-(nvim/dap) <leader>du - toggle debug UI
-(nvim/kulala) Enter in .http files - execute request
 (nvim/surround) ysiw" - surround inner word with quotes
 (nvim/surround) yss) - surround entire line with parentheses
 (nvim/surround) ds" - delete surrounding quotes
@@ -95,13 +91,13 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim) da" - delete around quotes (including quotes)
 (nvim) =i{ - auto-indent inside braces
 (nvim) gg=G - auto-indent entire file
-(nvim/treesitter) C-space - EXPAND selection to parent AST node (keep pressing!)
+(nvim/treesitter) C-space - expand selection to parent node
 (nvim/treesitter) BS - SHRINK selection back down (in visual mode)
 (nvim/treesitter) vaf/daf/yaf - select/delete/yank AROUND function
 (nvim/treesitter) vif/dif/yif - select/delete/yank INSIDE function
-(nvim/treesitter) vat/dat - select/delete around HTML tag (whole element)
+(nvim/treesitter) vat/dat - select/delete around HTML tag
 (nvim/treesitter) vit/dit - select/delete inside tag (just contents)
-(nvim/treesitter) vaa/via - select around/inside argument (function params)
+(nvim/treesitter) vaa/via - select around/inside argument
 (motorcycle) C-space is semantic zoom - not lines, not chars, MEANING
 (nvim/telescope) <leader>fk - search all keymaps/keybindings
 (nvim/telescope) <leader>fo - oldfiles (recent files)
@@ -120,10 +116,10 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (tmux/copy-mode) G - go to bottom
 (tmux/copy-mode) C-u / C-d - half page up/down
 (tmux/copy-mode) Escape - cancel and exit
-(git) git worktree add ../feature-name feature-branch - work on multiple branches simultaneously
+(git) git worktree add ../name branch - multiple branches
 (git) git worktree list - see all active worktrees
 (git) git worktree remove ../feature-name - remove worktree
-(git) worktrees: work on PR in one pane, develop in another, no stashing
+(git) worktrees: PR in one pane, develop in another
 (zsh) cl - claude --dangerously-skip-permissions
 (zsh) cln - claude --no-approval (maximum velocity)
 (zsh) clc - claude commit (AI writes your git messages)
@@ -133,8 +129,8 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (zsh) yy - yalc commands without the npx dance
 (zsh) ..2 - go up two directories
 (zsh) ..3 - go up three directories
-(sketchybar) CIPHER coach shows when no calendar events in next 4 hours
-(nvim) capital letter marks (mA) are GLOBAL across files, lowercase (ma) are file-local
+(sketchybar) CIPHER coach shows when no events in 4hrs
+(nvim) mA = GLOBAL mark (across files), ma = file-local
 (nvim/oil) - opens oil (parent dir)
 (lazygit) space = stage, c = commit, P = push, ? = help
 (yazi) enter = open, space = select, . = hidden, z = frecency jump
@@ -209,18 +205,13 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (nvim/copilot) C-l - accept one line
 (nvim/copilot) C-] - dismiss suggestion
 (nvim/copilot) M-Enter - open panel (browse 3 suggestions)
-(nvim/diffview) space g d - open git diff view (review Claude Code changes)
-(nvim/diffview) space g h - file history for current file
-(nvim/diffview) space g c - close diffview
-(nvim/diffview) ]c / [c - jump between changes in diff
-(nvim/diffview) Tab - cycle through files in diff
-(nvim/diffview) do - obtain (accept) change from other side
-(nvim/diffview) dp - put (apply) change to other side
-(nvim/claude) space y r - yank selection with relative path (paste in Claude Code)
+(nvim/snacks-git) space g d - git diff (hunks) picker
+(nvim/snacks-git) space g s - git status picker
+(nvim/snacks-git) space g D - git diff against origin
+(nvim/claude) space y r - yank with relative path
 (nvim/claude) space y a - yank selection with absolute path
 (nvim/hotreload) files auto-reload when Claude Code edits them
 (nvim/hotreload) won't reload if you have unsaved changes (safe!)
-(nvim/hotreload) diffview auto-refreshes when Claude Code commits
 (nvim/telescope) ctrl-q - send results to quickfix
 (nvim/telescope) tab - select multiple
 (nvim/telescope) ctrl-x - open in split
@@ -245,20 +236,20 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (zsh) openv "Item" - export all fields as ENV vars
 (zsh) opsavedb "Title" host user pass - save new DB creds to 1Password
 (1p) op read "op://Vault/Item/field" - read secret in scripts
-(1p) op inject -i .env.template -o .env - inject secrets into templates
-(1p) op run --env-file=.env.op -- npm start - inject secrets for any command
+(1p) op inject -i .env.template -o .env - inject secrets
+(1p) op run --env-file=.env.op -- cmd - inject for cmd
 (1p) op item get "Item" --format=json | jq - full item as JSON
-(combo) tailscale up && vpsdb - connect to VPS db over tailnet securely
-(combo) store tailscale hostnames in 1Password (names don't change, IPs do)
+(combo) tailscale up && vpsdb - VPS db over tailnet
+(combo) store tailscale hostnames in 1Password
 (zsh) vps - connects with mosh (auto-installs on first run)
 (zsh) vpsreconnect - respawn pane with reconnect
 (zsh) sshkeepalive <host> - auto-reconnect loop
 (tmux) C-a R - respawn pane (instant reconnect)
-(ssh) ControlMaster multiplexes connections (instant subsequent connects)
+(ssh) ControlMaster multiplexes (instant reconnects)
 (mosh) survives: laptop sleep, wifi changes, IP changes, network drops
 (wisdom) never echo passwords to terminal, use opcp instead
 (wisdom) .env files are for non-secrets, 1Password is for secrets
-(wisdom) connection strings > individual fields (one copy-paste to connect)
+(wisdom) connection strings > individual fields
 (vibe) you're building something cool right now
 (vibe) take a breath, stretch your wrists
 (vibe) small commits > big commits
@@ -269,19 +260,19 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (vibe) have you pushed your work lately?
 (vibe) drink water
 (vibe) the best code is the code you delete
-(workflow) nvim left pane (manual coding) + Claude Code right pane (big refactors)
-(workflow) Tab accepts ghost text, ]s cycles suggestions, space g d reviews changes
-(workflow) select code, space y r, paste in Claude Code (it knows the file!)
-(reading) the professional concentrates on the work and allows rewards to come or not come
-(reading) the most important thing about art is to work. nothing else matters except sitting down every day and trying
-(reading) when we sit down and work, we become like a magnetized rod that attracts iron filings
-(reading) the more important a call is to our soul's evolution, the more Resistance we will feel
+(workflow) nvim left pane + Claude Code right pane
+(workflow) Tab=ghost text, ]s=suggestions, space g d=diff
+(workflow) select code, space y r, paste in Claude Code
+(reading) concentrate on work, let rewards come or not
+(reading) sit down every day and try. nothing else matters
+(reading) work makes you a magnet that attracts filings
+(reading) more important = more Resistance you'll feel
 (reading) who knows doesn't talk. who talks doesn't know.
 (reading) to live till you die is to live long enough.
 (reading) noise is any pattern we don't understand.
 (reading) life doesn't happen along interstates. it's against the law.
-(reading) ego stories come naturally because uncertainty is frightening.
-(reading) the love that lasts the longest is the love that is never returned.
+(reading) ego stories: uncertainty is frightening
+(reading) love that lasts longest is never returned
 (reading) the first line of attack in this campaign was poetry.
 (reading) be broken to be whole.
 (reading) bullshit is not a modern invention.
@@ -295,58 +286,70 @@ gist - (zsh) create GitHub gist from clipboard (gist filename.py "description")
 (reading) not everyone wants to get better.
 (reading) by intention, everyone would be in one another's way.
 (reading) in some ways, my moods did and did not exist.
-(reading) today mankind is locked into stealing ravenously from the future.
+(reading) mankind steals ravenously from the future
 (reading) their lack of planning does not make it your emergency.
 (reading) to run things, be undiplomatic.
 (reading) the wise person acts but does not take credit.
 (reading) we can't actually be aware unless we pay attention.
 (reading) the professional cannot live like that. he is on a mission.
-(strudel.nvim) :StrudelLaunch - opens Strudel in browser, syncs with current buffer
+(strudel.nvim) :StrudelLaunch - opens in browser, syncs
 (strudel.nvim) :StrudelToggle - play/stop playback
-(strudel.nvim) :StrudelUpdate - evaluate/update code (hear changes without stopping)
+(strudel.nvim) :StrudelUpdate - eval code (hear changes)
 (strudel.nvim) :StrudelQuit - close browser session
-(strudel.nvim) edit in nvim OR browser - changes sync both ways automatically
+(strudel.nvim) edit in nvim OR browser - syncs both ways
 (strudel.nvim) cursor syncs in real-time between nvim and browser
 (strudel.nvim) evaluation errors show as nvim notifications
 (strudel.nvim) works with .str and .std file extensions
 (strudel.nvim) hydra integration - live code visuals from nvim
 (strudel.nvim) uses Puppeteer + Chromium for browser automation
 (strudel.nvim) prereqs: neovim 0.9+, node 16+, chromium-based browser
-(strudel.nvim) install: { "gruvw/strudel.nvim", build = "npm ci", config = function() require("strudel").setup() end }
+(strudel.nvim) github.com/gruvw/strudel.nvim
 (strudel.nvim) github: https://github.com/gruvw/strudel.nvim
 (obs) obs print <file> - get note content from Obsidian vault
 (obs) obs search <term> - fuzzy search vault note titles
 (obs) obs content <term> - search within note contents
-(obs) obs export-ready - bulk export notes from year folders (not /drafts/)
+(obs) obs export-ready - bulk export from year folders
 (obs) obs export-by-tag <tag> - export all notes with specific tag
 (obs) obs tags - list all tags in vault with frequency count
 (obs) obs daily - create or open today's daily note
 (obs) obs open <file> - open note in Obsidian GUI
-(pub) pub status - full publishing dashboard (vault stats, site health, git status)
+(pub) pub status - publishing dashboard
 (pub) pub import - run import pipeline (Obsidian → website2)
 (pub) pub watch - watch vault for changes and auto-import to website2
 (pub) pub publish - full workflow: import → build → git push
-(pub) pub preview <type> - preview posts by type (blog, robot, weeknote)
+(pub) pub preview <type> - preview posts by type
 (pub) pub info <file> - show metadata for a file
-(obsidian) export-ready = notes in year folders (2025/, 2024/), NOT in /drafts/
+(obsidian) export-ready = year folders, NOT /drafts/
 (obsidian) location-based = simple to understand, enforces workflow
-(obsidian) hotkeys/plugins/css are symlinked to ~/.dotfiles/.obsidian-config/ (git-controlled)
+(obsidian) config symlinked to ~/.dotfiles/.obsidian-config/
 (obsidian) any keybind changes auto-version-control in dotfiles
-(obsidian) obs/pub commands bridge Obsidian ↔ website2 publishing pipeline
-(workflow) write in Obsidian → obs print to preview → pub publish to deploy
-(workflow) pub status shows everything: vault, git, site health, response times
-(vibe) Obsidian is your brain. Website2 is your voice. Keep them in sync.
+(obsidian) obs/pub bridge Obsidian ↔ website2
+(workflow) Obsidian → obs print → pub publish
+(workflow) pub status = vault + git + site health
+(vibe) Obsidian = brain, Website2 = voice
 (vibe) small changes ship instantly with pub watch
 (vibe) nothing is lost - everything versions in git
-(pipeline) scrap list -limit 20 | jq -r '.[].content' | llm "Synthesize into key insights" - process scraps with AI
-(pipeline) obs print "drafts/idea.md" | llm -s "Expand into 3 angles" | scrap save --title "Expanded" - enhance notes with Claude
-(pipeline) scraps --tag "research" | jq -r '.[].content' | llm "Create blog outline" | obs create "blog/outline.md" - scrap → article
-(pipeline) obs print "blog/*.md" | while read f; do llm -s "Quality 1-10?"; done - batch quality check all drafts
-(pipeline) pub status && obs search "status:ready" | llm "Which should I publish first?" - AI-powered priority queue
-(pipeline) scraps | jq -r '.[].tags[]' | sort -u | while read tag; do obs tags | grep -q "$tag" || echo "Gap: $tag"; done - find content gaps
-(pipeline) find ~/.obsidian/robots -name "*.md" -mtime -7 | xargs -I {} obs print {} | llm "Weekly synthesis" | scrap save - weekly digest
-(pipeline) for note in $(obs export-ready); do llm -s "Quality check this" | obs create "reviews/$note.md"; done - async review queue
-(wisdom) a computer is a meta-tool — a tool for making tools. defaults are for everyone, meaning no one. yours should be useless to others, perfect for you.
-(weeknotes) screenshots auto-append to YYYY-WW-raw.md (private), actual writing goes to YYYY-WW.md (publishable)
-(weeknotes) Friday ritual: open -raw.md, write 3 sentences in main file from memory while looking at screenshots
-(zsh) btop - beautiful system monitor (CPU, RAM, network, processes) - run it, it's sexy
+(pipeline) scrap list | jq | llm "synthesize" - AI scraps
+(pipeline) obs print | llm "expand" | scrap save
+(pipeline) scraps --tag X | llm "outline" | obs create
+(pipeline) obs print | llm "quality 1-10?" - batch check
+(pipeline) obs search "ready" | llm "publish first?"
+(pipeline) scraps tags vs obs tags - find content gaps
+(pipeline) find recent .md | llm "weekly synthesis"
+(pipeline) obs export-ready | llm "quality check"
+(wisdom) defaults are for everyone = no one. yours only
+(weeknotes) screenshots → raw.md, writing → main.md
+(weeknotes) Friday: raw.md → write 3 sentences from memory
+(zsh) btop - beautiful system monitor, run it
+(nvim/paste) ]p - paste with auto-adjusted indent
+(nvim/paste) [p - paste above with auto-adjusted indent
+(nvim/paste) gp - paste, cursor ends AFTER text
+(nvim/paste) P - paste before cursor (vs p after)
+(nvim/paste) :pu - paste on new line below
+(nvim/paste) :pu! - paste on new line above
+(nvim/paste) o<Esc>p - new line below, then paste
+(nvim/snacks-git) <Tab> - stage/unstage file or hunk
+(nvim/snacks-git) <C-r> - restore (discard changes)
+(nvim/snacks-git) <C-j>/<C-k> - navigate results while in search input
+(nvim/snacks-git) <C-n>/<C-p> - also navigate results
+(nvim/snacks-git) g? - show help for current picker

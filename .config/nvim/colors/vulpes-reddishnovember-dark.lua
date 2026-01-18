@@ -157,8 +157,8 @@ function M.setup()
     -- ============================================================================
     -- CORE SYNTAX HIGHLIGHTING
     -- ============================================================================
-    Comment = { fg = colors.comment },
-    SpecialComment = { fg = colors.comment },
+    Comment = { fg = colors.comment, italic = true },
+    SpecialComment = { fg = colors.comment, italic = true },
 
     Constant = { fg = colors.const },
     String = { fg = colors.string },

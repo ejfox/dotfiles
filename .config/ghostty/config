@@ -6,6 +6,7 @@ background-opacity-cells = true
 background-blur-radius = 20
 bold-is-bright = false 
 font-family = MonaspiceKr Nerd Font
+font-family-italic = MonaspiceRn Nerd Font
 
 # Auto-switch between light and dark themes based on system preference
 # Options: catppuccin (blue), vulpes_reddish2 (red), vulpes-reddishnovember (new)
@@ -45,19 +46,25 @@ clipboard-write = allow
 clipboard-paste-protection = false
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SHADERS - from hackr-sh/ghostty-shaders (battle-tested)
+# SHADERS - Reload with Cmd+Shift+R
 # ═══════════════════════════════════════════════════════════════════════════
-# Order matters: they stack. Reload with Cmd+Shift+,
-# Originals from: https://github.com/hackr-sh/ghostty-shaders
+# Order matters: they stack. Comment/uncomment sections to switch modes.
 
-# VULPES CLASSIC: subtle glow + pixel overlay + retro vignette
-# Reload with Cmd+Shift+R
 custom-shader-animation = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ACTIVE STACK: Vulpes Classic
+# ─────────────────────────────────────────────────────────────────────────────
 custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
 custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-vulpes.glsl
 
-# ─── DISABLED (uncomment to re-enable) ───
-# custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl
-# custom-shader = /Users/ejfox/.config/ghostty/shaders/phosphor-chromatic-vulpes.glsl
-# custom-shader = /Users/ejfox/.config/ghostty/shaders/debug-time-display-text.glsl
+# ─────────────────────────────────────────────────────────────────────────────
+# EXTRAS (stuff we tried, keeping for later)
+# ─────────────────────────────────────────────────────────────────────────────
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/bettercrt.glsl          # subtle CRT curves
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-wide-soft.glsl    # big soft glow
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/synesthaxia.glsl        # color-sampling cursor
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/cursor-blaze-vulpes.glsl # hot pink trail
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/scanline-flicker.glsl   # gentle CRT pulse
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/glitchy.glsl            # CHAOS MODE
