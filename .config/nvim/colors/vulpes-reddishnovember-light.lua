@@ -425,8 +425,8 @@ function M.setup()
     SnacksPickerBorder = { fg = colors.base },      -- picker border (vulpes pink)
     SnacksPickerTitle = { fg = colors.base, bold = true },  -- picker title
 
-    -- Snacks explorer
-    ExplorerNormal = { fg = colors.fg, bg = colors.bg },
+    -- Snacks explorer (transparent, uses terminal bg)
+    ExplorerNormal = { fg = colors.fg, bg = 'none' },
 
     -- Snacks indent guides
     SnacksIndent = { fg = '#e0d8dc' },
