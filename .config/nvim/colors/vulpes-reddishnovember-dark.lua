@@ -25,11 +25,11 @@ function M.setup()
     info = '#ff0095',
     hint = '#ff4d9d',
 
-    -- Diff-specific colors (traditional green/red for instant recognition)
-    diff_add = '#00ff66',      -- Pure neon green
-    diff_delete = '#ff5555',   -- Soft red (not too close to vulpes pink)
-    diff_change = '#ffaa00',   -- Orange/yellow for changes
-    diff_text = '#8be9fd',     -- Cyan for changed text within line
+    -- Diff colors (HCL-harmonized with vulpes base hue ~340°)
+    diff_add = '#b4d455',      -- Warm chartreuse (Hue ~85°) - harmonious yellow-green
+    diff_delete = '#c44569',   -- Dusty rose-burgundy (Hue ~350°) - cooler, vulpes kin
+    diff_change = '#ffaa00',   -- Orange/yellow for changes (already harmonious)
+    diff_text = '#e8b4c8',     -- Soft pink for changed text (vulpes family)
 
     comment = '#6eedf7',    -- Lighter teal comments
     linenr = '#735865',
@@ -401,19 +401,19 @@ function M.setup()
     GitSignsAddNr = { fg = colors.diff_add },
     GitSignsChangeNr = { fg = colors.diff_change },
     GitSignsDeleteNr = { fg = colors.diff_delete },
-    GitSignsAddLn = { bg = '#1a3d2a' },  -- Subtle green bg
+    GitSignsAddLn = { bg = '#252d1a' },  -- Subtle chartreuse bg (matches new diff_add)
     GitSignsChangeLn = { bg = '#3d3a1a' },  -- Subtle yellow bg
-    GitSignsDeleteLn = { bg = '#3d1a1a' },  -- Subtle red bg
+    GitSignsDeleteLn = { bg = '#2d1a25' },  -- Subtle rose bg (matches new diff_delete)
     GitSignsCurrentLineBlame = { fg = colors.comment },
 
     -- mini.diff
     MiniDiffSignAdd = { fg = colors.diff_add, bold = true },
     MiniDiffSignChange = { fg = colors.diff_change },
     MiniDiffSignDelete = { fg = colors.diff_delete, italic = true },
-    MiniDiffOverAdd = { bg = '#1a3d2a', bold = true },
+    MiniDiffOverAdd = { bg = '#252d1a', bold = true },  -- Chartreuse tint
     MiniDiffOverChange = { bg = '#3d3a1a' },
     MiniDiffOverContext = { bg = colors.bg_alt },
-    MiniDiffOverDelete = { bg = '#3d1a1a', fg = colors.diff_delete, italic = true },
+    MiniDiffOverDelete = { bg = '#2d1a25', fg = colors.diff_delete, italic = true },  -- Rose tint
 
     -- ============================================================================
     -- PLUGIN SUPPORT
@@ -436,6 +436,10 @@ function M.setup()
     SnacksPickerPathIgnored = { fg = colors.linenr }, -- ignored files
     SnacksPickerMatch = { fg = colors.warning },    -- search matches
     SnacksPickerPrompt = { fg = colors.base },      -- prompt icon
+    SnacksPickerSelected = { bg = '#3d1a2d' },      -- vulpes rose selection bg
+    SnacksPickerCurrent = { bg = '#2d1525' },       -- current item (subtle rose tint)
+    SnacksPickerBorder = { fg = colors.base },      -- picker border (vulpes pink)
+    SnacksPickerTitle = { fg = colors.base, bold = true },  -- picker title
 
     -- nvim-cmp
     CmpItemAbbrDeprecated = { fg = colors.comment, strikethrough = true },
