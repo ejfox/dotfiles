@@ -1,0 +1,148 @@
+#!/bin/bash
+# =============================================================================
+# DOTFILES SECURITY AUDIT
+# =============================================================================
+# Run this periodically to check for secrets that shouldn't be here.
+# Usage: dotfiles-audit
+# =============================================================================
+
+set -e
+cd ~/.dotfiles
+
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo -e "${CYAN}◆ DOTFILES SECURITY AUDIT${NC}"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+
+ISSUES=0
+
+# -----------------------------------------------------------------------------
+# CHECK 1: Dangerous files in repo
+# -----------------------------------------------------------------------------
+echo -e "${CYAN}[1/4] Checking for dangerous files in git...${NC}"
+
+DANGEROUS_FILES=$(git ls-files | grep -E '\.netrc|\.authinfo|\.pgpass|credentials|\.pem$|\.key$|id_rsa|id_ed25519|id_ecdsa|electrum|bitcoin|ethereum|\.httpie|\.aws|\.docker/config' 2>/dev/null || true)
+
+if [ -n "$DANGEROUS_FILES" ]; then
+    echo -e "${RED}✗ Found potentially dangerous files tracked in git:${NC}"
+    echo "$DANGEROUS_FILES" | while read f; do echo "  - $f"; done
+    ISSUES=$((ISSUES + 1))
+else
+    echo -e "${GREEN}✓ No dangerous files tracked${NC}"
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# CHECK 2: API keys in tracked files
+# -----------------------------------------------------------------------------
+echo -e "${CYAN}[2/4] Scanning tracked files for API key patterns...${NC}"
+
+# Only scan text files that are tracked
+TRACKED_FILES=$(git ls-files)
+FOUND_SECRETS=0
+
+for file in $TRACKED_FILES; do
+    if [ -f "$file" ] && file "$file" 2>/dev/null | grep -q "text"; then
+        # Check for various API key patterns
+        if grep -qE 'sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|AKIA[0-9A-Z]{16}|rpcpassword|BEGIN.*PRIVATE KEY' "$file" 2>/dev/null; then
+            echo -e "${RED}✗ Potential secret in: $file${NC}"
+            FOUND_SECRETS=1
+            ISSUES=$((ISSUES + 1))
+        fi
+    fi
+done
+
+if [ $FOUND_SECRETS -eq 0 ]; then
+    echo -e "${GREEN}✓ No API keys detected in tracked files${NC}"
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# CHECK 3: Git history check (lightweight)
+# -----------------------------------------------------------------------------
+echo -e "${CYAN}[3/4] Quick git history check (last 50 commits)...${NC}"
+
+# Check if any commits touched dangerous files
+HISTORY_ISSUES=$(git log --oneline --name-only -50 | grep -E '\.netrc|credentials|\.pem$|\.key$|electrum|bitcoin' | head -5 || true)
+
+if [ -n "$HISTORY_ISSUES" ]; then
+    echo -e "${YELLOW}⚠ Found references to sensitive files in recent history:${NC}"
+    echo "$HISTORY_ISSUES"
+    echo -e "${YELLOW}  Consider scrubbing with: bfg --delete-files <pattern>${NC}"
+    ISSUES=$((ISSUES + 1))
+else
+    echo -e "${GREEN}✓ No sensitive files in recent history${NC}"
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# CHECK 4: .gitignore coverage
+# -----------------------------------------------------------------------------
+echo -e "${CYAN}[4/4] Checking .gitignore coverage...${NC}"
+
+MISSING_IGNORES=()
+SHOULD_IGNORE=(
+    ".netrc"
+    ".electrum/"
+    ".httpie/"
+    ".aws/credentials"
+    ".docker/config.json"
+)
+
+for pattern in "${SHOULD_IGNORE[@]}"; do
+    if ! grep -q "$pattern" .gitignore 2>/dev/null; then
+        MISSING_IGNORES+=("$pattern")
+    fi
+done
+
+if [ ${#MISSING_IGNORES[@]} -gt 0 ]; then
+    echo -e "${YELLOW}⚠ Missing from .gitignore:${NC}"
+    for p in "${MISSING_IGNORES[@]}"; do
+        echo "  - $p"
+    done
+    ISSUES=$((ISSUES + 1))
+else
+    echo -e "${GREEN}✓ .gitignore covers common sensitive paths${NC}"
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# CHECK 5: Pre-commit hook
+# -----------------------------------------------------------------------------
+echo -e "${CYAN}[5/5] Checking pre-commit hook...${NC}"
+
+HOOKS_PATH=$(git config core.hooksPath 2>/dev/null || echo ".git/hooks")
+if [ -x "$HOOKS_PATH/pre-commit" ]; then
+    echo -e "${GREEN}✓ Pre-commit hook is installed and executable${NC}"
+else
+    echo -e "${YELLOW}⚠ Pre-commit hook not found or not executable${NC}"
+    echo "  Install with: git config core.hooksPath .githooks"
+    ISSUES=$((ISSUES + 1))
+fi
+echo ""
+
+# -----------------------------------------------------------------------------
+# SUMMARY
+# -----------------------------------------------------------------------------
+echo "════════════════════════════════════════════════════════════════"
+if [ $ISSUES -gt 0 ]; then
+    echo -e "${YELLOW}◆ Found $ISSUES issue(s) to review${NC}"
+else
+    echo -e "${GREEN}◆ All checks passed - dotfiles look clean${NC}"
+fi
+echo ""
+
+# Bonus: remind about history scrubbing
+if [ $ISSUES -gt 0 ]; then
+    echo "To fully scrub git history, use BFG Repo-Cleaner:"
+    echo "  brew install bfg"
+    echo "  bfg --delete-files .netrc ~/.dotfiles"
+    echo "  cd ~/.dotfiles && git reflog expire --expire=now --all && git gc --prune=now --aggressive"
+    echo "  git push --force"
+    echo ""
+fi

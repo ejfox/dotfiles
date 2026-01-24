@@ -1,37 +1,134 @@
-# Secrets and credentials
-.env
-.env.*
-*.key
-*.pem
-*.p12
-*.pfx
+# =============================================================================
+# DOTFILES GITIGNORE - SECURITY FIRST
+# =============================================================================
+# Rule: If a file COULD contain secrets, it should NOT be in this repo.
+# Instead, symlink from ~/.secrets/ or use .example templates.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CREDENTIAL FILES - NEVER COMMIT THESE
+# -----------------------------------------------------------------------------
+# Network/API credentials
+.netrc
+.authinfo
+.authinfo.gpg
+
+# SSH keys and configs with secrets
 *_rsa
 *_dsa
 *_ed25519
-claude.json
+*_ecdsa
+*.pem
+*.key
+*.p12
+*.pfx
+id_*
+known_hosts
 
-# Application configs that may contain secrets
+# Environment files (use .env.example templates instead)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Cloud provider credentials
+.aws/credentials
+.aws/config
+.gcloud/
+.azure/
+.oci/
+credentials.json
+*credentials*.json
+*-credentials.json
+
+# API tokens and secrets
+*.secret
+*.secrets
+*secret*
+*token*
+!*.secrets.example
+
+# Claude/AI tool secrets
+claude.json
+.claude-secrets
+
+# -----------------------------------------------------------------------------
+# APPLICATION CONFIGS THAT CONTAIN CREDENTIALS
+# -----------------------------------------------------------------------------
+# Crypto wallets - NEVER EVER
+.electrum/
+.bitcoin/
+.ethereum/
+.gnupg/private-keys*
+.gnupg/secring*
+
+# Docker (may contain registry auth)
+.docker/config.json
+.docker/credentials
+
+# Package managers (may contain registry tokens)
 .npmrc
 .yarnrc
-.docker/config.json
+.yarnrc.yml
+.pip/pip.conf
+.pypirc
+.gem/credentials
+.cargo/credentials
+.cargo/credentials.toml
 
-# Local configs
+# HTTP clients (may contain saved auth)
+.httpie/
+.insomnia/
+.postman/
+.hurl/
+
+# Database clients
+.pgpass
+.my.cnf
+.psqlrc
+
+# Cloud CLIs
+.netlify/
+.vercel/
+.railway/
+.fly/
+.heroku/
+
+# Chat/communication
+.irssi/config  # May contain server passwords
+.weechat/sec.conf
+
+# Git credentials (managed by credential helper, not dotfiles)
+.git-credentials
+
+# -----------------------------------------------------------------------------
+# SAFE TO IGNORE - NOT SECURITY RELATED
+# -----------------------------------------------------------------------------
+# Local overrides (personal, not shareable)
 .tmux.conf.local
+*.local
 
-# Build/deploy artifacts
-.netlify
+# Build artifacts
 node_modules/
 dist/
 build/
+.next/
+.nuxt/
 
-# macOS application state (should never be in dotfiles)
+# macOS
 Library/
 *.app/
 .DS_Store
 .Trash/
 
-# Temporary files
+# Editor temps
 *.swp
 *.swo
 *~
 .*.tmp
+*.bak
+*.backup
+
+# Logs
+*.log
+logs/
