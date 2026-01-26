@@ -1,0 +1,31 @@
+#!/bin/bash
+# usage-log - Append a JSON event to the appropriate log file
+# Usage: usage-log <source> <event_type> [key=value ...]
+#
+# Example: usage-log tmux pane_switch pane_id=%1 window=main
+# Output: {"ts":"2025-01-24T14:32:01-05:00","src":"tmux","evt":"pane_switch","pane_id":"%1","window":"main"}
+
+SOURCE="$1"
+EVENT="$2"
+shift 2
+
+LOG_DIR="$HOME/.local/share/usage-logs/$SOURCE"
+LOG_FILE="$LOG_DIR/$(date +%Y-%m-%d).jsonl"
+
+# Build JSON object
+JSON="{\"ts\":\"$(date -Iseconds)\",\"src\":\"$SOURCE\",\"evt\":\"$EVENT\""
+
+# Add any key=value pairs
+for arg in "$@"; do
+  key="${arg%%=*}"
+  val="${arg#*=}"
+  # Escape quotes in value
+  val="${val//\"/\\\"}"
+  JSON="$JSON,\"$key\":\"$val\""
+done
+
+JSON="$JSON}"
+
+# Append to log (create dir if needed)
+mkdir -p "$LOG_DIR"
+echo "$JSON" >> "$LOG_FILE"
