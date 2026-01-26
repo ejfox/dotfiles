@@ -4,7 +4,7 @@
 
 MUTAGEN_SCRIPT="/Users/ejfox/code/tmux-mutagen-indicator/mutagen-indicator.sh"
 
-[ ! -f "$MUTAGEN_SCRIPT" ] && echo " err " && exit 0
+[ ! -f "$MUTAGEN_SCRIPT" ] && exit 0
 
 export MUTAGEN_OUTPUT_FORMAT="sketchybar"
 export MUTAGEN_TMUX_SHOW_STATUS=0

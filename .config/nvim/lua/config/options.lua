@@ -1,13 +1,69 @@
 -- Options are automatically loaded before lazy.nvim startup
 -- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 -- Add any additional options here
+
+-- Disable OSC 52 clipboard entirely (avoids spam on refocus in tmux/ghostty)
+vim.g.clipboard = {
+  name = 'macOS-clipboard',
+  copy = {
+    ['+'] = 'pbcopy',
+    ['*'] = 'pbcopy',
+  },
+  paste = {
+    ['+'] = 'pbpaste',
+    ['*'] = 'pbpaste',
+  },
+  cache_enabled = true,
+}
+-- Explicitly disable OSC 52 (neovim 0.11+ feature)
+vim.g.clipboard_osc52 = false
+
+-- Sync default register with system clipboard (via pbcopy, no lag)
+vim.opt.clipboard = 'unnamedplus'
+
 vim.g.neovide_theme = "auto"
 vim.g.neovide_floating_shadow = false -- Cleaner floating windows
--- disable relative numbers
-vim.opt.relativenumber = false
+-- hybrid line numbers with periodic absolute references
+vim.opt.number = true
+vim.opt.relativenumber = true
+
+-- Highlight for absolute landmark numbers (white, not dim)
+vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#ffffff" })
+vim.api.nvim_create_autocmd("ColorScheme", {
+  callback = function()
+    if vim.o.background == "dark" then
+      vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#ffffff" })
+    else
+      vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#000000" })
+    end
+  end,
+})
+
+-- Custom statuscolumn: absolute every 10 lines, relative otherwise
+vim.opt.statuscolumn = "%!v:lua.StatusColumn()"
+
+_G.StatusColumn = function()
+  local lnum = vim.v.lnum
+  local cur = vim.fn.line(".")
+
+  -- Current line: white, absolute
+  if lnum == cur then
+    return "%#LineNrAbsolute#%=" .. lnum .. " "
+  end
+
+  -- Every 10th line: white, absolute
+  if lnum % 10 == 0 then
+    return "%#LineNrAbsolute#%=" .. lnum .. " "
+  end
+
+  -- Everything else: dim relative
+  return "%#LineNr#%=%{v:relnum} "
+end
 
 -- disable smooth scrolling
 vim.opt.smoothscroll = false
+
+-- Folding handled by nvim-ufo plugin (see plugins/nvim-ufo.lua)
 
 -- make it so space-e only toggles the explorer if its active
 -- vim.keymap.set("n", "<space>e", function()
@@ -69,13 +125,14 @@ vim.opt.signcolumn = "yes:1" -- Always show, but only 1 char wide
 
 -- Font to match your terminal
 vim.opt.guifont = "Monaspace Krypton:h13"
-vim.opt.clipboard = ""
+-- clipboard configured via vim.g.clipboard at top of file
 vim.opt.showbreak = "↪ " -- What wrapped lines show
 vim.opt.breakindent = true -- Wrapped lines match indent
 vim.opt.breakindentopt = "shift:2" -- But shifted a bit
 
 -- True color support for terminal
 vim.opt.termguicolors = true
+
 
 -- Make UI elements (statusline, tabline) transparent in light mode
 -- Editor backgrounds are handled by colorscheme.lua

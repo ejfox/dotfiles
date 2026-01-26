@@ -1,3 +1,39 @@
+-- ============================================================================
+-- LAZY.NVIM BOOTSTRAP & PLUGIN CONFIGURATION
+-- ============================================================================
+--
+-- Plugin files (19 total):
+--
+--   CORE UI
+--   ├── theming.lua        - Colorscheme, auto dark/light, twilight dimming
+--   ├── notifications.lua  - nvim-notify + noice routing
+--   ├── snacks.lua         - Dashboard + picker layouts
+--   └── minimal-*.lua      - Statusline, telescope config
+--
+--   EDITING
+--   ├── focus.lua          - Zen mode, prose mode
+--   ├── utilities.lua      - Surround, tmux-navigator, prettier
+--   ├── mini.lua           - Animations, inline diff
+--   └── nvim-ufo.lua       - Code folding
+--
+--   GIT
+--   └── git.lua            - Gitsigns, conflicts, oil git status
+--
+--   LSP/LANGUAGES
+--   ├── vue-lsp.lua        - Vue/Nuxt (vtsls + @vue/typescript-plugin)
+--   ├── svelte.lua         - Svelte LSP
+--   └── nvim-cmp-lean.lua  - Completion (LSP, buffer, path)
+--
+--   TOOLS
+--   ├── oil.lua            - File explorer
+--   ├── nvim-dap.lua       - Debugger
+--   ├── obsidian.lua       - Note-taking
+--   ├── copilot-inline.lua - AI suggestions
+--   ├── claude-code-workflow.lua - Copy code with paths
+--   └── usage-logging.lua  - Activity tracking
+--
+-- ============================================================================
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
@@ -16,36 +52,33 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
   spec = {
-    -- add LazyVim and import its plugins
+    -- LazyVim base
     { "LazyVim/LazyVim", import = "lazyvim.plugins" },
-    -- LazyVim extras
+
+    -- Language extras
     { import = "lazyvim.plugins.extras.lang.typescript" },
     { import = "lazyvim.plugins.extras.lang.vue" },
-    -- import/override with your plugins
+
+    -- User plugins (lua/plugins/*.lua)
     { import = "plugins" },
   },
+
   defaults = {
-    -- By default, only LazyVim plugins will be lazy-loaded. Your custom plugins will load during startup.
-    -- If you know what you're doing, you can set this to `true` to have all your custom plugins lazy-loaded by default.
     lazy = false,
-    -- It's recommended to leave version=false for now, since a lot the plugin that support versioning,
-    -- have outdated releases, which may break your Neovim install.
-    version = false, -- always use the latest git commit
-    -- version = "*", -- try installing the latest stable version for plugins that support semver
+    version = false,
   },
+
   install = { colorscheme = { "tokyonight", "habamax" } },
+
   checker = {
-    enabled = true, -- check for plugin updates periodically
-    notify = false, -- notify on update
-  }, -- automatically check for plugin updates
+    enabled = true,
+    notify = false,
+  },
+
   performance = {
     rtp = {
-      -- disable some rtp plugins
       disabled_plugins = {
         "gzip",
-        -- "matchit",
-        -- "matchparen",
-        -- "netrwPlugin",
         "tarPlugin",
         "tohtml",
         "tutor",
