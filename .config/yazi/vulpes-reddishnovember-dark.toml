@@ -82,6 +82,14 @@ desc    = { fg = "#ffffff" }
 hovered = { bg = "#1a1a1a", bold = true }
 footer  = { fg = "#ffffff", bg = "#1a1a1a" }
 
+# Git status colors (vulpes palette)
+[git]
+modified = { fg = "#ffaa00" }       # warning amber
+added    = { fg = "#b4d455" }       # git_add green (the ONE green)
+deleted  = { fg = "#c44569" }       # git_delete dusty rose
+ignored  = { fg = "#735865" }       # muted
+untracked = { fg = "#6eedf7" }      # teal like comments
+
 [filetype]
 
 rules = [

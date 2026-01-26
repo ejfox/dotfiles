@@ -172,3 +172,71 @@ desc = "Jump to bookmark 4"
 on = [ "b", "5" ]
 run = "plugin bookmarks --jump 5"
 desc = "Jump to bookmark 5"
+
+# Shell - tmux splits
+[[mgr.keymap]]
+on = [ "-" ]
+run = 'shell "tmux split-window -v -c $PWD" --confirm'
+desc = "Open horizontal tmux pane"
+
+[[mgr.keymap]]
+on = [ "_" ]
+run = 'shell "tmux split-window -h -c $PWD" --confirm'
+desc = "Open vertical tmux pane"
+
+# Lazygit popup (matches your tmux C-a g workflow)
+[[mgr.keymap]]
+on = [ "g" ]
+run = 'shell "lazygit" --block --confirm'
+desc = "Open lazygit"
+
+# Open in nvim
+[[mgr.keymap]]
+on = [ "e" ]
+run = 'shell "nvim $@" --block --confirm'
+desc = "Edit in nvim"
+
+# Copy path to clipboard
+[[mgr.keymap]]
+on = [ "Y" ]
+run = 'shell "echo -n $0 | pbcopy" --confirm'
+desc = "Copy path to clipboard"
+
+# Preview markdown with glow
+[[mgr.keymap]]
+on = [ "P" ]
+run = "plugin glow"
+desc = "Preview markdown with glow"
+
+# Git diff selected files
+[[mgr.keymap]]
+on = [ "D" ]
+run = "plugin diff"
+desc = "Diff selected files"
+
+# Extract archives with ouch
+[[mgr.keymap]]
+on = [ "X" ]
+run = "plugin ouch"
+desc = "Extract archive"
+
+# Quick jumps
+[[mgr.keymap]]
+on = [ "g", "c" ]
+run = "cd ~/code"
+desc = "Go to ~/code"
+
+[[mgr.keymap]]
+on = [ "g", "d" ]
+run = "cd ~/.dotfiles"
+desc = "Go to dotfiles"
+
+[[mgr.keymap]]
+on = [ "g", "o" ]
+run = "cd ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+desc = "Go to Obsidian vault"
+
+[[mgr.keymap]]
+on = [ "g", "~" ]
+run = "cd ~"
+desc = "Go home"

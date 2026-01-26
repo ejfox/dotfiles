@@ -13,23 +13,24 @@ local function split_label_filename(str)
     return first, rest
 end
 
-local function set_status_color(status)
-	if status == nil then
-		return "#6cc749"
-	elseif status == "M" then
-		return "#ec613f"
-	elseif status == "A" then
-		return "#ec613f"
-	elseif status == "." then
-		return "#ae96ee"
-	elseif status == "?" then
-		return "#D4BB91"
-	elseif status == "R" then
-		return "#ec613f"
-	else
-		return "#ec613f"
+-- Vulpes palette + oil.nvim style symbols
+local function get_status_symbol(status)
+	if status == nil then return "✓", "#b4d455"      -- clean (git_add green)
+	elseif status == "M" then return "!", "#ffaa00"  -- modified (warning amber)
+	elseif status == "A" then return "+", "#b4d455"  -- added (git_add green)
+	elseif status == "D" then return "✗", "#c44569"  -- deleted (dusty rose)
+	elseif status == "." then return "◌", "#735865"  -- ignored (muted)
+	elseif status == "?" then return "?", "#6eedf7"  -- untracked (teal)
+	elseif status == "R" then return "→", "#ffaa00"  -- renamed (amber)
+	elseif status == "U" then return "‼", "#ff0055"  -- conflict (hot pink)
+	else return status, "#ffaa00"
 	end
-	
+end
+
+-- Legacy function for compatibility
+local function set_status_color(status)
+	local _, color = get_status_symbol(status)
+	return color
 end
 
 local function make_git_table(git_status_str)
@@ -142,11 +143,11 @@ local M = {
 					git_status = nil
 				end
 			
-				local color = set_status_color(git_status)
+				local symbol, color = get_status_symbol(git_status)
 				if f:is_hovered() then
-					git_span = (git_status ) and ui.Span(git_status .." ") or ui.Span("✓ ")	
+					git_span = ui.Span(symbol .. " ")
 				else
-					git_span = (git_status) and ui.Span(git_status .." "):fg(color) or ui.Span("✓ "):fg(color)	
+					git_span = ui.Span(symbol .. " "):fg(color)
 				end
 			end
 			return git_span
