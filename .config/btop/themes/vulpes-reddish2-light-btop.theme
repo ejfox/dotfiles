@@ -1,53 +1,58 @@
 # vulpes-reddish2-light btop theme
-# Place in ~/.config/btop/themes/
-# Then set: color_theme = "vulpes-reddish2-light"
+# Light mode with dark text for readability
 
-theme[main_bg]="#f7f7f7"
-theme[main_fg]="#3b2b2b"
-theme[title]="#ef0050"
-theme[hi_fg]="#fe0022"
-theme[selected_bg]="#e6e6e6"
-theme[selected_fg]="#ff048a"
-theme[inactive_fg]="#a6a6a6"
-theme[graph_text]="#3b2b2b"
+# Main colors
+theme[main_bg]="#f5f5f5"
+theme[main_fg]="#2b2b2b"
+theme[title]="#cc0044"
+theme[hi_fg]="#dd0055"
+theme[selected_bg]="#ffddee"
+theme[selected_fg]="#aa0033"
+theme[inactive_fg]="#888888"
+theme[graph_text]="#2b2b2b"
+theme[meter_bg]="#dddddd"
+theme[proc_misc]="#aa0044"
 
-# Process colors
-theme[proc_misc]="#ea009c"
-theme[cpu_box]="#ef0050"
-theme[mem_box]="#ea005e"
-theme[net_box]="#ff048a"
-theme[proc_box]="#fe0022"
-theme[div_line]="#a6a6a6"
+# Box outlines
+theme[cpu_box]="#cc0044"
+theme[mem_box]="#bb0055"
+theme[net_box]="#aa0066"
+theme[proc_box]="#990044"
+theme[div_line]="#cccccc"
 
-# CPU graph colors
-theme[cpu_start]="#fe0022"
-theme[cpu_mid]="#ef0050"
-theme[cpu_end]="#ea009c"
+# CPU graph gradient
+theme[cpu_start]="#ffaacc"
+theme[cpu_mid]="#ee5588"
+theme[cpu_end]="#cc0044"
 
-# Memory graph colors
-theme[mem_start]="#ea005e"
-theme[mem_mid]="#ff048a"
-theme[mem_end]="#ea009c"
+# Memory colors
+theme[free_start]="#aaddaa"
+theme[free_mid]="#88cc88"
+theme[free_end]="#66aa66"
+theme[cached_start]="#aaccee"
+theme[cached_mid]="#88aadd"
+theme[cached_end]="#6688cc"
+theme[available_start]="#ddddaa"
+theme[available_mid]="#cccc88"
+theme[available_end]="#aaaa66"
+theme[used_start]="#ffccdd"
+theme[used_mid]="#ee99bb"
+theme[used_end]="#cc6699"
 
-# Network graph colors
-theme[net_start]="#ff048a"
-theme[net_mid]="#ea009c"
-theme[net_end]="#fe0022"
+# Process gradient
+theme[process_start]="#ffccdd"
+theme[process_mid]="#ee88aa"
+theme[process_end]="#cc4477"
 
-# Download/Upload
-theme[download_start]="#ff048a"
-theme[download_mid]="#ea009c"
-theme[download_end]="#ea005e"
-theme[upload_start]="#fe0022"
-theme[upload_mid]="#ef0050"
-theme[upload_end]="#ff048a"
+# Temperature gradient
+theme[temp_start]="#88ccff"
+theme[temp_mid]="#ffaa66"
+theme[temp_end]="#ff4444"
 
-# Process sorting
-theme[process_start]="#fe0022"
-theme[process_mid]="#ef0050"
-theme[process_end]="#ea009c"
-
-# Temp colors
-theme[temp_start]="#ff048a"
-theme[temp_mid]="#fe0022"
-theme[temp_end]="#ea009c"
+# Network
+theme[download_start]="#aaddff"
+theme[download_mid]="#66aadd"
+theme[download_end]="#3388bb"
+theme[upload_start]="#ffccdd"
+theme[upload_mid]="#ee88aa"
+theme[upload_end]="#cc4477"
