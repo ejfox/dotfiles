@@ -26,6 +26,8 @@
   "permissions": {
     "allow": [
       "Bash(curl:*)",
+      "Bash(codex:*)",
+      "Bash(codex --full-auto:*)",
       "mcp__things__things-today"
     ],
     "deny": []
