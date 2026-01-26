@@ -967,6 +967,61 @@ local timing_fast = animate.gen_timing.cubic({ duration = 60, unit = "total" })
 local timing_cursor = animate.gen_timing.cubic({ duration = 80, unit = "total" })
 ```
 
+## Codex CLI Delegation (Jan 26, 2026)
+**Status**: ✅ CONFIGURED - Use Codex as autonomous agent for focused tasks
+
+### When to Delegate to Codex
+
+Use `codex --full-auto` for tasks that are:
+- **Single-codebase focused** - Working within one project directory
+- **Well-defined scope** - Clear start/end, not exploratory
+- **Repetitive/mechanical** - Multiple similar edits across files
+- **Test-driven** - Run tests, fix failures, repeat
+
+**Good delegation candidates:**
+```bash
+# Fix all eslint errors in a project
+cd ~/code/project && codex --full-auto "fix all eslint errors, run lint after each fix"
+
+# Add TypeScript types to a file
+codex --full-auto "add TypeScript types to src/utils.js, convert to .ts"
+
+# Write tests for existing code
+codex --full-auto "write unit tests for src/auth.ts using vitest"
+
+# Refactor repetitive patterns
+codex --full-auto "convert all class components in src/components/ to functional components"
+
+# Documentation tasks
+codex --full-auto "add JSDoc comments to all exported functions in src/lib/"
+```
+
+### When NOT to Delegate (Claude Code does it better)
+
+- **Cross-codebase analysis** - Comparing patterns across repos
+- **Architectural decisions** - Design choices, tradeoffs
+- **Browser automation** - Claude in Chrome tasks
+- **Research tasks** - Web search, documentation reading
+- **PR creation** - Codex is blocked from `gh pr create`
+- **Git operations on main** - Force pushes, destructive ops
+- **Exploratory work** - "figure out why X is slow"
+
+### Delegation Pattern
+
+```bash
+# Claude Code delegates, then checks result
+cd /path/to/project && codex --full-auto "task description" && echo "Codex completed"
+```
+
+### Codex Config Location
+- Config: `~/.codex/config.toml`
+- Rules: `~/.codex/rules/default.rules`
+- Whitelisted: git, curl, wget, gh (except pr create/merge), node/npm/pnpm, python, make, cargo
+
+### Blocked Operations (in rules)
+- `gh pr create` - PR creation reserved for Claude Code
+- `gh pr merge` - Merging reserved for human review
+
 ## Usage Logging System (Jan 24, 2026):
 **Status**: ✅ ACTIVE - Tracks shell/nvim/tmux activity for pattern analysis
 
