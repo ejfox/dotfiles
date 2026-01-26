@@ -1,0 +1,82 @@
+#!/bin/bash
+# usage-analyze - Find patterns in usage logs
+# Run: usage-analyze [days]  (default: 7)
+
+DAYS="${1:-7}"
+LOG_DIR="$HOME/.local/share/usage-logs"
+
+echo "=== Usage Analysis (last $DAYS days) ==="
+echo ""
+
+# Gather all logs from the period
+SHELL_LOGS=$(find "$LOG_DIR/shell" -name "*.jsonl" -mtime -$DAYS 2>/dev/null)
+NVIM_LOGS=$(find "$LOG_DIR/nvim" -name "*.jsonl" -mtime -$DAYS 2>/dev/null)
+TMUX_LOGS=$(find "$LOG_DIR/tmux" -name "*.jsonl" -mtime -$DAYS 2>/dev/null)
+
+if [ -n "$SHELL_LOGS" ]; then
+  echo "## SHELL - Top Commands (alias candidates)"
+  cat $SHELL_LOGS | jq -r 'select(.evt == "cmd_start") | .cmd' 2>/dev/null | \
+    sed 's/ .*//' | sort | uniq -c | sort -rn | head -15
+  echo ""
+
+  echo "## SHELL - Slowest Commands (>2s)"
+  cat $SHELL_LOGS | jq -r 'select(.evt == "cmd_end" and (.duration | tonumber) > 2) | "\(.duration)s \(.cmd)"' 2>/dev/null | \
+    sort -rn | head -10
+  echo ""
+
+  echo "## SHELL - Most Visited Directories"
+  cat $SHELL_LOGS | jq -r 'select(.evt == "cd") | .to' 2>/dev/null | \
+    sort | uniq -c | sort -rn | head -10
+  echo ""
+fi
+
+if [ -n "$NVIM_LOGS" ]; then
+  echo "## NVIM - Most Edited Filetypes"
+  cat $NVIM_LOGS | jq -r 'select(.evt == "file_open") | .filetype' 2>/dev/null | \
+    grep -v '^$' | sort | uniq -c | sort -rn | head -10
+  echo ""
+
+  echo "## NVIM - Hot Files (opened 3+ times)"
+  cat $NVIM_LOGS | jq -r 'select(.evt == "file_open") | .file' 2>/dev/null | \
+    grep -v "^oil://" | sort | uniq -c | sort -rn | awk '$1 >= 3' | head -15
+  echo ""
+
+  echo "## NVIM - Most Used Commands"
+  cat $NVIM_LOGS | jq -r 'select(.evt == "command") | .cmd' 2>/dev/null | \
+    sort | uniq -c | sort -rn | head -15
+  echo ""
+
+  echo "## NVIM - Time in Modes (seconds)"
+  cat $NVIM_LOGS | jq -r 'select(.evt == "mode_exit") | "\(.mode) \(.duration)"' 2>/dev/null | \
+    awk '{modes[$1]+=$2} END {for(m in modes) printf "%6ds %s\n", modes[m], m}' | sort -rn
+  echo ""
+
+  echo "## NVIM - Search Patterns"
+  cat $NVIM_LOGS | jq -r 'select(.evt == "search") | .pattern' 2>/dev/null | \
+    sort | uniq -c | sort -rn | head -10
+  echo ""
+fi
+
+if [ -n "$TMUX_LOGS" ]; then
+  echo "## TMUX - Most Used Windows"
+  cat $TMUX_LOGS | jq -r 'select(.evt == "window_select") | .window' 2>/dev/null | \
+    sort | uniq -c | sort -rn | head -10
+  echo ""
+
+  echo "## TMUX - Copy Mode Usage"
+  COPY_COUNT=$(cat $TMUX_LOGS | jq -r 'select(.evt == "mode_change" and .mode == "copy-mode")' 2>/dev/null | wc -l | tr -d ' ')
+  echo "  Entered copy-mode $COPY_COUNT times"
+  echo ""
+fi
+
+# Total stats
+echo "## TOTALS"
+SHELL_EVENTS=$(cat $SHELL_LOGS 2>/dev/null | wc -l | tr -d ' ')
+NVIM_EVENTS=$(cat $NVIM_LOGS 2>/dev/null | wc -l | tr -d ' ')
+TMUX_EVENTS=$(cat $TMUX_LOGS 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_SIZE=$(du -sh "$LOG_DIR" 2>/dev/null | cut -f1)
+
+echo "  Shell events: $SHELL_EVENTS"
+echo "  Nvim events:  $NVIM_EVENTS"
+echo "  Tmux events:  $TMUX_EVENTS"
+echo "  Total size:   $TOTAL_SIZE"

@@ -1,0 +1,32 @@
+#!/bin/bash
+# usage-summary - Quick stats from usage logs
+# Run without args for today, or pass a date like 2025-01-24
+
+DATE="${1:-$(date +%Y-%m-%d)}"
+LOG_DIR="$HOME/.local/share/usage-logs"
+
+echo "=== Usage Summary for $DATE ==="
+echo ""
+
+for source in shell nvim tmux; do
+  LOG_FILE="$LOG_DIR/$source/$DATE.jsonl"
+  if [ -f "$LOG_FILE" ]; then
+    LINES=$(wc -l < "$LOG_FILE" | tr -d ' ')
+    SIZE=$(du -h "$LOG_FILE" | cut -f1)
+    echo "[$source] $LINES events ($SIZE)"
+
+    # Top events
+    echo "  Top events:"
+    jq -r '.evt' "$LOG_FILE" 2>/dev/null | sort | uniq -c | sort -rn | head -5 | while read count evt; do
+      printf "    %5d %s\n" "$count" "$evt"
+    done
+    echo ""
+  else
+    echo "[$source] No data"
+    echo ""
+  fi
+done
+
+# Total size
+TOTAL=$(du -sh "$LOG_DIR" 2>/dev/null | cut -f1)
+echo "Total log storage: $TOTAL"
