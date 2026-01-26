@@ -34,11 +34,14 @@
 --
 -- ============================================================================
 
+-- WHY: Compute the Lazy.nvim install path inside Neovim's data dir so it works across machines.
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  -- WHY: Bootstrap Lazy.nvim on first run so plugin setup can proceed automatically.
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
   local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
   if vim.v.shell_error ~= 0 then
+    -- WHY: Fail fast with a clear message so users aren't left with a broken editor.
     vim.api.nvim_echo({
       { "Failed to clone lazy.nvim:\n", "ErrorMsg" },
       { out, "WarningMsg" },
@@ -48,35 +51,43 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
     os.exit(1)
   end
 end
+-- WHY: Prepend Lazy.nvim to runtimepath so it can load before plugins.
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
   spec = {
+    -- WHY: Pull in LazyVim defaults as the foundation.
     -- LazyVim base
     { "LazyVim/LazyVim", import = "lazyvim.plugins" },
 
+    -- WHY: Add official language presets for Typescript/Vue so LSP, treesitter, etc. are prewired.
     -- Language extras
     { import = "lazyvim.plugins.extras.lang.typescript" },
     { import = "lazyvim.plugins.extras.lang.vue" },
 
+    -- WHY: Load local plugin specs in lua/plugins for customizations.
     -- User plugins (lua/plugins/*.lua)
     { import = "plugins" },
   },
 
   defaults = {
+    -- WHY: Eager-load plugins by default; set version=false for latest commit updates.
     lazy = false,
     version = false,
   },
 
+  -- WHY: Ensure a usable colorscheme on first install before user theme loads.
   install = { colorscheme = { "tokyonight", "habamax" } },
 
   checker = {
+    -- WHY: Auto-check for updates quietly so you can decide when to apply.
     enabled = true,
     notify = false,
   },
 
   performance = {
     rtp = {
+      -- WHY: Disable rarely used builtin plugins to reduce startup cost.
       disabled_plugins = {
         "gzip",
         "tarPlugin",
