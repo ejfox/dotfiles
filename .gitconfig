@@ -18,6 +18,7 @@
 
 [core]
 	pager = delta
+	protectNTFS = false
 
 [interactive]
 	diffFilter = delta --color-only
@@ -27,11 +28,11 @@
 	dark = true
 	side-by-side = false
 	line-numbers = true
-	# Vulpes red theme
-	minus-style = syntax "#3d1a22"
-	minus-emph-style = syntax "#5d1a2a"
-	plus-style = syntax "#1a2d22"
-	plus-emph-style = syntax "#1a4d2a"
+	# Vulpes red theme - green additions, red deletions
+	minus-style = "#ff5577" "#3d1a22"
+	minus-emph-style = bold "#ff2244" "#5d1a2a"
+	plus-style = "#77ff99" "#1a2d22"
+	plus-emph-style = bold "#44ff77" "#1a4d2a"
 	line-numbers-minus-style = "#ff5577"
 	line-numbers-plus-style = "#77ff99"
 	line-numbers-zero-style = "#73264a"
@@ -46,3 +47,5 @@
 
 [diff]
 	colorMoved = default
+[alias]
+	cs = commit -S
