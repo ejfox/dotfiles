@@ -1,0 +1,27 @@
+#!/bin/bash
+# Wrapper for btop that auto-switches theme based on system appearance
+
+BTOP_CONF="$HOME/.config/btop/btop.conf"
+BTOP_BIN="/opt/homebrew/bin/btop"
+
+# Check system appearance (returns "Dark" if dark mode, fails/empty if light)
+if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then
+    THEME="vulpes-reddish2-dark-btop"
+else
+    THEME="vulpes-reddish2-light-btop"
+fi
+
+# Update config if theme changed
+if ! grep -q "color_theme = \"$THEME\"" "$BTOP_CONF" 2>/dev/null; then
+    sed -i '' "s/color_theme = .*/color_theme = \"$THEME\"/" "$BTOP_CONF"
+fi
+
+# Light mode needs theme background, dark mode uses terminal transparency
+if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then
+    sed -i '' "s/theme_background = .*/theme_background = False/" "$BTOP_CONF"
+else
+    sed -i '' "s/theme_background = .*/theme_background = True/" "$BTOP_CONF"
+fi
+
+# Launch btop
+exec "$BTOP_BIN" "$@"
