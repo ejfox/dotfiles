@@ -78,9 +78,9 @@ const vec4 TRAIL_COLOR_ACCENT = vec4(0.45, 0.15, 0.29, 1.0); // #73264a tmux ina
 // Light mode variants - deeper/darker for contrast on white
 const vec4 TRAIL_COLOR_LIGHT = vec4(0.85, 0.0, 0.28, 1.0);        // darker pink
 const vec4 TRAIL_COLOR_ACCENT_LIGHT = vec4(0.35, 0.1, 0.22, 1.0); // deeper accent
-const float BASE_DURATION = 0.32;   // small moves: noticeable but not crazy
-const float MAX_DURATION = 0.65;    // big moves: longer but reasonable
-const float DRAW_THRESHOLD = 1.5;
+const float BASE_DURATION = 0.5;    // CRANKED: linger longer
+const float MAX_DURATION = 1.2;     // CRANKED: big moves persist
+const float DRAW_THRESHOLD = 0.3;   // CRANKED: trigger on smaller moves
 const float TELEPORT_THRESHOLD = 0.25;  // >25% screen = pane switch, no trail
 const bool HIDE_TRAILS_ON_THE_SAME_LINE = false;
 const float LIGHT_MODE_THRESHOLD = 0.65;  // Sharp cutoff
@@ -152,8 +152,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         // Duration scales with velocity
         float duration = mix(BASE_DURATION, MAX_DURATION, velocity);
 
-        // Opacity: small moves = 45%, big moves = 85% 🔥
-        float opacityScale = mix(0.45, 0.85, velocity);
+        // Opacity: CRANKED for visibility
+        float opacityScale = mix(0.75, 1.0, velocity);
 
         float progress = blend(clamp((iTime - iTimeCursorChange) / duration, 0.0, 1.0));
         float easedProgress = ease(progress);
