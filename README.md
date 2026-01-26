@@ -1,420 +1,237 @@
-# ◆ Dotfiles
+# ejfox's dotfiles
 
-Minimalist terminal configuration focused on functional beauty, speed-of-thought workflows, and distraction-free computing.
+Terminal-first development environment optimized for speed-of-thought computing. Everything is fuzzy-searchable, keyboard-driven, and designed to get out of your way.
 
-## Core Philosophy
-- **Geometric symbols** throughout interface (◆ ◇ ○ ▪ ─)
-- **Theme-agnostic** design (works in light/dark mode)
-- **Zen mode** for deep focus
-- **Modern CLI tools** replacing legacy commands
-- **Single-buffer workflows** (oil.nvim, pane-based tmux)
-- **Speed-of-thought** fuzzy finding and navigation
-
-## Installation
+## Quick Start
 
 ```bash
 git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-git submodule update --init --recursive  # Initialize tmux-link-grab submodule
-./sync-dotfiles.sh
-```git clone https://github.com/ejfox/dotfiles.git ~/.dotfiles
-cd ~/.dotfiles
 ./sync-dotfiles.sh
 ```
 
-## What's Included
-
-### 🔧 **Shell & Terminal**
-- `.zshrc` - Modern shell with LLM integration + fuzzy finder aliases
-- `.startup.sh` - AI-powered MOTD with I Ching Oracle passages
-- `lib/mystical-symbols.sh` - Daily I Ching hexagrams, moon phases, cosmic symbols
-- `.zen-mode.sh` - Toggle minimal UI mode across all apps
-- `.p10k.zsh` - Minimal Powerlevel10k prompt configuration
-- `tips.txt` - Comprehensive reference for all custom shortcuts (videogame loading screen style)
-
-### ⌨️ **Terminal Multiplexer (Tmux)**
-- `.tmux.conf` - Pane-based workflow with popup integrations
-- **Plugins**:
-  - `vim-tmux-navigator` - Seamless C-h/j/k/l navigation between nvim and tmux
-  - `tmux-thumbs` - Vimium-style hints for copying text (Rust, fast)
-  - `tmux-menus` - Visual TUI menu (Ctrl-\) for all tmux functions
-  - `tmux-fzf` - Fuzzy finder for sessions/windows/panes
-  - `tmux-resurrect` + `tmux-continuum` - Auto-save/restore sessions with smart process resurrection
-
-### 📝 **Editor (Neovim 0.11.5)**
-- LazyVim-based config with 45+ plugins
-- **Essential plugins**:
-  - `oil.nvim` - Filesystem-as-buffer editing (delete line = delete file)
-  - `nvim-dap` - Full debugging for TS/JS/Vue
-  - `kulala.nvim` - HTTP client in `.http` files
-  - `git-conflict.nvim` - Visual merge conflict resolution
-  - Virtual lines diagnostics (Neovim 0.11 feature)
-- Native LSP bindings (gd, gr, gI, gy)
-- Transparent backgrounds for Ghostty integration
-- See [PLUGINS.md](./.config/nvim/PLUGINS.md) for complete list
-
-### 🎨 **Applications**
-- `ghostty/` - Terminal with opacity + blur effects
-- `yazi/` - File manager with fzf search and bookmarks
-- `btop/` - System monitor with transparent background
-- `sketchybar/` - macOS menu bar with CIPHER coach (LLM-powered task selection)
-
-### 🔄 **Development**
-- `.gitconfig` - Clean git setup with LFS support
-- `.npmrc` - Node package manager configuration
-- Modern CLI replacements: `lsd`, `bat`, `dust`, `duf`, `btop`, `fd`, `ripgrep`, `zoxide`
-
-## Key Features & Workflows
-
-### Speed-of-Thought File Access
+**Dependencies** (install via homebrew):
 ```bash
-v           # Open nvim
-n           # Browse current directory with oil.nvim
-vs          # Fuzzy find files with bat preview
-vg          # Grep file contents and jump to matching lines
-o           # Instantly access Obsidian vault (sorted by recency)
-r           # Recent files across ALL ~/code projects
-tip         # Show random tip from tips.txt (loading screen vibes)
+brew install neovim tmux zsh fzf ripgrep fd bat lsd zoxide
+brew install --cask ghostty
 ```
 
-### Oil.nvim - Filesystem as a Buffer
-**The Workflow**: Press `-` from any file to open parent directory in oil.nvim
-- Delete a line → delete file
-- Edit a line → rename file
-- Visual select + `:d` → bulk delete
-- Press `-` again → go up a level
-- Single-buffer workflow, no file tree sidebar
-
-### Tmux Popup Workflows (Pane-Based)
-```bash
-C-a g       # Lazygit popup (floats over panes, perfect for quick commits)
-C-a K       # Yazi file manager popup
-C-a S       # Scratch terminal toggle (persistent)
-C-\         # tmux-menus (visual TUI for all functions, no memorizing)
-C-a Space   # tmux-thumbs (vimium hints for copying text)
-C-a C-y     # Yank entire pane scrollback to clipboard
-C-a M-y     # Yank last 200 lines to clipboard
-C-a C-s     # Save session manually
-C-a C-r     # Restore session manually
-```
-
-### Tmux Session Resurrection
-**Auto-save**: Every 15 minutes (via tmux-continuum)
-**Auto-restore**: On tmux startup (if enabled)
-**Save location**: `~/.local/share/tmux/resurrect/`
-
-**Smart process restoration** (based on actual usage patterns):
-- **Editors**: `nvim`, `vim`, `vi`
-- **Viewers**: `man`, `less`, `more`, `tail`
-- **TUIs**: `neomutt`, `yazi`, `lazygit`, `codex`, `toot`
-- **REPLs**: `node`, `psql`
-- **Dev servers**: Restores exact commands like `npm run dev`, `yarn dev`, `pnpm dev`
-- **Claude Code**: Restores with `--dangerously-skip-permissions` flag intact
-
-When you restore a session, all these processes restart in their original panes with the same working directories. Dev servers auto-start, editors reopen, database connections restore.
-
-### Neovim Daily Driver Plugins
-**oil.nvim** - Filesystem editing
-- `-` → Open parent directory
-- `<CR>` → Open file/directory
-- Edit line → Rename file
-- Delete line → Delete file
-
-**nvim-dap** - Debugging
-- `<leader>db` → Toggle breakpoint
-- `<leader>dc` → Start/continue debugging
-- `<leader>du` → Toggle debug UI
-
-**kulala.nvim** - HTTP client
-- Create `.http` files with requests
-- `<CR>` → Execute request under cursor
-- `[r` / `]r` → Jump between requests
-
-**git-conflict.nvim** - Merge conflicts
-- `co` → Choose ours (current branch)
-- `ct` → Choose theirs (incoming)
-- `cb` → Choose both
-- `[x` / `]x` → Jump between conflicts
-
-### Daily I Ching Oracle
-Your terminal greets you with ancient wisdom every morning via `.startup.sh`:
-
-**Daily Hexagram System** (`lib/mystical-symbols.sh`):
-- One hexagram per day, deterministic from date: `(YYYYMMDD % 64)`
-- Same hexagram all day across all terminals
-- Automatically changes at midnight
-- 64 hexagrams with names and wisdom phrases
-
-**Oracle Passage** (LLM-generated):
-- Synthesizes all MOTD context into contemplative I Ching-style wisdom
-- References your actual tasks, calendar, repos, inbox subjects
-- Non-rhyming, observational style (not poetry)
-- Uses `gpt-4o-mini` for nuanced language generation
-
-Example:
-```
-䷄ Waiting
-  Wait with patience
-
-FOCUS
-  1) Figure out documents for IRS
-  2) File 2023 taxes
-  ...
-
-䷄ ORACLE
-  The hexagram invites a pause amidst the flurry of tasks.
-  Documents for the IRS lie before you, a testament to diligence.
-
-  Action required on the edges of the inbox whispers caution.
-  While the repositories accumulate like branches in a grove,
-  The moon waxes gibbous, guiding reflection and steady choice.
-```
-
-### Sketchybar CIPHER Coach
-Intelligent calendar + task integration:
-- Shows next timed event with countdown ("in 15m", "at 3:00")
-- When no events: Reads Things tasks and highlights most joyful/appealing one
-- "Supportive coach, not taskmaster" tone
-- Caches messages to avoid excessive API calls
-- Updates only when hour changes, tasks change, or completions change
-
-### Tips.txt - Reference System
-Comprehensive shortcuts organized by category:
-- Nvim aliases and oil.nvim usage
-- Tmux keybindings (all popups, navigation, copy mode)
-- LSP navigation (gd, gr, gI, gy)
-- Merge conflict resolution
-- Git/GitHub utilities
-- Advanced features (marks, telescope, yanky)
-- All with app context prefixes (zsh/tmux/nvim)
-
-## Essential Keybindings
-
-### Tmux Navigation
-```
-C-a          # Prefix key
-C-h/j/k/l    # Navigate panes (works in nvim too!)
-M-1 to M-9   # Select pane by number
-M-h/M-l      # Previous/next window
-C-a -        # Split vertically (current path)
-C-a _        # Split horizontally (current path)
-C-a H/J/K/L  # Resize pane
-```
-
-### Tmux Copy Mode
-```
-C-a [        # Enter copy mode
-v            # Start visual selection
-y            # Yank selection to clipboard
-q            # Quit copy mode
-/            # Search forward
-?            # Search backward
-```
-
-### Nvim LSP Navigation
-```
-gd           # Goto definition (native LSP)
-gr           # Goto references
-gI           # Goto implementation
-gy           # Goto type definition
-<leader>ss   # Document symbols
-<leader>sS   # Workspace symbols
-```
-
-### Nvim Oil.nvim
-```
--            # Open parent directory / go up a level
-<CR>         # Open file/directory
-<C-s>        # Open in vertical split
-g.           # Toggle hidden files
-```
-
-## Modern CLI Tools
-
-| Old | New | Purpose |
-|-----|-----|---------|
-| `ls` | `lsd` | Better directory listings |
-| `cat` | `bat` | Syntax highlighting |
-| `grep` | `ripgrep` | Way faster, regex by default |
-| `find` | `fd` | Blazing fast Rust find alternative |
-| `du` | `dust` | Disk usage visualization |
-| `df` | `duf` | Disk free visualization |
-| `top` | `btop` | System monitoring |
-| `cd` | `zoxide` | Jump to frequently used directories |
-
-## Configuration Coverage
-
-| Application | Config Location | Description |
-|------------|-----------------|-------------|
-| **Shell (Zsh)** | `.zshrc` (447 lines) | Main shell config with fuzzy finder aliases, PATH setup |
-| **Startup MOTD** | `.startup.sh` | AI-powered MOTD with daily I Ching Oracle |
-| **Mystical Symbols** | `lib/mystical-symbols.sh` | Reusable library: I Ching hexagrams, moon phases, cosmic glyphs |
-| **Powerlevel10k** | `.p10k.zsh` | Terminal prompt theme |
-| **Neovim** | `.config/nvim/` | LazyVim with 45+ plugins [See PLUGINS.md](./.config/nvim/PLUGINS.md) |
-| **Tmux** | `.tmux.conf` (200 lines) | Pane-based workflow with popups |
-| **Vim** | `.vimrc` (19 lines) | Basic vim config |
-| **Ghostty** | `.config/ghostty/` | Terminal with transparent backgrounds |
-| **Sketchybar** | `.config/sketchybar/` | macOS menu bar with CIPHER coach |
-| **Yazi** | `.config/yazi/` | File manager with fzf + bookmarks |
-| **Tips** | `tips.txt` | Reference system for all shortcuts |
-| **Git** | `.gitconfig`, `.gitignore` | Version control settings |
-
-## 🧠 Obsidian Publishing Pipeline
-
-Seamless bridge between knowledge base (Obsidian) and blog (website2) with CLI tools.
-
-### `obs` - Obsidian Vault CLI
-
-Direct access to vault from terminal:
-
-```bash
-obs print index.md            # Read note content
-obs search "draft"            # Fuzzy search note titles
-obs content "publish"         # Search within note contents
-obs export-ready              # Bulk export notes from year folders (not /drafts)
-obs export-by-tag "blog"      # Export notes with specific tag
-obs tags                       # List all tags with frequency
-obs daily                      # Create/open today's daily note
-obs open "note-name"          # Open in Obsidian GUI
-```
-
-**Configuration**:
-- Built on [obsidian-cli](https://github.com/Yakitrak/obsidian-cli) (Go, single binary)
-- Configured for: `/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox`
-- Portable across vaults via `--vault` flag
-
-**Export Ready Convention**:
-- Notes in year folders (`2025/`, `2024/`, etc.) are export-ready
-- Notes in `/drafts/` are never export-ready
-- Location-based = simple to understand and enforces workflow naturally
-
-### `pub` - Publishing Workflow Orchestration
-
-Full pipeline from vault to live site:
-
-```bash
-pub status                    # Dashboard: vault stats, git status, site health
-pub import                    # Pull from Obsidian → website2 content
-pub watch                     # Auto-import on vault changes
-pub publish                   # Full workflow: import → build → git push
-pub preview blog              # Quick look at blog posts
-pub info filename.md          # Show file metadata
-```
-
-**Dashboard** (`pub status`):
-- 📚 Vault stats (size, file count, word count, breakdown by type)
-- 🔧 Git status (branch, commits, working tree, recent changes)
-- 📄 Published content counts and recent updates
-- 🌐 Site health check (HTTP status + response time via curl)
-- 🚀 Deployment info (node_modules, build size, scripts)
-- 📊 Recent activity in vault
-
-**Architecture**:
-- Bridges Obsidian ↔ website2
-- Integrates with existing `scripts/blog/import.mjs` pipeline
-- Watches vault for changes via `fswatch`
-- Builds site with `yarn build`
-- Publishes via git commits
-
-### Obsidian Configuration as Code
-
-Your Obsidian settings are backed up and symlinked:
+## What's Here
 
 ```
-~/.dotfiles/.obsidian-config/
-├── hotkeys.json              # Custom keybindings
-├── community-plugins.json    # Installed plugins
-└── snippets/text.css         # Custom CSS tweaks
+~/.dotfiles/
+├── .zshrc              # Shell config (aliases, PATH, prompt)
+├── .tmux.conf          # Terminal multiplexer
+├── .config/
+│   ├── nvim/           # Neovim (LazyVim-based)
+│   ├── ghostty/        # Terminal emulator
+│   ├── yazi/           # File manager
+│   └── ...
+├── bin/                # Custom scripts
+└── tips.txt            # Cheatsheet (shown randomly on startup)
 ```
-
-**Benefits**:
-- Version control your settings
-- Replicate across vaults
-- Changes in Obsidian auto-sync to dotfiles
-- Review keybind changes in git diff
-
-**Installed Plugins** (9 active):
-- obsidian-linter - Auto-format markdown
-- oz-image-plugin - Image handling
-- better-word-count - Word stats
-- obsidian-hider - Hide UI elements
-- obsidian-minimal-settings - Theme customization
-- cm-editor-syntax-highlight - Syntax highlighting
-- file-tree-alternative - Better file explorer
-- published-url - Publish link management
-- obsidian-minimal-settings - Theme tweaker
-
-### Typical Workflow
-
-```
-1. Write in Obsidian (vault auto-syncs via iCloud)
-2. obs print "draft" to preview how it looks
-3. pub import to sync to website2
-4. pub watch for auto-import while iterating
-5. pub publish when ready (builds + pushes)
-6. pub status to verify everything shipped
-```
-
-### Tips
-
-- `obs search <term>` finds things in seconds (fuzzy)
-- `pub status` is your dashboard - run anytime
-- `pub watch` is great for iterating on posts
-- Settings symlinks mean one edit applies everywhere
-- All content is version-controlled in git
-
-## Security Notes
-
-**Secrets handling:**
-- All API keys moved to `~/.env` (gitignored)
-- Never commit `.env` files
-- Scrubbed 9 API keys from git history (Nov 15, 2025)
-- Improved `.gitignore` to prevent future leaks
-
-**Action required if pulling old commits:**
-- Rotate any exposed API keys
-- Check GitHub security alerts
-
-## Performance
-
-- **Neovim startup**: < 100ms (45+ plugins, all lazy-loaded)
-- **Tmux popups**: Instant (lazygit, yazi, scratch terminal)
-- **Fuzzy finders**: Rust-based (fd, ripgrep) for speed
-- **Oil.nvim**: Single-buffer workflow, no sidebar overhead
-
-## Related Documentation
-
-- **Nvim plugins**: [PLUGINS.md](./.config/nvim/PLUGINS.md) - Complete plugin inventory
-- **Memory**: [CLAUDE.md](./CLAUDE.md) - Claude Code session memory
-- **Tips**: `tips.txt` - All shortcuts and keybindings
 
 ---
 
-*Every pixel serves a purpose. Maximum functionality, minimum distraction.*
+## Philosophy
 
-### tmux-link-grab - Elegant Seek Mode for URLs & IPs
-**Keybinding**: `C-a s`
+### Why These Tools?
 
-One of the most useful recent additions. Opens an interactive popup where you can instantly grab any URL or IP from your window's scrollback:
+| Tool | Why Not the Alternative |
+|------|------------------------|
+| **Neovim** | VS Code is slow and not terminal-native |
+| **Tmux** | Terminal tabs don't persist across restarts |
+| **Zsh** | Fish isn't POSIX-compatible, Bash lacks features |
+| **Ghostty** | Fast (Zig), GPU-accelerated, good defaults |
+| **LazyVim** | Sensible defaults, easy to customize, well-maintained |
+
+### Core Ideas
+
+**Fuzzy find everything.** Don't navigate folder trees—search. `vs` finds files, `vg` searches content, `o` opens notes.
+
+**Pane-based workflow.** One tmux session, multiple panes visible at once. Editor, terminal, logs, server—all on screen together.
+
+**Popup workflows.** `C-a g` opens lazygit floating over your panes. Do your thing, close it, layout untouched.
+
+**Single-buffer file management.** oil.nvim opens directories as editable buffers. Delete a line = delete the file. No sidebar.
+
+**Same keys everywhere.** `C-h/j/k/l` moves between vim splits AND tmux panes seamlessly.
+
+---
+
+## Daily Workflow
+
+### Opening Files
 
 ```bash
-C-a s       # Enter seek mode
-            # Fzf popup shows all URLs & IPs from window, numbered
-1           # Type a number to select
-↵           # Enter - URL copied to clipboard, status bar flashes
+v              # Open neovim
+vs             # Fuzzy find files (with preview)
+vg             # Grep file contents, jump to match
+o              # Fuzzy find Obsidian notes
+r              # Recent files across all projects
 ```
 
-**What it captures:**
-- `https://example.com/path?query=value` - URLs with full protocols
-- `ftp://files.server.com` - FTP links
-- `192.168.1.1` - IPv4 addresses
-- `10.0.0.1:8080` - IPs with ports
+### File Management (oil.nvim)
 
-**Why it's good:**
-- Searches **entire window** (all panes) not just current pane
-- Searches **last 100 lines** of scrollback
-- Number-based selection (like vim's `s` keybinding)
-- Visual feedback (status bar flashes on copy)
-- Works across macOS/Linux (detects pbcopy/xclip/wl-copy)
+From any file in neovim:
+```
+-              # Open parent directory
+<CR>           # Open file/directory
+(edit line)    # Rename file
+(delete line)  # Delete file
+g.             # Toggle hidden files
+```
 
-**See**: [tmux-link-grab](https://github.com/ejfox/tmux-link-grab) repository for details
+This is the key insight: the filesystem IS the buffer. Vim motions work on files.
+
+### Tmux Essentials
+
+```
+C-a            # Prefix key (not C-b, easier to reach)
+C-h/j/k/l      # Move between panes (works in vim too!)
+C-a g          # Lazygit popup
+C-a S          # Scratch terminal popup
+C-a Space      # tmux-thumbs (copy any text with hints)
+C-a -          # Split pane vertically
+C-a _          # Split pane horizontally
+```
+
+### Git
+
+```bash
+C-a g          # Lazygit popup (preferred)
+gs             # git status
+ga             # git add
+gc             # git commit
+gp             # git push
+```
+
+In lazygit, press `a` for AI-generated commit messages (uses Claude).
+
+### LSP Navigation (Neovim)
+
+```
+gd             # Go to definition
+gr             # Go to references
+K              # Hover documentation
+<leader>ca     # Code actions
+<leader>rn     # Rename symbol
+```
+
+---
+
+## Key Config Decisions
+
+### Tmux: C-a prefix instead of C-b
+
+`C-b` requires moving your hand off home row. `C-a` is right there. To go to beginning of line (normally C-a in shell), use `C-a a`.
+
+### Neovim: Native LSP, not wrapped in Telescope
+
+Many configs route `gd` through fuzzy finders. This config uses `vim.lsp.buf.definition` directly. Fewer layers = faster and more reliable.
+
+### oil.nvim instead of file tree sidebar
+
+File trees (NERDTree, neo-tree) eat screen space and encourage "browsing." oil.nvim encourages "acting"—you're always in a buffer using vim motions.
+
+### vim-tmux-navigator
+
+Same `C-h/j/k/l` keys navigate both vim splits and tmux panes. No mental overhead about which context you're in.
+
+### Lazy loading everything
+
+Neovim starts in <100ms despite 40+ plugins. Everything loads on first use, not startup.
+
+---
+
+## LLM Integration
+
+AI is used as suggestion engine, not autopilot:
+
+- **ai-commit**: Generates 3 commit message options, you pick one
+- **morning-ritual**: Suggests pomodoros ranked by priority, you select
+- **startup oracle**: Daily I Ching-style wisdom based on your tasks
+
+All outputs are cached to avoid slow/expensive repeated API calls.
+
+---
+
+## Customization
+
+### Adding aliases
+
+Edit `~/.dotfiles/.zshrc`, then `source ~/.zshrc`.
+
+### Adding Neovim plugins
+
+Create a file in `~/.config/nvim/lua/plugins/your-plugin.lua`:
+
+```lua
+return {
+  {
+    "author/plugin-name",
+    event = "VeryLazy",  -- lazy load
+    opts = {
+      -- config here
+    },
+  },
+}
+```
+
+### Changing tmux bindings
+
+Edit `~/.dotfiles/.tmux.conf`, then `tmux source ~/.tmux.conf`.
+
+---
+
+## Secrets
+
+API keys go in `~/.env` (gitignored), never in dotfiles:
+
+```bash
+# ~/.env
+export ANTHROPIC_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."
+```
+
+The `.zshrc` sources this file automatically.
+
+---
+
+## Troubleshooting
+
+**Neovim plugins not loading**: Run `:Lazy sync`
+
+**Tmux changes not applying**: Run `tmux source ~/.tmux.conf`
+
+**LSP not working**: Check `:LspInfo` and `:Mason` for missing servers
+
+**"Command not found"**: Ensure `/opt/homebrew/bin` is in PATH
+
+---
+
+## File Reference
+
+| File | Purpose |
+|------|---------|
+| `.zshrc` | Shell aliases, PATH, prompt config |
+| `.tmux.conf` | Tmux keybindings, plugins, appearance |
+| `.config/nvim/` | Neovim config (LazyVim + custom plugins) |
+| `.config/ghostty/` | Terminal appearance, shaders |
+| `.startup.sh` | MOTD shown on terminal open |
+| `bin/` | Custom scripts (ai-commit, morning-ritual, etc) |
+| `tips.txt` | Cheatsheet, shown randomly on startup |
+| `CLAUDE.md` | Context for AI assistants working on this repo |
+
+---
+
+## Other Docs
+
+- `CLAUDE.md` - Detailed notes for AI pair programming
+- `tips.txt` - All keybindings and shortcuts
+- `WORKFLOWS.md` - Advanced CLI pipelines (obs, pub, llm)
+- `STARTUP_DOCS.md` - How the startup script works
+
+---
+
+*Minimal config, maximum velocity.*
