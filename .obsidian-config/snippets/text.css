@@ -66,3 +66,25 @@ ol, ul {
   /* background-color: transparent !important; */
   background-image: none !important;
 }
+
+/* OLED true black for both desktop and mobile */
+.theme-dark {
+  --background-primary: #000000;
+  --background-primary-alt: #000000;
+  --background-secondary: #000000;
+  --background-secondary-alt: #111111;
+}
+
+.theme-dark.is-mobile {
+  --background-primary: #000000;
+  --background-primary-alt: #000000;
+  --background-secondary: #000000;
+  --background-secondary-alt: #111111;
+}
+
+/* Editor specific - ensures the actual editing area is black */
+.theme-dark .cm-editor,
+.theme-dark .markdown-source-view,
+.theme-dark .markdown-reading-view {
+  background-color: #000000;
+}

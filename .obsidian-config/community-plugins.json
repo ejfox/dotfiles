@@ -6,5 +6,6 @@
   "oz-image-plugin",
   "better-word-count",
   "obsidian-hider",
-  "obsidian-minimal-settings"
+  "obsidian-minimal-settings",
+  "obsidian-local-rest-api"
 ]
