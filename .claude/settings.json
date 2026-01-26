@@ -1,5 +1,24 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "preferredNotifChannel": "terminal_bell",
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [{ "type": "command", "command": "printf '\\a'" }]
+      },
+      {
+        "matcher": "permission_prompt",
+        "hooks": [{ "type": "command", "command": "printf '\\a'" }]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "printf '\\a'" }]
+      }
+    ]
+  },
   "env": {
     "MAX_THINKING_TOKENS": "31999",
     "COLORTERM": "truecolor"
@@ -17,11 +36,12 @@
   },
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true
+    "clangd-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": false,
   "feedbackSurveyState": {
     "lastShownTime": 1754094052483
   },
-  "theme": "dark"
+  "theme": "system"
 }
