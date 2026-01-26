@@ -105,7 +105,7 @@ return {
       -- Modified/unsaved changes indicator
       local function modified_status()
         if vim.bo.modified then
-          return "●" -- Unsaved changes
+          return "󰽂" -- Unsaved changes (delta)
         end
         return ""
       end

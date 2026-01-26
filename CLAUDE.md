@@ -1,5 +1,9 @@
 # Claude Code Memory for ejfox's dotfiles
 
+## Git Commit Rules
+
+**DO NOT sign commits.** EJ signs his own commits manually with `git cs` (alias for `commit -S`). Claude-written commits should remain unsigned so EJ can distinguish them. Just use regular `git commit`.
+
 ## Critical Configuration Info
 
 ### Shell Configuration (.zshrc)
@@ -15,6 +19,77 @@
 ```bash
 export PATH=$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 ```
+
+## Things 3 Integration (Jan 24, 2026)
+
+The MCP things tools (`mcp__things__*`) use `things-cli` which is **read-only**. To add tasks, use the Things URL scheme directly:
+
+```bash
+open "things:///add?title=TASK_TITLE&notes=NOTES&when=today"
+```
+
+### URL Parameters
+
+| Parameter | Values | Notes |
+|-----------|--------|-------|
+| `title` | URL-encoded string | Task title |
+| `notes` | URL-encoded string | Task notes/description |
+| `when` | `today`, `tomorrow`, `evening`, `anytime`, `someday`, or `YYYY-MM-DD` | Scheduling |
+| `deadline` | `YYYY-MM-DD` | Hard deadline (shows in Inbox until scheduled) |
+| `tags` | comma-separated | e.g., `security,urgent` |
+| `list` | project/area name | Target list |
+| `heading` | heading name | Under a project heading |
+
+### Scheduling Strategy
+
+- **`when=today`** - Critical items that need attention now (shows in Today view)
+- **`when=tomorrow`** - Follow-up/verification tasks
+- **`deadline=YYYY-MM-DD`** - Hard deadlines (task stays in Inbox, shows deadline badge)
+- **No `when` parameter** - Goes to Inbox for later triage
+
+### Task Naming Conventions
+
+Prefix tasks with action type for scanability:
+- `FIX:` - Something broken that needs repair
+- `VERIFY:` - Confirm a previous action worked
+- `UPGRADE:` - Version/dependency updates
+- `INVESTIGATE:` - Research/discovery tasks
+- `CONSIDER:` - Optional improvements to evaluate
+- `MONITOR:` - Ongoing watchlist items
+- `OPTIONAL:` - Nice-to-have, low priority
+
+### Example: Security Task Sequence
+
+```bash
+# Critical fix - do today
+open "things:///add?title=FIX%3A%20Add%20DKIM%20records&notes=Steps%20here...&when=today"
+
+# Verification - do tomorrow after DNS propagates
+open "things:///add?title=VERIFY%3A%20DKIM%20working&notes=Check%20mail-tester.com&when=tomorrow"
+
+# Future hardening - deadline but not scheduled (stays in Inbox with date badge)
+open "things:///add?title=UPGRADE%3A%20DMARC%20to%20p%3Dreject&deadline=2026-02-07&tags=security"
+```
+
+### Reading Tasks (via MCP - read-only)
+
+```bash
+things-cli today      # Today's tasks
+things-cli inbox      # Inbox tasks
+things-cli projects   # List projects
+```
+
+### URL Encoding Tips
+
+Common characters:
+- `:` → `%3A`
+- `/` → `%2F`
+- `=` → `%3D`
+- `&` → `%26`
+- newline → `%0A`
+- space → `%20`
+
+Or use Python: `python3 -c "import urllib.parse; print(urllib.parse.quote('your text'))"`
 
 ## Wiki Systems (Dec 7, 2025)
 
@@ -550,6 +625,80 @@ Hit `prefix + Space`, get letter hints on all visible text:
 - Copy file paths from ls output
 - Extract API tokens from logs
 
+### Vue/Nuxt LSP Setup (Jan 26, 2026)
+**Status**: ✅ CONFIGURED - Volar 2.0+ Hybrid Mode
+**Location**: `~/.config/nvim/lua/plugins/vue-lsp.lua`
+
+#### The Problem (Why gd/gr Never Worked)
+
+Volar 2.0 (late 2024) completely changed the architecture:
+- **Old way (Takeover Mode)**: Volar handled everything - TypeScript, HTML, CSS
+- **New way (Hybrid Mode)**: Volar only handles HTML/CSS. TypeScript needs a separate server.
+
+If you just enable LazyVim's Vue extra without additional config, `gd` returns 0 results because:
+1. `vue_ls` (Volar) doesn't handle TypeScript anymore
+2. `vtsls` doesn't know about `.vue` files by default
+3. No one is handling TypeScript in your Vue SFCs
+
+#### The Solution
+
+**Architecture** (how it works now):
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     .vue file                                │
+├─────────────────────────────────────────────────────────────┤
+│  <template>  │  <script lang="ts">  │  <style>              │
+│              │                       │                       │
+│  vue_ls      │  vtsls + @vue/       │  vue_ls               │
+│  (HTML)      │  typescript-plugin    │  (CSS)                │
+│              │  (TypeScript)         │                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Config** (`~/.config/nvim/lua/plugins/vue-lsp.lua`):
+1. **vtsls filetypes include `vue`** - Critical! Without this, vtsls ignores .vue files
+2. **@vue/typescript-plugin** - Gives vtsls Vue SFC awareness (script blocks, etc.)
+3. **nuxt-goto.nvim** - Fixes Nuxt's auto-import `.d.ts` redirect issue
+
+**Plugins installed**:
+- `rushjs1/nuxt-goto.nvim` - Nuxt-specific gd fix
+
+**Dependencies** (via Mason):
+- `vue-language-server` (includes @vue/typescript-plugin)
+- `vtsls` (TypeScript server)
+
+#### Troubleshooting
+
+**gd returns 0/0 results:**
+1. Check LSPs are attached: `:lua print(vim.inspect(vim.lsp.get_clients({bufnr=0})))`
+2. Should see both `vtsls` AND `vue_ls` attached
+3. If only `copilot`, the config isn't loading
+
+**gd goes to .d.ts file instead of source:**
+- This is what `nuxt-goto.nvim` fixes
+- Make sure `.nuxt` directory exists (`nuxt prepare` or `nuxt dev`)
+
+**LSP not starting:**
+```bash
+# Verify mason packages
+ls ~/.local/share/nvim/mason/packages/ | grep -E "vue|vtsls"
+
+# Check vue-language-server works
+~/.local/share/nvim/mason/bin/vue-language-server --version
+
+# Check logs
+:LspLog
+```
+
+#### Sources & References
+
+- [Volar 2.0 Migration Guide](https://lsp-zero.netlify.app/blog/configure-volar-v2.html) - The definitive config guide
+- [Vue Language Tools](https://github.com/vuejs/language-tools) - Official Vue LSP
+- [nuxt-goto.nvim](https://github.com/rushjs1/nuxt-goto.nvim) - Nuxt gd fix
+- [LazyVim Vue Extra](https://www.lazyvim.org/extras/lang/vue) - Base config we extend
+- [mason-lspconfig#371](https://github.com/williamboman/mason-lspconfig.nvim/issues/371) - Volar 2 breaking change discussion
+- [LazyVim#2363](https://github.com/LazyVim/LazyVim/discussions/2363) - gd stops working discussion
+
 ### nvim-dap - Debugging
 **Location**: `~/.config/nvim/lua/plugins/nvim-dap.lua`
 
@@ -768,6 +917,42 @@ Base shaders from: https://github.com/hackr-sh/ghostty-shaders
 
 **Commit**: 83e330a - feat(ghostty): vulpes shader system with red-selective bloom
 
+## nvim-ufo Code Folding (Jan 26, 2026)
+**Status**: ✅ CONFIGURED
+**Location**: `~/.config/nvim/lua/plugins/nvim-ufo.lua`
+
+Better code folding using treesitter with indent fallback. Native vim folding commands work, plus extras.
+
+### Commands
+
+| Key | Action |
+|-----|--------|
+| `zo` | **o**pen fold under cursor |
+| `zc` | **c**lose fold under cursor |
+| `za` | toggle fold (open↔close) |
+| `zR` | open all folds |
+| `zM` | close all folds |
+| `zK` | peek inside fold (nvim-ufo bonus) |
+| `zj` | jump to next fold |
+| `zk` | jump to prev fold |
+
+**Mnemonic**: `z` looks like a folded paper. Then **o**pen, **c**lose, **a**lternate.
+
+### Configuration
+
+```lua
+opts = {
+  -- treesitter first, indent fallback (good for Vue mixed content)
+  provider_selector = function(bufnr, filetype, buftype)
+    return { "treesitter", "indent" }
+  end,
+}
+```
+
+### Sources
+- [nvim-ufo GitHub](https://github.com/kevinhwang91/nvim-ufo)
+- [LazyVim folding discussion](https://github.com/LazyVim/LazyVim/discussions/1572)
+
 ## mini.animate for nvim (Nov 25, 2025):
 **Location**: `~/.config/nvim/lua/plugins/mini-animate.lua`
 
@@ -781,3 +966,52 @@ Subtle animations without distraction:
 local timing_fast = animate.gen_timing.cubic({ duration = 60, unit = "total" })
 local timing_cursor = animate.gen_timing.cubic({ duration = 80, unit = "total" })
 ```
+
+## Usage Logging System (Jan 24, 2026):
+**Status**: ✅ ACTIVE - Tracks shell/nvim/tmux activity for pattern analysis
+
+### Quick Commands
+```bash
+usage-summary          # Today's stats
+usage-summary 2025-01-20  # Specific day
+usage-analyze          # Pattern analysis (last 7 days)
+usage-analyze 30       # Last 30 days
+```
+
+### Log Location
+```
+~/.local/share/usage-logs/
+  shell/YYYY-MM-DD.jsonl
+  nvim/YYYY-MM-DD.jsonl
+  tmux/YYYY-MM-DD.jsonl
+```
+
+### What's Captured
+
+**Shell**: `cmd_start/end` (command, cwd, exit code, duration), `cd` (from/to), `session_start/end`
+
+**Nvim**: `file_open/save/close` (path, filetype, lines), `mode_exit` (mode + duration), `command` (ex commands), `search` (pattern), `yank`, `lsp_attach`, `diagnostics`, `keys` (batched keystrokes)
+
+**Tmux**: `window_select/new/rename`, `pane_select/split/exit` (id, window, cmd, path), `mode_change` (copy-mode)
+
+### Config Files
+| Component | Location |
+|-----------|----------|
+| Shell hooks | `~/.dotfiles/lib/shell-usage-logging.zsh` |
+| Nvim plugin | `~/.config/nvim/lua/plugins/usage-logging.lua` |
+| Tmux hooks | `~/.dotfiles/lib/tmux-usage-logging.conf` |
+| Scripts | `~/.dotfiles/bin/usage-log`, `usage-summary`, `usage-analyze` |
+
+### Analysis Use Cases
+After 1+ week of data, Claude can analyze for:
+- **Alias candidates**: Most frequent shell commands
+- **Hot files**: Files opened 5+ times → harpoon/quick-access
+- **Workspace scripts**: Directory/pane patterns you recreate
+- **Keybinding gaps**: Repeated key sequences → macro candidates
+- **Mode balance**: Insert vs normal time (editing style)
+- **Slow commands**: Commands taking >2s → optimization targets
+
+### Format
+JSON lines - one event per line, ISO 8601 timestamps. Easy to parse with `jq`, visualize with d3, or create embeddings.
+
+**Full docs**: `~/Desktop/USAGE-LOGGING.md`

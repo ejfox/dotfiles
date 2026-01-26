@@ -1,6 +1,7 @@
 return {
   {
     "stevearc/oil.nvim",
+    lazy = false,  -- load immediately to hijack directory buffers
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = function()
       require("oil").setup({

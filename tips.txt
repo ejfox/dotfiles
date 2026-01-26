@@ -144,7 +144,20 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) mA = GLOBAL mark (across files), ma = file-local
 (nvim/oil) - opens oil (parent dir)
 (lazygit) space = stage, c = commit, P = push, ? = help
-(yazi) enter = open, space = select, . = hidden, z = frecency jump
+(yazi) enter = open, space = select, zh = toggle hidden
+(yazi) - = horizontal tmux split in current dir
+(yazi) _ = vertical tmux split in current dir
+(yazi) g = lazygit
+(yazi) e = open in nvim
+(yazi) Y = copy path to clipboard
+(yazi) P = preview markdown with glow
+(yazi) D = diff selected files
+(yazi) X = extract archive with ouch
+(yazi) gc = jump to ~/code
+(yazi) gd = jump to ~/.dotfiles
+(yazi) go = jump to Obsidian vault
+(yazi) g~ = jump home
+(yazi) git status icons match oil.nvim: ! + ✗ ? ◌ → ✓
 (nvim) space u w - toggle wrap
 (nvim) space u l - line numbers
 (nvim) space u L - relative numbers
@@ -178,9 +191,14 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) ]] / [[ - next/prev function
 (nvim) gcc - comment line
 (nvim) gc - comment selection
+(nvim) zo - open fold under cursor
+(nvim) zc - close fold under cursor
 (nvim) za - toggle fold
 (nvim) zR - open all folds
 (nvim) zM - close all folds
+(nvim) zK - peek inside fold (nvim-ufo)
+(nvim) zj - jump to next fold
+(nvim) zk - jump to prev fold
 (nvim) ctrl-o - jump back
 (nvim) ctrl-i - jump forward
 (nvim) * - search word under cursor
@@ -363,3 +381,17 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim/snacks-git) <C-j>/<C-k> - navigate results while in search input
 (nvim/snacks-git) <C-n>/<C-p> - also navigate results
 (nvim/snacks-git) g? - show help for current picker
+(tmux) C-a - = split horizontal (keeps current path)
+(tmux) C-a _ = split vertical (keeps current path)
+(tmux) C-a c = new window (keeps current path)
+(tmux) M-7/8/9 = select pane 7/8/9 (no prefix needed)
+(zsh) foxpods = switch audio to FOXPODS
+(zsh) speakers = switch to MacBook speakers
+(zsh) morning-ritual = CIPHER analyzes your day, suggests pomodoros
+(zsh) scraps "query" = search Supabase scraps table
+(zsh) summarize_commits = AI summary of recent git history
+(lazygit) a = AI commit message (fzf + Claude)
+(nvim) files auto-reload when Claude Code edits them externally
+(nvim) git diff view auto-refreshes on file changes
+(git) git cs "message" = signed commit (GPG key from Keybase)
+(git) unsigned commits = Claude wrote it, signed = you wrote it
