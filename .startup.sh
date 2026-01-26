@@ -426,6 +426,12 @@ if [ -f "$HOME/tips.txt" ]; then
   fi
 fi
 
+# Start appearance watcher for btop theme switching (if not already running)
+if ! pgrep -f "appearance-watcher" >/dev/null 2>&1; then
+  appearance-watcher &>/dev/null &
+  disown
+fi
+
 # Footer separator
 echo ""
 echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
