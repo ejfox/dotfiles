@@ -7,6 +7,16 @@
 -- Or remove existing autocmds by their group name (which is prefixed with `lazyvim_` for the defaults)
 -- e.g. vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
 
+-- Auto-enable soft wrap on markdown/text files
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("ProseWrap", { clear = true }),
+  pattern = { "markdown", "text" },
+  callback = function()
+    vim.wo.wrap = true
+    vim.wo.linebreak = true
+  end,
+})
+
 -- Check all plugin configs on startup (silent if OK, notify if broken)
 vim.api.nvim_create_autocmd("VimEnter", {
   group = vim.api.nvim_create_augroup("CheckPlugins", { clear = true }),
