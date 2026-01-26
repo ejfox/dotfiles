@@ -1,8 +1,17 @@
--- Options are automatically loaded before lazy.nvim startup
--- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
--- Add any additional options here
+-- ============================================================================
+-- NEOVIM OPTIONS
+-- ============================================================================
+-- These settings override LazyVim defaults. Most are about creating a
+-- minimal, distraction-free editing experience with smart defaults.
+--
+-- LazyVim defaults: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 
--- Disable OSC 52 clipboard entirely (avoids spam on refocus in tmux/ghostty)
+-- ============================================================================
+-- CLIPBOARD
+-- ============================================================================
+-- WHY pbcopy instead of OSC52: OSC52 causes clipboard spam on refocus in
+-- tmux/ghostty. Using native macOS clipboard is more reliable and instant.
+
 vim.g.clipboard = {
   name = 'macOS-clipboard',
   copy = {
@@ -15,19 +24,19 @@ vim.g.clipboard = {
   },
   cache_enabled = true,
 }
--- Explicitly disable OSC 52 (neovim 0.11+ feature)
-vim.g.clipboard_osc52 = false
+vim.g.clipboard_osc52 = false      -- Disable OSC52 (neovim 0.11+ feature)
+vim.opt.clipboard = 'unnamedplus'  -- Sync vim register with system clipboard
 
--- Sync default register with system clipboard (via pbcopy, no lag)
-vim.opt.clipboard = 'unnamedplus'
+-- ============================================================================
+-- LINE NUMBERS
+-- ============================================================================
+-- WHY hybrid numbers: Relative numbers for quick j/k jumps (5j, 12k),
+-- but absolute every 10 lines for orientation in large files.
 
-vim.g.neovide_theme = "auto"
-vim.g.neovide_floating_shadow = false -- Cleaner floating windows
--- hybrid line numbers with periodic absolute references
 vim.opt.number = true
 vim.opt.relativenumber = true
 
--- Highlight for absolute landmark numbers (white, not dim)
+-- Make absolute "landmark" numbers stand out (white, not dim)
 vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#ffffff" })
 vim.api.nvim_create_autocmd("ColorScheme", {
   callback = function()
@@ -51,91 +60,84 @@ _G.StatusColumn = function()
     return "%#LineNrAbsolute#%=" .. lnum .. " "
   end
 
-  -- Every 10th line: white, absolute
+  -- Every 10th line: white, absolute (landmarks for orientation)
   if lnum % 10 == 0 then
     return "%#LineNrAbsolute#%=" .. lnum .. " "
   end
 
-  -- Everything else: dim relative
+  -- Everything else: dim relative (for quick jumps)
   return "%#LineNr#%=%{v:relnum} "
 end
 
--- disable smooth scrolling
-vim.opt.smoothscroll = false
+-- ============================================================================
+-- EDITING BEHAVIOR
+-- ============================================================================
 
--- Folding handled by nvim-ufo plugin (see plugins/nvim-ufo.lua)
-
--- make it so space-e only toggles the explorer if its active
--- vim.keymap.set("n", "<space>e", function()
---   if vim.fn.win_gettype() == "popup" then
---     return "<space>e"
---   end
---   return "<cmd>Neotree toggle<cr>"
--- end, { noremap = true, expr = true })
-
--- set column mode for navigation
-vim.opt.virtualedit = "all"
-
--- keep cursor within 8 lines of top/bottom edge
-vim.opt.scrolloff = 8
+vim.opt.virtualedit = "all"      -- WHY: Move cursor anywhere, even past EOL (useful for column editing)
+vim.opt.scrolloff = 8            -- WHY: Keep cursor 8 lines from edge (always see context)
 vim.opt.sidescrolloff = 8
+vim.opt.wrap = true              -- WHY: Wrapped lines are easier to read than horizontal scrolling
+vim.opt.cursorline = true        -- WHY: Highlight current line for visual orientation
+vim.opt.updatetime = 250         -- WHY: Faster CursorHold events (better for plugins)
+vim.opt.inccommand = "split"     -- WHY: Live preview of :s/foo/bar substitutions
+vim.opt.smoothscroll = false     -- WHY: Instant scrolling feels snappier
 
--- wrap lines by default
-vim.opt.wrap = true
-
--- highlight current line
-vim.opt.cursorline = true
-
--- faster CursorHold (better for hotreload + general responsiveness)
-vim.opt.updatetime = 250
-
--- Preview substitutions live as you type
-vim.opt.inccommand = "split"
-
--- Case insensitive unless you type a capital letter
+-- Case insensitive search UNLESS you type a capital letter
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
--- Display invisible chars (optional, but nice if you tweak it)
+-- ============================================================================
+-- INVISIBLE CHARACTERS
+-- ============================================================================
+-- WHY show them: Catch trailing whitespace and mixed tabs/spaces.
+-- WHY subtle: They shouldn't distract from actual code.
+
 vim.opt.list = true
--- eol = "·" is a subtle dot, or use "" to hide entirely
 vim.opt.listchars = { tab = "→ ", trail = "·", nbsp = "␣", eol = "·" }
 
--- Make end-of-line character extremely subtle (barely visible)
+-- Make end-of-line markers nearly invisible
 vim.api.nvim_create_autocmd("ColorScheme", {
   pattern = "*",
   callback = function()
-    -- Nearly invisible eol/newline markers
-    vim.api.nvim_set_hl(0, "NonText", { fg = "#262626", ctermfg = 235 }) -- very dark gray
+    vim.api.nvim_set_hl(0, "NonText", { fg = "#262626", ctermfg = 235 })
   end,
 })
 
--- Minimal UI settings
-vim.opt.cmdheight = 0 -- Hide command line unless typing
-vim.opt.laststatus = 3 -- Global statusline
-vim.opt.showmode = false -- Don't show mode (statusline handles it)
-vim.opt.ruler = false -- Don't show cursor position
-vim.opt.showcmd = false -- Don't show command in bottom bar
+-- ============================================================================
+-- MINIMAL UI
+-- ============================================================================
+-- WHY hide everything: Screen space is precious. Statusline shows what you need.
 
--- Minimalist statusline: filename [+]           line:col
+vim.opt.cmdheight = 0            -- Hide command line unless typing
+vim.opt.laststatus = 3           -- Global statusline (not per-window)
+vim.opt.showmode = false         -- Mode shown in statusline, not below it
+vim.opt.ruler = false            -- Position shown in statusline
+vim.opt.showcmd = false          -- Don't show partial commands
+vim.opt.signcolumn = "yes:1"     -- Always show, 1 char wide (no layout shift)
+
+-- Simple statusline: filename [modified]           line:col
 vim.opt.statusline = "%f %m%=%l:%c"
 
--- Minimal signcolumn
-vim.opt.signcolumn = "yes:1" -- Always show, but only 1 char wide
+-- ============================================================================
+-- WRAPPING & INDENTATION
+-- ============================================================================
 
--- Font to match your terminal
+vim.opt.showbreak = "↪ "         -- Visual indicator for wrapped lines
+vim.opt.breakindent = true       -- Wrapped lines match original indent
+vim.opt.breakindentopt = "shift:2"
+
+-- ============================================================================
+-- COLORS & FONTS
+-- ============================================================================
+
+vim.opt.termguicolors = true     -- WHY: 24-bit color support
 vim.opt.guifont = "Monaspace Krypton:h13"
--- clipboard configured via vim.g.clipboard at top of file
-vim.opt.showbreak = "↪ " -- What wrapped lines show
-vim.opt.breakindent = true -- Wrapped lines match indent
-vim.opt.breakindentopt = "shift:2" -- But shifted a bit
 
--- True color support for terminal
-vim.opt.termguicolors = true
+-- Neovide-specific (GUI nvim)
+vim.g.neovide_theme = "auto"
+vim.g.neovide_floating_shadow = false
 
-
--- Make UI elements (statusline, tabline) transparent in light mode
--- Editor backgrounds are handled by colorscheme.lua
+-- Make UI elements transparent in light mode (matches Ghostty transparency)
 vim.api.nvim_create_autocmd("ColorScheme", {
   pattern = { "catppuccin-latte" },
   callback = function()
@@ -147,7 +149,12 @@ vim.api.nvim_create_autocmd("ColorScheme", {
   end,
 })
 
--- Auto-reload files when changed externally (if buffer not modified locally)
+-- ============================================================================
+-- AUTO-RELOAD
+-- ============================================================================
+-- WHY: When you edit a file externally (or git checkout), nvim picks it up
+-- automatically. No more "file changed on disk" prompts.
+
 vim.opt.autoread = true
 vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
   callback = function()
@@ -156,3 +163,8 @@ vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold" }, {
     end
   end,
 })
+
+-- ============================================================================
+-- FOLDING
+-- ============================================================================
+-- Handled by nvim-ufo plugin (see plugins/nvim-ufo.lua)
