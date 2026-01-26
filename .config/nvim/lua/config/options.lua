@@ -7,6 +7,11 @@
 -- LazyVim defaults: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 
 -- ============================================================================
+-- ANIMATIONS (via snacks.nvim, replaces mini.animate)
+-- ============================================================================
+vim.g.snacks_animate = true
+
+-- ============================================================================
 -- CLIPBOARD
 -- ============================================================================
 -- WHY pbcopy instead of OSC52: OSC52 causes clipboard spam on refocus in
