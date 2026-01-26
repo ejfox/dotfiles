@@ -1,0 +1,44 @@
+#!/bin/bash
+# Watches for macOS appearance changes and updates btop theme
+# Run in background: appearance-watcher &
+
+BTOP_CONF="$HOME/.config/btop/btop.conf"
+LAST_MODE=""
+
+get_mode() {
+    if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then
+        echo "dark"
+    else
+        echo "light"
+    fi
+}
+
+set_btop_theme() {
+    local mode="$1"
+    local theme="vulpes-reddish2-${mode}-btop"
+
+    if [[ -f "$BTOP_CONF" ]]; then
+        sed -i '' "s/color_theme = .*/color_theme = \"$theme\"/" "$BTOP_CONF"
+        # Light mode needs theme background, dark mode uses terminal transparency
+        if [[ "$mode" == "light" ]]; then
+            sed -i '' "s/theme_background = .*/theme_background = True/" "$BTOP_CONF"
+        else
+            sed -i '' "s/theme_background = .*/theme_background = False/" "$BTOP_CONF"
+        fi
+        # Signal btop to reload config
+        pkill -SIGUSR2 btop 2>/dev/null
+    fi
+}
+
+# Initial state
+LAST_MODE=$(get_mode)
+
+while true; do
+    sleep 2
+    CURRENT_MODE=$(get_mode)
+
+    if [[ "$CURRENT_MODE" != "$LAST_MODE" ]]; then
+        set_btop_theme "$CURRENT_MODE"
+        LAST_MODE="$CURRENT_MODE"
+    fi
+done

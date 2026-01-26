@@ -1,0 +1,13 @@
+#!/bin/bash
+# Open VPS in a dedicated dark-mode Ghostty window
+# Usage: vps [host]
+
+HOST="${1:-vps}"
+
+exec /Applications/Ghostty.app/Contents/MacOS/ghostty \
+    --theme=vulpes-reddishnovember-dark \
+    --background-opacity=0.9 \
+    --font-family="MonaspiceKr Nerd Font" \
+    --window-decoration=false \
+    --title="VPS: $HOST" \
+    -e ssh -t "$HOST" "tmux attach 2>/dev/null || tmux new"
