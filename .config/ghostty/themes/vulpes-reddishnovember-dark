@@ -10,7 +10,7 @@ selection-foreground = #000000
 # ANSI Colors (0-15)
 palette = 0=#1a1a1a
 palette = 1=#e60058
-palette = 2=#e60049
+palette = 2=#d4a5bf
 palette = 3=#ff1a90
 palette = 4=#ff0095
 palette = 5=#ff10ab
@@ -18,7 +18,7 @@ palette = 6=#ff0040
 palette = 7=#b3b3b3
 palette = 8=#595959
 palette = 9=#ff3381
-palette = 10=#ff3374
+palette = 10=#e8b8d0
 palette = 11=#ff66b5
 palette = 12=#ff4db5
 palette = 13=#ff57c4
