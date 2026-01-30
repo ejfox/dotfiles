@@ -52,14 +52,14 @@
   typeset -g POWERLEVEL9K_VCS_COMMITS_AHEAD_MAX_NUM=99
   typeset -g POWERLEVEL9K_VCS_COMMITS_BEHIND_MAX_NUM=99
   
-  # Detailed git status symbols (hacker aesthetic)
+  # Minimal git status symbols (matches nvim oil-git-status)
   typeset -g POWERLEVEL9K_VCS_UNTRACKED_ICON='?'
   typeset -g POWERLEVEL9K_VCS_UNSTAGED_ICON='!'
   typeset -g POWERLEVEL9K_VCS_STAGED_ICON='+'
-  typeset -g POWERLEVEL9K_VCS_INCOMING_CHANGES_ICON='⇣'
-  typeset -g POWERLEVEL9K_VCS_OUTGOING_CHANGES_ICON='⇡'
-  typeset -g POWERLEVEL9K_VCS_STASH_ICON='⚑'
-  typeset -g POWERLEVEL9K_VCS_TAG_ICON='🏷'
+  typeset -g POWERLEVEL9K_VCS_INCOMING_CHANGES_ICON='↓'
+  typeset -g POWERLEVEL9K_VCS_OUTGOING_CHANGES_ICON='↑'
+  typeset -g POWERLEVEL9K_VCS_STASH_ICON='≡'
+  typeset -g POWERLEVEL9K_VCS_TAG_ICON=''
   
   # Show commit hash and ahead/behind counts
   typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${P9K_CONTENT}${${P9K_VCS_COMMIT_HASH:+ ${P9K_VCS_COMMIT_HASH}}}'
@@ -390,8 +390,8 @@
   # typeset -g POWERLEVEL9K_DIR_PREFIX='%fin '
 
   #####################################[ vcs: git status ]######################################
-  # Branch icon. Set this parameter to '\UE0A0 ' for the popular Powerline branch icon.
-  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON='\uF126 '
+  # Branch icon. Ultra-minimal chevron
+  typeset -g POWERLEVEL9K_VCS_BRANCH_ICON='› '
 
   # Untracked files icon. It's really a question mark, your font isn't broken.
   # Change the value of this parameter to show a different icon.
@@ -399,7 +399,7 @@
 
   # Formatter for Git status.
   #
-  # Example output: master wip ⇣42⇡42 *42 merge ~42 +42 !42 ?42.
+  # Example output: main ↓2↑1 ≡2 +3 !2 ?1 (minimal vulpes style)
   #
   # You can edit the function to customize how Git status looks.
   #
@@ -416,19 +416,27 @@
     fi
 
     if (( $1 )); then
-      # Styling for up-to-date Git status.
-      local       meta='%f'     # default foreground
-      local      clean='%204F'  # pink foreground (vulpes)
-      local   modified='%197F'  # red-pink foreground (vulpes)
-      local  untracked='%167F'  # muted red foreground (vulpes)
-      local conflicted='%196F'  # red foreground
+      # Vulpes colors from vulpes-reddishnovember-dark.lua
+      local       meta='%96F'   # linenr #735865 (muted punctuation)
+      local      clean='%224F'  # fg #f2cfdf (dusty pink branch)
+      local     staged='%149F'  # diff_add #b4d455 (chartreuse)
+      local   modified='%197F'  # base #e60067 (hot pink)
+      local  untracked='%87F'   # comment #6eedf7 (teal)
+      local     behind='%214F'  # warning #ffaa00 (orange)
+      local      ahead='%231F'  # success #ffffff (white)
+      local      stash='%96F'   # linenr #735865 (muted)
+      local conflicted='%123F'  # error #a0f7fc (bright teal)
     else
-      # Styling for incomplete and stale Git status.
-      local       meta='%244F'  # grey foreground
-      local      clean='%244F'  # grey foreground
-      local   modified='%244F'  # grey foreground
-      local  untracked='%244F'  # grey foreground
-      local conflicted='%244F'  # grey foreground
+      # Stale status - all muted
+      local       meta='%96F'
+      local      clean='%96F'
+      local     staged='%96F'
+      local   modified='%96F'
+      local  untracked='%96F'
+      local     behind='%96F'
+      local      ahead='%96F'
+      local      stash='%96F'
+      local conflicted='%96F'
     fi
 
     local res
@@ -471,35 +479,33 @@
     fi
 
     if (( VCS_STATUS_COMMITS_AHEAD || VCS_STATUS_COMMITS_BEHIND )); then
-      # ⇣42 if behind the remote.
-      (( VCS_STATUS_COMMITS_BEHIND )) && res+=" ${clean}⇣${VCS_STATUS_COMMITS_BEHIND}"
-      # ⇡42 if ahead of the remote; no leading space if also behind the remote: ⇣42⇡42.
+      # ↓N if behind the remote (orange - pull needed)
+      (( VCS_STATUS_COMMITS_BEHIND )) && res+=" ${behind}↓${VCS_STATUS_COMMITS_BEHIND}"
+      # ↑N if ahead of the remote (white - push ready)
       (( VCS_STATUS_COMMITS_AHEAD && !VCS_STATUS_COMMITS_BEHIND )) && res+=" "
-      (( VCS_STATUS_COMMITS_AHEAD  )) && res+="${clean}⇡${VCS_STATUS_COMMITS_AHEAD}"
+      (( VCS_STATUS_COMMITS_AHEAD  )) && res+="${ahead}↑${VCS_STATUS_COMMITS_AHEAD}"
     elif [[ -n $VCS_STATUS_REMOTE_BRANCH ]]; then
       # Tip: Uncomment the next line to display '=' if up to date with the remote.
       # res+=" ${clean}="
     fi
 
-    # ⇠42 if behind the push remote.
-    (( VCS_STATUS_PUSH_COMMITS_BEHIND )) && res+=" ${clean}⇠${VCS_STATUS_PUSH_COMMITS_BEHIND}"
+    # ←N if behind the push remote.
+    (( VCS_STATUS_PUSH_COMMITS_BEHIND )) && res+=" ${behind}←${VCS_STATUS_PUSH_COMMITS_BEHIND}"
     (( VCS_STATUS_PUSH_COMMITS_AHEAD && !VCS_STATUS_PUSH_COMMITS_BEHIND )) && res+=" "
-    # ⇢42 if ahead of the push remote; no leading space if also behind: ⇠42⇢42.
-    (( VCS_STATUS_PUSH_COMMITS_AHEAD  )) && res+="${clean}⇢${VCS_STATUS_PUSH_COMMITS_AHEAD}"
-    # *42 if have stashes.
-    (( VCS_STATUS_STASHES        )) && res+=" ${clean}*${VCS_STATUS_STASHES}"
+    # →N if ahead of the push remote
+    (( VCS_STATUS_PUSH_COMMITS_AHEAD  )) && res+="${ahead}→${VCS_STATUS_PUSH_COMMITS_AHEAD}"
+    # ≡N if have stashes (muted pink)
+    (( VCS_STATUS_STASHES        )) && res+=" ${stash}≡${VCS_STATUS_STASHES}"
     # 'merge' if the repo is in an unusual state.
     [[ -n $VCS_STATUS_ACTION     ]] && res+=" ${conflicted}${VCS_STATUS_ACTION}"
     # ~42 if have merge conflicts.
     (( VCS_STATUS_NUM_CONFLICTED )) && res+=" ${conflicted}~${VCS_STATUS_NUM_CONFLICTED}"
-    # +42 if have staged changes.
-    (( VCS_STATUS_NUM_STAGED     )) && res+=" ${modified}+${VCS_STATUS_NUM_STAGED}"
-    # !42 if have unstaged changes.
+    # +N if have staged changes (chartreuse - ready to commit)
+    (( VCS_STATUS_NUM_STAGED     )) && res+=" ${staged}+${VCS_STATUS_NUM_STAGED}"
+    # !N if have unstaged changes (hot pink - needs attention)
     (( VCS_STATUS_NUM_UNSTAGED   )) && res+=" ${modified}!${VCS_STATUS_NUM_UNSTAGED}"
-    # ?42 if have untracked files. It's really a question mark, your font isn't broken.
-    # See POWERLEVEL9K_VCS_UNTRACKED_ICON above if you want to use a different icon.
-    # Remove the next line if you don't want to see untracked files at all.
-    (( VCS_STATUS_NUM_UNTRACKED  )) && res+=" ${untracked}${(g::)POWERLEVEL9K_VCS_UNTRACKED_ICON}${VCS_STATUS_NUM_UNTRACKED}"
+    # ?N if have untracked files (teal - new to git)
+    (( VCS_STATUS_NUM_UNTRACKED  )) && res+=" ${untracked}?${VCS_STATUS_NUM_UNTRACKED}"
     # "─" if the number of unstaged files is unknown. This can happen due to
     # POWERLEVEL9K_VCS_MAX_INDEX_SIZE_DIRTY (see below) being set to a non-negative number lower
     # than the number of files in the Git index, or due to bash.showDirtyState being set to false
@@ -533,9 +539,9 @@
   # Enable counters for staged, unstaged, etc.
   typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED,COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
 
-  # Icon color - vulpes red theme
-  typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_COLOR=204      # Pink-red
-  typeset -g POWERLEVEL9K_VCS_LOADING_VISUAL_IDENTIFIER_COLOR=244  # Gray
+  # Icon color - vulpes fg #f2cfdf
+  typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_COLOR=224      # fg dusty pink
+  typeset -g POWERLEVEL9K_VCS_LOADING_VISUAL_IDENTIFIER_COLOR=96   # linenr muted
   # Custom icon.
   # typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION='⭐'
   # Custom prefix.
@@ -546,11 +552,10 @@
   # isn't in an svn or hg repository.
   typeset -g POWERLEVEL9K_VCS_BACKENDS=(git)
 
-  # These settings are used for repositories other than Git or when gitstatusd fails and
-  # Powerlevel10k has to fall back to using vcs_info - vulpes red theme
-  typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=174           # Dusty rose (clean)
-  typeset -g POWERLEVEL9K_VCS_UNTRACKED_FOREGROUND=197       # Salmon (untracked)
-  typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=196        # Bright red (modified)
+  # Fallback colors - vulpes-reddishnovember-dark.lua
+  typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=224           # fg #f2cfdf
+  typeset -g POWERLEVEL9K_VCS_UNTRACKED_FOREGROUND=87        # comment #6eedf7
+  typeset -g POWERLEVEL9K_VCS_MODIFIED_FOREGROUND=197        # base #e60067
 
   ##########################[ status: exit code of the last command ]###########################
   # Enable OK_PIPE, ERROR_PIPE and ERROR_SIGNAL status states to allow us to enable, disable and
