@@ -110,9 +110,66 @@ return {
         return ""
       end
 
+      -- Vulpes mode colors - entire bar changes
+      local vulpes_red = "#e60067"
+      local vulpes_blue = "#6eedf7"  -- cyberpunk teal
+      local vulpes_bg = "#0d0d0d"
+      local vulpes_fg = "#f2cfdf"
+
+      local vulpes_theme = {
+        normal = {
+          a = { fg = vulpes_fg, bg = vulpes_bg },
+          b = { fg = vulpes_fg, bg = vulpes_bg },
+          c = { fg = vulpes_fg, bg = vulpes_bg },
+          x = { fg = vulpes_fg, bg = vulpes_bg },
+          y = { fg = vulpes_fg, bg = vulpes_bg },
+          z = { fg = vulpes_fg, bg = vulpes_bg },
+        },
+        insert = {
+          a = { fg = "#000000", bg = vulpes_red },
+          b = { fg = "#000000", bg = vulpes_red },
+          c = { fg = "#000000", bg = vulpes_red },
+          x = { fg = "#000000", bg = vulpes_red },
+          y = { fg = "#000000", bg = vulpes_red },
+          z = { fg = "#000000", bg = vulpes_red },
+        },
+        visual = {
+          a = { fg = "#000000", bg = vulpes_blue },
+          b = { fg = "#000000", bg = vulpes_blue },
+          c = { fg = "#000000", bg = vulpes_blue },
+          x = { fg = "#000000", bg = vulpes_blue },
+          y = { fg = "#000000", bg = vulpes_blue },
+          z = { fg = "#000000", bg = vulpes_blue },
+        },
+        replace = {
+          a = { fg = "#000000", bg = "#ff1aca" },
+          b = { fg = "#000000", bg = "#ff1aca" },
+          c = { fg = "#000000", bg = "#ff1aca" },
+          x = { fg = "#000000", bg = "#ff1aca" },
+          y = { fg = "#000000", bg = "#ff1aca" },
+          z = { fg = "#000000", bg = "#ff1aca" },
+        },
+        command = {
+          a = { fg = "#000000", bg = "#ffaa00" },
+          b = { fg = "#000000", bg = "#ffaa00" },
+          c = { fg = "#000000", bg = "#ffaa00" },
+          x = { fg = "#000000", bg = "#ffaa00" },
+          y = { fg = "#000000", bg = "#ffaa00" },
+          z = { fg = "#000000", bg = "#ffaa00" },
+        },
+        inactive = {
+          a = { fg = "#735865", bg = vulpes_bg },
+          b = { fg = "#735865", bg = vulpes_bg },
+          c = { fg = "#735865", bg = vulpes_bg },
+          x = { fg = "#735865", bg = vulpes_bg },
+          y = { fg = "#735865", bg = vulpes_bg },
+          z = { fg = "#735865", bg = vulpes_bg },
+        },
+      }
+
       return {
         options = {
-          theme = "auto",
+          theme = vulpes_theme,
           component_separators = "",
           section_separators = "",
           globalstatus = true,
