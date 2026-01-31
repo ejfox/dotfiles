@@ -1,39 +1,71 @@
 #!/bin/bash
-# CIPHER Daily - Generate morning guidance, cache to file
-# Run via launchd at 7am, read by .startup.sh
+################################################################################
+# cipher-daily - Generate morning priorities via CIPHER
+# Run by launchd at 7am, or on-demand by .startup.sh
+################################################################################
+set +e  # Don't exit on error
 
-CACHE_FILE="$HOME/.cache/cipher/daily.txt"
-CACHE_DATE="$HOME/.cache/cipher/daily.date"
-mkdir -p "$(dirname "$CACHE_FILE")"
-
-# Load API key
-[ -f ~/.env ] && source ~/.env
-[ -z "$ANTHROPIC_API_KEY" ] && exit 1
-
-# Gather context (local only - fast)
+CACHE_DIR="$HOME/.cache/cipher"
+CACHE_FILE="$CACHE_DIR/daily.txt"
+CACHE_DATE="$CACHE_DIR/daily.date"
+LOCK_FILE="$CACHE_DIR/daily.lock"
 OBSIDIAN_VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
 
-# Things tasks
-today_tasks=$(osascript -e 'tell application "Things3"
+# Create cache dir
+mkdir -p "$CACHE_DIR" 2>/dev/null || exit 1
+
+# Prevent concurrent runs (stale lock = 10 min)
+if [ -f "$LOCK_FILE" ]; then
+  lock_age=$(( $(date +%s) - $(stat -f %m "$LOCK_FILE" 2>/dev/null || echo 0) ))
+  [ "$lock_age" -lt 600 ] && exit 0
+fi
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT
+
+# Load API key
+[ -f ~/.env ] && source ~/.env 2>/dev/null
+if [ -z "$ANTHROPIC_API_KEY" ]; then
+  rm -f "$LOCK_FILE"
+  exit 1
+fi
+
+# Check network (quick)
+timeout 2 curl -fsSL -o /dev/null https://1.1.1.1 2>/dev/null || exit 1
+
+################################################################################
+# GATHER CONTEXT (all with timeouts and fallbacks)
+################################################################################
+
+# Things tasks (AppleScript, local)
+today_tasks=$(timeout 5 osascript -e 'tell application "Things3"
     set todayTodos to to dos of list "Today"
     set taskList to ""
     repeat with aTodo in todayTodos
         set taskList to taskList & name of aTodo & "\n"
     end repeat
     return taskList
-end tell' 2>/dev/null | head -10)
+end tell' 2>/dev/null | head -10 || echo "")
 
-# Calendar
-calendar=$(command -v icalBuddy >/dev/null && icalBuddy -n -nc -eep notes,url -ec "Birthdays,Holidays" eventsToday+1 2>/dev/null | head -8 || echo "")
+# Calendar (local)
+calendar=""
+if command -v icalBuddy >/dev/null 2>&1; then
+  calendar=$(timeout 3 icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" \
+    -tf "%H:%M" -df "" -b "" eventsToday+1 2>/dev/null | \
+    tr -cd '\11\12\15\40-\176' | head -8 || echo "")
+fi
 
-# Recent vault activity
-vault_recent=$(find "$OBSIDIAN_VAULT" -name "*.md" -type f -mtime -3 2>/dev/null | wc -l | tr -d ' ')
+# Vault activity (local, fast)
+vault_recent=0
+[ -d "$OBSIDIAN_VAULT" ] && \
+  vault_recent=$(find "$OBSIDIAN_VAULT" -name "*.md" -mtime -3 2>/dev/null | wc -l | tr -d ' ')
 
 # Day context
 dow=$(date +%A)
 hour=$(date +%H)
 
-# Build prompt
+################################################################################
+# BUILD PROMPT
+################################################################################
 context="Day: $dow, $hour:00
 Tasks today:
 $today_tasks
@@ -53,16 +85,29 @@ $context
 
 Three priorities, numbered:"
 
-# Call Claude
-response=$(curl -s --max-time 30 https://api.anthropic.com/v1/messages \
+################################################################################
+# CALL CLAUDE
+################################################################################
+response=$(timeout 30 curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
   -d "$(jq -n --arg p "$prompt" '{model:"claude-3-5-haiku-latest",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
-  | jq -r '.content[0].text // empty')
+  2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null)
 
-if [ -n "$response" ]; then
-  # Clean up: remove blank lines, trim whitespace
-  echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//' > "$CACHE_FILE"
+################################################################################
+# SAVE (atomic write, validate before saving)
+################################################################################
+if [ -n "$response" ] && [ ${#response} -gt 20 ]; then
+  # Clean: remove blank lines, trim
+  cleaned=$(echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//')
+
+  # Atomic write
+  tmp="$CACHE_FILE.tmp.$$"
+  echo "$cleaned" > "$tmp" 2>/dev/null && mv "$tmp" "$CACHE_FILE" 2>/dev/null
   date +%Y-%m-%d > "$CACHE_DATE"
+
+  rm -f "$tmp" 2>/dev/null
 fi
+
+rm -f "$LOCK_FILE"
