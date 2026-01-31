@@ -33,10 +33,27 @@ find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | head -10 | while read email
 done > /tmp/email_raw.txt
 
 if [ -s /tmp/email_raw.txt ] && command -v llm >/dev/null 2>&1; then
-    # AI-powered smart summary - ASCII only for terminal safety
-    cat /tmp/email_raw.txt | llm -m 4o-mini --no-log -s "Summarize these $unread_count emails in 2-3 bullets. Focus on: action needed, important, can wait. Ignore spam/newsletters. Use ASCII only: [!] urgent, [>] important, [-] FYI. No markdown, no emojis, plain text. Max 60 chars per line." 2>/dev/null | \
-    tr -cd '\11\12\15\40-\176' | \
-    sed 's/^/  /' | tee "$EMAIL_CACHE"
+    # NUCLEAR FILTER: Only surface genuinely urgent items
+    # Ignore: newsletters, receipts, marketing, notifications, automated alerts
+    result=$(cat /tmp/email_raw.txt | llm -m 4o-mini --no-log -s "You are a BRUTAL email filter. Only output emails that are:
+- From actual humans who need a response
+- Bills/payments actually due soon (not receipts)
+- Meeting requests or calendar invites
+- Urgent work requests
+
+IGNORE and do not mention: newsletters, marketing, receipts, order confirmations, automated notifications, subscription notices, GitHub/deploy alerts, promotional emails.
+
+If NOTHING passes the filter, output exactly: NONE
+
+Otherwise output max 2 items, format: [!] description (10 words max)
+No [>] or [-] - if it's not urgent, don't show it." 2>/dev/null | tr -cd '\11\12\15\40-\176')
+
+    # Only cache/display if there's something real
+    if [ -n "$result" ] && [ "$result" != "NONE" ]; then
+        echo "$result" | sed 's/^/  /' | tee "$EMAIL_CACHE"
+    else
+        rm -f "$EMAIL_CACHE"  # Clear cache so section doesn't show
+    fi
 else
     echo "  📧 $unread_count unread messages" | tee "$EMAIL_CACHE"
 fi
