@@ -1,0 +1,44 @@
+#!/bin/bash
+# Smart email summary for startup script with AI insights
+
+# Cache for 10 minutes
+EMAIL_CACHE="/tmp/startup_cache/email_summary_cache.txt"
+EMAIL_CACHE_MIN=10
+
+# Check cache first
+if [[ -f "$EMAIL_CACHE" ]] && [[ -z $(find "$EMAIL_CACHE" -mmin +$EMAIL_CACHE_MIN 2>/dev/null) ]]; then
+  cat "$EMAIL_CACHE"
+  exit 0
+fi
+
+# Check if maildir exists and has been synced
+if [ ! -d "$HOME/Maildir/Inbox" ]; then
+    echo "  📧 Email not synced yet" | tee "$EMAIL_CACHE"
+    exit 0
+fi
+
+# Count unread emails in inbox
+unread_count=$(find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+if [ "$unread_count" -eq 0 ]; then
+    echo "  ✓ Inbox zero"
+    exit 0
+fi
+
+# Get recent emails for AI summary
+find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | head -10 | while read email; do
+    subject=$(grep -i "^Subject:" "$email" 2>/dev/null | sed 's/Subject: //')
+    from=$(grep -i "^From:" "$email" 2>/dev/null | sed 's/From: //' | sed 's/<.*>//' | tr -d '"')
+    echo "From: $from | Subject: $subject"
+done > /tmp/email_raw.txt
+
+if [ -s /tmp/email_raw.txt ] && command -v llm >/dev/null 2>&1; then
+    # AI-powered smart summary - ASCII only for terminal safety
+    cat /tmp/email_raw.txt | llm -m 4o-mini --no-log -s "Summarize these $unread_count emails in 2-3 bullets. Focus on: action needed, important, can wait. Ignore spam/newsletters. Use ASCII only: [!] urgent, [>] important, [-] FYI. No markdown, no emojis, plain text. Max 60 chars per line." 2>/dev/null | \
+    tr -cd '\11\12\15\40-\176' | \
+    sed 's/^/  /' | tee "$EMAIL_CACHE"
+else
+    echo "  📧 $unread_count unread messages" | tee "$EMAIL_CACHE"
+fi
+
+rm -f /tmp/email_raw.txt
