@@ -1,0 +1,68 @@
+#!/bin/bash
+# CIPHER Daily - Generate morning guidance, cache to file
+# Run via launchd at 7am, read by .startup.sh
+
+CACHE_FILE="$HOME/.cache/cipher/daily.txt"
+CACHE_DATE="$HOME/.cache/cipher/daily.date"
+mkdir -p "$(dirname "$CACHE_FILE")"
+
+# Load API key
+[ -f ~/.env ] && source ~/.env
+[ -z "$ANTHROPIC_API_KEY" ] && exit 1
+
+# Gather context (local only - fast)
+OBSIDIAN_VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+
+# Things tasks
+today_tasks=$(osascript -e 'tell application "Things3"
+    set todayTodos to to dos of list "Today"
+    set taskList to ""
+    repeat with aTodo in todayTodos
+        set taskList to taskList & name of aTodo & "\n"
+    end repeat
+    return taskList
+end tell' 2>/dev/null | head -10)
+
+# Calendar
+calendar=$(command -v icalBuddy >/dev/null && icalBuddy -n -nc -eep notes,url -ec "Birthdays,Holidays" eventsToday+1 2>/dev/null | head -8 || echo "")
+
+# Recent vault activity
+vault_recent=$(find "$OBSIDIAN_VAULT" -name "*.md" -type f -mtime -3 2>/dev/null | wc -l | tr -d ' ')
+
+# Day context
+dow=$(date +%A)
+hour=$(date +%H)
+
+# Build prompt
+context="Day: $dow, $hour:00
+Tasks today:
+$today_tasks
+Calendar:
+$calendar
+Vault: $vault_recent notes touched in 3 days"
+
+prompt="CIPHER: terse, dry, amused Unix sysadmin energy. You guide a hacker-journalist.
+
+Based on today's context, give 3 focus priorities. Rules:
+- 6-10 words each, no corporate speak
+- Dry observations welcome ('Ship it or delete it')
+- Be specific to the actual tasks, not generic
+- No 'optimize' 'leverage' 'maximize' bullshit
+
+$context
+
+Three priorities, numbered:"
+
+# Call Claude
+response=$(curl -s --max-time 30 https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d "$(jq -n --arg p "$prompt" '{model:"claude-3-5-haiku-latest",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
+  | jq -r '.content[0].text // empty')
+
+if [ -n "$response" ]; then
+  # Clean up: remove blank lines, trim whitespace
+  echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//' > "$CACHE_FILE"
+  date +%Y-%m-%d > "$CACHE_DATE"
+fi
