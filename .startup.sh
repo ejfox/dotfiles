@@ -423,9 +423,16 @@ surface_mirror
 ################################################################################
 cipher_daily_file="$HOME/.cache/cipher/daily.txt"
 cipher_daily_date="$HOME/.cache/cipher/daily.date"
+today=$(date +%Y-%m-%d)
+
+# If no cache for today, generate in background (laptop was asleep at 7am)
+if [ ! -f "$cipher_daily_date" ] || [ "$(cat "$cipher_daily_date" 2>/dev/null)" != "$today" ]; then
+  command -v cipher-daily >/dev/null 2>&1 && cipher-daily &>/dev/null &
+fi
+
+# Display if we have today's cache
 if [ -f "$cipher_daily_file" ] && [ -f "$cipher_daily_date" ]; then
   cached_date=$(cat "$cipher_daily_date")
-  today=$(date +%Y-%m-%d)
   if [ "$cached_date" = "$today" ]; then
     echo -e "\033[38;5;131m◆ CIPHER\033[0m"
     while IFS= read -r line; do
