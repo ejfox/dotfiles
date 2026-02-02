@@ -94,31 +94,29 @@ else
   COLOR="0xffe5dcdc"  # Vulpes muted pink - normal (subtle)
 fi
 
-# Fade bar background to URGENT RED as battery gets critical
-if [[ "$TIME_LABEL" =~ ^([0-9]+)m$ ]]; then
-  MINS=${BASH_REMATCH[1]}
-
-  if [ "$MINS" -le 30 ]; then
-    # Calculate fade: 30 mins = dark (0x0d0d0d), 0 mins = alarming red (#aa0011)
-    INTENSITY=$((100 * (30 - MINS) / 30))
-
-    # Fade from 0x0d to alarming red (#aa, 0x00, 0x11)
-    RED=$(( 13 + (157 * INTENSITY / 100) ))    # 0x0d -> 0xaa (170)
-    GREEN=$((13 - (13 * INTENSITY / 100)))     # 0x0d -> 0x00
-    BLUE=$((13 + (4 * INTENSITY / 100)))       # 0x0d -> 0x11 (17)
-
-    RED_HEX=$(printf "%02x" $RED)
-    GREEN_HEX=$(printf "%02x" $GREEN)
-    BLUE_HEX=$(printf "%02x" $BLUE)
-
-    BAR_COLOR="0xff${RED_HEX}${GREEN_HEX}${BLUE_HEX}"
-  else
-    # Normal dark bar
-    BAR_COLOR="0xff0d0d0d"
-  fi
+# Fade bar background based on battery percentage
+# Above 50% = OLED black, below 50% = gradual fade to alarming red
+if [ "$IS_CHARGING" = "Yes" ]; then
+  # Always black when charging
+  BAR_COLOR="0xff000000"
+elif [ "$PERCENT" -ge 50 ]; then
+  # OLED black above 50%
+  BAR_COLOR="0xff000000"
 else
-  # Normal dark bar (charging or no time estimate)
-  BAR_COLOR="0xff0d0d0d"
+  # Fade from black (50%) to alarming red (0%)
+  # INTENSITY: 0 at 50%, 100 at 0%
+  INTENSITY=$(( (50 - PERCENT) * 100 / 50 ))
+
+  # Fade from pure black to alarming red (#aa0011)
+  RED=$(( 170 * INTENSITY / 100 ))     # 0x00 -> 0xaa (170)
+  GREEN=0                               # stays black
+  BLUE=$(( 17 * INTENSITY / 100 ))     # 0x00 -> 0x11 (17)
+
+  RED_HEX=$(printf "%02x" $RED)
+  GREEN_HEX=$(printf "%02x" $GREEN)
+  BLUE_HEX=$(printf "%02x" $BLUE)
+
+  BAR_COLOR="0xff${RED_HEX}${GREEN_HEX}${BLUE_HEX}"
 fi
 
 # Update bar background color
