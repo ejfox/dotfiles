@@ -796,14 +796,38 @@ Intelligent calendar event display with Things task integration:
 
 **Config**: `~/.config/sketchybar/sketchybarrc` line 43-45
 
-### Battery Fade Effect
+### Battery OLED Black + Fade (Feb 2, 2026)
 **Location**: `~/.config/sketchybar/plugins/battery.sh`
 
-Smooth gradient from black to red as battery drains:
-- 20 minutes = black background (normal)
-- Gradually increases red intensity as time decreases
-- 0 minutes = full red alarm
-- Formula: `RED_INTENSITY = 255 * (20 - MINS) / 20`
+Bar background uses percentage-based color logic:
+- **≥50%**: Pure OLED black (`#000000`) - clean, minimal
+- **<50%**: Gradual fade from black to alarming red (`#aa0011`)
+- **Charging**: Always pure OLED black
+
+Formula: `INTENSITY = (50 - PERCENT) * 100 / 50` then fade RGB accordingly.
+
+### Creative Stats Consolidation (Feb 2, 2026)
+**Location**: `~/.config/sketchybar/plugins/creative.sh`
+
+Single item replaces separate `demos`, `notes`, and `words` items. Shows most relevant stat based on priority:
+
+| Priority | Condition | Icon | Display |
+|----------|-----------|------|---------|
+| 1 | Demos ≥4 days old | 󰕧 | `4d` (yellow) / `7d+` (red) |
+| 2 | Notes ≥3 days old | 󰎞 | `3d` (yellow) / `5d+` (red) |
+| 3 | Default | 󱓧 | `0w` / `250w` (word count today) |
+
+**File detection**:
+- Demos: `~/demos/*.screenstudio` and `*.mp4` files
+- Notes: `*.md` files in Obsidian vault (recursive find)
+- Words: `*.md` files modified today in `~/writing` and `~/code/blog/content`
+
+**Click actions**: Opens relevant app (demos folder, Obsidian, or blog)
+
+**Current sketchybar layout** (left → right):
+```
+[next_event] ........................ [creative] [clock] [battery]
+```
 
 ### Telescope Keybindings
 **Location**: `~/.config/nvim/lua/plugins/minimal-telescope.lua`
