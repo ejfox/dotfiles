@@ -121,25 +121,11 @@ sketchybar --add item clock right \
 #  position=right \
 #  script="$HOME/.config/sketchybar/plugins/top_task.sh"
 
-##### Words Today/Month #####
-sketchybar --add item words right \
-  --set words update_freq=60 \
-  script="$HOME/.config/sketchybar/plugins/words.sh" \
-  click_script="open https://ejfox.com/blog" \
-  --subscribe words system_woke
-
-##### Creative Stats (left side, hidden when meetings) #####
-sketchybar --add item demos left \
-  --set demos update_freq=120 \
-  drawing=off \
-  script="$HOME/.config/sketchybar/plugins/demos.sh" \
-  click_script="open ~/demos"
-
-sketchybar --add item notes left \
-  --set notes update_freq=120 \
-  drawing=off \
-  script="$HOME/.config/sketchybar/plugins/notes.sh" \
-  click_script="open 'obsidian://open?vault=ejfox'"
+##### Creative Stats (single item: demos > notes > words by priority) #####
+sketchybar --add item creative right \
+  --set creative update_freq=120 \
+  script="$HOME/.config/sketchybar/plugins/creative.sh" \
+  --subscribe creative system_woke
 
 ##### Photos Count #####
 # sketchybar --add item photos right \
@@ -173,7 +159,4 @@ sketchybar --add item notes left \
 ##### Force initial update #####
 sketchybar --update
 sketchybar --trigger next_event
-sketchybar --trigger words
-# sketchybar --trigger photos
-sketchybar --trigger productivity
-# sketchybar --trigger typing
+sketchybar --trigger creative
