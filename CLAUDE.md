@@ -91,6 +91,52 @@ Common characters:
 
 Or use Python: `python3 -c "import urllib.parse; print(urllib.parse.quote('your text'))"`
 
+## Local Email Archive (Feb 2, 2026)
+
+**Status**: 🟡 Installed, OAuth not configured yet
+
+EJ has [msgvault](https://msgvault.io) (by Wes McKinney of pandas fame) installed for local-first email archiving. The vibe: download your entire Gmail history to a local SQLite + DuckDB/Parquet setup for blazing fast search without touching Google's servers.
+
+**Why this matters**:
+- Gmail search is garbage
+- Vendor lock-in sucks
+- AI companies are eyeing your inbox
+- Sub-millisecond queries across millions of emails
+- Has MCP server so Claude can search your email locally
+
+**Installation** (built from source, not curl-pipe-bash):
+```bash
+cd ~/code/msgvault  # cloned from github.com/wesm/msgvault
+make install        # installs to ~/.local/bin/msgvault
+```
+
+**Location**: `~/.local/bin/msgvault`
+**Data dir**: `~/.msgvault/` (db, attachments, parquet cache, oauth tokens)
+**Source**: `~/code/msgvault`
+
+**Setup steps** (when ready):
+```bash
+msgvault init-db                        # Initialize database
+msgvault add-account you@gmail.com      # OAuth flow (needs GCP credentials)
+msgvault sync-full you@gmail.com        # Download everything
+msgvault tui                            # Interactive search UI
+msgvault mcp                            # MCP server for Claude
+```
+
+**The OAuth yak shave**: Requires creating a GCP project, enabling Gmail API, and generating OAuth credentials. ~10 min of clicking through Google Cloud Console. Not done yet.
+
+**Architecture**:
+- SQLite: System of record (messages, metadata, compressed MIME)
+- Parquet: Denormalized analytics cache partitioned by year
+- DuckDB: Query engine for fast aggregates
+- Content-addressed attachments: Deduped by hash
+
+**Key features**:
+- Incremental sync (seconds after initial dump)
+- Deletion staging (remove from Gmail, keep local)
+- TUI with drill-down by sender/domain/label/time
+- Full-text search via FTS5
+
 ## Wiki Systems (Dec 7, 2025)
 
 EJ has TWO wiki/knowledge systems:
