@@ -1,70 +1,89 @@
--- nvim-cmp for LSP/buffer completions ONLY (no AI popup)
+-- blink.cmp UI overrides (base config from lazyvim.plugins.extras.coding.blink)
 -- AI completions happen via inline ghost text (see copilot-inline.lua)
+
+-- Keep copilot as inline ghost text, not in the completion popup
+vim.g.ai_cmp = false
+
 return {
   {
-    "hrsh7th/nvim-cmp",
-    version = false,
-    event = "InsertEnter",
-    dependencies = {
-      "hrsh7th/cmp-nvim-lsp",    -- LSP completions
-      "hrsh7th/cmp-buffer",      -- Buffer word completions
-      "hrsh7th/cmp-path",        -- File path completions
-    },
-    opts = function()
-      local cmp = require("cmp")
-
-      return {
-        -- ONLY LSP/Buffer/Path (NO AI in popup)
-        sources = cmp.config.sources({
-          { name = "nvim_lsp", priority = 100 },   -- Language server
-          { name = "buffer",   priority = 70 },    -- Words from buffers
-          { name = "path",     priority = 60 },    -- File paths
-        }),
-
-        -- Minimal UI
-        window = {
-          completion = {
-            border = "rounded",
-            winhighlight = "Normal:Normal,FloatBorder:Normal,CursorLine:Visual",
+    "saghen/blink.cmp",
+    opts = {
+      completion = {
+        menu = {
+          border = "none",
+          max_height = 20,
+          winhighlight = "Normal:BlinkCmpMenu,CursorLine:BlinkCmpMenuSelection,FloatBorder:BlinkCmpMenuBorder",
+          draw = {
+            columns = {
+              { "kind_icon" },
+              { "label", "label_description", gap = 1 },
+              { "source_name" },
+            },
           },
         },
-
-        -- Simple formatting
-        formatting = {
-          fields = { "kind", "abbr", "menu" },
-          format = function(entry, vim_item)
-            local kind_icons = {
-              Text = "󰉿", Method = "󰆧", Function = "󰊕",
-              Variable = "󰀫", Class = "󰠱", Interface = "󰜰",
-              Keyword = "󰌋", File = "󰈙", Folder = "󰉋",
-            }
-            vim_item.kind = (kind_icons[vim_item.kind] or "") .. " " .. vim_item.kind
-            vim_item.menu = ({
-              nvim_lsp = "[LSP]",
-              buffer = "[Buf]",
-              path = "[Path]",
-            })[entry.source.name]
-            return vim_item
-          end,
+        documentation = {
+          auto_show = true,
+          auto_show_delay_ms = 100,
+          window = {
+            border = "none",
+            winhighlight = "Normal:BlinkCmpDoc,FloatBorder:BlinkCmpDocBorder",
+          },
         },
-
-        -- Keybindings (Ctrl+n/p for LSP completion)
-        mapping = {
-          ["<C-n>"] = cmp.mapping.select_next_item(),
-          ["<C-p>"] = cmp.mapping.select_prev_item(),
-          ["<C-b>"] = cmp.mapping.scroll_docs(-4),
-          ["<C-f>"] = cmp.mapping.scroll_docs(4),
-          ["<C-Space>"] = cmp.mapping.complete(),
-          ["<C-e>"] = cmp.mapping.abort(),
-          ["<CR>"] = cmp.mapping.confirm({ select = true }),
+        ghost_text = {
+          enabled = false, -- copilot handles ghost text
         },
-
-        -- Performance
-        performance = {
-          debounce = 60,
-          throttle = 30,
+      },
+      signature = {
+        enabled = true,
+        window = {
+          border = "single",
+          winhighlight = "Normal:BlinkCmpSignatureHelp,FloatBorder:BlinkCmpSignatureBorder",
+          treesitter_highlighting = true,
         },
-      }
+      },
+      keymap = {
+        preset = "enter",
+        ["<CR>"] = { "accept", "fallback" },
+        ["<C-n>"] = { "select_next", "fallback" },
+        ["<C-p>"] = { "select_prev", "fallback" },
+        ["<C-Space>"] = { "show" },
+        ["<C-e>"] = { "cancel", "fallback" },
+        ["<C-b>"] = { "scroll_documentation_up", "fallback" },
+        ["<C-f>"] = { "scroll_documentation_down", "fallback" },
+        -- Tab stays free for copilot
+        ["<Tab>"] = { "fallback" },
+        ["<S-Tab>"] = { "fallback" },
+      },
+    },
+    init = function()
+      -- Vulpes-matched highlights for blink.cmp
+      -- Uses shared palette colors: #73264a for passive borders (tmux/lazygit/yazi),
+      -- #e60067 for active accents, #6b1a3d for bloom-friendly selections
+      local function set_blink_highlights()
+        local hl = vim.api.nvim_set_hl
+        hl(0, "BlinkCmpMenu", { bg = "#000000", fg = "#f2cfdf" })
+        hl(0, "BlinkCmpMenuBorder", { bg = "#000000", fg = "#0d0d0d" })
+        hl(0, "BlinkCmpMenuSelection", { bg = "#6b1a3d", fg = "#ffffff" })
+        hl(0, "BlinkCmpLabel", { fg = "#f2cfdf" })
+        hl(0, "BlinkCmpLabelMatch", { fg = "#e60067", bold = true })
+        hl(0, "BlinkCmpLabelDescription", { fg = "#735865" })
+        hl(0, "BlinkCmpKind", { fg = "#735865" })
+        hl(0, "BlinkCmpKindFunction", { fg = "#ffffff" })
+        hl(0, "BlinkCmpKindMethod", { fg = "#ffffff" })
+        hl(0, "BlinkCmpKindVariable", { fg = "#6eedf7" })
+        hl(0, "BlinkCmpKindClass", { fg = "#e60067" })
+        hl(0, "BlinkCmpKindInterface", { fg = "#e60067" })
+        hl(0, "BlinkCmpKindKeyword", { fg = "#ff1aca" })
+        hl(0, "BlinkCmpKindSnippet", { fg = "#ffaa00" })
+        hl(0, "BlinkCmpSource", { fg = "#735865", italic = true })
+        hl(0, "BlinkCmpDoc", { bg = "#0d0d0d", fg = "#f2cfdf" })
+        hl(0, "BlinkCmpDocBorder", { bg = "#0d0d0d", fg = "#0d0d0d" })
+        hl(0, "BlinkCmpSignatureHelp", { bg = "#0d0d0d", fg = "#f2cfdf" })
+        hl(0, "BlinkCmpSignatureBorder", { bg = "#0d0d0d", fg = "#73264a" })
+      end
+
+      set_blink_highlights()
+      vim.api.nvim_create_autocmd("ColorScheme", { callback = set_blink_highlights })
     end,
   },
 }
