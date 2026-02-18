@@ -47,6 +47,9 @@ ln -sf ~/.dotfiles/.config/sketchybar ~/.config/sketchybar
 ln -sf ~/.dotfiles/.config/wireshark ~/.config/wireshark
 ln -sf ~/.dotfiles/.config/zsh ~/.config/zsh
 
+# Talon voice control overrides
+ln -sf ~/.dotfiles/talon-overrides ~/.talon/user/ejfox-overrides
+
 # Enable pre-commit security hook
 git config core.hooksPath .githooks
 

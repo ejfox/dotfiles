@@ -1,0 +1,255 @@
+list: user.vocabulary
+-
+# Tools & CLIs
+tmux: tmux
+mux: mux
+talon: Talon
+neovim: nvim
+lazygit: lazygit
+claude: claude
+ghosty: ghostty
+obsidian: obsidian
+codex: codex
+smallweb: smallweb
+mutagen: mutagen
+docker: docker
+homebrew: brew
+atuin: atuin
+broot: broot
+yazi: yazi
+btop: btop
+fzf: fzf
+jq: jq
+curl: curl
+playwright: playwright
+vitest: vitest
+eslint: eslint
+prettier: prettier
+ccusage: ccusage
+
+# Frameworks & libraries
+npm: npm
+npx: npx
+node: node
+deno: deno
+bun: bun
+nuxt: nuxt
+vue: vue
+vue use: vueuse
+react: React
+typescript: typescript
+javascript: javascript
+postgres: postgres
+sqlite: sqlite
+fastify: fastify
+hono: hono
+tailwind: tailwind
+vite: vite
+astro: Astro
+remix: Remix
+tauri: Tauri
+supabase: Supabase
+clerk: Clerk
+pino: pino
+axios: axios
+graphology: graphology
+anime: anime.js
+chroma: chroma-js
+papaparse: papaparse
+slugify: slugify
+shiki: shiki
+
+# Git
+git: git
+github: github
+gitlab: gitlab
+repo: repo
+rebase: rebase
+stash: stash
+upstream: upstream
+checkout: checkout
+cherry pick: cherry-pick
+diff: diff
+
+# Shell
+zsh: zsh
+bash: bash
+grep: grep
+ripgrep: rg
+sudo: sudo
+chmod: chmod
+chown: chown
+stdin: stdin
+stdout: stdout
+stderr: stderr
+dev null: /dev/null
+pipe: |
+args: args
+env: env
+cron: cron
+
+# EJ projects
+ejfox: ejfox
+paperclip: paperclip
+scrapbook: scrapbook
+coachartie: coachartie
+subway builder: SUBWAYBUILDER
+vulpes: vulpes
+dispatch: dispatch
+pellicule: pellicule
+tldraw: tldraw
+kanban: kanban
+connectology: connectology
+hexagram: hexagram
+town tuner: towntuner
+morning radio: morningradio
+mission control: mission-control
+spacepunk: spacepunk
+flipper: flipper
+docgrind: docgrind
+issuebuilder: issuebuilder
+logbook: logbook
+website two: website2
+glass box: glassbox
+
+# Smallweb apps
+takbridge: takbridge
+transit watch: transitwatch
+donor watch: donorwatch
+cam watch: camwatch
+entity hub: entityhub
+ego scan: egoscan
+filing watch: filingwatch
+gov watch: gov-watch
+ice corridor: icecorridor
+ice timeline: icetimeline
+news watch: newswatch
+reddit watch: redditwatch
+river watch: riverwatch
+sky watch: skywatch
+ulster watch: ulsterwatch
+watch hub: watchhub
+small bot: smallbot
+sound viz: soundviz
+omnisearch: omnisearch
+oracle: oracle
+open router: openrouter
+rust learn: rustlearn
+pac graph: pac-graph
+
+# Work clients
+newswell: newswell
+ASU: ASU
+ddhq: DDHQ
+gem: GEM
+lenfest: Lenfest
+electology: electology
+
+# People
+colin: Colin
+omar: Omar
+
+# Mapping / dataviz
+maplibre: MapLibre
+mapbox: Mapbox
+d three: D3
+leaflet: Leaflet
+geojson: GeoJSON
+topojson: TopoJSON
+bezier: Bezier
+centroid: centroid
+SVG: SVG
+canvas: canvas
+force layout: force layout
+choropleth: choropleth
+shapefile: shapefile
+raster: raster
+tileset: tileset
+
+# Infrastructure & deploy
+cloudflare: Cloudflare
+vercel: Vercel
+fly: Fly.io
+deno deploy: Deno Deploy
+github actions: GitHub Actions
+nginx: nginx
+systemd: systemd
+certbot: certbot
+unifi: UniFi
+raspberry pi: Raspberry Pi
+ESP thirty two: ESP32
+
+# AI / ML
+anthropic: Anthropic
+openai: OpenAI
+nomic: Nomic
+embeddings: embeddings
+vector: vector
+transformer: transformer
+conformer: conformer
+tokenizer: tokenizer
+prompt: prompt
+fine tune: fine-tune
+RAG: RAG
+MCP: MCP
+
+# Journalism / OSINT
+OSINT: OSINT
+FOIL: FOIL
+muckraking: muckraking
+polymarket: Polymarket
+FEC: FEC
+FIPS: FIPS
+central hudson: Central Hudson
+
+# Data formats
+JSON: JSON
+YAML: YAML
+TOML: TOML
+CSV: CSV
+markdown: Markdown
+graph QL: GraphQL
+
+# Tech jargon
+API: API
+HTML: HTML
+CSS: CSS
+SQL: SQL
+SSH: SSH
+HTTP: HTTP
+HTTPS: HTTPS
+URL: URL
+CLI: CLI
+UI: UI
+UX: UX
+DNS: DNS
+VPS: VPS
+LLM: LLM
+RSS: RSS
+CORS: CORS
+OAuth: OAuth
+regex: regex
+webhook: webhook
+endpoint: endpoint
+middleware: middleware
+config: config
+localhost: localhost
+websocket: WebSocket
+cron job: cron job
+schema: schema
+migration: migration
+ORM: ORM
+CRUD: CRUD
+frontmatter: frontmatter
+
+# Hardware / audio
+RC five oh five: RC505
+MIDI: MIDI
+
+# Geography (Hudson Valley)
+hudson valley: Hudson Valley
+poughkeepsie: Poughkeepsie
+lake peekskill: Lake Peekskill
+metro north: Metro-North
+albany: Albany
+orange county: Orange County
