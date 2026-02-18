@@ -1,0 +1,25 @@
+#!/bin/bash
+# Speak text via macOS TTS, muting mic input to prevent Talon feedback loop.
+# Usage: claude-say "Your message here"
+
+MSG="$*"
+if [ -z "$MSG" ]; then
+  exit 0
+fi
+
+# Prefix with tmux window number (just the number, keep it short)
+if [ -n "$TMUX" ]; then
+  MSG="$(tmux display-message -p '#I'). ${MSG}"
+fi
+
+# Save current input volume
+VOL=$(osascript -e 'input volume of (get volume settings)')
+
+# Mute mic
+osascript -e 'set volume input volume 0'
+
+# Speak
+say -v Samantha "$MSG"
+
+# Restore mic volume
+osascript -e "set volume input volume $VOL"
