@@ -1,10 +1,3 @@
-
-# Setting PATH for Python 3.7
-# The original version is saved in .zprofile.pysave
-PATH="/Library/Frameworks/Python.framework/Versions/3.7/bin:${PATH}"
-export PATH
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home
-export ANDROID_HOME=/usr/local/share/android-sdk
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
-export ANDROID_HOME=/usr/local/share/android-sdk
-
+# Zsh profile - runs once per login session
+# Main config lives in .zshrc
+# Machine-specific overrides in .zshrc.local (not synced)

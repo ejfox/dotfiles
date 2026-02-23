@@ -5,7 +5,7 @@
 
 # This next lines include Netlify's Git Credential Helper configuration in your Git configuration.
 [include]
-  path = /Users/ejfox/Library/Preferences/netlify/helper/git-config
+  path = ~/Library/Preferences/netlify/helper/git-config
 [credential]
 	helper = osxkeychain
 [filter "lfs"]

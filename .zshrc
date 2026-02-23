@@ -21,8 +21,15 @@ function '??' {
 # The new script handles caching internally and displays instantly
 # No need for external caching wrapper anymore
 
+# Detect Homebrew prefix (Apple Silicon vs Intel)
+if [[ -d "/opt/homebrew" ]]; then
+  BREW_PREFIX="/opt/homebrew"
+else
+  BREW_PREFIX="/usr/local"
+fi
+
 # If you come from bash you might have to change your $PATH.
-export PATH=$HOME/.claude/local:$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
+export PATH=$HOME/.claude/local:$HOME/.dotfiles/bin:$HOME/bin:$HOME/.local/bin:$BREW_PREFIX/bin:$BREW_PREFIX/sbin:$PATH
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -81,7 +88,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-plugins=(git zsh-autosuggestions you-should-use)
+plugins=(git zsh-autosuggestions)
 
 # Skip global compinit for faster loading (OMZ will handle it)
 skip_global_compinit=1
@@ -128,8 +135,8 @@ setopt HIST_IGNORE_DUPS
 
 # NVM configuration - initialize for p10k prompt detection
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+[ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"
+[ -s "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
@@ -297,7 +304,9 @@ vulpes-auto silent
 
 # ZSH syntax highlighting - load after theme
 # Fast syntax highlighting (faster than zsh-syntax-highlighting)
-source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+# Install with: brew install zsh-fast-syntax-highlighting
+[ -f "$BREW_PREFIX/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh" ] && \
+  source "$BREW_PREFIX/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -326,7 +335,7 @@ alias jcurl="curl -s \"$1\" | jsonfui"
 alias tmuxkill="tmux kill-server"
 alias tmuxnew="tmux new -s"
 alias showcase="open \"https://ejfox-codeshowcase.web.val.run/?code=$(pbpaste | jq -sRr @uri)\""
-alias obsidian="cd /Users/ejfox/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
+alias obsidian="cd $HOME/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
 alias pico8="/Applications/PICO-8.app/Contents/MacOS/pico8"
 alias nukeyarn="rm yarn.lock;rm -rf node_modules"
 alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
@@ -411,7 +420,7 @@ alias newsketch='
 '
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-. "/Users/ejfox/.deno/env"
+[ -f "$HOME/.deno/env" ] && . "$HOME/.deno/env"
 # Load environment variables from ~/.env (not committed to git)
 [ -f ~/.env ] && source ~/.env
 
@@ -462,14 +471,14 @@ summarize_commits() {
 # >>> conda initialize - lazy loaded for speed >>>
 conda() {
     unset -f conda
-    __conda_setup="$('/opt/homebrew/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+    __conda_setup="$("$BREW_PREFIX/Caskroom/miniconda/base/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
     if [ $? -eq 0 ]; then
         eval "$__conda_setup"
     else
-        if [ -f "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
-            . "/opt/homebrew/Caskroom/miniconda/base/etc/profile.d/conda.sh"
+        if [ -f "$BREW_PREFIX/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
+            . "$BREW_PREFIX/Caskroom/miniconda/base/etc/profile.d/conda.sh"
         else
-            export PATH="/opt/homebrew/Caskroom/miniconda/base/bin:$PATH"
+            export PATH="$BREW_PREFIX/Caskroom/miniconda/base/bin:$PATH"
         fi
     fi
     unset __conda_setup
@@ -644,8 +653,9 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 # JINA_CLI_END
 
 
-# Initialize rbenv
-eval "$(rbenv init - zsh)"
+# Initialize rbenv (if installed)
+# Install with: brew install rbenv
+command -v rbenv &>/dev/null && eval "$(rbenv init - zsh)"
 
 # Email shortcuts
 alias m='neomutt'
@@ -722,11 +732,11 @@ fi
 alias rss="newsboat"
 
 # DDHQ TUI alias
-alias elections="/Users/ejfox/client-code/ddhq/ddhq-rust-tui/target/release/ddhq-tui"
+alias elections="$HOME/client-code/ddhq/ddhq-rust-tui/target/release/ddhq-tui"
 alias scrap="scrapbook-cli"
 
 # bun completions
-[ -s "/Users/ejfox/.bun/_bun" ] && source "/Users/ejfox/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
