@@ -22,7 +22,8 @@ function '??' {
 # No need for external caching wrapper anymore
 
 # Detect Homebrew prefix (Apple Silicon vs Intel)
-if [[ -d "/opt/homebrew" ]]; then
+# Check for actual bin directory, not just the parent (empty /opt/homebrew can exist on Intel)
+if [[ -x "/opt/homebrew/bin/brew" ]]; then
   BREW_PREFIX="/opt/homebrew"
 else
   BREW_PREFIX="/usr/local"
