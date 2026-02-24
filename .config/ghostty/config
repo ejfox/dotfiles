@@ -12,7 +12,7 @@ font-family-italic = MonaspiceRn Nerd Font
 # Options: catppuccin (blue), vulpes_reddish2 (red), vulpes-reddishnovember (new)
 theme = light:vulpes-reddishnovember-light,dark:vulpes-reddishnovember-dark
 
-# Minimal cursor
+# Cursor - block is the default (for zsh), nvim overrides via guicursor while running
 cursor-style = block
 cursor-style-blink = false
 

@@ -1,0 +1,163 @@
+#!/bin/bash
+# send-to-canvas - Send an image URL to EJ's tldraw screenshot canvas
+# Usage:
+#   send-to-canvas                     # Latest screenshot from Obsidian weekly note
+#   send-to-canvas <url>               # Use provided URL
+#   send-to-canvas <url> "label"       # With caption
+#   send-to-canvas -l "label"          # Latest screenshot with caption
+#   send-to-canvas -c                  # Use clipboard URL instead of Obsidian
+
+set -e
+
+source ~/.env
+
+ENDPOINT="https://tldraw.tools.ejfox.com/api/webhook/screenshot"
+LABEL=""
+URL=""
+USE_CLIPBOARD=false
+OBSIDIAN_VAULT="/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+
+# Get current ISO week number
+get_week_number() {
+  date +%V | sed 's/^0//'
+}
+
+# Get latest screenshot URL from Obsidian weekly raw note
+get_latest_screenshot() {
+  local year=$(date +%Y)
+  local weeknum=$(date +%V | sed 's/^0//')  # Remove leading zero
+
+  # Try current week and previous weeks (both with/without leading zero)
+  for i in 0 1 2 3; do
+    local check_week=$((weeknum - i))
+    [[ $check_week -lt 1 ]] && continue
+
+    # Try both formats: 05 and 5
+    for fmt in "$(printf '%02d' $check_week)" "$check_week"; do
+      local check_file="${OBSIDIAN_VAULT}/week-notes/${year}-${fmt}-raw.md"
+      if [[ -f "$check_file" && -s "$check_file" ]]; then
+        # Extract most recent image URL (last one in file)
+        local url=$(grep -oE 'https://[^)]+\.(png|jpg|jpeg|gif|webp)' "$check_file" | tail -1)
+        if [[ -n "$url" ]]; then
+          echo "$url"
+          return 0
+        fi
+      fi
+    done
+  done
+  return 1
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -l|--label)
+      LABEL="$2"
+      shift 2
+      ;;
+    -c|--clipboard)
+      USE_CLIPBOARD=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: send-to-canvas [options] [url] [label]"
+      echo ""
+      echo "Options:"
+      echo "  -l, --label     Add caption below image"
+      echo "  -c, --clipboard Use clipboard URL instead of Obsidian"
+      echo "  -h, --help      Show this help"
+      echo ""
+      echo "Examples:"
+      echo "  send-to-canvas                          # Latest from Obsidian"
+      echo "  send-to-canvas -c                       # URL from clipboard"
+      echo "  send-to-canvas https://example.com/img  # Specific URL"
+      echo "  send-to-canvas -l 'My caption'          # Latest + label"
+      exit 0
+      ;;
+    *)
+      if [[ -z "$URL" ]]; then
+        URL="$1"
+      elif [[ -z "$LABEL" ]]; then
+        LABEL="$1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+# Get URL: explicit arg > clipboard flag > latest from Obsidian
+if [[ -z "$URL" ]]; then
+  if [[ "$USE_CLIPBOARD" == true ]]; then
+    URL=$(pbpaste)
+  else
+    URL=$(get_latest_screenshot)
+    if [[ -z "$URL" ]]; then
+      terminal-notifier -title "Canvas ✗" -message "No recent screenshots found" -sound Basso
+      echo "✗ No screenshots in Obsidian weekly notes" >&2
+      exit 1
+    fi
+  fi
+fi
+
+# Validate URL
+if [[ ! "$URL" =~ ^https?:// ]]; then
+  terminal-notifier -title "Canvas ✗" -message "Clipboard isn't an image URL" -sound Basso
+  echo "✗ Not a URL: $URL" >&2
+  exit 1
+fi
+
+# Try to get dimensions if local file provided
+WIDTH=""
+HEIGHT=""
+if [[ -n "$LOCAL_FILE" && -f "$LOCAL_FILE" ]]; then
+  WIDTH=$(sips -g pixelWidth "$LOCAL_FILE" 2>/dev/null | tail -1 | awk '{print $2}')
+  HEIGHT=$(sips -g pixelHeight "$LOCAL_FILE" 2>/dev/null | tail -1 | awk '{print $2}')
+fi
+
+# Build JSON payload
+if [[ -n "$WIDTH" && -n "$HEIGHT" && -n "$LABEL" ]]; then
+  PAYLOAD=$(jq -n --arg url "$URL" --argjson w "$WIDTH" --argjson h "$HEIGHT" --arg label "$LABEL" \
+    '{url: $url, width: $w, height: $h, label: $label}')
+elif [[ -n "$WIDTH" && -n "$HEIGHT" ]]; then
+  PAYLOAD=$(jq -n --arg url "$URL" --argjson w "$WIDTH" --argjson h "$HEIGHT" \
+    '{url: $url, width: $w, height: $h}')
+elif [[ -n "$LABEL" ]]; then
+  PAYLOAD=$(jq -n --arg url "$URL" --arg label "$LABEL" \
+    '{url: $url, label: $label}')
+else
+  PAYLOAD=$(jq -n --arg url "$URL" '{url: $url}')
+fi
+
+# Send to canvas
+RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+  -H "Authorization: Bearer ${TLDRAW_WEBHOOK_KEY}" \
+  -H "Content-Type: application/json" \
+  -d "$PAYLOAD")
+
+# Check response
+CANVAS_URL="https://tldraw.tools.ejfox.com"
+
+if echo "$RESPONSE" | jq -e '.success' >/dev/null 2>&1; then
+  ROOM=$(echo "$RESPONSE" | jq -r '.room // "canvas"')
+  WEEK=$(echo "$ROOM" | grep -oE 'W[0-9]+' || echo "")
+  OPEN_URL="${CANVAS_URL}/${ROOM}"
+
+  # Clickable notification - opens canvas on click
+  if [[ -n "$LABEL" ]]; then
+    terminal-notifier -title "📍 Canvas ${WEEK}" -message "$LABEL" -open "$OPEN_URL" -sound Pop
+  else
+    terminal-notifier -title "📍 Canvas ${WEEK}" -message "Added to visual log" -open "$OPEN_URL" -sound Pop
+  fi
+
+  echo "→ $OPEN_URL"
+
+elif echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
+  ERR=$(echo "$RESPONSE" | jq -r '.error')
+  terminal-notifier -title "Canvas ✗" -message "$ERR" -sound Basso
+  echo "✗ $ERR" >&2
+  exit 1
+else
+  terminal-notifier -title "Canvas ✗" -message "Check your connection" -sound Basso
+  echo "✗ Unknown error" >&2
+  exit 1
+fi

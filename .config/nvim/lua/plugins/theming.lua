@@ -73,16 +73,7 @@ return {
       set_twilight_hl()
       vim.api.nvim_create_autocmd("ColorScheme", { callback = set_twilight_hl })
 
-      -- WHY auto-enable: Twilight is subtle enough to always be on
-      vim.api.nvim_create_autocmd("BufReadPost", {
-        callback = function()
-          vim.defer_fn(function()
-            if vim.bo.filetype ~= "" and vim.bo.filetype ~= "dashboard" then
-              require("twilight").enable()
-            end
-          end, 100)
-        end,
-      })
+      -- Twilight is opt-in: use <leader>ut to enable when you want focus mode
     end,
   },
 }

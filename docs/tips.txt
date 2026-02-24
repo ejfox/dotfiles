@@ -395,3 +395,36 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) git diff view auto-refreshes on file changes
 (git) git cs "message" = signed commit (GPG key from Keybase)
 (git) unsigned commits = Claude wrote it, signed = you wrote it
+(voice) "cmd" = switch to command mode
+(voice) "talk" = switch to dictation mode
+(voice) "go ahead" or "send it" = press Enter
+(voice) "mux one" thru "mux nine" = jump to tmux window N
+(voice) "mux next" / "mux previous" = next/prev tmux window
+(voice) "mux last" = last used tmux window
+(voice) "mux new" = create new tmux window
+(voice) "mux rename" = rename current tmux window
+(voice) "mux close" = close current tmux window
+(voice) "mux left/right/up/down" = navigate tmux panes
+(voice) "mux next pane" = cycle to next pane
+(voice) "mux split right" / "mux split down" = split pane
+(voice) "mux pane right/down/left/up" = split + auto-focus new pane
+(voice) "mux close pane" = close current pane
+(voice) "mux zoom" = toggle pane fullscreen
+(voice) "mux alert" / "mux newest" = jump to window with bell
+(voice) "mux sessions" = tmux session picker
+(voice) "mux scroll" = enter scroll/copy mode
+(voice) "snap left" / "snap right" = Rectangle Pro half screen
+(voice) "snap full" = Rectangle Pro fullscreen
+(voice) "window bigger" / "window smaller" = resize window
+(voice) "open ghosty/chrome/slack/obsidian/..." = switch apps
+(voice) "wipe" = clear line (ctrl-u)
+(voice) "cancel" / "nope" / "bail" = ctrl-c
+(voice) "again" = re-run last command
+(voice) "edit" = open nvim, "lazy" = lazygit, "files" = yazi
+(voice) "go code/home/smallweb/subway/..." = cd to directories
+(voice) "git status/push/pull/log/diff" = git commands
+(voice) "run claude" = launch Claude Code
+(voice) "connect VPS" = ssh to VPS
+(voice) NATO alphabet: alpha bravo charlie delta echo foxtrot...
+(voice) "screenshot" = cmd-shift-4, "screen record" = cmd-shift-5
+(voice) "hide this" / "quit this" = cmd-h / cmd-q

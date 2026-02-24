@@ -65,3 +65,12 @@ typeset -g POWERLEVEL9K_STATUS_OK_BACKGROUND=231
 typeset -g POWERLEVEL9K_STATUS_OK_FOREGROUND=16
 typeset -g POWERLEVEL9K_STATUS_ERROR_BACKGROUND=197
 typeset -g POWERLEVEL9K_STATUS_ERROR_FOREGROUND=231
+
+# Man page colors (LESS_TERMCAP) - light pink pops on dark bg
+export LESS_TERMCAP_mb=$'\e[1;38;5;204m'      # begin bold - pink
+export LESS_TERMCAP_md=$'\e[1;38;5;204m'      # begin blink - pink (headers)
+export LESS_TERMCAP_me=$'\e[0m'               # end bold/blink
+export LESS_TERMCAP_so=$'\e[38;5;0;48;5;174m' # standout - dark on dusty rose
+export LESS_TERMCAP_se=$'\e[0m'               # end standout
+export LESS_TERMCAP_us=$'\e[4;38;5;167m'      # underline - orange-red
+export LESS_TERMCAP_ue=$'\e[0m'               # end underline

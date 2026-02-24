@@ -1,5 +1,6 @@
 #!/bin/bash
-# Speak text via macOS TTS, muting mic input to prevent Talon feedback loop.
+# Speak text via ElevenLabs TTS (falling back to macOS say), muting mic to prevent Talon feedback loop.
+# Each tmux window gets a unique ElevenLabs voice. Messages queue so they never overlap.
 # Usage: claude-say "Your message here"
 
 MSG="$*"
@@ -7,19 +8,93 @@ if [ -z "$MSG" ]; then
   exit 0
 fi
 
-# Prefix with tmux window number (just the number, keep it short)
-if [ -n "$TMUX" ]; then
-  MSG="$(tmux display-message -p '#I'). ${MSG}"
+# Get window number early (needed for voice selection)
+WIN=""
+if [ -n "$TMUX" ] && [ -n "$TMUX_PANE" ]; then
+  WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null)
 fi
 
-# Save current input volume
+# Voice roster from morning radio — each window gets a distinct character
+VOICES=(
+  "khYwAWwYSjlxlcrwGQ16"  # 0: host — warm, poetic, unhurried
+  "wF1qws7ObfcJCIyAdFai"  # 1: maya/field — present tense, sensory
+  "rWV5HleMkWb5oluMwkA7"  # 2: sarah/beacon — calm and steady
+  "zNsotODqUhvbJ5wMG7Ei"  # 3: edward/archive — deliberate, grave
+  "8quEMRkSpwEaWBzHvTLv"  # 4: frequency — hypnotic
+  "34lPwSZ54D8fWbX1aHzk"  # 5: danny/static — warm and playful
+)
+
+# Pick voice based on window number
+if [ -n "$WIN" ]; then
+  VOICE_IDX=$(( WIN % ${#VOICES[@]} ))
+else
+  VOICE_IDX=0
+fi
+ELEVENLABS_VOICE_ID="${VOICES[$VOICE_IDX]}"
+ELEVENLABS_MODEL="eleven_turbo_v2_5"
+EXHAUSTED_FLAG="/tmp/claude-say-exhausted"
+
+# Get API key: check env, then ~/.env file
+if [ -z "$ELEVENLABS_API_KEY" ] && [ -f "$HOME/.env" ]; then
+  ELEVENLABS_API_KEY=$(grep '^ELEVENLABS_API_KEY=' "$HOME/.env" | cut -d= -f2-)
+fi
+
+# Download ElevenLabs audio before acquiring the playback lock (parallel downloads, serial playback)
+TMPFILE="/tmp/claude-say-$$.mp3"
+el_ok=false
+if [ -n "$ELEVENLABS_API_KEY" ] && [ ! -f "$EXHAUSTED_FLAG" ]; then
+  HTTP_CODE=$(curl -s -o "$TMPFILE" -w "%{http_code}" \
+    -X POST "https://api.elevenlabs.io/v1/text-to-speech/$ELEVENLABS_VOICE_ID" \
+    -H "xi-api-key: $ELEVENLABS_API_KEY" \
+    -H "Content-Type: application/json" \
+    --max-time 10 \
+    -d "{
+      \"text\": $(printf '%s' "$MSG" | jq -Rs .),
+      \"model_id\": \"$ELEVENLABS_MODEL\",
+      \"voice_settings\": {
+        \"stability\": 0.5,
+        \"similarity_boost\": 0.75,
+        \"style\": 0.4,
+        \"use_speaker_boost\": true
+      }
+    }" 2>/dev/null)
+
+  if [ "$HTTP_CODE" = "200" ] && [ -s "$TMPFILE" ]; then
+    el_ok=true
+  elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "429" ]; then
+    touch "$EXHAUSTED_FLAG"
+    (sleep 3600 && rm -f "$EXHAUSTED_FLAG") &>/dev/null &
+  fi
+fi
+
+# --- Playback lock: only one claude-say speaks at a time ---
+LOCKDIR="/tmp/claude-say-playback.lk"
+while ! mkdir "$LOCKDIR" 2>/dev/null; do
+  # Stale lock protection: if lock is older than 30s, break it
+  if [ -d "$LOCKDIR" ]; then
+    lock_age=$(( $(date +%s) - $(stat -f %m "$LOCKDIR" 2>/dev/null || echo 0) ))
+    if [ "$lock_age" -gt 30 ]; then
+      rmdir "$LOCKDIR" 2>/dev/null
+    fi
+  fi
+  sleep 0.2
+done
+
+# Cleanup: always restore mic, remove temp file, release lock
 VOL=$(osascript -e 'input volume of (get volume settings)')
+trap 'osascript -e "set volume input volume $VOL" 2>/dev/null; rm -f "$TMPFILE"; rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 # Mute mic
 osascript -e 'set volume input volume 0'
 
-# Speak
-say -v Samantha "$MSG"
+# Play the message
+if [ "$el_ok" = true ]; then
+  afplay "$TMPFILE" 2>/dev/null
+else
+  say -v Samantha "$MSG"
+fi
 
-# Restore mic volume
-osascript -e "set volume input volume $VOL"
+# Say window number at the end — just the digit, fast
+if [ -n "$WIN" ]; then
+  say -v Samantha -r 300 "$WIN"
+fi

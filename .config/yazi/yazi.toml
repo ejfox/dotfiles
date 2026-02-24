@@ -13,6 +13,10 @@ sort_dir_first = true
 linemode = "mtime"
 show_symlink = true
 
+[status]
+# Hide the bottom status bar entirely
+enabled = false
+
 [preview]
 max_width = 1200
 max_height = 1200

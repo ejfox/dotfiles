@@ -24,16 +24,16 @@ ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=16'
 ZSH_HIGHLIGHT_STYLES[path_prefix_pathseparator]='fg=162'
 ZSH_HIGHLIGHT_STYLES[globbing]='fg=161'
 ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=163'
-ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=198'
-ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=198'
+ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=125'
+ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=125'
 ZSH_HIGHLIGHT_STYLES[back-quoted-argument]='fg=16'
 ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=16'
 ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=16'
 ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=16'
-ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=198'
-ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=198'
-ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=198'
-ZSH_HIGHLIGHT_STYLES[assign]='fg=198'
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=125'
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=125'
+ZSH_HIGHLIGHT_STYLES[back-dollar-quoted-argument]='fg=125'
+ZSH_HIGHLIGHT_STYLES[assign]='fg=125'
 ZSH_HIGHLIGHT_STYLES[redirection]='fg=162'
 ZSH_HIGHLIGHT_STYLES[comment]='fg=16'
 ZSH_HIGHLIGHT_STYLES[arg0]='fg=30'
@@ -65,3 +65,12 @@ typeset -g POWERLEVEL9K_STATUS_OK_BACKGROUND=161
 typeset -g POWERLEVEL9K_STATUS_OK_FOREGROUND=231
 typeset -g POWERLEVEL9K_STATUS_ERROR_BACKGROUND=161
 typeset -g POWERLEVEL9K_STATUS_ERROR_FOREGROUND=231
+
+# Man page colors (LESS_TERMCAP) - darker pinks for light bg readability
+export LESS_TERMCAP_mb=$'\e[1;38;5;161m'      # begin bold - dark magenta
+export LESS_TERMCAP_md=$'\e[1;38;5;161m'      # begin blink - dark magenta (headers)
+export LESS_TERMCAP_me=$'\e[0m'               # end bold/blink
+export LESS_TERMCAP_so=$'\e[38;5;231;48;5;125m' # standout - white on deep magenta
+export LESS_TERMCAP_se=$'\e[0m'               # end standout
+export LESS_TERMCAP_us=$'\e[4;38;5;124m'      # underline - dark red
+export LESS_TERMCAP_ue=$'\e[0m'               # end underline

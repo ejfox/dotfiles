@@ -2,6 +2,17 @@ return {
   {
     "folke/snacks.nvim",
     opts = {
+      -- Statuscolumn: separates git and diagnostic signs into own columns
+      -- so you never lose info when both appear on the same line
+      statuscolumn = {
+        left = { "mark", "sign" },
+        right = { "fold", "git" },
+        folds = {
+          open = false,   -- don't show icon on open folds (minimal)
+          git_hl = false, -- don't color fold icons by git status
+        },
+      },
+
       -- Disable smooth scrolling (you have vim.opt.smoothscroll = false already)
       scroll = { enabled = false },
 

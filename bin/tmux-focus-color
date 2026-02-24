@@ -1,0 +1,30 @@
+#!/bin/bash
+# Returns a color based on how long you've been in the current window
+# Rewards stillness: dim → warm → focused → deep focus (vulpes red)
+
+FOCUS_FILE="/tmp/tmux-focus-start"
+
+# Get start time (fallback to now if file doesn't exist)
+if [ -f "$FOCUS_FILE" ]; then
+  start=$(cat "$FOCUS_FILE")
+else
+  start=$(date +%s)
+fi
+
+now=$(date +%s)
+duration=$((now - start))
+
+# Color gradient based on duration
+if [ $duration -lt 60 ]; then
+  # < 1 min: just switched, dim grey
+  echo "#555555"
+elif [ $duration -lt 300 ]; then
+  # 1-5 min: warming up, muted pink
+  echo "#73264a"
+elif [ $duration -lt 900 ]; then
+  # 5-15 min: getting focused, warmer
+  echo "#a33058"
+else
+  # 15+ min: deep focus, full vulpes red
+  echo "#ff0055"
+fi
