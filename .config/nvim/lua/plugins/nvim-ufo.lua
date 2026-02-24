@@ -14,7 +14,8 @@ return {
     provider_selector = function(bufnr, filetype, buftype)
       return { "treesitter", "indent" }
     end,
-    -- Minimal fold text (just show line count)
+    -- Transparent foldtext: first line renders with full treesitter
+    -- highlighting so you can actually read folded code at a glance
     fold_virt_text_handler = function(virtText, lnum, endLnum, width, truncate)
       local newVirtText = {}
       local suffix = ("  %d lines "):format(endLnum - lnum)
@@ -44,9 +45,12 @@ return {
   },
   init = function()
     -- Required ufo settings
-    vim.o.foldcolumn = "0" -- Hide fold column (minimal UI)
+    vim.o.foldcolumn = "0" -- Hide fold column (snacks handles fold indicators)
     vim.o.foldlevel = 99
     vim.o.foldlevelstart = 99
     vim.o.foldenable = true
+    -- Transparent foldtext: renders first line with original syntax highlighting
+    vim.o.foldtext = ""
+    vim.opt.fillchars:append({ fold = " " })
   end,
 }

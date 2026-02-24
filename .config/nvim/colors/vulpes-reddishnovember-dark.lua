@@ -51,7 +51,7 @@ function M.setup()
     punctuation = '#f82470',
     heading = '#ff2453',
 
-    selection = '#6b1a3d',      -- Darker pink (bloom-friendly)
+    selection = '#1a3d42',      -- Dark teal (matches visual mode blue)
     selection_fg = '#ffffff',   -- White fg for readability
     cursor = '#e60067',
     cursorline = '#2a1520',  -- Subtle dark pink tint, more visible
@@ -86,12 +86,12 @@ function M.setup()
     Folded = { fg = colors.comment, bg = colors.bg_alt },
     ColorColumn = { bg = colors.bg_alt },
 
-    -- Selections & Search (bloom-friendly: darker bg, white text)
+    -- Selections & Search (teal highlights — bloom-safe since bloom is red-selective)
     Visual = { fg = colors.selection_fg, bg = colors.selection },
     VisualNOS = { fg = colors.selection_fg, bg = colors.selection },
-    Search = { fg = colors.bg, bg = colors.warning },
-    IncSearch = { fg = '#ffffff', bg = '#5c0030' },
-    CurSearch = { fg = '#ffffff', bg = '#5c0030' },
+    Search = { fg = '#6eedf7', bg = '#1a3d42' },
+    IncSearch = { fg = '#000000', bg = '#6eedf7' },
+    CurSearch = { fg = '#000000', bg = '#6eedf7' },
     Substitute = { fg = colors.bg, bg = colors.error },
 
     -- UI Elements (bloom-friendly completions)

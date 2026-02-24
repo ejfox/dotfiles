@@ -40,22 +40,42 @@ return {
       local function lsp_status()
         local clients = vim.lsp.get_active_clients({ bufnr = 0 })
         local lsp_icons = {
-          volar = "󰡄",  -- Vue icon (alternative)
-          vtsls = "󰛦",  -- TypeScript icon
-          tsserver = "󰛦",  -- TypeScript icon
-          eslint = "󰱺",  -- ESLint icon
-          copilot = "",  -- Copilot
-          lua_ls = "",  -- Lua
-          pyright = "",  -- Python
-          rust_analyzer = "",  -- Rust
+          -- Web
+          volar = "V",            -- Vue
+          vtsls = "TS",           -- TypeScript
+          tsserver = "TS",        -- TypeScript
+          eslint = "◆",           -- ESLint
+          tailwindcss = "tw",     -- Tailwind
+          html = "H",             -- HTML
+          cssls = "css",          -- CSS
+          jsonls = "{}",          -- JSON
+          emmet_ls = "em",        -- Emmet
+          svelte = "sv",          -- Svelte
+          astro = "✦",            -- Astro
+
+          -- Languages
+          lua_ls = "lua",         -- Lua
+          pyright = "py",         -- Python
+          rust_analyzer = "rs",   -- Rust
+          gopls = "go",           -- Go
+          clangd = "C",           -- C/C++
+          ruby_lsp = "rb",        -- Ruby
+          solargraph = "rb",      -- Ruby
+
+          -- Tools
+          copilot = "",           -- Copilot (hidden separately)
+          dockerls = "🐳",         -- Docker
+          yamlls = "yml",         -- YAML
+          bashls = "$",           -- Bash
+          marksman = "md",        -- Markdown
         }
         
         local icons = {}
         for _, client in ipairs(clients) do
           -- Skip copilot from display
           if client.name ~= "copilot" then
-            local icon = lsp_icons[client.name] or "●"
-            table.insert(icons, icon)
+            local icon = lsp_icons[client.name]
+            if icon then table.insert(icons, icon) end
           end
         end
         

@@ -36,43 +36,13 @@ vim.opt.clipboard = 'unnamedplus'  -- Sync vim register with system clipboard
 -- LINE NUMBERS
 -- ============================================================================
 -- WHY hybrid numbers: Relative numbers for quick j/k jumps (5j, 12k),
--- but absolute every 10 lines for orientation in large files.
+-- absolute on cursor line for orientation.
+-- WHY snacks statuscolumn: Separates git signs and diagnostic signs into
+-- their own columns. Without this, neovim silently drops one sign when
+-- both appear on the same line.
 
 vim.opt.number = true
 vim.opt.relativenumber = true
-
--- Make absolute "landmark" numbers stand out (white, not dim)
-vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#ffffff" })
-vim.api.nvim_create_autocmd("ColorScheme", {
-  callback = function()
-    if vim.o.background == "dark" then
-      vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#ffffff" })
-    else
-      vim.api.nvim_set_hl(0, "LineNrAbsolute", { fg = "#000000" })
-    end
-  end,
-})
-
--- Custom statuscolumn: absolute every 10 lines, relative otherwise
-vim.opt.statuscolumn = "%!v:lua.StatusColumn()"
-
-_G.StatusColumn = function()
-  local lnum = vim.v.lnum
-  local cur = vim.fn.line(".")
-
-  -- Current line: white, absolute
-  if lnum == cur then
-    return "%#LineNrAbsolute#%=" .. lnum .. " "
-  end
-
-  -- Every 10th line: white, absolute (landmarks for orientation)
-  if lnum % 10 == 0 then
-    return "%#LineNrAbsolute#%=" .. lnum .. " "
-  end
-
-  -- Everything else: dim relative (for quick jumps)
-  return "%#LineNr#%=%{v:relnum} "
-end
 
 -- ============================================================================
 -- EDITING BEHAVIOR
@@ -136,6 +106,9 @@ vim.opt.breakindentopt = "shift:2"
 -- ============================================================================
 
 vim.opt.termguicolors = true     -- WHY: 24-bit color support
+
+-- Cursor shape per mode: block (normal/visual), line (insert), underline (replace)
+vim.opt.guicursor = "n-v-c-sm:block,i-ci-ve:ver25,r-cr-o:hor20"
 vim.opt.guifont = "Monaspace Krypton:h13"
 
 -- Neovide-specific (GUI nvim)
