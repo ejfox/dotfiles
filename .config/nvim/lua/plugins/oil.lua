@@ -37,16 +37,24 @@ return {
           signcolumn = "yes:2",
         },
 
+        -- WHY: watch_for_changes auto-refreshes, no manual C-l needed
+        watch_for_changes = true,
+
         -- Keymaps in oil buffer (these only work inside oil)
+        -- WHY false on C-h/C-l/C-s: These shadow vim-tmux-navigator
+        -- bindings. Use <leader>- and <leader>| for splits instead
+        -- (matches LazyVim's Space w - / Space w | mnemonic).
         keymaps = {
           ["g?"] = "actions.show_help",     -- Help
           ["<CR>"] = "actions.select",       -- Open file/dir
-          ["<C-s>"] = "actions.select_vsplit", -- Open in vertical split
-          ["<C-h>"] = "actions.select_split",  -- Open in horizontal split
+          ["<C-h>"] = false,                  -- Restore tmux-navigator left
+          ["<C-l>"] = false,                  -- Restore tmux-navigator right
+          ["<C-s>"] = false,                  -- Use <leader>| instead
+          ["<leader>-"] = "actions.select_split",  -- Horizontal split (visual: -)
+          ["<leader>|"] = "actions.select_vsplit", -- Vertical split (visual: |)
           ["<C-t>"] = "actions.select_tab",    -- Open in new tab
           ["<C-p>"] = "actions.preview",       -- Preview file
           ["<C-c>"] = "actions.close",         -- Close oil
-          ["<C-l>"] = "actions.refresh",       -- Refresh listing
           ["-"] = "actions.parent",            -- Go up to parent dir
           ["_"] = "actions.open_cwd",          -- Open cwd
           ["`"] = "actions.cd",                -- :cd to this dir
