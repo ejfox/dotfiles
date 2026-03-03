@@ -16,6 +16,10 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim/oil) C-p - preview file without opening
 (nvim/oil) gx - open file with external program
 (nvim/oil) _ - jump to cwd (current working directory)
+(nvim/oil) space - to open file in horizontal split (keys look like what they do)
+(nvim/oil) space | to open file in vertical split (keys look like what they do)
+(nvim/oil) C-h/j/k/l work normally in oil (tmux-navigator, no shadowing)
+(nvim/oil) auto-refreshes on filesystem changes (no manual refresh needed)
 (tmux) C-a g - lazygit popup (floats over panes)
 (tmux) C-a K - yazi file manager popup
 (tmux) C-a ? - THIS CHEATSHEET (searchable popup)
@@ -137,11 +141,10 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (zsh) ta or t0 - instantly attach to tmux session 0
 (zsh) nrd - npm run dev
 (zsh) nred - npm run electron:dev
-(zsh) yy - yalc commands without the npx dance
+(zsh) yalc - yalc commands without the npx dance
 (zsh) ..2 - go up two directories
 (zsh) ..3 - go up three directories
 (sketchybar) CIPHER coach shows when no events in 4hrs
-(nvim) mA = GLOBAL mark (across files), ma = file-local
 (nvim/oil) - opens oil (parent dir)
 (lazygit) space = stage, c = commit, P = push, ? = help
 (yazi) enter = open, space = select, zh = toggle hidden
@@ -199,8 +202,6 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) zK - peek inside fold (nvim-ufo)
 (nvim) zj - jump to next fold
 (nvim) zk - jump to prev fold
-(nvim) ctrl-o - jump back
-(nvim) ctrl-i - jump forward
 (nvim) * - search word under cursor
 (nvim) # - search backwards
 (nvim) ciw - change word
@@ -218,7 +219,6 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) ZQ - quit without saving
 (nvim) gx - open URL or filepath under cursor in browser
 (nvim) C-w o - close ALL windows except current (instant focus mode)
-(nvim) space u f - toggle format-on-save (for messy codebases)
 (nvim/treesitter) i = inside (just the filling 🫘), a = around (filling + tortilla 🌯)
 (nvim/treesitter) vaf - visual around function (whole thing, signature + body)
 (nvim/treesitter) vif - visual inside function (just the body/guts)
@@ -238,8 +238,6 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) space b d - close buffer
 (nvim) space b o - close other buffers
 (nvim) ]b / [b - next/prev buffer
-(nvim) space , - switch buffer
-(nvim) ctrl-h/j/k/l - move between splits and tmux panes
 (nvim) space w d - close window
 (nvim) space w - - split below
 (nvim) space w | - split right
