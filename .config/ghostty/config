@@ -50,14 +50,14 @@ clipboard-paste-protection = false
 # ═══════════════════════════════════════════════════════════════════════════
 # Order matters: they stack. Comment/uncomment sections to switch modes.
 
-custom-shader-animation = true
+# custom-shader-animation = true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ACTIVE STACK: Vulpes Classic
+# ACTIVE STACK: Vulpes Classic (disabled - GPU/fan relief on iMac Pro)
 # ─────────────────────────────────────────────────────────────────────────────
-custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
-custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
-custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-vulpes.glsl
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
+# custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-vulpes.glsl
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EXTRAS (stuff we tried, keeping for later)
