@@ -52,3 +52,15 @@ gui:
     "develop": '#ff0077'
     "feature/*": '#ff3355'
     "fix/*": '#ff2233'
+
+git:
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+
+customCommands:
+  - key: "a"
+    context: "files"
+    description: "AI commit (fzf + Claude)"
+    subprocess: true
+    command: 'MSG=$(ai-commit) && git commit -m "$MSG"'
