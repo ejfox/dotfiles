@@ -1,0 +1,10 @@
+#!/bin/bash
+# Toggle mic mute, update sketchybar, and toggle Talon sleep/wake
+IV=$(/usr/bin/osascript -e 'input volume of (get volume settings)')
+if [ "$IV" -gt 0 ]; then
+  /usr/bin/osascript -e 'set volume input volume 0'
+else
+  /usr/bin/osascript -e 'set volume input volume 100'
+fi
+/opt/homebrew/bin/sketchybar --trigger mic_change 2>/dev/null
+/usr/bin/touch /tmp/talon-mic-toggle

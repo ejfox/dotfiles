@@ -79,7 +79,7 @@
                                 },
                                 "to": [
                                     {
-                                        "shell_command": "osascript -e 'set iv to input volume of (get volume settings)' -e 'if iv > 0 then' -e 'set volume input volume 0' -e 'display notification \"Mic MUTED\" with title \"🔇\"' -e 'else' -e 'set volume input volume 100' -e 'display notification \"Mic LIVE\" with title \"🎙️\"' -e 'end if'"
+                                        "shell_command": "/Users/ejfox/bin/mic-toggle"
                                     }
                                 ],
                                 "type": "basic"
