@@ -103,6 +103,20 @@ sketchybar --add item next_event left \
 #   click_script="sketchybar --set cipher drawing=off"
 
 
+##### Mic Mute Indicator #####
+sketchybar --add event mic_change
+sketchybar --add item mic left \
+  --set mic update_freq=5 \
+  updates=on \
+  script="$PLUGIN_DIR/mic.sh" \
+  drawing=off \
+  icon.font="$FONT:Bold:10.0" \
+  icon.color=0xffe60067 \
+  label.drawing=off \
+  padding_left=8 \
+  padding_right=8 \
+  --subscribe mic mic_change
+
 ##### Battery #####
 sketchybar --add item battery right \
   --set battery update_freq=10 \
