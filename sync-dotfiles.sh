@@ -30,6 +30,10 @@ ln -sf ~/.dotfiles/.bash_profile ~/.bash_profile
 ln -sf ~/.dotfiles/.zshenv ~/.zshenv
 ln -sf ~/.dotfiles/.llm-persona.txt ~/.llm-persona.txt
 
+# macOS app support symlinks (apps that read from ~/Library instead of ~/.config)
+mkdir -p ~/Library/Application\ Support/jesseduffield/lazygit
+ln -sf ~/.config/lazygit/config.yml ~/Library/Application\ Support/jesseduffield/lazygit/config.yml
+
 # Config directories
 ln -sf ~/.dotfiles/.config/nvim ~/.config/nvim
 ln -sf ~/.dotfiles/.config/ghostty ~/.config/ghostty

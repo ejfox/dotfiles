@@ -2,5 +2,8 @@
 # Main config lives in .zshrc
 # Machine-specific overrides in .zshrc.local (not synced)
 
-# SSH login shells need .zshrc sourced explicitly
-[[ -f "$HOME/.zshrc" ]] && source "$HOME/.zshrc"
+# Note: .zshrc is automatically sourced for interactive login shells.
+# No need to source it here — doing so causes double execution.
+
+# Added by Obsidian
+export PATH="$PATH:/Applications/Obsidian.app/Contents/MacOS"
