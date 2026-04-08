@@ -8,6 +8,9 @@ if [ -z "$MSG" ]; then
   exit 0
 fi
 
+# Shorten pauses: periods create long pauses in ElevenLabs, dashes are snappier
+MSG=$(echo "$MSG" | sed 's/\. / — /g; s/\.$//')
+
 # Get window number early (needed for voice selection)
 WIN=""
 if [ -n "$TMUX" ] && [ -n "$TMUX_PANE" ]; then
@@ -31,7 +34,7 @@ else
   VOICE_IDX=0
 fi
 ELEVENLABS_VOICE_ID="${VOICES[$VOICE_IDX]}"
-ELEVENLABS_MODEL="eleven_turbo_v2_5"
+ELEVENLABS_MODEL="eleven_flash_v2_5"
 EXHAUSTED_FLAG="/tmp/claude-say-exhausted"
 
 # Get API key: check env, then ~/.env file
@@ -93,7 +96,16 @@ osascript -e 'set volume input volume 0'
 
 # Play the message
 if [ "$el_ok" = true ]; then
-  afplay "$TMPFILE" 2>/dev/null
+  # Adaptive speed: short messages breathe, long ones hustle
+  MSG_LEN=${#MSG}
+  if [ "$MSG_LEN" -lt 60 ]; then
+    RATE="1.4"
+  elif [ "$MSG_LEN" -lt 120 ]; then
+    RATE="1.6"
+  else
+    RATE="1.8"
+  fi
+  afplay -r "$RATE" "$TMPFILE" 2>/dev/null
 else
   say -v Samantha "$MSG"
 fi
