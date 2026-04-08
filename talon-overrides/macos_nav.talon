@@ -2,11 +2,9 @@ mode: command
 mode: dictation
 -
 
-# === APP SWITCHING (built-in community commands) ===
-# "focus chrome" / "focus ghostty" / "focus slack" etc. already work
-# "launch chrome" etc. already works
-# These are short aliases for your most-used apps:
-^open ghosty$: user.switcher_focus("Ghostty")
+# === APP SWITCHING ===
+# Community "focus <app>" already works. These are shorter aliases:
+^open ghostty$: user.switcher_focus("Ghostty")
 ^open chrome$: user.switcher_focus("Google Chrome")
 ^open safari$: user.switcher_focus("Safari")
 ^open messages$: user.switcher_focus("Messages")
@@ -23,39 +21,29 @@ mode: dictation
 # === RECTANGLE PRO WINDOW MANAGEMENT ===
 ^snap left$: key(cmd-alt-left)
 ^snap right$: key(cmd-alt-right)
-^snap up$: key(alt-ctrl-up)
-^snap down$: key(cmd-alt-down)
 ^snap full$: key(alt-ctrl-up)
-^snap half left$: key(cmd-alt-left)
-^snap half right$: key(cmd-alt-right)
-^snap bottom$: key(cmd-alt-down)
+^snap down$: key(cmd-alt-down)
 ^window bigger$: key(cmd-ctrl-=)
 ^window smaller$: key(cmd-ctrl--)
 ^window grid$: key(f1)
 ^window cascade$: key(f12)
 
 # === SPACES ===
-^space left$: key(cmd-ctrl-left)
-^space right$: key(cmd-ctrl-right)
+^desk left$: key(cmd-ctrl-left)
+^desk right$: key(cmd-ctrl-right)
 
-# === GENERAL macOS ===
+# === macOS (only commands community doesn't cover well) ===
 ^hide this$: key(cmd-h)
 ^hide others$: key(cmd-alt-h)
 ^quit this$: key(cmd-q)
-^close window$: key(cmd-w)
-^close tab$: key(cmd-w)
-^new tab$: key(cmd-t)
-^new window$: key(cmd-n)
-^next tab$: key(cmd-shift-])
-^previous tab$: key(cmd-shift-[)
+^next window$: key(cmd-`)
+^previous window$: key(cmd-shift-`)
 ^spotlight$: key(cmd-space)
-^undo$: key(cmd-z)
-^redo$: key(cmd-shift-z)
-^save$: key(cmd-s)
-^select all$: key(cmd-a)
-^copy$: key(cmd-c)
-^paste$: key(cmd-v)
-^cut$: key(cmd-x)
-^find$: key(cmd-f)
 ^screenshot$: key(cmd-shift-4)
 ^screen record$: key(cmd-shift-5)
+
+# === QUICK FOCUS ===
+^switch app$: key(cmd-tab)
+^show desktop$: key(f11)
+^mission control$: key(ctrl-up)
+^app windows$: key(ctrl-down)
