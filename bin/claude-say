@@ -99,11 +99,11 @@ if [ "$el_ok" = true ]; then
   # Adaptive speed: short messages breathe, long ones hustle
   MSG_LEN=${#MSG}
   if [ "$MSG_LEN" -lt 60 ]; then
-    RATE="1.4"
+    RATE="1.1"
   elif [ "$MSG_LEN" -lt 120 ]; then
-    RATE="1.6"
+    RATE="1.2"
   else
-    RATE="1.8"
+    RATE="1.35"
   fi
   afplay -r "$RATE" "$TMPFILE" 2>/dev/null
 else
