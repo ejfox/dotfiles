@@ -42,7 +42,7 @@ fi
 # Download ElevenLabs audio before acquiring the playback lock (parallel downloads, serial playback)
 TMPFILE="/tmp/claude-say-$$.mp3"
 el_ok=false
-if [ -n "$ELEVENLABS_API_KEY" ] && [ ! -f "$EXHAUSTED_FLAG" ]; then
+if [ -n "$ELEVENLABS_API_KEY" ] && [ ! -f "$EXHAUSTED_FLAG" ] && command -v jq &>/dev/null; then
   HTTP_CODE=$(curl -s -o "$TMPFILE" -w "%{http_code}" \
     -X POST "https://api.elevenlabs.io/v1/text-to-speech/$ELEVENLABS_VOICE_ID" \
     -H "xi-api-key: $ELEVENLABS_API_KEY" \
@@ -67,6 +67,11 @@ if [ -n "$ELEVENLABS_API_KEY" ] && [ ! -f "$EXHAUSTED_FLAG" ]; then
   fi
 fi
 
+# Capture mic volume BEFORE the lock — another instance may have already muted
+VOL=$(osascript -e 'input volume of (get volume settings)')
+# If already muted (by another claude-say), assume normal volume
+[ "$VOL" -eq 0 ] && VOL=100
+
 # --- Playback lock: only one claude-say speaks at a time ---
 LOCKDIR="/tmp/claude-say-playback.lk"
 while ! mkdir "$LOCKDIR" 2>/dev/null; do
@@ -81,8 +86,7 @@ while ! mkdir "$LOCKDIR" 2>/dev/null; do
 done
 
 # Cleanup: always restore mic, remove temp file, release lock
-VOL=$(osascript -e 'input volume of (get volume settings)')
-trap 'osascript -e "set volume input volume $VOL" 2>/dev/null; rm -f "$TMPFILE"; rmdir "$LOCKDIR" 2>/dev/null' EXIT
+trap 'osascript -e "set volume input volume $VOL" 2>/dev/null; touch /tmp/talon-mic-toggle 2>/dev/null; rm -f "$TMPFILE"; rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
 # Mute mic
 osascript -e 'set volume input volume 0'
@@ -94,7 +98,7 @@ else
   say -v Samantha "$MSG"
 fi
 
-# Say window number at the end — just the digit, fast
-if [ -n "$WIN" ]; then
-  say -v Samantha -r 300 "$WIN"
-fi
+# # Say window number at the end — just the digit, fast
+# if [ -n "$WIN" ]; then
+#   say -v Samantha -r 300 "$WIN"
+# fi

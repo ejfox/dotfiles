@@ -30,7 +30,6 @@ mkdir -p "$CACHE_DIR" "$CIPHER_CACHE" 2>/dev/null || exit 0
 TTL_STATS=30
 TTL_TASKS=15
 TTL_CALENDAR=15
-TTL_REPOS=30
 TTL_MIRROR=15
 TTL_NETWORK=1
 
@@ -93,9 +92,7 @@ cleanup_stale
 # HEADER
 ################################################################################
 echo ""
-echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e "\033[38;5;204m$(date '+%A, %B %d')\033[0m \033[2m•\033[0m \033[1m$(date '+%I:%M %p')\033[0m"
-echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 
 ################################################################################
 # NETWORK CHECK (gates API calls)
@@ -128,18 +125,10 @@ fetch_tasks() {
   cache_ok "$CACHE_DIR/tasks" $TTL_TASKS && return 0
   command -v things.sh >/dev/null || return 0
 
-  local tasks=$(things.sh today 2>/dev/null | cut -d'|' -f2 | sed 's/^[^[:alnum:]]*//' | head -5)
+  local tasks=$(things.sh today 2>/dev/null | cut -d'|' -f2 | sed 's/^[^[:alnum:]]*//' | head -3)
   [ -z "$tasks" ] && return 0
 
-  # Try LLM, fallback to raw
-  if command -v /opt/homebrew/bin/llm >/dev/null; then
-    local hex=$(get_daily_hexagram 2>/dev/null || echo "䷀")
-    local prioritized=$(echo "$tasks" | timeout 2 /opt/homebrew/bin/llm -m 3.5 --no-log -s \
-      "Prioritize briefly: 1) urgent, 2) secondary, 3) tertiary. No dates." 2>/dev/null)
-    [ -n "$prioritized" ] && tasks="$prioritized"
-  fi
-
-  echo "$tasks" | head -3 | sed 's/^/  /' > "$CACHE_DIR/tasks.tmp.$$" && \
+  echo "$tasks" | sed 's/^/  /' > "$CACHE_DIR/tasks.tmp.$$" && \
     mv "$CACHE_DIR/tasks.tmp.$$" "$CACHE_DIR/tasks"
 }
 
@@ -157,17 +146,6 @@ fetch_calendar() {
     mv "$CACHE_DIR/calendar.tmp.$$" "$CACHE_DIR/calendar"
 }
 
-fetch_repos() {
-  cache_ok "$CACHE_DIR/repos" $TTL_REPOS && return 0
-  [ -d ~/code ] || return 0
-
-  find ~/code -maxdepth 2 -type d -name ".git" 2>/dev/null | \
-    while read -r gitdir; do
-      local repo=$(dirname "$gitdir")
-      git -C "$repo" log -1 --format="%ct $(basename "$repo")" 2>/dev/null
-    done | sort -rn | head -3 | cut -d' ' -f2- | sed 's/^/  /' > "$CACHE_DIR/repos.tmp.$$" && \
-    mv "$CACHE_DIR/repos.tmp.$$" "$CACHE_DIR/repos"
-}
 
 fetch_email() {
   [ -x "$HOME/.email-summary.sh" ] || return 0
@@ -198,7 +176,6 @@ fetch_mirror_data() {
 fetch_stats &
 fetch_tasks &
 fetch_calendar &
-fetch_repos &
 fetch_email &
 fetch_mirror_data &
 
@@ -215,18 +192,6 @@ timeout 5 wait 2>/dev/null || true
   echo ""
 }
 
-# I Ching hexagram
-if type get_daily_hexagram >/dev/null 2>&1; then
-  HEX=$(get_daily_hexagram 2>/dev/null)
-  HEX_NAME=$(get_daily_hexagram_name 2>/dev/null)
-  WISDOM=$(get_daily_hexagram_wisdom 2>/dev/null)
-  [ -n "$HEX" ] && {
-    echo -e "\033[38;5;204m$HEX $HEX_NAME\033[0m"
-    echo -e "  \033[2m$WISDOM\033[0m"
-    echo ""
-  }
-fi
-
 # Sections helper
 SHOWN=0
 show_section() {
@@ -240,7 +205,6 @@ show_section() {
 
 show_section "$CACHE_DIR/tasks" "FOCUS"
 show_section "$CACHE_DIR/calendar" "SCHEDULE"
-show_section "$CACHE_DIR/repos" "ACTIVE REPOS"
 show_section "$CACHE_DIR/email" "INBOX"
 
 ################################################################################
@@ -337,9 +301,4 @@ fi
 # Start appearance watcher if not running
 pgrep -qf "appearance-watcher" || { appearance-watcher &>/dev/null & disown; }
 
-################################################################################
-# FOOTER
-################################################################################
-echo ""
-echo -e "\033[38;5;131m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo ""

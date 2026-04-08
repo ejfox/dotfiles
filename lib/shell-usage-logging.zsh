@@ -84,5 +84,5 @@ _usage_log_shell "session_start" \
 
 # Log shell session end on exit
 zshexit() {
-  _usage_log_shell "session_end" "pid=$$"
+  (( $+functions[_usage_log_shell] )) && _usage_log_shell "session_end" "pid=$$"
 }

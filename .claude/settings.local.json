@@ -40,7 +40,10 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(find:*)",
       "Bash(claude mcp:*)",
-      "Bash(brew search:*)"
+      "Bash(brew search:*)",
+      "mcp__tmux__tmux_list_panes",
+      "mcp__tmux__tmux_send_keys",
+      "Bash(~/bin/claude-say \"Opened usage logging dot lua in pane 1. Line 8, you've got keypress buffer and keypress flush timer — both are dead variables now since we killed the on key handler. Hit V j d d to select both lines and delete them.\")"
     ],
     "deny": []
   }

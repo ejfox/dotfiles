@@ -29,4 +29,4 @@ TWEAKCC_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/tweakcc"
 [ ! -d "$TWEAKCC_DIR" ] && exit 0
 
 # Apply saved customizations silently with auto-theme switching
-npx tweakcc --apply --auto-theme &>/dev/null &
+bunx tweakcc --apply --auto-theme &>/dev/null &

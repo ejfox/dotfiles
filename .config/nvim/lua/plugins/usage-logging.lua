@@ -197,22 +197,8 @@ local function flush_keypresses()
   end
 end
 
-vim.on_key(function(key)
-  local char = vim.fn.keytrans(key)
-  -- Skip special keys
-  if char and char ~= "" and not char:match("^<.*>$") then
-    table.insert(keypress_buffer, char)
-
-    if #keypress_buffer >= 50 then
-      flush_keypresses()
-    elseif not keypress_flush_timer then
-      keypress_flush_timer = vim.defer_fn(function()
-        flush_keypresses()
-        keypress_flush_timer = nil
-      end, 2000)
-    end
-  end
-end)
+-- Key logging disabled: vim.on_key fires per-keystroke and causes
+-- noticeable lag in command-line mode. Not worth the perf cost.
 
 -- Return empty table so lazy.nvim doesn't complain
 return {}
