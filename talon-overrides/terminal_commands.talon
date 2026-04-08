@@ -10,10 +10,14 @@ mode: dictation
 ^wipe word$: key(ctrl-w)
 ^wipe back$: key(ctrl-w)
 ^wipe ahead$: key(ctrl-k)
+^chomp$: key(ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w ctrl-w)
 ^cancel$: key(ctrl-c)
-^nope$: key(ctrl-c)
 ^bail$: key(ctrl-c)
-^clear$:
+^dismiss$: key(escape)
+^close this$: key(q)
+^confirm$: key(y)
+^deny$: key(n)
+^clear screen$:
     insert("clear")
     key(enter)
 
@@ -24,14 +28,13 @@ mode: dictation
 ^line end$: key(ctrl-e)
 
 # === HISTORY ===
-^previous$: key(up)
+^last command$: key(up)
 ^older$: key(up)
 ^newer$: key(down)
-^again$: key(up enter)
+^run again$: key(up enter)
 ^search history$: key(ctrl-r)
 
 # === QUICK LAUNCH ===
-# claude (most used command by far)
 ^run claude$:
     insert("claude")
     key(enter)
@@ -41,24 +44,13 @@ mode: dictation
 ^run codex$:
     insert("codex")
     key(enter)
-
-# editors / tools
 ^run neovim$:
-    insert("nvim .")
-    key(enter)
-^edit$:
     insert("nvim .")
     key(enter)
 ^run lazygit$:
     insert("lazygit")
     key(enter)
-^lazy$:
-    insert("lazygit")
-    key(enter)
 ^run yazi$:
-    insert("y")
-    key(enter)
-^files$:
     insert("y")
     key(enter)
 ^run btop$:
@@ -96,7 +88,7 @@ mode: dictation
     insert("cd ..")
     key(enter)
 
-# project shortcuts (from your actual history)
+# project shortcuts
 ^go paperclip$:
     insert("z ~/code/paperclip")
     key(enter)
@@ -129,19 +121,10 @@ mode: dictation
 ^connect VPS$:
     insert("ssh vps")
     key(enter)
-^connect$:
-    insert("ssh vps")
-    key(enter)
 
-# === GIT ===
+# === GIT (safe: read-only commands auto-execute, write commands type only) ===
 ^git status$:
     insert("git status")
-    key(enter)
-^git push$:
-    insert("git push")
-    key(enter)
-^git pull$:
-    insert("git pull")
     key(enter)
 ^git log$:
     insert("git log --oneline -20")
@@ -149,14 +132,29 @@ mode: dictation
 ^git diff$:
     insert("git diff")
     key(enter)
-^git add all$:
-    insert("git add -A")
+^git branch$:
+    insert("git branch")
+    key(enter)
+^git pull$:
+    insert("git pull")
     key(enter)
 ^git stash$:
     insert("git stash")
     key(enter)
 ^git pop$:
     insert("git stash pop")
+    key(enter)
+# Write commands: type but DON'T auto-execute
+^git push$:
+    insert("git push")
+^git add all$:
+    insert("git add -A")
+^git checkout <user.text>$:
+    insert("git checkout {text}")
+^git commit <user.text>$:
+    insert("git commit -m \"{text}\"")
+^AI commit$:
+    insert("ai-commit")
     key(enter)
 
 # === DEV SERVERS ===
@@ -166,7 +164,7 @@ mode: dictation
 ^yarn dev$:
     insert("yarn dev")
     key(enter)
-^install$:
+^run install$:
     insert("npm install")
     key(enter)
 
@@ -174,14 +172,14 @@ mode: dictation
 ^note <user.text>$:
     insert("note {text}")
     key(enter)
-^tips$:
+^show tips$:
     insert("tips")
     key(enter)
-^refresh$:
+^reload shell$:
     insert("source ~/.zshrc")
     key(enter)
 
-# === TMUX SESSION MANAGEMENT ===
+# === TMUX - LOCAL (ctrl-a prefix) ===
 ^mux sessions$:
     key(ctrl-a)
     sleep(100ms)
@@ -194,3 +192,56 @@ mode: dictation
     key(ctrl-a)
     sleep(100ms)
     key([)
+
+# === TMUX POPUPS ===
+^mux git$:
+    key(ctrl-a)
+    sleep(100ms)
+    key(g)
+^mux files$:
+    key(ctrl-a)
+    sleep(100ms)
+    key(shift-k)
+^mux scratch$:
+    key(ctrl-a)
+    sleep(100ms)
+    key(shift-s)
+^mux yank$:
+    key(ctrl-a)
+    sleep(100ms)
+    key(ctrl-y)
+
+# === NESTED TMUX - VPS (ctrl-b prefix) ===
+# When SSH'd into VPS with a nested tmux session
+^remote next$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(n)
+^remote previous$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(p)
+^remote last$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(l)
+^remote <number>$:
+    key(ctrl-b)
+    sleep(100ms)
+    key('{number}')
+^remote scroll$:
+    key(ctrl-b)
+    sleep(100ms)
+    key([)
+^remote zoom$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(z)
+^remote new$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(c)
+^remote close$:
+    key(ctrl-b)
+    sleep(100ms)
+    key(x)
