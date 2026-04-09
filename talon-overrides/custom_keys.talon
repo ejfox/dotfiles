@@ -12,7 +12,7 @@ mode: dictation
 ^space$: key(space)
 
 # shorter mode switches
-^talk mode$:
+^talk$:
     mode.disable("sleep")
     mode.disable("command")
     mode.enable("dictation")
