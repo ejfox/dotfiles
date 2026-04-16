@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ejfox nvim</title>
+<style>
+  :root {
+    --bg: #000;
+    --bg2: #0a0608;
+    --bg3: #150d10;
+    --fg: #f2cfdf;
+    --fg80: rgba(242,207,223,0.8);
+    --fg60: rgba(242,207,223,0.55);
+    --fg40: rgba(242,207,223,0.35);
+    --fg20: rgba(242,207,223,0.18);
+    --fg10: rgba(242,207,223,0.09);
+    --base: #e60067;
+    --base80: rgba(230,0,103,0.8);
+    --base50: rgba(230,0,103,0.5);
+    --base30: rgba(230,0,103,0.3);
+    --base15: rgba(230,0,103,0.15);
+    --base08: rgba(230,0,103,0.08);
+    --teal: #6eedf7;
+    --teal70: rgba(110,237,247,0.7);
+    --teal40: rgba(110,237,247,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Monaspace Krypton', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: var(--bg);
+    color: var(--fg80);
+    padding: 4px 6px;
+    line-height: 1.25;
+  }
+  .grid { columns: 4; column-gap: 5px; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 3px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--base15);
+    font-size: 10px; color: var(--fg40);
+  }
+  header .title { color: var(--base); letter-spacing: 1px; font-size: 11px; }
+  header .controls { display: flex; gap: 6px; }
+  header button {
+    background: var(--base08); color: var(--fg40); border: 1px solid var(--base15);
+    padding: 1px 6px; border-radius: 2px; font-family: inherit;
+    font-size: 9px; cursor: pointer;
+  }
+  header button:hover { color: var(--fg80); border-color: var(--base30); }
+
+  #search {
+    width: 100%; background: var(--bg2); border: 1px solid var(--base15);
+    color: var(--fg); font-family: inherit; font-size: 10px;
+    padding: 3px 6px; border-radius: 2px; outline: none; margin-bottom: 4px;
+  }
+  #search:focus { border-color: var(--base50); }
+  #search::placeholder { color: var(--fg20); }
+
+  details {
+    break-inside: avoid;
+    margin-bottom: 5px;
+    background: var(--bg2);
+    border-radius: 3px;
+    border-left: 2px solid var(--base15);
+    transition: border-color 0.15s;
+  }
+  details[open] { padding-bottom: 3px; border-left-color: var(--base30); }
+  summary {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+    padding: 4px 6px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+    user-select: none; color: var(--fg40);
+    transition: color 0.15s;
+  }
+  details[open] summary { color: var(--fg80); }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "▸"; font-size: 7px; color: var(--fg20); transition: transform 0.15s; }
+  details[open] summary::after { transform: rotate(90deg); color: var(--base50); }
+  summary:hover { color: var(--fg80); }
+
+  /* section count badge */
+  summary .ct {
+    font-size: 8px; color: var(--fg20); font-variant-numeric: tabular-nums;
+    letter-spacing: 0; text-transform: none; margin-left: auto; margin-right: 6px;
+  }
+
+  .c { padding: 0 6px; }
+  .r { display: flex; justify-content: space-between; padding: 1px 0; }
+  .r:hover { background: var(--base08); border-radius: 2px; }
+  .r.highlight { background: var(--base15); }
+
+  /* daily driver — teal left-border accent, subtle glow */
+  .r.dd {
+    padding: 1.5px 4px; margin: 2px -4px; border-radius: 2px;
+    background: rgba(110,237,247,0.03);
+    border-left: 2px solid rgba(110,237,247,0.35);
+  }
+  .r.dd kbd { color: var(--teal); }
+  .r.dd .d { color: rgba(110,237,247,0.4); }
+  .r.dd:hover { background: rgba(110,237,247,0.06); }
+  .r.dd:hover .d { color: rgba(110,237,247,0.6); }
+
+  kbd {
+    font-family: inherit; font-size: 10px; color: var(--fg80);
+    white-space: nowrap; min-width: 64px;
+  }
+  .d {
+    color: var(--fg40); text-align: right; flex: 1; padding-left: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 10px;
+  }
+  .r:hover .d { color: var(--fg60); }
+
+  /* divider with a little breathing room */
+  .div { height: 1px; background: var(--fg10); margin: 3px 0; }
+
+  /* notes — warm and recessive */
+  .n { font-size: 8.5px; color: var(--fg20); font-style: italic; padding: 2px 0 1px;
+    line-height: 1.4;
+  }
+  .n em { color: var(--teal40); font-style: normal; }
+
+  /* overrides — the "why I did this" voice */
+  .o { font-size: 8.5px; color: var(--fg40); padding: 1px 0; letter-spacing: 0.3px; }
+  .o::before { content: "↳ "; color: var(--base30); }
+
+  /* primary sections get more visible border */
+  details.primary { border-left-color: var(--base30); }
+  details.primary[open] { border-left-color: var(--base); }
+  details.primary[open] summary { color: var(--fg); }
+
+  /* accent sections — teal border for the bracket pattern */
+  details.accent { border-left-color: rgba(110,237,247,0.2); }
+  details.accent[open] { border-left-color: rgba(110,237,247,0.5); }
+  details.accent[open] summary { color: var(--teal70); }
+  details.accent kbd { color: var(--teal70); }
+
+  details.hidden { display: none; }
+  .r.hidden { display: none; }
+
+  @media (max-width: 1100px) { .grid { columns: 3; } }
+  @media (max-width: 750px) { .grid { columns: 2; } }
+  @media (max-width: 450px) { .grid { columns: 1; } }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="title">ejfox nvim</span>
+  <span>⎵ leader &nbsp; C- ctrl &nbsp; M- alt &nbsp; <span style="color:var(--teal40)">teal</span> = daily driver</span>
+  <span class="controls">
+    <button onclick="toggleAll(true)">open all</button>
+    <button onclick="toggleAll(false)">collapse</button>
+  </span>
+</header>
+<input type="text" id="search" placeholder="/ search keybindings...">
+
+<div class="grid">
+
+<!-- ══════════════════════════════════════ -->
+<!-- CORE MOTIONS                          -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Move in File</summary>
+  <div class="c">
+    <div class="r dd"><kbd>{ / }</kbd><span class="d">prev / next paragraph</span></div>
+    <div class="r"><kbd>C-d / C-u</kbd><span class="d">half page down / up</span></div>
+    <div class="r"><kbd>gg / G</kbd><span class="d">top / bottom of file</span></div>
+    <div class="r"><kbd>%</kbd><span class="d">matching bracket</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>C-o / C-i</kbd><span class="d">jumplist back / forward</span></div>
+    <div class="r"><kbd>gi</kbd><span class="d">go to last insert spot</span></div>
+    <div class="r"><kbd>* / #</kbd><span class="d">search word forward / back</span></div>
+    <div class="r"><kbd>.</kbd><span class="d">repeat last change</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- REVIEW CHANGES                        -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="primary" open>
+  <summary>Review Changes</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵gm → ]h</kbd><span class="d">diff main, walk hunks</span></div>
+    <div class="r"><kbd>⎵gp</kbd><span class="d">gutter → diff vs PR base</span></div>
+    <div class="r"><kbd>⎵gH</kbd><span class="d">gutter → reset to HEAD</span></div>
+    <div class="r"><kbd>⎵gM</kbd><span class="d">split diff vs main</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>]h / [h</kbd><span class="d">next / prev hunk</span></div>
+    <div class="r"><kbd>]H / [H</kbd><span class="d">last / first hunk</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>⎵gj</kbd><span class="d">all hunks → quickfix</span></div>
+    <div class="r"><kbd>]q / [q</kbd><span class="d">jump across files</span></div>
+    <div class="n"><em>⎵gj</em> then <em>]q</em> = walk ALL changed files</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- GIT ACTIONS                           -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="primary" open>
+  <summary>Git Actions</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵gg</kbd><span class="d">lazygit</span></div>
+    <div class="r"><kbd>⎵gs</kbd><span class="d">stage hunk</span></div>
+    <div class="r"><kbd>⎵gr</kbd><span class="d">reset hunk</span></div>
+    <div class="r"><kbd>⎵gS / ⎵gR</kbd><span class="d">stage / reset buffer</span></div>
+    <div class="r"><kbd>⎵gu</kbd><span class="d">undo stage</span></div>
+    <div class="r"><kbd>⎵gb</kbd><span class="d">blame line</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>⎵gf</kbd><span class="d">file history</span></div>
+    <div class="r"><kbd>⎵gl / ⎵gL</kbd><span class="d">git log (root / cwd)</span></div>
+    <div class="r"><kbd>⎵gB</kbd><span class="d">open in browser</span></div>
+    <div class="r"><kbd>⎵gY</kbd><span class="d">copy repo URL</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>co / ct</kbd><span class="d">conflict: ours / theirs</span></div>
+    <div class="r"><kbd>cb / c0</kbd><span class="d">conflict: both / none</span></div>
+    <div class="r"><kbd>]x / [x</kbd><span class="d">next / prev conflict</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- UNDERSTAND & FIX                      -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Understand & Fix</summary>
+  <div class="c">
+    <div class="r dd"><kbd>gd</kbd><span class="d">go to definition</span></div>
+    <div class="r"><kbd>gr</kbd><span class="d">references</span></div>
+    <div class="r"><kbd>gI</kbd><span class="d">implementation</span></div>
+    <div class="r"><kbd>gy</kbd><span class="d">type definition</span></div>
+    <div class="r"><kbd>K</kbd><span class="d">hover docs</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>gai / gao</kbd><span class="d">incoming / outgoing calls</span></div>
+    <div class="r"><kbd>⎵ss / ⎵sS</kbd><span class="d">file / workspace symbols</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>⎵ca</kbd><span class="d">code action</span></div>
+    <div class="r"><kbd>⎵cr</kbd><span class="d">rename symbol</span></div>
+    <div class="r"><kbd>⎵cd</kbd><span class="d">line diagnostics</span></div>
+    <div class="r"><kbd>⎵co</kbd><span class="d">organize imports</span></div>
+    <div class="r"><kbd>]d / [d</kbd><span class="d">next / prev diagnostic</span></div>
+    <div class="o">native LSP, not telescope — instant jumps</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- NAVIGATE                              -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Navigate</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵ff</kbd><span class="d">find file</span></div>
+    <div class="r"><kbd>⎵sg</kbd><span class="d">live grep</span></div>
+    <div class="r"><kbd>⎵/</kbd><span class="d">grep from root</span></div>
+    <div class="r"><kbd>⎵fb</kbd><span class="d">buffers</span></div>
+    <div class="r"><kbd>⎵fr</kbd><span class="d">recent files</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>s</kbd><span class="d">flash jump</span></div>
+    <div class="r"><kbd>S</kbd><span class="d">flash treesitter select</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>H / L</kbd><span class="d">prev / next buffer</span></div>
+    <div class="r"><kbd>⎵bd</kbd><span class="d">close buffer</span></div>
+    <div class="r"><kbd>⎵| / ⎵-</kbd><span class="d">vsplit / hsplit</span></div>
+    <div class="r"><kbd>C-h/j/k/l</kbd><span class="d">move between splits</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- OIL                                   -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Oil — Files as Buffers</summary>
+  <div class="c">
+    <div class="r dd"><kbd>-</kbd><span class="d">open parent dir</span></div>
+    <div class="r"><kbd>⏎</kbd><span class="d">open file</span></div>
+    <div class="r"><kbd>_</kbd><span class="d">open cwd</span></div>
+    <div class="r"><kbd>C-p</kbd><span class="d">preview</span></div>
+    <div class="r"><kbd>g.</kbd><span class="d">toggle dotfiles</span></div>
+    <div class="r"><kbd>gs</kbd><span class="d">change sort</span></div>
+    <div class="r"><kbd>`</kbd><span class="d">:cd here</span></div>
+    <div class="r"><kbd>gx</kbd><span class="d">open with system app</span></div>
+    <div class="r"><kbd>g\</kbd><span class="d">toggle trash</span></div>
+    <div class="n">edit filename = rename, delete line = delete file</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- COPILOT                               -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Copilot — Ghost Text</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Tab</kbd><span class="d">accept suggestion</span></div>
+    <div class="r"><kbd>C-→</kbd><span class="d">accept word</span></div>
+    <div class="r"><kbd>C-l</kbd><span class="d">accept line</span></div>
+    <div class="r"><kbd>C-]</kbd><span class="d">dismiss</span></div>
+    <div class="r"><kbd>]s / [s</kbd><span class="d">cycle suggestions</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>M-⏎</kbd><span class="d">open panel</span></div>
+    <div class="r"><kbd>]] / [[</kbd><span class="d">panel: next / prev</span></div>
+    <div class="n">:Copilot disable / enable / status</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- CLAUDE CODE WORKFLOW                   -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Claude Code Workflow</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵yr</kbd><span class="d">copy + relative path</span></div>
+    <div class="r"><kbd>⎵ya</kbd><span class="d">copy + absolute path</span></div>
+    <div class="n"><em>visual mode</em> — gives <em>file:10-15 ```code```</em></div>
+    <div class="n">files auto-reload on external edits (⟳ statusline)</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- EDITING                               -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Surround</summary>
+  <div class="c">
+    <div class="r dd"><kbd>cs{c}{n}</kbd><span class="d">change surround</span></div>
+    <div class="r"><kbd>ys{m}{c}</kbd><span class="d">add surround</span></div>
+    <div class="r"><kbd>yss{c}</kbd><span class="d">surround line</span></div>
+    <div class="r"><kbd>ds{c}</kbd><span class="d">delete surround</span></div>
+    <div class="r"><kbd>S{c}</kbd><span class="d">visual surround</span></div>
+    <div class="n"><em>a</em>→&lt;&gt; <em>b</em>→() <em>B</em>→{} <em>r</em>→[] <em>q</em>→quotes</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- COMPLETION                            -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Completion (Blink)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>C-Space</kbd><span class="d">trigger completion</span></div>
+    <div class="r"><kbd>C-n / C-p</kbd><span class="d">next / prev item</span></div>
+    <div class="r"><kbd>⏎</kbd><span class="d">accept</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- FOCUS                                 -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Focus & Writing</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵Z</kbd><span class="d">zen mode (100ch)</span></div>
+    <div class="r"><kbd>⎵up</kbd><span class="d">prose mode (38ch)</span></div>
+    <div class="r"><kbd>⎵uw</kbd><span class="d">toggle wrap</span></div>
+    <div class="r"><kbd>⎵ut</kbd><span class="d">toggle twilight</span></div>
+    <div class="r"><kbd>⎵un</kbd><span class="d">dismiss notifications</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- DEBUG                                 -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Debug — DAP</summary>
+  <div class="c">
+    <div class="r dd"><kbd>⎵db</kbd><span class="d">breakpoint</span></div>
+    <div class="r"><kbd>⎵dc</kbd><span class="d">continue / start</span></div>
+    <div class="r"><kbd>⎵di / ⎵do</kbd><span class="d">step into / over</span></div>
+    <div class="r"><kbd>⎵dO</kbd><span class="d">step out</span></div>
+    <div class="r"><kbd>⎵dt</kbd><span class="d">terminate</span></div>
+    <div class="r"><kbd>⎵du</kbd><span class="d">toggle UI</span></div>
+    <div class="r"><kbd>⎵de</kbd><span class="d">eval</span></div>
+    <div class="n">UI auto-opens on start, closes on terminate</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- FOLDS                                 -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Folds</summary>
+  <div class="c">
+    <div class="r dd"><kbd>za</kbd><span class="d">toggle fold</span></div>
+    <div class="r"><kbd>zR / zM</kbd><span class="d">open all / close all</span></div>
+    <div class="r"><kbd>zK</kbd><span class="d">peek fold</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- BRACKET PATTERN                       -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="accent" open>
+  <summary>The ] / [ Pattern</summary>
+  <div class="c">
+    <div class="r"><kbd>]h / [h</kbd><span class="d">git hunk</span></div>
+    <div class="r"><kbd>]H / [H</kbd><span class="d">first / last hunk</span></div>
+    <div class="r"><kbd>]d / [d</kbd><span class="d">diagnostic</span></div>
+    <div class="r"><kbd>]x / [x</kbd><span class="d">merge conflict</span></div>
+    <div class="r"><kbd>]s / [s</kbd><span class="d">copilot suggestion</span></div>
+    <div class="r"><kbd>]q / [q</kbd><span class="d">quickfix</span></div>
+    <div class="n"><em>]</em> forward &nbsp; <em>[</em> back &nbsp; always</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- YOUR OVERRIDES                        -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Your Overrides</summary>
+  <div class="c">
+    <div class="o">native LSP not telescope — instant, no fuzzy</div>
+    <div class="o">oil not neo-tree — dirs are buffers</div>
+    <div class="o">inline copilot not cmp — ghost text not menu</div>
+    <div class="o">pbcopy not OSC52 — avoids clipboard spam</div>
+    <div class="o">cmdheight=0 — statusline shows everything</div>
+    <div class="o">virtualedit=all — cursor anywhere, past EOL</div>
+    <div class="o">C-h/l/s disabled in oil — split nav priority</div>
+    <div class="o">vscode-js-debug disabled — janky</div>
+  </div>
+</details>
+
+</div>
+
+<script>
+function toggleAll(open) {
+  document.querySelectorAll('details').forEach(d => d.open = open);
+}
+const search = document.getElementById('search');
+search.addEventListener('input', () => {
+  const q = search.value.toLowerCase().trim();
+  document.querySelectorAll('details').forEach(section => {
+    if (!q) {
+      section.classList.remove('hidden');
+      section.querySelectorAll('.r').forEach(r => r.classList.remove('hidden', 'highlight'));
+      return;
+    }
+    let hasMatch = false;
+    const title = section.querySelector('summary').textContent.toLowerCase();
+    if (title.includes(q)) hasMatch = true;
+    section.querySelectorAll('.r').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(q)) {
+        row.classList.remove('hidden');
+        row.classList.add('highlight');
+        hasMatch = true;
+      } else {
+        row.classList.add('hidden');
+        row.classList.remove('highlight');
+      }
+    });
+    section.querySelectorAll('.n, .o').forEach(el => {
+      if (el.textContent.toLowerCase().includes(q)) hasMatch = true;
+    });
+    if (hasMatch) {
+      section.classList.remove('hidden');
+      section.open = true;
+    } else {
+      section.classList.add('hidden');
+    }
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== search) {
+    e.preventDefault();
+    search.focus();
+  }
+  if (e.key === 'Escape') {
+    search.value = '';
+    search.dispatchEvent(new Event('input'));
+    search.blur();
+  }
+});
+</script>
+</body>
+</html>

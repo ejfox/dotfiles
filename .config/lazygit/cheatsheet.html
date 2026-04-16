@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ejfox lazygit</title>
+<style>
+  :root {
+    --bg: #000;
+    --bg2: #0a0608;
+    --bg3: #150d10;
+    --fg: #f2cfdf;
+    --fg80: rgba(242,207,223,0.8);
+    --fg60: rgba(242,207,223,0.55);
+    --fg40: rgba(242,207,223,0.35);
+    --fg20: rgba(242,207,223,0.18);
+    --fg10: rgba(242,207,223,0.09);
+    --base: #e60067;
+    --base80: rgba(230,0,103,0.8);
+    --base50: rgba(230,0,103,0.5);
+    --base30: rgba(230,0,103,0.3);
+    --base15: rgba(230,0,103,0.15);
+    --base08: rgba(230,0,103,0.08);
+    --teal: #6eedf7;
+    --teal70: rgba(110,237,247,0.7);
+    --teal40: rgba(110,237,247,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Monaspace Krypton', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: var(--bg);
+    color: var(--fg80);
+    padding: 4px 6px;
+    line-height: 1.25;
+  }
+  .grid { columns: 4; column-gap: 5px; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 3px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--base15);
+    font-size: 10px; color: var(--fg40);
+  }
+  header .title { color: var(--base); letter-spacing: 1px; font-size: 11px; }
+  header .controls { display: flex; gap: 6px; }
+  header button {
+    background: var(--base08); color: var(--fg40); border: 1px solid var(--base15);
+    padding: 1px 6px; border-radius: 2px; font-family: inherit;
+    font-size: 9px; cursor: pointer;
+  }
+  header button:hover { color: var(--fg80); border-color: var(--base30); }
+
+  #search {
+    width: 100%; background: var(--bg2); border: 1px solid var(--base15);
+    color: var(--fg); font-family: inherit; font-size: 10px;
+    padding: 3px 6px; border-radius: 2px; outline: none; margin-bottom: 4px;
+  }
+  #search:focus { border-color: var(--base50); }
+  #search::placeholder { color: var(--fg20); }
+
+  details {
+    break-inside: avoid;
+    margin-bottom: 5px;
+    background: var(--bg2);
+    border-radius: 3px;
+    border-left: 2px solid var(--base15);
+    transition: border-color 0.15s;
+  }
+  details[open] { padding-bottom: 3px; border-left-color: var(--base30); }
+  summary {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+    padding: 4px 6px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+    user-select: none; color: var(--fg40);
+    transition: color 0.15s;
+  }
+  details[open] summary { color: var(--fg80); }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "\25B8"; font-size: 7px; color: var(--fg20); transition: transform 0.15s; }
+  details[open] summary::after { transform: rotate(90deg); color: var(--base50); }
+  summary:hover { color: var(--fg80); }
+
+  summary .ct {
+    font-size: 8px; color: var(--fg20); font-variant-numeric: tabular-nums;
+    letter-spacing: 0; text-transform: none; margin-left: auto; margin-right: 6px;
+  }
+
+  .c { padding: 0 6px; }
+  .r { display: flex; justify-content: space-between; padding: 1px 0; }
+  .r:hover { background: var(--base08); border-radius: 2px; }
+  .r.highlight { background: var(--base15); }
+
+  .r.dd {
+    padding: 1.5px 4px; margin: 2px -4px; border-radius: 2px;
+    background: rgba(110,237,247,0.03);
+    border-left: 2px solid rgba(110,237,247,0.35);
+  }
+  .r.dd kbd { color: var(--teal); }
+  .r.dd .d { color: rgba(110,237,247,0.4); }
+  .r.dd:hover { background: rgba(110,237,247,0.06); }
+  .r.dd:hover .d { color: rgba(110,237,247,0.6); }
+
+  kbd {
+    font-family: inherit; font-size: 10px; color: var(--fg80);
+    white-space: nowrap; min-width: 64px;
+  }
+  .d {
+    color: var(--fg40); text-align: right; flex: 1; padding-left: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 10px;
+  }
+  .r:hover .d { color: var(--fg60); }
+
+  .div { height: 1px; background: var(--fg10); margin: 3px 0; }
+
+  .n { font-size: 8.5px; color: var(--fg20); font-style: italic; padding: 2px 0 1px;
+    line-height: 1.4;
+  }
+  .n em { color: var(--teal40); font-style: normal; }
+
+  .o { font-size: 8.5px; color: var(--fg40); padding: 1px 0; letter-spacing: 0.3px; }
+  .o::before { content: "\21B3 "; color: var(--base30); }
+
+  details.primary { border-left-color: var(--base30); }
+  details.primary[open] { border-left-color: var(--base); }
+  details.primary[open] summary { color: var(--fg); }
+
+  details.accent { border-left-color: rgba(110,237,247,0.2); }
+  details.accent[open] { border-left-color: rgba(110,237,247,0.5); }
+  details.accent[open] summary { color: var(--teal70); }
+  details.accent kbd { color: var(--teal70); }
+
+  details.hidden { display: none; }
+  .r.hidden { display: none; }
+
+  @media (max-width: 1100px) { .grid { columns: 3; } }
+  @media (max-width: 750px) { .grid { columns: 2; } }
+  @media (max-width: 450px) { .grid { columns: 1; } }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="title">ejfox lazygit</span>
+  <span>Tab switch panels &nbsp; <span style="color:var(--teal40)">teal</span> = daily driver</span>
+  <span class="controls">
+    <button onclick="toggleAll(true)">open all</button>
+    <button onclick="toggleAll(false)">collapse</button>
+  </span>
+</header>
+<input type="text" id="search" placeholder="/ search keybindings...">
+
+<div class="grid">
+
+<!-- ══════════════════════════════════════ -->
+<!-- PANEL NAVIGATION                      -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="primary" open>
+  <summary>Panel Navigation</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Tab / Shift-Tab</kbd><span class="d">next / prev panel</span></div>
+    <div class="r dd"><kbd>1-5</kbd><span class="d">jump to panel by number</span></div>
+    <div class="r"><kbd>[ / ]</kbd><span class="d">prev / next tab within panel</span></div>
+    <div class="r"><kbd>h / l</kbd><span class="d">scroll left / right (diff)</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>? / x</kbd><span class="d">keybinding menu / context menu</span></div>
+    <div class="r"><kbd>+</kbd><span class="d">open/close command log</span></div>
+    <div class="r"><kbd>q / Esc</kbd><span class="d">quit / cancel</span></div>
+    <div class="n"><em>1</em> Status <em>2</em> Files <em>3</em> Branches <em>4</em> Commits <em>5</em> Stash</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- FILES                                 -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="primary" open>
+  <summary>Files (Panel 2)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">stage / unstage file</span></div>
+    <div class="r dd"><kbd>a</kbd><span class="d">AI commit (fzf + Claude)</span></div>
+    <div class="r"><kbd>c</kbd><span class="d">commit (opens editor)</span></div>
+    <div class="r"><kbd>A</kbd><span class="d">amend last commit</span></div>
+    <div class="r"><kbd>C</kbd><span class="d">commit with editor</span></div>
+    <div class="r"><kbd>w</kbd><span class="d">commit w/ pre-commit hook skip</span></div>
+    <div class="div"></div>
+    <div class="r dd"><kbd>Enter</kbd><span class="d">focus file / view staged</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">discard changes</span></div>
+    <div class="r"><kbd>D</kbd><span class="d">discard options menu</span></div>
+    <div class="r"><kbd>e</kbd><span class="d">open in editor</span></div>
+    <div class="r"><kbd>o</kbd><span class="d">open in default app</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>S</kbd><span class="d">stash all changes</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fetch</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">refresh files</span></div>
+    <div class="r"><kbd>i</kbd><span class="d">add to .gitignore</span></div>
+    <div class="n"><em>a</em> = custom AI commit script via ai-commit + fzf</div>
+    <div class="o">space to stage, then a for AI commit = daily flow</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- STAGING                               -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Staging (Inside File)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">stage / unstage hunk</span></div>
+    <div class="r dd"><kbd>v</kbd><span class="d">select range (visual mode)</span></div>
+    <div class="r"><kbd>a</kbd><span class="d">stage / unstage all hunks</span></div>
+    <div class="r"><kbd>Tab</kbd><span class="d">toggle staged / unstaged view</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">discard hunk</span></div>
+    <div class="r"><kbd>e</kbd><span class="d">edit hunk in editor</span></div>
+    <div class="r"><kbd>Esc / q</kbd><span class="d">back to files list</span></div>
+    <div class="n"><em>v</em> then <em>j/k</em> to select lines, <em>Space</em> to stage selection</div>
+    <div class="o">partial staging = clean commits without git add -p</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- BRANCHES                              -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Branches (Panel 3)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">checkout branch</span></div>
+    <div class="r dd"><kbd>n</kbd><span class="d">new branch</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">delete branch</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">rebase onto branch</span></div>
+    <div class="r"><kbd>M</kbd><span class="d">merge into current</span></div>
+    <div class="r"><kbd>R</kbd><span class="d">rename branch</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fast-forward</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>c</kbd><span class="d">checkout by name</span></div>
+    <div class="r"><kbd>u</kbd><span class="d">set upstream</span></div>
+    <div class="r"><kbd>P</kbd><span class="d">push</span></div>
+    <div class="r"><kbd>p</kbd><span class="d">pull</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>[ / ]</kbd><span class="d">tabs: Local / Remote / Tags</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- COMMITS                               -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Commits (Panel 4)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Enter</kbd><span class="d">view commit files</span></div>
+    <div class="r"><kbd>Space</kbd><span class="d">checkout commit</span></div>
+    <div class="r"><kbd>s</kbd><span class="d">squash down</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fixup (squash, discard msg)</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">reword commit message</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">drop commit</span></div>
+    <div class="r"><kbd>e</kbd><span class="d">edit commit (rebase)</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>p</kbd><span class="d">pick (during rebase)</span></div>
+    <div class="r"><kbd>C-j / C-k</kbd><span class="d">move commit down / up</span></div>
+    <div class="r"><kbd>g</kbd><span class="d">reset to commit (soft/mixed/hard)</span></div>
+    <div class="r"><kbd>t</kbd><span class="d">create tag at commit</span></div>
+    <div class="r"><kbd>T</kbd><span class="d">tag menu</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>c</kbd><span class="d">copy commit hash</span></div>
+    <div class="r"><kbd>C</kbd><span class="d">cherry-pick copy</span></div>
+    <div class="r"><kbd>V</kbd><span class="d">paste (cherry-pick apply)</span></div>
+    <div class="r"><kbd>y</kbd><span class="d">copy commit attribute</span></div>
+    <div class="n"><em>s</em> squash keeps both msgs, <em>f</em> fixup discards</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- STASH                                 -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Stash (Panel 5)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">apply stash</span></div>
+    <div class="r"><kbd>g</kbd><span class="d">pop stash (apply + drop)</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">drop stash</span></div>
+    <div class="r"><kbd>n</kbd><span class="d">new branch from stash</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">rename stash</span></div>
+    <div class="r"><kbd>Enter</kbd><span class="d">view stash contents</span></div>
+    <div class="n"><em>Space</em> = apply (keep stash), <em>g</em> = pop (remove stash)</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- PUSH / PULL / REMOTE                  -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="primary" open>
+  <summary>Push / Pull / Sync</summary>
+  <div class="c">
+    <div class="r dd"><kbd>P</kbd><span class="d">push (global)</span></div>
+    <div class="r dd"><kbd>p</kbd><span class="d">pull (global)</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fetch (global)</span></div>
+    <div class="r"><kbd>Shift-P</kbd><span class="d">push with options menu</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>z</kbd><span class="d">undo (via reflog)</span></div>
+    <div class="r"><kbd>Z</kbd><span class="d">redo (via reflog)</span></div>
+    <div class="n"><em>z</em> undo is magic — reverts almost any git operation</div>
+    <div class="o">P/p are global — work from any panel</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- INTERACTIVE REBASE                    -->
+<!-- ══════════════════════════════════════ -->
+
+<details open>
+  <summary>Interactive Rebase</summary>
+  <div class="c">
+    <div class="r dd"><kbd>e</kbd><span class="d">start editing commit</span></div>
+    <div class="r"><kbd>p</kbd><span class="d">pick</span></div>
+    <div class="r"><kbd>s</kbd><span class="d">squash</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fixup</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">drop</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">reword</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>C-j / C-k</kbd><span class="d">move commit down / up</span></div>
+    <div class="r"><kbd>m</kbd><span class="d">continue rebase</span></div>
+    <div class="r"><kbd>M</kbd><span class="d">abort rebase</span></div>
+    <div class="n">select multiple commits with <em>v</em>, then <em>s</em> to squash all</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- MERGE CONFLICTS                       -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Merge Conflicts</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">pick hunk</span></div>
+    <div class="r"><kbd>b</kbd><span class="d">pick both hunks</span></div>
+    <div class="r"><kbd>arrow up/down</kbd><span class="d">navigate conflicts</span></div>
+    <div class="r"><kbd>z</kbd><span class="d">undo pick</span></div>
+    <div class="r"><kbd>e</kbd><span class="d">edit in editor</span></div>
+    <div class="r"><kbd>M</kbd><span class="d">open merge tool</span></div>
+    <div class="n">resolve all conflicts, stage file, then continue rebase/merge</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- DIFF VIEW                             -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Diff View</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Enter</kbd><span class="d">expand file to see diff</span></div>
+    <div class="r"><kbd>W</kbd><span class="d">toggle whitespace in diff</span></div>
+    <div class="r"><kbd>C-e / C-y</kbd><span class="d">scroll diff down / up</span></div>
+    <div class="r"><kbd>j / k</kbd><span class="d">navigate diff lines</span></div>
+    <div class="r"><kbd>/</kbd><span class="d">search in diff</span></div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SEARCH / FILTER                       -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Search & Filter</summary>
+  <div class="c">
+    <div class="r dd"><kbd>/</kbd><span class="d">start search in panel</span></div>
+    <div class="r"><kbd>n / N</kbd><span class="d">next / prev search result</span></div>
+    <div class="r"><kbd>Esc</kbd><span class="d">cancel search</span></div>
+    <div class="r"><kbd>C-s</kbd><span class="d">filter mode (commits/files)</span></div>
+    <div class="n"><em>C-s</em> filters the list, <em>/</em> just highlights</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- CUSTOM WORKFLOW                       -->
+<!-- ══════════════════════════════════════ -->
+
+<details class="accent" open>
+  <summary>ejfox Workflow</summary>
+  <div class="c">
+    <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: open lazygit popup</span></div>
+    <div class="r dd"><kbd>Space &rarr; a</kbd><span class="d">stage file, AI commit</span></div>
+    <div class="r"><kbd>Enter &rarr; v &rarr; Space</kbd><span class="d">partial hunk staging</span></div>
+    <div class="div"></div>
+    <div class="o">C-a g = float over your panes, do git, dismiss</div>
+    <div class="o">stage with space, AI commit with a, push with P</div>
+    <div class="o">z to undo anything (reflog-powered safety net)</div>
+    <div class="o">vulpes red theme: #ff0055 borders, #2d1a22 selection</div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════ -->
+<!-- GLOBAL SHORTCUTS                      -->
+<!-- ══════════════════════════════════════ -->
+
+<details>
+  <summary>Global Shortcuts</summary>
+  <div class="c">
+    <div class="r"><kbd>@ (status)</kbd><span class="d">open recent repos</span></div>
+    <div class="r"><kbd>}</kbd><span class="d">increase diff context</span></div>
+    <div class="r"><kbd>{</kbd><span class="d">decrease diff context</span></div>
+    <div class="r"><kbd>:</kbd><span class="d">run custom command</span></div>
+    <div class="r"><kbd>R</kbd><span class="d">refresh</span></div>
+    <div class="r"><kbd>W</kbd><span class="d">diff options menu</span></div>
+    <div class="r"><kbd>C-w</kbd><span class="d">toggle whitespace</span></div>
+  </div>
+</details>
+
+</div>
+
+<script>
+function toggleAll(open) {
+  document.querySelectorAll('details').forEach(d => d.open = open);
+}
+const search = document.getElementById('search');
+search.addEventListener('input', () => {
+  const q = search.value.toLowerCase().trim();
+  document.querySelectorAll('details').forEach(section => {
+    if (!q) {
+      section.classList.remove('hidden');
+      section.querySelectorAll('.r').forEach(r => r.classList.remove('hidden', 'highlight'));
+      return;
+    }
+    let hasMatch = false;
+    const title = section.querySelector('summary').textContent.toLowerCase();
+    if (title.includes(q)) hasMatch = true;
+    section.querySelectorAll('.r').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(q)) {
+        row.classList.remove('hidden');
+        row.classList.add('highlight');
+        hasMatch = true;
+      } else {
+        row.classList.add('hidden');
+        row.classList.remove('highlight');
+      }
+    });
+    section.querySelectorAll('.n, .o').forEach(el => {
+      if (el.textContent.toLowerCase().includes(q)) hasMatch = true;
+    });
+    if (hasMatch) {
+      section.classList.remove('hidden');
+      section.open = true;
+    } else {
+      section.classList.add('hidden');
+    }
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== search) {
+    e.preventDefault();
+    search.focus();
+  }
+  if (e.key === 'Escape') {
+    search.value = '';
+    search.dispatchEvent(new Event('input'));
+    search.blur();
+  }
+});
+</script>
+</body>
+</html>

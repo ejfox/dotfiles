@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Open cheatsheets in Safari
+# Usage: cheatsheets [nvim|lazygit|all]
+#   cheatsheets          → master (both combined)
+#   cheatsheets nvim     → nvim only
+#   cheatsheets lazygit  → lazygit only
+
+MASTER="$HOME/.dotfiles/.config/cheatsheet.html"
+NVIM_SHEET="$HOME/.dotfiles/.config/nvim/cheatsheet.html"
+LG_SHEET="$HOME/.dotfiles/.config/lazygit/cheatsheet.html"
+
+case "${1:-all}" in
+  nvim)    open -a "Safari" "$NVIM_SHEET" ;;
+  lazygit) open -a "Safari" "$LG_SHEET" ;;
+  all|*)   open -a "Safari" "$MASTER" ;;
+esac
