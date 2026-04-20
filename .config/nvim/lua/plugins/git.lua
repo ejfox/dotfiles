@@ -27,6 +27,25 @@ return {
       max_file_length = 40000,
       preview_config = { border = "none", style = "minimal" },
     },
+    keys = {
+      -- Diff against main: gutter signs show what changed vs main, ]h/[h to jump
+      { "<leader>gm", function() require("gitsigns").change_base("main", true) end, desc = "Diff vs main" },
+      -- Diff against PR base branch (auto-detects via gh cli)
+      { "<leader>gp", function()
+        local base = vim.fn.system("gh pr view --json baseRefName -q .baseRefName"):gsub("%s+", "")
+        if base ~= "" then
+          require("gitsigns").change_base(base, true)
+          vim.notify("Diffing vs PR base: " .. base)
+        else
+          vim.notify("No active PR found, diffing vs main")
+          require("gitsigns").change_base("main", true)
+        end
+      end, desc = "Diff vs PR base" },
+      -- Reset back to default (diff vs index/HEAD)
+      { "<leader>gH", function() require("gitsigns").change_base() end, desc = "Diff vs HEAD (reset)" },
+      -- Side-by-side split diff against main
+      { "<leader>gM", "<cmd>Gitsigns diffthis main<cr>", desc = "Split diff vs main" },
+    },
   },
 
   -- Merge conflict resolution
