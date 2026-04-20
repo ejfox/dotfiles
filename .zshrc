@@ -323,6 +323,7 @@ alias ll='lsd -lht'
 alias ls='lsd -G'
 alias lsa='lsd -lah'
 
+alias cheatsheet="cheatsheets"
 alias dev="yarn dev"
 alias yarni="yarn install"
 alias nodei="node index.js"
@@ -743,3 +744,7 @@ alias scrap="scrapbook-cli"
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Fly.io
+export FLYCTL_INSTALL="$HOME/.fly"
+export PATH="$FLYCTL_INSTALL/bin:$PATH"

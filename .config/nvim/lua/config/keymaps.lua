@@ -32,3 +32,18 @@ vim.keymap.set("n", "<leader>ss", vim.lsp.buf.document_symbol, { desc = "Documen
 vim.keymap.set("n", "<leader>sS", vim.lsp.buf.workspace_symbol, { desc = "Workspace Symbols" })
 vim.keymap.set("n", "gai", vim.lsp.buf.incoming_calls, { desc = "Incoming Calls" })
 vim.keymap.set("n", "gao", vim.lsp.buf.outgoing_calls, { desc = "Outgoing Calls" })
+
+-- ============================================================================
+-- GIT DIFF NAVIGATION
+-- ============================================================================
+-- Jump across ALL changed files vs main (loads into quickfix, use ]q/[q)
+
+vim.keymap.set("n", "<leader>gj", function()
+  local lines = vim.fn.systemlist("git jump --stdout diff main")
+  if #lines == 0 then
+    vim.notify("No changes vs main")
+    return
+  end
+  vim.fn.setqflist({}, " ", { title = "Diff vs main", lines = lines })
+  vim.cmd("copen")
+end, { desc = "Git jump vs main (quickfix)" })
