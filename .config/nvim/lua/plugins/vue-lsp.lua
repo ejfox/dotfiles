@@ -23,10 +23,10 @@ return {
 
           -- Manually start vtsls for this buffer
           local vue_ts_plugin = vim.fn.expand("~/.local/share/nvim/mason/packages/vue-language-server")
-            .. "/node_modules/@vue/language-server/node_modules/@vue/typescript-plugin"
+            .. "/node_modules/@vue/typescript-plugin"
 
           require("lspconfig").vtsls.setup({
-            cmd = { vim.fn.expand("~/.local/bin/vtsls-wrapper"), "--stdio" },
+            cmd = { vim.fn.expand("~/.local/share/nvim/mason/bin/vtsls"), "--stdio" },
             filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "vue" },
             settings = {
               vtsls = {
