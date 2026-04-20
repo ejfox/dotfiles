@@ -4,6 +4,18 @@
 FONT="Monaspace Krypton"
 NERD_FONT="Monaspace Krypton"
 
+# Font-size spec (kept consistent across items):
+#   PRIMARY   — 13pt, system anchors (clock, battery)
+#   DATA      — 11pt, at-a-glance data widgets (next_event, demos, posts)
+#   ICON      — 13pt, nerd-font glyphs
+SIZE_PRIMARY=13.0
+SIZE_DATA=11.0
+SIZE_ICON=13.0
+
+# Color spec:
+MUTED=0xff888888    # passive UI (default widget label/icon)
+DIM=0xff666666      # even quieter text
+
 ##### Bar Appearance #####
 sketchybar --bar height=40 \
   blur_radius=0 \
@@ -17,9 +29,9 @@ sketchybar --bar height=40 \
   margin=0
 
 ##### Defaults #####
-sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
+sketchybar --default icon.font="$NERD_FONT:Regular:$SIZE_ICON" \
   icon.color=0xffffffff \
-  label.font="$FONT:Regular:13.0" \
+  label.font="$FONT:Regular:$SIZE_PRIMARY" \
   label.color=0xffffffff \
   background.drawing=off \
   padding_left=6 \
@@ -37,140 +49,69 @@ sketchybar --default icon.font="$NERD_FONT:Regular:13.0" \
 ##### Plugin Directory #####
 PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
 
+# ===== LEFT SIDE (left → right): talon, next_event, next_event.1..N =====
+
+##### Talon Voice State ##### (pushed from ~/.talon/user/ejfox-overrides/sketchybar_bridge.py)
+# No polling — the bridge fires `sketchybar --trigger talon_state MODE=<mode>` on every
+# Talon context change. Hidden by default; plugin shows/styles on mode transitions.
+sketchybar --add event talon_state
+sketchybar --add item talon left \
+  --set talon \
+  updates=on \
+  script="$PLUGIN_DIR/talon.sh" \
+  drawing=off \
+  icon.font="$FONT:Bold:$SIZE_DATA" \
+  label.drawing=off \
+  --subscribe talon talon_state
+
 ##### Next Calendar Event #####
 sketchybar --add item next_event left \
-           --set next_event update_freq=60 \
-                            updates=on \
-                            script="$PLUGIN_DIR/next_event.sh" \
-                            icon.drawing=off \
-                            label.font="$FONT:Regular:10.0" \
-                            label.color=0xff666666 \
-                            label.y_offset=0 \
-                            padding_left=12 \
-                            padding_right=8 \
-                            click_script="open -a Calendar" \
-           --subscribe next_event system_woke
-
-##### Mutagen Status ##### (moved to tmux)
-# sketchybar --add item mutagen left \
-#            --set mutagen update_freq=5 \
-#                          script="$PLUGIN_DIR/mutagen.sh" \
-#                          icon="" \
-#                          icon.font="$NERD_FONT:Regular:13.0" \
-#                          label.font="$FONT:Medium:13.0" \
-#                          padding_left=12 \
-#                          padding_right=0 \
-#                          icon.padding_left=0 \
-#                          icon.padding_right=0
-
-###### Dev Dashboard #####
-#sketchybar --add item dev_dashboard left \
-#  --set dev_dashboard update_freq=300 \
-#  position=left \
-#  label.font="$FONT:Regular:12.0" \
-#  icon.font="$NERD_FONT:Regular:14.0" \
-#  icon.color=0xffffffff \
-#  label.color=0xffffffff \
-#  script="$HOME/.config/sketchybar/plugins/dev_dashboard.sh"
-#
-# ##### Context Aware Display ##### (REMOVED - was too complex)
-
-##### Documentation Reminder ##### (REMOVED - symbols too cryptic)
-# sketchybar --add item doc_reminder left \
-#   --set doc_reminder update_freq=300 \
-#   script="$HOME/.config/sketchybar/plugins/doc_reminder.sh" \
-#   click_script="open \"things:///add?title=Document%20today's%20work\"" \
-#   icon.drawing=off
-
-##### Claude Usage ##### (DISABLED - ccusage broken)
-# sketchybar --add item claude_usage left \
-#   --set claude_usage update_freq=10 \
-#   script="$HOME/.config/sketchybar/plugins/claude_usage.sh" \
-#   label.font="$FONT:Regular:11.0"
-
-##### CIPHER - AI Companion #####
-# sketchybar --add item cipher left \
-#   --set cipher update_freq=60 \
-#   position=left \
-#   icon="" \
-#   icon.drawing=off \
-#   label.color=0xff666666 \
-#   label.font="Monaspace Xenon:Italic:13.0" \
-#   label.y_offset=0 \
-#   padding_left=20 \
-#   drawing=on \
-#   script="$HOME/.config/sketchybar/plugins/cipher.sh" \
-#   click_script="sketchybar --set cipher drawing=off"
-
-
-##### Mic Mute Indicator #####
-sketchybar --add event mic_change
-sketchybar --add item mic left \
-  --set mic update_freq=5 \
+  --set next_event update_freq=60 \
   updates=on \
-  script="$PLUGIN_DIR/mic.sh" \
-  drawing=off \
-  icon.font="$FONT:Bold:10.0" \
-  icon.color=0xffe60067 \
-  label.drawing=off \
-  padding_left=8 \
-  padding_right=8 \
-  --subscribe mic mic_change
+  script="$PLUGIN_DIR/next_event.sh" \
+  icon.drawing=off \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  label.color=$DIM \
+  click_script="open -a Calendar" \
+  --subscribe next_event system_woke
+
+# ===== RIGHT SIDE (left → right): demos, posts, battery, clock =====
+# sketchybar renders right-side items in reverse add-order, so clock is added
+# FIRST to become the rightmost anchor, and demos is added LAST to sit leftmost.
+
+##### Time ##### (rightmost anchor, macOS convention)
+sketchybar --add item clock right \
+  --set clock update_freq=1 \
+  label.width=58 \
+  script="$PLUGIN_DIR/clock.sh"
 
 ##### Battery #####
 sketchybar --add item battery right \
   --set battery update_freq=10 \
-  script="$HOME/.config/sketchybar/plugins/battery.sh" \
+  script="$PLUGIN_DIR/battery.sh" \
   click_script="pmset -g batt"
 
-##### Time #####
-sketchybar --add item clock right \
-  --set clock update_freq=1 \
-  label.width=58 \
-  script="$HOME/.config/sketchybar/plugins/clock.sh"
+##### Creative Nudges: 4-week dot matrices (hidden when Focus is on) #####
+# posts (blog) sits right of demos (~/demos). Each dot = shipped at least one that week.
+# Rightmost dot = this week (○ when empty). Icons: 󰕧 video camera, 󰎞 document.
+sketchybar --add item posts right \
+  --set posts update_freq=120 \
+  icon="󰎞" \
+  icon.color=$MUTED \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  script="$PLUGIN_DIR/posts.sh" \
+  --subscribe posts system_woke
 
-###### Next Todo #####
-#sketchybar --add item task right \
-#  --set task update_freq=300 \
-#  position=right \
-#  script="$HOME/.config/sketchybar/plugins/top_task.sh"
-
-##### Creative Stats (single item: demos > notes > words by priority) #####
-sketchybar --add item creative right \
-  --set creative update_freq=120 \
-  script="$HOME/.config/sketchybar/plugins/creative.sh" \
-  --subscribe creative system_woke
-
-##### Photos Count #####
-# sketchybar --add item photos right \
-#   --set photos update_freq=300 \
-#   position=right \
-#   script="$HOME/.config/sketchybar/plugins/photos.sh" \
-#   click_script="open https://ejfox.photos" \
-#   --subscribe photos system_woke
-
-##### Productivity #####
-# sketchybar --add item productivity right \
-#   --set productivity update_freq=60 \
-#   position=right \
-#   script="$HOME/.config/sketchybar/plugins/productivity.sh" \
-#   --subscribe productivity system_woke
-
-##### Typing Speed #####
-# sketchybar --add item typing right \
-#   --set typing update_freq=300 \
-#   position=right \
-#   script="$HOME/.config/sketchybar/plugins/typing.sh" \
-#   click_script="open https://monkeytype.com/profile/ejfox" \
-#   --subscribe typing system_woke
-
-##### Daily Stats #####
-# sketchybar --add item daily_stats right \
-#   --set daily_stats update_freq=1800 \
-#   position=right \
-#   script="$HOME/.config/sketchybar/plugins/daily_stats.sh"
+sketchybar --add item demos right \
+  --set demos update_freq=120 \
+  icon="󰕧" \
+  icon.color=$MUTED \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  script="$PLUGIN_DIR/demos.sh" \
+  --subscribe demos system_woke
 
 ##### Force initial update #####
 sketchybar --update
 sketchybar --trigger next_event
-sketchybar --trigger creative
+sketchybar --trigger demos
+sketchybar --trigger posts

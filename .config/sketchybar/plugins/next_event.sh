@@ -122,28 +122,23 @@ if [ $NUM_MEETINGS -eq 0 ]; then
   for i in $(seq 1 $MAX_MEETINGS); do
     sketchybar --set "${NAME}.${i}" drawing=off 2>/dev/null
   done
-  # Show creative stats when no meetings
-  sketchybar --set demos drawing=on 2>/dev/null
-  sketchybar --set notes drawing=on 2>/dev/null
   exit 0
 fi
-
-# Hide creative stats when meetings exist
-sketchybar --set demos drawing=off 2>/dev/null
-sketchybar --set notes drawing=off 2>/dev/null
 
 # Build label with comma separators between colored items
 # Since we can't color individually in one label, create separate items
 FIRST_LABEL="${MEETING_TIMES[0]}"
 FIRST_COLOR="${MEETING_COLORS[0]}"
 
-# Set main item to first meeting
+# Set main item to first meeting.
+# Padding spec: main = 6/0 (standard left margin, tight right to chain).
+# Sub-items below = 0/0 with label.padding_left=6 (6px intra-chain gap).
 sketchybar --set "$NAME" \
   label="$FIRST_LABEL" \
   label.color="$FIRST_COLOR" \
   label.padding_left=0 \
   label.padding_right=0 \
-  padding_left=12 \
+  padding_left=6 \
   padding_right=0 \
   drawing=on
 
@@ -156,15 +151,17 @@ for i in $(seq 1 $((MAX_MEETINGS))); do
     meeting_label="${MEETING_TIMES[$idx]}"
     meeting_color="${MEETING_COLORS[$idx]}"
 
-    # Check if item exists, if not create it
+    # Check if item exists, if not create it.
+    # Sub-items: 11pt font (matches main), 0/0 outer padding + 6px label.padding_left
+    # for consistent intra-chain gap.
     if ! sketchybar --query "$item_name" &>/dev/null; then
       sketchybar --add item "$item_name" left \
         --set "$item_name" \
-          label.font="Monaspace Krypton:Regular:10.0" \
+          label.font="Monaspace Krypton:Regular:11.0" \
           background.drawing=off \
           padding_left=0 \
           padding_right=0 \
-          label.padding_left=4 \
+          label.padding_left=6 \
           label.padding_right=0
     fi
 
