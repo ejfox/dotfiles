@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper for hue-stream.js (Hue Entertainment streaming, 50Hz)
+exec node "$HOME/.local/share/hue/node/hue-stream.js" "$@"

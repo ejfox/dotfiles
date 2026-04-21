@@ -64,6 +64,15 @@ sketchybar --add item talon left \
   label.drawing=off \
   --subscribe talon talon_state
 
+##### Hue-Key Toggle ##### (click to toggle keyboard → desk-light reactive typing)
+sketchybar --add item huekey left \
+  --set huekey \
+  update_freq=10 \
+  script="$PLUGIN_DIR/huekey.sh" \
+  click_script="$PLUGIN_DIR/huekey.sh" \
+  label.drawing=off \
+  icon.font="$NERD_FONT:Regular:$SIZE_ICON"
+
 ##### Next Calendar Event #####
 sketchybar --add item next_event left \
   --set next_event update_freq=60 \
