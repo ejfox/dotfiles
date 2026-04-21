@@ -1,0 +1,3 @@
+#!/bin/bash
+# Measure end-to-end pulse → bulb latency via webcam.
+exec "$HOME/.local/share/hue/venv/bin/python3" "$HOME/.local/share/hue/latency-test.py" "$@"

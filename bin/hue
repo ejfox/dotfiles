@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Minimal Hue Bridge v2 CLI.
+
+Usage:
+  hue list                     list rooms + scenes with on/off state
+  hue on <room>                turn room on
+  hue off <room>               turn room off
+  hue dim <0-100> <room>       set brightness (0 = off)
+  hue scene <name>             recall a scene (scene knows its room)
+
+Reads HUE_BRIDGE_IP and HUE_APP_KEY from env (set in ~/.env).
+Room / scene name matching is case-insensitive and accepts partial matches.
+"""
+
+import json
+import os
+import ssl
+import sys
+import urllib.request
+
+BRIDGE = os.environ.get("HUE_BRIDGE_IP")
+KEY = os.environ.get("HUE_APP_KEY")
+
+if not BRIDGE or not KEY:
+    sys.exit("error: set HUE_BRIDGE_IP and HUE_APP_KEY (see ~/.env)")
+
+# Bridge uses a self-signed cert
+CTX = ssl.create_default_context()
+CTX.check_hostname = False
+CTX.verify_mode = ssl.CERT_NONE
+
+
+def api(method: str, path: str, body: dict | None = None) -> dict:
+    data = json.dumps(body).encode() if body else None
+    req = urllib.request.Request(
+        f"https://{BRIDGE}/clip/v2{path}",
+        data=data,
+        method=method,
+        headers={"hue-application-key": KEY, "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, context=CTX, timeout=5) as r:
+        return json.loads(r.read())
+
+
+def find(resources: list, query: str) -> dict:
+    q = query.lower()
+    exact = [r for r in resources if r["metadata"]["name"].lower() == q]
+    if exact:
+        return exact[0]
+    partial = [r for r in resources if q in r["metadata"]["name"].lower()]
+    if len(partial) == 1:
+        return partial[0]
+    if not partial:
+        sys.exit(f"no match for '{query}'")
+    names = ", ".join(r["metadata"]["name"] for r in partial)
+    sys.exit(f"ambiguous '{query}' — matches: {names}")
+
+
+def room_group_id(room: dict) -> str:
+    for svc in room["services"]:
+        if svc["rtype"] == "grouped_light":
+            return svc["rid"]
+    sys.exit(f"room {room['metadata']['name']} has no grouped_light service")
+
+
+def cmd_list() -> None:
+    rooms = api("GET", "/resource/room")["data"]
+    groups = {g["id"]: g for g in api("GET", "/resource/grouped_light")["data"]}
+    scenes = api("GET", "/resource/scene")["data"]
+
+    print("rooms:")
+    for room in sorted(rooms, key=lambda r: r["metadata"]["name"]):
+        gid = room_group_id(room)
+        g = groups.get(gid, {})
+        on = g.get("on", {}).get("on", False)
+        bri = g.get("dimming", {}).get("brightness", 0)
+        mark = "●" if on else "○"
+        name = room["metadata"]["name"]
+        print(f"  {mark} {name:20} {int(bri):3}%" if on else f"  {mark} {name}")
+
+    print("\nscenes:")
+    seen = set()
+    for s in sorted(scenes, key=lambda r: r["metadata"]["name"]):
+        n = s["metadata"]["name"]
+        if n not in seen:
+            print(f"  {n}")
+            seen.add(n)
+
+
+def cmd_on(query: str, on: bool) -> None:
+    room = find(api("GET", "/resource/room")["data"], query)
+    gid = room_group_id(room)
+    api("PUT", f"/resource/grouped_light/{gid}", {"on": {"on": on}})
+    print(f"{room['metadata']['name']}: {'on' if on else 'off'}")
+
+
+def cmd_dim(level: int, query: str) -> None:
+    if not 0 <= level <= 100:
+        sys.exit("brightness must be 0-100")
+    room = find(api("GET", "/resource/room")["data"], query)
+    gid = room_group_id(room)
+    body: dict = {"on": {"on": level > 0}}
+    if level > 0:
+        body["dimming"] = {"brightness": float(level)}
+    api("PUT", f"/resource/grouped_light/{gid}", body)
+    print(f"{room['metadata']['name']}: {level}%")
+
+
+def cmd_scene(query: str) -> None:
+    scene = find(api("GET", "/resource/scene")["data"], query)
+    api("PUT", f"/resource/scene/{scene['id']}", {"recall": {"action": "active"}})
+    print(f"scene: {scene['metadata']['name']}")
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    cmd, rest = args[0], args[1:]
+    if cmd == "list":
+        cmd_list()
+    elif cmd == "on" and rest:
+        cmd_on(" ".join(rest), True)
+    elif cmd == "off" and rest:
+        cmd_on(" ".join(rest), False)
+    elif cmd == "dim" and len(rest) >= 2:
+        cmd_dim(int(rest[0]), " ".join(rest[1:]))
+    elif cmd == "scene" and rest:
+        cmd_scene(" ".join(rest))
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()
