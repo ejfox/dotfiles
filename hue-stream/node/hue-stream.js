@@ -31,6 +31,7 @@ const KEY = process.env.HUE_APP_KEY;
 const CLIENT_KEY = process.env.HUE_CLIENT_KEY;
 const CONFIG_NAME = 'ejfox-stream';
 const POS_FILE = path.join(os.homedir(), '.local/share/hue/positions.json');
+const CONFIG_FILE = path.join(os.homedir(), '.config/hue-key/config.json');
 
 if (!BRIDGE || !KEY || !CLIENT_KEY) {
   console.error('error: HUE_BRIDGE_IP, HUE_APP_KEY, HUE_CLIENT_KEY must be set (see ~/.env)');
@@ -50,6 +51,24 @@ async function api(method, pathStr, body) {
 function loadPositions() {
   try { return JSON.parse(fs.readFileSync(POS_FILE, 'utf8')); }
   catch { return {}; }
+}
+
+function loadConfig() {
+  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); }
+  catch { return { mode: 'uniform', targets: [], echo: { enabled: false, layers: [] } }; }
+}
+
+function resolveTargets(patterns, state) {
+  if (!patterns || patterns.length === 0) return null;
+  const pats = patterns.map(p => String(p).toLowerCase());
+  const targetSet = new Set();
+  const N = state.channelNames.length;
+  for (let i = 0; i < N; i++) {
+    const nameHit = pats.some(p => state.channelNames[i].includes(p));
+    const roomHit = pats.some(p => (state.channelRooms[i] || '').includes(p));
+    if (nameHit || roomHit) targetSet.add(i);
+  }
+  return targetSet.size > 0 ? targetSet : null;
 }
 
 function ringPosition(i, n) {
@@ -112,16 +131,40 @@ async function ensureConfig() {
     console.log(`created entertainment config: ${newId}`);
   }
 
-  return { cfg, streamers };
+  // Filter streamers to only the lights actually in this config's channels
+  const cfgEntIds = new Set();
+  for (const ch of cfg.channels) {
+    for (const member of ch.members) {
+      cfgEntIds.add(member.service.rid);
+    }
+  }
+
+  // Build ordered list matching channel order
+  const cfgStreamers = cfg.channels.map(ch => {
+    const entId = ch.members[0]?.service?.rid;
+    return streamers.find(s => s.entId === entId) || { entId, lightId: null, name: '?', room: '' };
+  });
+
+  return { cfg, streamers: cfgStreamers };
 }
 
 async function activate(cfgId) {
+  // Always do a fresh activate — bridge needs it right before DTLS
+  const check = await api('GET', `/resource/entertainment_configuration/${cfgId}`);
+  if (check.data?.[0]?.status === 'active') {
+    console.log('[activate] stopping first for fresh activation...');
+    await api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'stop' });
+    await new Promise(r => setTimeout(r, 1000));
+  }
   const result = await api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'start' });
   if (result.errors?.length) throw new Error('activate: ' + JSON.stringify(result.errors));
   for (let i = 0; i < 20; i++) {
     await new Promise(r => setTimeout(r, 150));
     const cur = await api('GET', `/resource/entertainment_configuration/${cfgId}`);
-    if (cur.data?.[0]?.status === 'active') return;
+    if (cur.data?.[0]?.status === 'active') {
+      await new Promise(r => setTimeout(r, 2000));  // let bridge settle before DTLS
+      return;
+    }
   }
   throw new Error('activate: bridge never reported active');
 }
@@ -159,7 +202,7 @@ function openSocket() {
       address: BRIDGE,
       port: 2100,
       psk,
-      timeout: 5000,
+      timeout: 15000,
       ciphers: ['TLS_PSK_WITH_AES_128_GCM_SHA256'],
     });
     socket.on('connected', () => resolve(socket));
@@ -267,11 +310,37 @@ async function cmdStop() {
 
 // ─── Daemon ────────────────────────────────────────────────────────────────
 
-async function cmdDaemon(initialAmbient = 'dark') {
+async function cmdDaemon(initialAmbient = 'dark', skipActivate = false) {
   const { cfg, streamers } = await ensureConfig();
   console.log(`[daemon] ambient=${initialAmbient}  channels=${cfg.channels.length}  port=${DAEMON_PORT}`);
-  await activate(cfg.id);
-  const socket = await openSocket();
+
+  if (!skipActivate) {
+    await activate(cfg.id);
+  } else {
+    // Verify config is already active (pre-activated by wrapper script)
+    const check = await api('GET', `/resource/entertainment_configuration/${cfg.id}`);
+    if (check.data?.[0]?.status !== 'active') {
+      console.log('[daemon] config not active despite --no-activate, activating...');
+      await activate(cfg.id);
+    } else {
+      console.log('[daemon] config already active (pre-activated), connecting DTLS...');
+    }
+  }
+
+  // DTLS connect with retry
+  let socket;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      socket = await openSocket();
+      break;
+    } catch (e) {
+      console.error(`[daemon] DTLS attempt ${attempt}/3 failed: ${e.message}`);
+      if (attempt === 3) throw e;
+      // Re-activate and retry
+      console.log('[daemon] re-activating before retry...');
+      await activate(cfg.id);
+    }
+  }
   console.log('[daemon] DTLS connected, streaming @ 50Hz + immediate-on-pulse');
 
   const state = {
@@ -279,8 +348,19 @@ async function cmdDaemon(initialAmbient = 'dark') {
     bursts: [],
     channelNames: streamers.map(s => (s.name || '').toLowerCase()),
     channelRooms: streamers.map(s => (s.room || '').toLowerCase()),
+    config: loadConfig(),
     quit: false,
   };
+
+  // Live-reload config.json
+  try {
+    fs.watch(CONFIG_FILE, () => {
+      try {
+        state.config = loadConfig();
+        console.log(`[daemon] config reloaded: mode=${state.config.mode} echo=${state.config.echo?.enabled}`);
+      } catch {}
+    });
+  } catch {}
 
   const startT = Date.now();
   let seq = 0;
@@ -288,13 +368,6 @@ async function cmdDaemon(initialAmbient = 'dark') {
   const pushFrame = () => {
     const t = (Date.now() - startT) / 1000;
     const colors = renderFrame(cfg.channels, t, state);
-    // DEBUG: if channel 0 is ever non-zero, log it
-    const ch0 = colors[0];
-    if (ch0 && (ch0[1] > 0.01 || ch0[2] > 0.01 || ch0[3] > 0.01) && !state._ch0Logged) {
-      console.log(`[daemon] channel 0 got non-zero: (${ch0[1].toFixed(2)}, ${ch0[2].toFixed(2)}, ${ch0[3].toFixed(2)}) bursts=${state.bursts.length}`);
-      state._ch0Logged = true;
-      setTimeout(() => state._ch0Logged = false, 500);
-    }
     try { socket.send(buildFrame(cfg.id, seq++, colors)); } catch {}
   };
 
@@ -314,8 +387,11 @@ async function cmdDaemon(initialAmbient = 'dark') {
     clearInterval(tick);
     try { udp.close(); } catch {}
     try { socket.close(); } catch {}
+    // Deactivate entertainment config so lights return to normal control
     await deactivate(cfg.id);
-    console.log('\n[daemon] shut down cleanly.');
+    // Brief pause to let bridge release entertainment control
+    await new Promise(r => setTimeout(r, 500));
+    console.log('\n[daemon] shut down cleanly, lights returned to normal.');
     process.exit(0);
   };
   process.on('SIGINT', cleanup);
@@ -333,27 +409,41 @@ function handleMessage(msg, state, channels) {
       if (AMBIENT_FNS[msg.name]) state.ambientFn = AMBIENT_FNS[msg.name](channels);
       break;
     case 'pulse': {
-      // Target matches against Hue ROOM name (preferred) OR light name.
-      // Rooms are the right abstraction — light names can be misleading.
-      let targetSet = null;
-      if (Array.isArray(msg.target) && msg.target.length > 0) {
-        const patterns = msg.target.map(p => String(p).toLowerCase());
-        targetSet = new Set();
-        const N = (state.channelNames || []).length;
-        for (let i = 0; i < N; i++) {
-          const nameHit = patterns.some(p => state.channelNames[i].includes(p));
-          const roomHit = patterns.some(p => (state.channelRooms[i] || '').includes(p));
-          if (nameHit || roomHit) targetSet.add(i);
+      const kc = state.config || {};
+      const mode = kc.mode || 'uniform';
+      // msg.target overrides config (for CLI trigger commands like dev.sh)
+      const explicitTargets = Array.isArray(msg.target) && msg.target.length > 0;
+      const echoEnabled = kc.echo?.enabled && !explicitTargets;
+
+      if (echoEnabled) {
+        // Echo mode: ripple outward through layers with increasing delay
+        for (const layer of (kc.echo?.layers || [])) {
+          const targetSet = resolveTargets(layer.targets, state);
+          const durMult = layer.duration || 1.0;
+          state.bursts.push({
+            pos: msg.position || [0, 0, 0],
+            color: (msg.color || [1, 1, 1]).map(c => c * (layer.brightness ?? 1)),
+            startT: Date.now() / 1000 + (layer.delay || 0) / 1000,
+            duration: (msg.duration || 0.35) * durMult,
+            radius: msg.radius || 0.6,
+            targetSet,
+            uniform: mode === 'uniform',
+          });
         }
+      } else {
+        // Normal mode: single burst, targets from msg or config
+        const targets = explicitTargets ? msg.target : (kc.targets || null);
+        const targetSet = targets ? resolveTargets(targets, state) : null;
+        state.bursts.push({
+          pos: msg.position || [0, 0, 0],
+          color: msg.color || [1, 1, 1],
+          startT: Date.now() / 1000,
+          duration: msg.duration || 0.35,
+          radius: msg.radius || 0.6,
+          targetSet,
+          uniform: mode === 'uniform',
+        });
       }
-      state.bursts.push({
-        pos: msg.position || [0, 0, 0],
-        color: msg.color || [1, 1, 1],
-        startT: Date.now() / 1000,
-        duration: msg.duration || 0.35,
-        radius: msg.radius || 0.6,
-        targetSet,
-      });
       if (state.bursts.length > 200) state.bursts = state.bursts.slice(-200);
       break;
     }
@@ -377,15 +467,25 @@ function renderFrame(channels, t, state) {
     for (const burst of state.bursts) {
       if (burst.targetSet && !burst.targetSet.has(i)) continue;
       const age = tNow - burst.startT;
-      const timeFade = 1 - age / burst.duration;
-      if (timeFade <= 0) continue;
-      const p = channels[i].position;
-      const dx = p.x - burst.pos[0];
-      const dy = p.y - burst.pos[1];
-      const dz = p.z - burst.pos[2];
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const falloff = Math.max(0, 1 - dist / burst.radius);
-      const intensity = falloff * timeFade;
+      if (age < 0) continue; // echo layer not yet started
+      const linear = 1 - age / burst.duration;
+      if (linear <= 0) continue;
+      // Smooth envelope: quick but soft attack, gentle ease-out release
+      const timeFade = linear * linear * (3 - 2 * linear); // smoothstep
+
+      let intensity;
+      if (burst.uniform) {
+        // Uniform mode: all targeted lights get equal brightness
+        intensity = timeFade;
+      } else {
+        // Spatial mode: distance-based falloff from key position
+        const p = channels[i].position;
+        const dx = p.x - burst.pos[0];
+        const dy = p.y - burst.pos[1];
+        const dz = p.z - burst.pos[2];
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        intensity = Math.max(0, 1 - dist / burst.radius) * timeFade;
+      }
       r = Math.min(1, r + burst.color[0] * intensity);
       g = Math.min(1, g + burst.color[1] * intensity);
       b = Math.min(1, b + burst.color[2] * intensity);
@@ -428,7 +528,11 @@ async function main() {
     case 'rainbow':  return cmdRun('rainbow', dur);
     case 'matrix':   return cmdRun('matrix', dur);
     case 'stop':     return cmdStop();
-    case 'daemon':   return cmdDaemon(rest[0] || 'dark');
+    case 'daemon': {
+      const noActivate = rest.includes('--no-activate');
+      const ambient = rest.find(a => a !== '--no-activate') || 'dark';
+      return cmdDaemon(ambient, noActivate);
+    }
     case 'trigger':  return cmdTrigger(rest);
     default:
       console.log(`commands:

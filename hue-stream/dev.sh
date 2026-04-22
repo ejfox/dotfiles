@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude's dev helper for hue-stream + Hammerspoon iteration.
-# Usage:  bash ~/.local/share/hue/dev.sh <cmd>
+# Usage:  bash ~/.dotfiles/hue-stream/dev.sh <cmd>
 # cmds:   reload | test | test-desk | test-streak <n> | status | kill
 
 set -eu
