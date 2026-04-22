@@ -2,7 +2,7 @@
 # huekey — toggle keyboard-reactive desk lights (Hammerspoon hueKeyTap)
 # Click to flip the tap on/off; icon color reflects state.
 
-HS="/opt/homebrew/bin/hs"
+HS="/usr/local/bin/hs"
 
 get_state() {
   [ -x "$HS" ] || { echo "off"; return; }
