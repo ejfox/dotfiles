@@ -1,0 +1,914 @@
+#!/usr/bin/env python3
+"""
+huetype-tui — passive at-a-glance cockpit for the huetype system.
+
+Designed to live in an 80×30 tmux pane. Polls the Hue v2 API for live light
+state, reads ~/.config/hue-key/* for huetype state, binds UDP :9998 to receive
+live typing stats from Hammerspoon, renders everything with truecolor swatches.
+
+Keys:
+  t          toggle keyboard→lights reactivity  (runs `huetype toggle`)
+  m          cycle mode (dramatic ↔ subtle)     (runs `huetype mode <new>`)
+  c          cycle palette                      (writes ~/.config/hue-key/palette)
+  p          interactive target picker           (runs `huetype pick`)
+  space      fire a test white pulse on current targets
+  r          force refresh now
+  q / ESC    quit
+
+No dependencies beyond Python 3 stdlib.
+"""
+
+from __future__ import annotations
+import argparse
+import json
+import math
+import os
+import select
+import shutil
+import socket
+import ssl
+import subprocess
+import sys
+import termios
+import threading
+import time
+import tty
+import urllib.request
+
+__version__ = "0.4.0"
+
+# ─── Config / env ────────────────────────────────────────────────────────────
+
+ENV_FILE = os.path.expanduser("~/.env")
+CONFIG_DIR = os.path.expanduser("~/.config/hue-key")
+TARGETS_FILE = os.path.join(CONFIG_DIR, "targets")
+MODE_FILE = os.path.join(CONFIG_DIR, "mode")
+ENABLED_FILE = os.path.join(CONFIG_DIR, "enabled")
+PALETTE_FILE = os.path.join(CONFIG_DIR, "palette")
+
+PALETTES = ["vulpes", "fire", "rainbow", "ocean", "bloom"]
+# Palette hue ranges — must mirror the `palettes` table in hammerspoon/init.lua.
+PALETTE_HUES = {
+    "vulpes":  (335, 185),
+    "fire":    (15,  55),
+    "rainbow": (0,   300),
+    "ocean":   (180, 250),
+    "bloom":   (320, 30),
+}
+HCL_L = 42
+HCL_C = 95
+
+DAEMON_PORT = 9999
+DAEMON_PROC = "hue-stream.js"
+STATS_PORT = 9998   # Hammerspoon fires stats here on every keypress
+WPM_WINDOW = 5      # must mirror init.lua WPM_WINDOW
+
+# Static resources (rooms / devices / entertainment topology) refresh every N s;
+# light state refreshes every tick.
+STATIC_REFRESH_SEC = 60
+LIGHT_REFRESH_SEC = 1.5
+TICK_SEC = 0.4  # input polling granularity
+
+
+def load_env_file():
+    """Populate os.environ from ~/.env for HUE_* vars if they aren't already set."""
+    if not os.path.isfile(ENV_FILE):
+        return
+    try:
+        with open(ENV_FILE) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):]
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                v = v.strip().strip('"').strip("'")
+                if k.startswith("HUE_") and k not in os.environ:
+                    os.environ[k] = v
+    except Exception:
+        pass
+
+
+load_env_file()
+
+BRIDGE = os.environ.get("HUE_BRIDGE_IP")
+KEY = os.environ.get("HUE_APP_KEY")
+if not BRIDGE or not KEY:
+    sys.exit("huetype-tui: HUE_BRIDGE_IP / HUE_APP_KEY missing (check ~/.env)")
+
+_SSL = ssl.create_default_context()
+_SSL.check_hostname = False
+_SSL.verify_mode = ssl.CERT_NONE
+
+
+# ─── Hue API ─────────────────────────────────────────────────────────────────
+
+def api(path: str, method: str = "GET", body: dict | None = None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(
+        f"https://{BRIDGE}/clip/v2{path}",
+        headers={"hue-application-key": KEY, "Content-Type": "application/json"},
+        method=method,
+        data=data,
+    )
+    with urllib.request.urlopen(req, context=_SSL, timeout=3) as res:
+        raw = res.read()
+    if not raw:
+        return {}
+    return json.loads(raw)
+
+
+def set_light(light_id: str, **fields) -> None:
+    """PUT a partial update to /resource/light/{id}. Silently fails — arrows
+    should stay responsive even if the bridge hiccups; next poll reconciles."""
+    try:
+        api(f"/resource/light/{light_id}", method="PUT", body=fields)
+    except Exception:
+        pass
+
+
+def set_light_async(light_id: str, **fields) -> None:
+    """Fire-and-forget set_light in a background thread so the main loop
+    never blocks on HTTP during rapid arrow-key brightness changes."""
+    threading.Thread(
+        target=set_light, args=(light_id,), kwargs=fields, daemon=True
+    ).start()
+
+
+def toggle_target(name: str) -> tuple[str, list[str]]:
+    """Add or remove a light/room name from the targets file.
+    Returns (action, new_targets_list). Action is 'added' or 'removed'."""
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    raw = read_file(TARGETS_FILE, "")
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    lower = name.lower()
+    existing = [p for p in parts if p.lower() == lower]
+    if existing:
+        parts = [p for p in parts if p.lower() != lower]
+        action = "removed"
+    else:
+        parts.append(name)
+        action = "added"
+    with open(TARGETS_FILE, "w") as f:
+        f.write(",".join(parts))
+    return action, parts
+
+
+# ─── Color conversion ────────────────────────────────────────────────────────
+
+def _gamma(v: float) -> float:
+    if v <= 0: return 0.0
+    if v <= 0.0031308: return 12.92 * v
+    return 1.055 * v ** (1 / 2.4) - 0.055
+
+
+def xy_to_srgb(x: float, y: float, bri_pct: float) -> tuple[int, int, int]:
+    """CIE xyY → sRGB (approx, gamut C). bri_pct 0..100."""
+    if y <= 0 or bri_pct <= 0:
+        return (0, 0, 0)
+    Y = max(0.0, min(1.0, bri_pct / 100.0))
+    X = (Y / y) * x
+    Z = (Y / y) * (1 - x - y)
+    r =  X * 1.656492 - Y * 0.354851 - Z * 0.255038
+    g = -X * 0.707196 + Y * 1.655397 + Z * 0.036152
+    b =  X * 0.051713 - Y * 0.121364 + Z * 1.011530
+    r, g, b = _gamma(r), _gamma(g), _gamma(b)
+    m = max(r, g, b, 1.0)
+    return (
+        max(0, min(255, int(r / m * 255))),
+        max(0, min(255, int(g / m * 255))),
+        max(0, min(255, int(b / m * 255))),
+    )
+
+
+def hcl_to_srgb(h_deg: float, c: float = HCL_C, l: float = HCL_L) -> tuple[int, int, int]:
+    """CIE Lab polar (HCL) → sRGB. Mirrors the Lua hcl2rgb in init.lua."""
+    hrad = math.radians(h_deg)
+    a = c * math.cos(hrad)
+    b_star = c * math.sin(hrad)
+    def f_inv(t: float) -> float:
+        return t ** 3 if t > 6 / 29 else 3 * (6 / 29) ** 2 * (t - 4 / 29)
+    fy = (l + 16) / 116
+    X = 0.95047 * f_inv(fy + a / 500)
+    Y = f_inv(fy)
+    Z = 1.08883 * f_inv(fy - b_star / 200)
+    r =  3.2406 * X - 1.5372 * Y - 0.4986 * Z
+    g = -0.9689 * X + 1.8758 * Y + 0.0415 * Z
+    b =  0.0557 * X - 0.2040 * Y + 1.0570 * Z
+    r, g, b = _gamma(max(0, r)), _gamma(max(0, g)), _gamma(max(0, b))
+    return (
+        max(0, min(255, int(r * 255))),
+        max(0, min(255, int(g * 255))),
+        max(0, min(255, int(b * 255))),
+    )
+
+
+def palette_gradient(name: str, steps: int = 10) -> list[tuple[int, int, int]]:
+    """Return N sRGB colors traversing the palette's hue range."""
+    h_start, h_end = PALETTE_HUES.get(name, (335, 185))
+    return [hcl_to_srgb(h_start + (h_end - h_start) * (i / max(1, steps - 1)))
+            for i in range(steps)]
+
+
+def mirek_to_srgb(mirek: int | None, bri_pct: float) -> tuple[int, int, int]:
+    """Color-temperature mirek → sRGB approximation. 153=cool white, 500=warm."""
+    if not mirek or bri_pct <= 0:
+        return (0, 0, 0)
+    t = max(0.0, min(1.0, (mirek - 153) / (500 - 153)))  # 0 cool → 1 warm
+    r = 0.70 + 0.30 * t
+    g = 0.85 - 0.15 * t
+    b = 1.00 - 0.55 * t
+    f = bri_pct / 100.0
+    return (int(r * 255 * f), int(g * 255 * f), int(b * 255 * f))
+
+
+# ─── State gathering ─────────────────────────────────────────────────────────
+
+_cache = {"t": 0.0, "devToRoom": {}, "entDev": {}, "streamLightIds": set(), "rooms_order": []}
+
+
+def refresh_static():
+    rooms = api("/resource/room")["data"]
+    ent = api("/resource/entertainment")["data"]
+    configs = api("/resource/entertainment_configuration")["data"]
+    lights = api("/resource/light")["data"]  # needed once to map ent→light
+
+    dev_to_room = {}
+    rooms_order = []
+    for r in rooms:
+        name = r["metadata"]["name"]
+        rooms_order.append(name)
+        for c in r.get("children", []):
+            if c["rtype"] == "device":
+                dev_to_room[c["rid"]] = name
+
+    ent_dev = {e["id"]: e["owner"]["rid"] for e in ent}
+
+    stream_light_ids = set()
+    stream = next((c for c in configs if c.get("metadata", {}).get("name") == "ejfox-stream"), None)
+    if stream:
+        dev_to_light = {}
+        for l in lights:
+            dev_to_light.setdefault(l.get("owner", {}).get("rid"), []).append(l["id"])
+        for ch in stream.get("channels", []):
+            for m in ch.get("members", []):
+                dev = ent_dev.get(m["service"]["rid"])
+                for lid in dev_to_light.get(dev, []):
+                    stream_light_ids.add(lid)
+
+    _cache.update({
+        "t": time.time(),
+        "devToRoom": dev_to_room,
+        "streamLightIds": stream_light_ids,
+        "rooms_order": rooms_order,
+    })
+
+
+def fetch_lights():
+    if time.time() - _cache["t"] > STATIC_REFRESH_SEC:
+        refresh_static()
+    lights = api("/resource/light")["data"]
+    out = []
+    for l in lights:
+        dev = l.get("owner", {}).get("rid")
+        room = _cache["devToRoom"].get(dev, "—")
+        on = l.get("on", {}).get("on", False)
+        bri = l.get("dimming", {}).get("brightness", 0.0) if on else 0.0
+        xy = l.get("color", {}).get("xy")
+        mirek = l.get("color_temperature", {}).get("mirek")
+        if on and xy:
+            rgb = xy_to_srgb(xy["x"], xy["y"], bri)
+        elif on and mirek:
+            rgb = mirek_to_srgb(mirek, bri)
+        else:
+            rgb = (0, 0, 0)
+        out.append({
+            "id": l["id"],
+            "name": l["metadata"]["name"],
+            "room": room,
+            "on": on,
+            "bri": bri,
+            "rgb": rgb,
+            "in_stream": l["id"] in _cache["streamLightIds"],
+        })
+    return out
+
+
+def read_file(path: str, default: str = "") -> str:
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return default
+
+
+def read_state():
+    enabled_raw = read_file(ENABLED_FILE, "1")
+    palette_idx_raw = read_file(PALETTE_FILE, "1")
+    try:
+        palette_idx = max(1, min(len(PALETTES), int(palette_idx_raw)))
+    except ValueError:
+        palette_idx = 1
+    return {
+        "mode": read_file(MODE_FILE, "dramatic"),
+        "enabled": enabled_raw != "0",
+        "palette_idx": palette_idx,
+        "palette": PALETTES[palette_idx - 1],
+        "targets": [t.strip() for t in read_file(TARGETS_FILE, "").split(",") if t.strip()],
+    }
+
+
+# ─── Background workers (HTTP polling, daemon health) ───────────────────────
+# The main loop MUST NOT block on HTTP — arrow-key responsiveness depends on
+# every iteration returning in <10ms. Each slow operation runs in its own
+# daemon thread, updating shared state that the main loop reads under lock.
+
+_shared = {
+    "lights": [],
+    "lights_error": False,
+    "daemon_up": False,
+    "daemon_pid": None,
+    "lock": threading.Lock(),
+}
+
+
+def lights_worker():
+    # Initial static refresh so fetch_lights() has its topology cache.
+    try:
+        refresh_static()
+    except Exception:
+        pass
+    while True:
+        try:
+            lights = fetch_lights()
+            with _shared["lock"]:
+                _shared["lights"] = lights
+                _shared["lights_error"] = False
+        except Exception:
+            with _shared["lock"]:
+                _shared["lights_error"] = True
+        time.sleep(LIGHT_REFRESH_SEC)
+
+
+def daemon_worker():
+    while True:
+        pid = daemon_pid()
+        with _shared["lock"]:
+            _shared["daemon_pid"] = pid
+            _shared["daemon_up"] = pid is not None
+        time.sleep(2.0)
+
+
+def snapshot_shared() -> dict:
+    with _shared["lock"]:
+        return {
+            "lights": list(_shared["lights"]),
+            "lights_error": _shared["lights_error"],
+            "daemon_up": _shared["daemon_up"],
+            "daemon_pid": _shared["daemon_pid"],
+        }
+
+
+# ─── Live typing stats (from Hammerspoon, via UDP) ───────────────────────────
+
+_live = {
+    "streak": 0,
+    "wpm_keys": 0,
+    "streak_span": 2400,
+    "hue": 0.0,
+    "last_key": 0.0,
+    "bound": False,  # True if we successfully own :9998
+}
+_live_lock = threading.Lock()
+
+
+def stats_listener():
+    """Background worker: bind UDP :9998 and consume stats from the HS tap."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.bind(("127.0.0.1", STATS_PORT))
+    except OSError:
+        # Another TUI instance is already bound, or port is held. Stay silent —
+        # the UI will show "—" for the stats fields.
+        return
+    with _live_lock:
+        _live["bound"] = True
+    while True:
+        try:
+            data, _ = s.recvfrom(512)
+            msg = json.loads(data.decode("utf-8", errors="ignore"))
+            with _live_lock:
+                _live["streak"] = int(msg.get("streak", 0))
+                _live["wpm_keys"] = int(msg.get("wpm_keys", 0))
+                _live["streak_span"] = int(msg.get("streak_span", _live["streak_span"]))
+                _live["hue"] = float(msg.get("hue", _live["hue"]))
+                _live["last_key"] = time.time()
+        except Exception:
+            continue
+
+
+def snapshot_live() -> dict:
+    with _live_lock:
+        return dict(_live)
+
+
+# ─── Daemon health ───────────────────────────────────────────────────────────
+
+def daemon_pid() -> int | None:
+    """Return PID of the running hue-stream daemon, or None."""
+    try:
+        r = subprocess.run(["pgrep", "-f", DAEMON_PROC], capture_output=True, text=True, timeout=1)
+        if r.returncode != 0:
+            return None
+        for line in r.stdout.splitlines():
+            pid = line.strip()
+            if pid.isdigit():
+                return int(pid)
+    except Exception:
+        pass
+    return None
+
+
+# ─── UDP helpers ─────────────────────────────────────────────────────────────
+
+def send_daemon(msg: dict):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.sendto(json.dumps(msg).encode(), ("127.0.0.1", DAEMON_PORT))
+        s.close()
+    except Exception:
+        pass
+
+
+def test_pulse(targets: list[str]):
+    msg = {
+        "type": "pulse",
+        "position": [0, 0, 0],
+        "color": [1.0, 1.0, 1.0],
+        "duration": 0.5,
+        "radius": 3.0,
+    }
+    if targets:
+        msg["target"] = targets
+    send_daemon(msg)
+
+
+# ─── Render ──────────────────────────────────────────────────────────────────
+
+RESET = "\x1b[0m"
+CLEAR = "\x1b[2J\x1b[H"
+HIDE = "\x1b[?25l"
+SHOW = "\x1b[?25h"
+BOLD = "\x1b[1m"
+
+# Vulpes palette
+PINK = "\x1b[38;2;230;0;103m"
+PINK_DIM = "\x1b[38;2;115;38;74m"
+TEAL = "\x1b[38;2;110;237;247m"
+MUTED = "\x1b[38;2;115;88;101m"
+DIM = "\x1b[38;2;102;102;102m"
+WHITE = "\x1b[38;2;230;230;230m"
+
+
+def fg(r: int, g: int, b: int) -> str:
+    return f"\x1b[38;2;{r};{g};{b}m"
+
+
+def bg(r: int, g: int, b: int) -> str:
+    return f"\x1b[48;2;{r};{g};{b}m"
+
+
+def trunc(s: str, n: int) -> str:
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def grouped_lights(lights: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Return lights grouped by room, sorted stream-group-first then a-z.
+    Single source of truth shared by render and selection navigation."""
+    by_room: dict[str, list[dict]] = {}
+    for l in lights:
+        by_room.setdefault(l["room"], []).append(l)
+    def room_key(name: str):
+        ls = by_room[name]
+        return (0 if any(x["in_stream"] for x in ls) else 1, name.lower())
+    result = []
+    for room in sorted(by_room.keys(), key=room_key):
+        ls = sorted(by_room[room], key=lambda l: (not l["in_stream"], l["name"].lower()))
+        result.append((room, ls))
+    return result
+
+
+def flat_lights(lights: list[dict]) -> list[dict]:
+    """Flat list of lights in display order. For arrow-key navigation."""
+    return [l for _, ls in grouped_lights(lights) for l in ls]
+
+
+def render(lights: list[dict], st: dict, status: str, cols: int, daemon_up: bool,
+           selected_id: str | None) -> str:
+    w = max(60, min(cols, 120))
+    rule = DIM + ("─" * w) + RESET
+    out = [CLEAR]
+
+    # ─ Header
+    clock = time.strftime("%H:%M:%S")
+    title = f"{PINK}{BOLD}huetype{RESET}"
+    pad = w - len("huetype") - len(clock) - 1
+    out.append(f"{title}{' ' * max(1, pad)}{MUTED}{clock}{RESET}\n")
+    out.append(rule + "\n")
+
+    # ─ Status line
+    # If daemon is down, tap effectively does nothing regardless of flag — show that.
+    if not daemon_up:
+        tap = f"\x1b[38;2;200;60;60m✗daemon{RESET}"
+    elif st["enabled"]:
+        tap = f"{PINK}●on{RESET}"
+    else:
+        tap = f"{MUTED}○off{RESET}"
+    mode_c = PINK if st["mode"] == "subtle" else WHITE
+    mode_s = f"{mode_c}{st['mode']}{RESET}"
+
+    # Palette name + live gradient preview
+    grad = "".join(bg(r, g, b) + " " + RESET for r, g, b in palette_gradient(st["palette"], 8))
+    pal_s = f"{TEAL}{st['palette']}{RESET} {grad}"
+
+    targets_s = ", ".join(st["targets"]) if st["targets"] else f"{MUTED}all rooms{RESET}"
+    parts = [f"{MUTED}tap{RESET} {tap}",
+             f"{MUTED}mode{RESET} {mode_s}",
+             f"{MUTED}palette{RESET} {pal_s}",
+             f"{MUTED}targets{RESET} {targets_s}"]
+    out.append("  " + f"  {MUTED}·{RESET}  ".join(parts) + "\n")
+
+    # ─ Live typing activity line: honest numbers + current-hue swatch.
+    # (No progress bar — STREAK_SPAN=2400 means a linear bar barely moves for
+    # typical sessions, and a nonlinear bar would lie about palette position.)
+    live = snapshot_live()
+    since_key = time.time() - live["last_key"] if live["last_key"] else 1e9
+    is_typing = since_key < 1.5
+    if not live["bound"]:
+        activity = f"  {MUTED}stats{RESET} {DIM}— port {STATS_PORT} held by another instance{RESET}\n"
+    elif is_typing:
+        streak = live["streak"]
+        wpm = round(live["wpm_keys"] * 12 / WPM_WINDOW)
+        hue = live["hue"]
+        r, g, b = hcl_to_srgb(hue)
+        swatch = f"{bg(r, g, b)}  {RESET}"
+        activity = (
+            f"  {swatch} {MUTED}hue{RESET} {WHITE}{int(hue):>3}°{RESET}"
+            f"  {MUTED}·{RESET}  {MUTED}streak{RESET} {PINK}{streak}{RESET}"
+            f"  {MUTED}·{RESET}  {MUTED}wpm{RESET} {TEAL}{wpm}{RESET}\n"
+        )
+    else:
+        activity = f"  {DIM}◇ idle{RESET}\n"
+    out.append(activity)
+    out.append("\n")
+
+    # ─ Rooms section
+    targets_lower = [t.lower() for t in st["targets"]]
+    for room, ls in grouped_lights(lights):
+        in_stream = sum(1 for l in ls if l["in_stream"])
+        room_targeted = (any(t in room.lower() for t in targets_lower)
+                         if targets_lower else in_stream > 0)
+        mark = f"{PINK}◆{RESET}" if room_targeted else f"{DIM}·{RESET}"
+        stream_info = f"{TEAL}{in_stream}{RESET}/{len(ls)} streamed" if in_stream else f"{DIM}—{RESET}"
+        out.append(f"{mark} {BOLD}{WHITE}{room:<14}{RESET}  {MUTED}{stream_info}{RESET}\n")
+
+        for l in ls:
+            r, g, b = l["rgb"]
+            selected = (l["id"] == selected_id)
+            light_targeted = any(l["name"].lower() == t for t in targets_lower)
+            if l["on"]:
+                swatch = f"{bg(r, g, b)}  {RESET}"
+                bri_s = f"{int(l['bri']):>3}%"
+                name_c = WHITE
+            else:
+                swatch = f"{DIM}··{RESET}"
+                bri_s = f"{DIM}off{RESET}"
+                name_c = DIM
+            cursor = f"{PINK}▸{RESET}" if selected else " "
+            sync = f"{PINK}◆{RESET}" if light_targeted else " "
+            stream_flag = f"{TEAL}s{RESET}" if l["in_stream"] else " "
+            name_style = f"{BOLD}{PINK}" if selected else name_c
+            name = trunc(l["name"], w - 20)
+            out.append(f"  {cursor} {swatch}  {name_style}{name:<{w-20}}{RESET} {bri_s} {sync}{stream_flag}\n")
+        out.append("\n")
+
+    # ─ Fill remaining rows with blank (so footer stays pinned if pane is tall)
+    # Compute lines used so far:
+    used = "".join(out).count("\n")
+    rows = shutil.get_terminal_size((80, 30)).lines
+    needed = max(0, rows - used - 3)
+    out.append("\n" * needed)
+
+    # ─ Footer
+    out.append(rule + "\n")
+    footer_keys = (
+        f"{PINK}↑↓{RESET} sel  "
+        f"{PINK}←→{RESET} bri  "
+        f"{PINK}⏎{RESET} on/off  "
+        f"{PINK}s{RESET}ync  "
+        f"{PINK}t{RESET}ap  "
+        f"{PINK}m{RESET}ode  "
+        f"{PINK}p{RESET}ick  "
+        f"{PINK}?{RESET} help  "
+        f"{PINK}q{RESET}uit"
+    )
+    if status:
+        out.append(f"  {footer_keys}   {MUTED}·{RESET}  {TEAL}{status}{RESET}\n")
+    else:
+        out.append(f"  {footer_keys}\n")
+
+    return "".join(out)
+
+
+def render_help(cols: int, rows: int, daemon_up: bool, daemon_pid_val: int | None) -> str:
+    """Modal-style help overlay. Any key dismisses."""
+    w = max(60, min(cols, 100))
+    rule = DIM + ("─" * w) + RESET
+    out = [CLEAR]
+    out.append(f"{PINK}{BOLD}huetype-tui {__version__}{RESET}  {MUTED}· press any key to close{RESET}\n")
+    out.append(rule + "\n\n")
+
+    out.append(f"{BOLD}{WHITE}Keybinds — light control{RESET}\n")
+    light_rows = [
+        ("↑ / ↓",   "select previous / next light"),
+        ("← / →",   "brightness −10% / +10% on selected light"),
+        ("Enter",   "toggle selected light on/off"),
+        ("s",       "sync/unsync selected light to typing (adds to targets)"),
+    ]
+    for k, desc in light_rows:
+        out.append(f"  {PINK}{k:<10}{RESET} {desc}\n")
+
+    out.append(f"\n{BOLD}{WHITE}Keybinds — system{RESET}\n")
+    rows_data = [
+        ("t",      "toggle keyboard→lights reactivity"),
+        ("m",      "cycle mode (dramatic ↔ subtle)"),
+        ("c",      "cycle palette (vulpes → fire → rainbow → ocean → bloom)"),
+        ("p",      "interactive target-room picker (fzf)"),
+        ("SPACE",  "fire a test pulse at current targets"),
+        ("r",      "force refresh now"),
+        ("?",      "this help"),
+        ("q",       "quit (also Ctrl-C)"),
+    ]
+    for k, desc in rows_data:
+        out.append(f"  {PINK}{k:<8}{RESET} {desc}\n")
+
+    out.append(f"\n{BOLD}{WHITE}Config files{RESET}  {MUTED}(pathwatched; edits apply live){RESET}\n")
+    out.append(f"  {MUTED}{TARGETS_FILE}{RESET}\n")
+    out.append(f"  {MUTED}{MODE_FILE}{RESET}\n")
+    out.append(f"  {MUTED}{ENABLED_FILE}{RESET}\n")
+    out.append(f"  {MUTED}{PALETTE_FILE}{RESET}\n")
+
+    out.append(f"\n{BOLD}{WHITE}Stack{RESET}\n")
+    if daemon_up:
+        out.append(f"  daemon      {TEAL}up{RESET}  {MUTED}pid {daemon_pid_val}, UDP 127.0.0.1:{DAEMON_PORT}{RESET}\n")
+    else:
+        out.append(f"  daemon      \x1b[38;2;200;60;60mdown{RESET}  {MUTED}start: `hue-stream daemon dark`{RESET}\n")
+    out.append(f"  bridge      {MUTED}{BRIDGE}{RESET}\n")
+    out.append(f"  CLI         {MUTED}huetype / huetype-tui{RESET}\n")
+    out.append(f"  env file    {MUTED}{ENV_FILE}{RESET}\n")
+    live = snapshot_live()
+    stats_state = f"{TEAL}bound :{STATS_PORT}{RESET}" if live["bound"] else f"{DIM}not bound{RESET}"
+    out.append(f"  typing stats {stats_state}  {MUTED}(HS → UDP → this TUI){RESET}\n")
+
+    out.append(f"\n{BOLD}{WHITE}Tips{RESET}\n")
+    out.append(f"  {MUTED}· subtle mode = warm baseline + ~10% bump; usable for working{RESET}\n")
+    out.append(f"  {MUTED}· dramatic mode = dark baseline + full-saturation strobes{RESET}\n")
+    out.append(f"  {MUTED}· 'pick' disables the tap during selection so filtering won't pulse{RESET}\n")
+    out.append(f"  {MUTED}· rooms excluded from Entertainment group: HUE_STREAM_EXCLUDE_ROOMS{RESET}\n")
+
+    return "".join(out)
+
+
+# ─── Event loop ──────────────────────────────────────────────────────────────
+
+def getch_nb(timeout: float) -> str | None:
+    """Non-blocking key read. Decodes arrow keys to 'UP'/'DOWN'/'LEFT'/'RIGHT'
+    for both CSI (\\x1b[A) and SS3 (\\x1bOA) encodings.
+
+    Reads at most ESC + 2 bytes — critical so that a second arrow keypress
+    queued in the stdin buffer doesn't get swallowed into an unrecognizable
+    blob. Per-byte 50ms timeout is generous enough for tmux/Ghostty/Karabiner
+    paths where the tail can lag the leading ESC by a few ms.
+
+    Lone ESC is returned as '\\x1b'; the main loop treats it as a no-op
+    (quit is q / Ctrl-C only)."""
+    rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+    if not rlist:
+        return None
+    c = sys.stdin.read(1)
+    if c != "\x1b":
+        return c
+    seq = ""
+    for _ in range(2):
+        r, _, _ = select.select([sys.stdin], [], [], 0.05)
+        if not r:
+            break
+        seq += sys.stdin.read(1)
+    if not seq:
+        return "\x1b"
+    arrows = {"[A": "UP", "OA": "UP",
+              "[B": "DOWN", "OB": "DOWN",
+              "[C": "RIGHT", "OC": "RIGHT",
+              "[D": "LEFT", "OD": "LEFT"}
+    return arrows.get(seq, "\x1b" + seq)
+
+
+def run_bg(cmd: list[str]):
+    try:
+        subprocess.run(cmd, check=False,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def cycle_mode(cur: str):
+    new = "subtle" if cur == "dramatic" else "dramatic"
+    run_bg(["huetype", "mode", new])
+    return f"mode → {new}"
+
+
+def cycle_palette(cur_idx: int) -> str:
+    new_idx = (cur_idx % len(PALETTES)) + 1
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(PALETTE_FILE, "w") as f:
+        f.write(str(new_idx))
+    return f"palette → {PALETTES[new_idx - 1]}"
+
+
+def run_pick(fd: int, old_attrs):
+    # Restore cooked terminal for fzf, then re-enter cbreak.
+    sys.stdout.write(SHOW + RESET)
+    sys.stdout.flush()
+    termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+    subprocess.run(["huetype", "pick"], check=False)
+    tty.setcbreak(fd)
+    sys.stdout.write(HIDE)
+    sys.stdout.flush()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="huetype-tui",
+        description="Passive at-a-glance cockpit for the huetype system.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Keys (in-TUI): t=toggle m=mode c=palette p=pick SPACE=test ?=help q=quit",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.parse_args()
+
+    fd = sys.stdin.fileno()
+    old_attrs = termios.tcgetattr(fd)
+    status = ""
+    status_until = 0.0
+    show_help = False
+    selected_id: str | None = None
+    # Local overlay of optimistic updates from arrow-key input. These are
+    # applied on top of whatever the lights worker has polled, so the UI
+    # reflects user intent instantly and reconciles on next poll.
+    optimistic: dict[str, dict] = {}  # light_id → {"on": bool, "bri": float}
+
+    try:
+        tty.setcbreak(fd)
+        sys.stdout.write(HIDE)
+
+        # Spin up all the background workers. They die with the process.
+        threading.Thread(target=stats_listener, daemon=True).start()
+        threading.Thread(target=lights_worker, daemon=True).start()
+        threading.Thread(target=daemon_worker, daemon=True).start()
+
+        # Wait briefly for the first lights fetch so we don't render empty.
+        start = time.time()
+        while time.time() - start < 5.0:
+            snap = snapshot_shared()
+            if snap["lights"]:
+                break
+            time.sleep(0.05)
+        else:
+            print("huetype-tui: bridge unreachable (no lights after 5s)", file=sys.stderr)
+            return 1
+
+        while True:
+            now = time.time()
+            snap = snapshot_shared()
+            lights = snap["lights"]
+            api_error = snap["lights_error"]
+            daemon_up = snap["daemon_up"]
+            daemon_pid_val = snap["daemon_pid"]
+
+            # Expire optimistic entries after 3s — by then the lights worker
+            # should have polled the real state and we can trust it.
+            if optimistic:
+                cutoff = now - 3.0
+                stale = [k for k, v in optimistic.items() if v.get("_t", 0) < cutoff]
+                for k in stale:
+                    del optimistic[k]
+            # Apply overlay to a fresh copy so the worker thread's slice stays
+            # pristine. Strip the timestamp key before merging.
+            if optimistic:
+                lights = [dict(l) for l in lights]
+                for l in lights:
+                    o = optimistic.get(l["id"])
+                    if o:
+                        for k, v in o.items():
+                            if k != "_t":
+                                l[k] = v
+
+            st = read_state()
+            size = shutil.get_terminal_size((80, 30))
+            cols, rows = size.columns, size.lines
+
+            # Ensure selected_id points to a light that still exists; fall back
+            # to the first rendered light on the first pass.
+            flat = flat_lights(lights)
+            if lights:
+                if not any(l["id"] == selected_id for l in flat):
+                    selected_id = flat[0]["id"] if flat else None
+
+            if show_help:
+                sys.stdout.write(render_help(cols, rows, daemon_up, daemon_pid_val))
+            else:
+                cur_status = status if now < status_until else ("api err" if api_error else "")
+                sys.stdout.write(render(lights, st, cur_status, cols, daemon_up, selected_id))
+            sys.stdout.flush()
+
+            key = getch_nb(TICK_SEC)
+            if key is None:
+                continue
+
+            if show_help:
+                show_help = False  # any key dismisses
+                continue
+
+            # Quit on q / Q / Ctrl-C. ESC is intentionally NOT a quit: arrow
+            # keys start with ESC and under load the trailing bytes can arrive
+            # late, which used to cause spurious quits.
+            if key in ("q", "Q", "\x03"):
+                break
+            elif key == "?":
+                show_help = True
+            elif key == "UP" or key == "DOWN":
+                if flat:
+                    idx = next((i for i, l in enumerate(flat) if l["id"] == selected_id), 0)
+                    idx = (idx - 1) % len(flat) if key == "UP" else (idx + 1) % len(flat)
+                    selected_id = flat[idx]["id"]
+            elif key == "LEFT" or key == "RIGHT":
+                sel = next((l for l in flat if l["id"] == selected_id), None)
+                if sel and sel["on"]:
+                    delta = -10 if key == "LEFT" else 10
+                    new_bri = max(1.0, min(100.0, float(sel["bri"]) + delta))
+                    # Local overlay so next render reflects the new value instantly.
+                    optimistic.setdefault(sel["id"], {})
+                    optimistic[sel["id"]]["bri"] = new_bri
+                    optimistic[sel["id"]]["_t"] = now
+                    # Fire the PUT in a thread — UI never waits for the bridge.
+                    set_light_async(sel["id"], dimming={"brightness": new_bri})
+                    status, status_until = f"{sel['name']} → {int(new_bri)}%", now + 1.2
+                elif sel and not sel["on"]:
+                    status, status_until = "light is off — press Enter to turn on", now + 1.5
+            elif key in ("\r", "\n"):
+                sel = next((l for l in flat if l["id"] == selected_id), None)
+                if sel:
+                    new_on = not sel["on"]
+                    optimistic.setdefault(sel["id"], {})
+                    optimistic[sel["id"]]["on"] = new_on
+                    optimistic[sel["id"]]["_t"] = now
+                    set_light_async(sel["id"], on={"on": new_on})
+                    status, status_until = f"{sel['name']} {'on' if new_on else 'off'}", now + 1.2
+            elif key == "s":
+                sel = next((l for l in flat if l["id"] == selected_id), None)
+                if sel:
+                    action, parts = toggle_target(sel["name"])
+                    status, status_until = f"{action} '{sel['name']}' → targets", now + 1.5
+            elif key == "t":
+                run_bg(["huetype", "toggle"])
+                status, status_until = "toggled", now + 1.5
+            elif key == "m":
+                status, status_until = cycle_mode(st["mode"]), now + 1.5
+            elif key == "c":
+                status, status_until = cycle_palette(st["palette_idx"]), now + 1.5
+            elif key == "p":
+                run_pick(fd, old_attrs)
+                status, status_until = "picker closed", now + 1.2
+            elif key == " ":
+                if not daemon_up:
+                    status, status_until = "daemon down — can't pulse", now + 1.8
+                else:
+                    test_pulse(st["targets"])
+                    status, status_until = "pulse sent", now + 1.2
+            elif key == "r":
+                last_light = 0.0
+                last_daemon_check = 0.0
+                _cache["t"] = 0.0
+                status, status_until = "refreshing", now + 0.8
+    finally:
+        sys.stdout.write(SHOW + RESET + "\n")
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_attrs)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

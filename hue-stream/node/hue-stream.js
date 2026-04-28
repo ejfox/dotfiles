@@ -30,6 +30,11 @@ const BRIDGE = process.env.HUE_BRIDGE_IP;
 const KEY = process.env.HUE_APP_KEY;
 const CLIENT_KEY = process.env.HUE_CLIENT_KEY;
 const CONFIG_NAME = 'ejfox-stream';
+// Comma-separated room names to exclude from the Entertainment group.
+// Case-insensitive. Lights in these rooms stay on regular Hue API control
+// instead of being blanked by the daemon's ambient.
+const EXCLUDE_ROOMS = (process.env.HUE_STREAM_EXCLUDE_ROOMS || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const POS_FILE = path.join(os.homedir(), '.local/share/hue/positions.json');
 
 if (!BRIDGE || !KEY || !CLIENT_KEY) {
@@ -79,7 +84,7 @@ async function ensureConfig() {
       name: light?.metadata?.name || '?',
       room: deviceToRoom[ownerDeviceId] || '',
     };
-  }).filter(s => s.lightId);
+  }).filter(s => s.lightId && !EXCLUDE_ROOMS.includes((s.room || '').toLowerCase()));
 
   const configs = (await api('GET', '/resource/entertainment_configuration')).data;
   let cfg = configs.find(c => c.metadata?.name === CONFIG_NAME);
@@ -211,7 +216,16 @@ function matrix(channels) {
 
 function dark() { return () => [0, 0, 0]; }
 
-const AMBIENT_FNS = { rainbow, matrix, dark };
+// Usable working-light baseline — warm white at ~70%. Pulses add a small bump
+// on top (see SUBTLE_MULT in Hammerspoon init.lua). Override via env.
+function warm() {
+  const raw = process.env.HUE_STREAM_WARM || '0.78,0.55,0.32';
+  const rgb = raw.split(',').map(parseFloat);
+  const [r, g, b] = (rgb.length === 3 && rgb.every(v => v >= 0 && v <= 1)) ? rgb : [0.78, 0.55, 0.32];
+  return () => [r, g, b];
+}
+
+const AMBIENT_FNS = { rainbow, matrix, dark, warm };
 
 // ─── One-shot commands ────────────────────────────────────────────────────
 
@@ -277,6 +291,7 @@ async function cmdDaemon(initialAmbient = 'dark') {
   const state = {
     ambientFn: (AMBIENT_FNS[initialAmbient] || dark)(cfg.channels),
     bursts: [],
+    highlight: null,  // { targetSet: Set<channelIdx>, color: [r,g,b] } — overrides ambient+bursts on match
     channelNames: streamers.map(s => (s.name || '').toLowerCase()),
     channelRooms: streamers.map(s => (s.room || '').toLowerCase()),
     quit: false,
@@ -305,7 +320,7 @@ async function cmdDaemon(initialAmbient = 'dark') {
       handleMessage(msg, state, cfg.channels);
       // Pulse arriving mid-interval: push an extra frame right now so the
       // bulb doesn't wait 0-20ms for the next tick.
-      if (msg.type === 'pulse') pushFrame();
+      if (msg.type === 'pulse' || msg.type === 'highlight') pushFrame();
     } catch (e) { console.error('[daemon] bad message:', e.message); }
   });
   udp.bind(DAEMON_PORT, '127.0.0.1', () => console.log('[daemon] listening on UDP 127.0.0.1:' + DAEMON_PORT));
@@ -360,6 +375,24 @@ function handleMessage(msg, state, channels) {
     case 'clear':
       state.bursts = [];
       break;
+    case 'highlight': {
+      // Sticky override — render target channels with a solid color until another
+      // highlight or an empty-target highlight replaces it. Used by `huetype pick`.
+      if (!Array.isArray(msg.target) || msg.target.length === 0) {
+        state.highlight = null;
+      } else {
+        const patterns = msg.target.map(p => String(p).toLowerCase());
+        const targetSet = new Set();
+        const N = (state.channelNames || []).length;
+        for (let i = 0; i < N; i++) {
+          const nameHit = patterns.some(p => state.channelNames[i].includes(p));
+          const roomHit = patterns.some(p => (state.channelRooms[i] || '').includes(p));
+          if (nameHit || roomHit) targetSet.add(i);
+        }
+        state.highlight = { targetSet, color: msg.color || [1, 1, 1] };
+      }
+      break;
+    }
     case 'quit':
       state.quit = true;
       break;
@@ -389,6 +422,11 @@ function renderFrame(channels, t, state) {
       r = Math.min(1, r + burst.color[0] * intensity);
       g = Math.min(1, g + burst.color[1] * intensity);
       b = Math.min(1, b + burst.color[2] * intensity);
+    }
+
+    // Highlight override: solid color on matched channels (for `huetype pick`).
+    if (state.highlight && state.highlight.targetSet.has(i)) {
+      [r, g, b] = state.highlight.color;
     }
 
     colors.push([i, r, g, b]);
