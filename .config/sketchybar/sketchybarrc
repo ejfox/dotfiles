@@ -110,8 +110,20 @@ sketchybar --add item demos right \
   script="$PLUGIN_DIR/demos.sh" \
   --subscribe demos system_woke
 
+##### Foundations: 🌞 daily-practice nudge (before 9:30am, after 5:30pm only) #####
+# Dots = # of 🌞 dailies still open in Things Today + oldest staleness.
+# Hidden during work hours (9:30-17:30) and Focus mode.
+sketchybar --add item foundations right \
+  --set foundations update_freq=120 \
+  icon="󰖙" \
+  icon.color=$MUTED \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  script="$PLUGIN_DIR/foundations.sh" \
+  --subscribe foundations system_woke
+
 ##### Force initial update #####
 sketchybar --update
 sketchybar --trigger next_event
 sketchybar --trigger demos
 sketchybar --trigger posts
+sketchybar --trigger foundations
