@@ -1,3 +1,6 @@
 #!/bin/bash
 # Wrapper for hue-stream.js (Hue Entertainment streaming, 50Hz)
-exec node "$HOME/.local/share/hue/node/hue-stream.js" "$@"
+# --preserve-symlinks: the script is symlinked from ~/.dotfiles/hue-stream/node/;
+# without this flag, Node 20+ resolves node_modules from the realpath (dotfiles)
+# where they're not installed, causing MODULE_NOT_FOUND.
+exec node --preserve-symlinks --preserve-symlinks-main "$HOME/.local/share/hue/node/hue-stream.js" "$@"
