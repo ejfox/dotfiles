@@ -70,8 +70,11 @@ set_fzf_theme() {
 
 set_claude_theme() {
     local mode="$1"
-    local theme="light-ansi"
-    [[ "$mode" == "dark" ]] && theme="dark-ansi"
+    # 'light'/'dark' use Claude Code's hardcoded palette and are immune to
+    # weird ANSI slot colors. 'light-ansi' borrowed the terminal's ANSI bg
+    # for the input chrome and rendered as unreadable dark grey on light.
+    local theme="light"
+    [[ "$mode" == "dark" ]] && theme="dark"
 
     if [[ -f "$CLAUDE_SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
         local tmp
