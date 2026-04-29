@@ -1,0 +1,5 @@
+#!/bin/bash
+# Force macOS into dark mode AND sync all CLI tools.
+osascript -e 'tell application "System Events" to tell appearance preferences to set dark mode to true'
+sleep 0.3
+exec "$HOME/.dotfiles/bin/appearance-watcher" --sync
