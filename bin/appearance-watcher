@@ -80,26 +80,35 @@ set_claude_theme() {
     fi
 }
 
+sync_all() {
+    local mode="$1"
+    set_btop_theme "$mode"
+    set_lazygit_theme "$mode"
+    set_tmux_theme "$mode"
+    set_yazi_theme "$mode"
+    set_fzf_theme "$mode"
+    set_claude_theme "$mode"
+}
+
+# --sync: re-apply current mode to all tools and exit (no daemon loop).
+# Use after a `git checkout` or other action that knocks files out of sync.
+if [[ "$1" == "--sync" ]]; then
+    MODE=$(get_mode)
+    sync_all "$MODE"
+    echo "✓ appearance-watcher: synced all tools to $MODE"
+    exit 0
+fi
+
 # Initial state — sync everything so current state matches current mode
 LAST_MODE=$(get_mode)
-set_btop_theme "$LAST_MODE"
-set_lazygit_theme "$LAST_MODE"
-set_tmux_theme "$LAST_MODE"
-set_yazi_theme "$LAST_MODE"
-set_fzf_theme "$LAST_MODE"
-set_claude_theme "$LAST_MODE"
+sync_all "$LAST_MODE"
 
 while true; do
     sleep 2
     CURRENT_MODE=$(get_mode)
 
     if [[ "$CURRENT_MODE" != "$LAST_MODE" ]]; then
-        set_btop_theme "$CURRENT_MODE"
-        set_lazygit_theme "$CURRENT_MODE"
-        set_tmux_theme "$CURRENT_MODE"
-        set_yazi_theme "$CURRENT_MODE"
-        set_fzf_theme "$CURRENT_MODE"
-        set_claude_theme "$CURRENT_MODE"
+        sync_all "$CURRENT_MODE"
         LAST_MODE="$CURRENT_MODE"
     fi
 done
