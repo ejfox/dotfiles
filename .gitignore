@@ -132,3 +132,14 @@ Library/
 # Logs
 *.log
 logs/
+
+# -----------------------------------------------------------------------------
+# AUTO-FLIPPED BY appearance-watcher (live state, not source of truth)
+# -----------------------------------------------------------------------------
+# These are rewritten on every macOS dark/light flip. Sources tracked elsewhere:
+#   - yazi:    .config/yazi/vulpes-reddishnovember-{dark,light}.toml
+#   - lazygit: .config/lazygit/vulpes-reddishnovember-{dark,light}.yml
+# btop.conf and .tmux.conf stay tracked (only 1-2 lines flip) but are marked
+# skip-worktree — see ~/.dotfiles/bin/appearance-watcher.
+.config/yazi/theme.toml
+.config/lazygit/config.yml
