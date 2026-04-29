@@ -300,7 +300,7 @@ Do not wrap in markdown. Do not explain. Just the JSON array.
       local pool = (#M.whispers > 0) and M.whispers or FALLBACK
       local w = pool[((M.current_idx - 1) % #pool) + 1] or ""
       -- %#HL# switches highlight group; MirandaMuted / MirandaAccent defined below
-      return "%#MirandaBar# miranda · %#MirandaMuted#" .. w .. "%*"
+      return "%#MirandaMuted#" .. w .. "%*"
     end
 
     -- Highlights matched to the vulpes-reddishnovember palette
