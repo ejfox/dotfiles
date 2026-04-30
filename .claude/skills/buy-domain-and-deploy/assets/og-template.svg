@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#1a0010"/>
+      <stop offset="60%" stop-color="#080004"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a0010" stroke-width="0.5"/>
+    </pattern>
+    <filter id="noise" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
+      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.04 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="black" filter="url(#noise)"/>
+
+  <g transform="translate(600, 230)">
+    <circle r="120" fill="none" stroke="#3a0024" stroke-width="1"/>
+    <circle r="90" fill="none" stroke="#5a0036" stroke-width="0.75"/>
+    <circle r="60" fill="none" stroke="#7a0048" stroke-width="0.5"/>
+    <ellipse cx="0" cy="0" rx="105" ry="40" fill="none" stroke="#e60067" stroke-width="2.5" opacity="0.95"/>
+    <circle cx="0" cy="0" r="22" fill="#000"/>
+    <circle cx="0" cy="0" r="22" fill="none" stroke="#e60067" stroke-width="2.5"/>
+    <circle cx="0" cy="0" r="9" fill="#e60067"/>
+    <circle cx="-3" cy="-3" r="3" fill="#fff" opacity="0.85"/>
+  </g>
+
+  <g font-family="ui-monospace, 'SF Mono', Menlo, monospace" text-anchor="middle">
+    <text x="600" y="445" font-size="72" font-weight="500" fill="#f0f0f0" letter-spacing="-2">tell me about</text>
+    <text x="600" y="525" font-size="84" font-weight="600" fill="#e60067" letter-spacing="-2">your cult.</text>
+  </g>
+
+  <g font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="18" fill="#6eedf7" text-anchor="middle" opacity="0.85">
+    <text x="600" y="585" letter-spacing="2">tellmeaboutyourcult.com</text>
+  </g>
+
+  <g stroke="#735865" stroke-width="0.5" opacity="0.5">
+    <line x1="60" y1="60" x2="120" y2="60"/>
+    <line x1="60" y1="60" x2="60" y2="120"/>
+    <line x1="1140" y1="60" x2="1080" y2="60"/>
+    <line x1="1140" y1="60" x2="1140" y2="120"/>
+    <line x1="60" y1="570" x2="120" y2="570"/>
+    <line x1="60" y1="570" x2="60" y2="510"/>
+    <line x1="1140" y1="570" x2="1080" y2="570"/>
+    <line x1="1140" y1="570" x2="1140" y2="510"/>
+  </g>
+</svg>
