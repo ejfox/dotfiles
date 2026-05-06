@@ -114,6 +114,7 @@ fetch_stats() {
   [ "$ONLINE" -eq 0 ] || return 0
 
   local mt rt stats
+  # TODO: ejfox.com/api/monkeytype returns {"typingStats":null} — upstream broken (May 2026)
   mt=$(timeout 2 curl -fsSL https://ejfox.com/api/monkeytype 2>/dev/null | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
   rt=$(timeout 2 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[]? | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{s+=$1} END {printf "%.1fh", s}')
 
@@ -165,7 +166,7 @@ fetch_mirror_data() {
   fi
 
   if ! cache_ok "$CACHE_DIR/github.json" 30; then
-    timeout 6 curl -fsSL https://ejfox.com/api/github > "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null && \
+    timeout 3 curl -fsSL https://ejfox.com/api/github > "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null && \
       json_ok "$CACHE_DIR/github.json.tmp.$$" && \
       mv "$CACHE_DIR/github.json.tmp.$$" "$CACHE_DIR/github.json"
     rm -f "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null
@@ -179,8 +180,17 @@ fetch_calendar &
 fetch_email &
 fetch_mirror_data &
 
-# Wait with timeout (prevents infinite hang)
-timeout 5 wait 2>/dev/null || true
+# Bounded wait: poll children until done or 5s deadline, then kill stragglers.
+# (Plain `timeout 5 wait` is a no-op — `wait` runs in a child shell with no jobs.)
+deadline=$(($(date +%s) + 5))
+while [ -n "$(jobs -rp)" ]; do
+  [ "$(date +%s)" -ge "$deadline" ] && {
+    kill $(jobs -rp) 2>/dev/null
+    break
+  }
+  sleep 0.1
+done
+wait 2>/dev/null || true
 
 ################################################################################
 # DISPLAY

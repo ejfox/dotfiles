@@ -1711,7 +1711,7 @@
     [[ -n "$_P9K_TIP_SHOWN" ]] && return
     export _P9K_TIP_SHOWN=1
 
-    local tips_file="$HOME/.dotfiles/tips.txt"
+    local tips_file="$HOME/.dotfiles/docs/tips.txt"
     [[ -f "$tips_file" ]] || return
     local tip=$(shuf -n 1 "$tips_file" 2>/dev/null || sort -R "$tips_file" | head -1)
     # Truncate to 60 chars if too long
