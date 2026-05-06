@@ -259,13 +259,13 @@ surface_mirror() {
     6|7|8) season="summer" ;; 9|10|11) season="fall" ;;
   esac
 
-  local prompt="CIPHER: terse, dry, amused Unix sysadmin energy. One wry observation (8-12 words). No poetry. Examples: 'Notes accumulating. Nothing shipped. Classic.' / 'Distraction creep detected. Might want to check that.' / 'Productive streak. Suspicious.' Data: productive_week=${productive_week}h, distracted=${distracted}h, vault=${vault_active} notes, days_since_publish=${days_publish}, ${season}, ${hour}:00."
+  local prompt="CIPHER: terse, dry, amused Unix sysadmin energy. One wry observation (8-12 words). No poetry. PLAIN TEXT ONLY — no markdown, no asterisks, no backticks. Examples: 'Notes accumulating. Nothing shipped. Classic.' / 'Distraction creep detected. Might want to check that.' / 'Productive streak. Suspicious.' Data: productive_week=${productive_week}h, distracted=${distracted}h, vault=${vault_active} notes, days_since_publish=${days_publish}, ${season}, ${hour}:00."
 
   local wisdom=$(timeout 3 curl -s https://api.anthropic.com/v1/messages \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
-    -d "$(printf '{"model":"claude-3-5-haiku-latest","max_tokens":60,"messages":[{"role":"user","content":"%s"}]}' "$prompt")" \
+    -d "$(printf '{"model":"claude-haiku-4-5","max_tokens":60,"messages":[{"role":"user","content":"%s"}]}' "$prompt")" \
     2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n')
 
   [ -n "$wisdom" ] && {

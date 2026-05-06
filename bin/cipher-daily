@@ -51,6 +51,7 @@ calendar=""
 if command -v icalBuddy >/dev/null 2>&1; then
   calendar=$(timeout 3 icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" \
     -tf "%H:%M" -df "" -b "" eventsToday+1 2>/dev/null | \
+    LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | \
     tr -cd '\11\12\15\40-\176' | head -8 || echo "")
 fi
 
@@ -80,6 +81,7 @@ Based on today's context, give 3 focus priorities. Rules:
 - Dry observations welcome ('Ship it or delete it')
 - Be specific to the actual tasks, not generic
 - No 'optimize' 'leverage' 'maximize' bullshit
+- PLAIN TEXT ONLY. No markdown, no asterisks, no bold, no backticks, no headers. This is rendered in a terminal MOTD.
 
 $context
 
@@ -92,15 +94,15 @@ response=$(timeout 30 curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
-  -d "$(jq -n --arg p "$prompt" '{model:"claude-3-5-haiku-latest",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
+  -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
   2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null)
 
 ################################################################################
 # SAVE (atomic write, validate before saving)
 ################################################################################
 if [ -n "$response" ] && [ ${#response} -gt 20 ]; then
-  # Clean: remove blank lines, trim
-  cleaned=$(echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//')
+  # Clean: remove blank lines, trim, strip markdown (bold/italic/code) in case model ignored prompt
+  cleaned=$(echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//' | sed 's/\*\*//g; s/`//g; s/__//g')
 
   # Atomic write
   tmp="$CACHE_FILE.tmp.$$"
