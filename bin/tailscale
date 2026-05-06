@@ -1,0 +1,4 @@
+#!/bin/bash
+# Tailscale.app bundles its CLI but errors with "BundleIdentifiers.swift Fatal"
+# when invoked via symlink (bundle resolution breaks). Direct path works.
+exec /Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"
