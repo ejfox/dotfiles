@@ -142,6 +142,10 @@ GitHub:
 $gh_signal
 Mastodon: $mastodon_recent"
 
+# Cache context blob so the .startup.sh mirror function can reuse it.
+# The mirror is ambient/observational; sharing context keeps it grounded.
+echo "$context" > "$CACHE_DIR/context.txt" 2>/dev/null
+
 prompt="CIPHER: terse, dry, amused Unix sysadmin energy. You guide a hacker-journalist.
 
 Based on today's context, give 3 focus priorities. Rules:

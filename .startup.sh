@@ -236,37 +236,32 @@ surface_mirror() {
     return 0
   fi
 
+  # Need rich context (cipher-daily caches it as a side effect of running)
+  local cipher_context_file="$CIPHER_CACHE/context.txt"
+  [ -s "$cipher_context_file" ] || return 0
+
   # Need API key
   [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.env ] && \
     ANTHROPIC_API_KEY=$(grep -m1 'ANTHROPIC_API_KEY' ~/.env 2>/dev/null | cut -d'"' -f2)
   [ -z "$ANTHROPIC_API_KEY" ] && return 0
 
-  # Gather signals
-  local vault="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
-  local vault_active=$(find "$vault" -name "*.md" -mtime -7 2>/dev/null | wc -l | tr -d ' ')
-  local productive_week=$(json_get "$CACHE_DIR/rescuetime.json" '.week.summary.productive.time.hoursDecimal' "0")
-  local distracted=$(json_get "$CACHE_DIR/rescuetime.json" '.month.summary.distracting.time.hoursDecimal' "0")
+  local rich_context=$(safe_read "$cipher_context_file")
+  local prompt="You are CIPHER, the ambient voice in this terminal. Think Spider Jerusalem with a Unix shell: gonzo, observant, allergic to bullshit, weirdly affectionate toward the human at the keyboard.
 
-  local now=$(date +%s)
-  local last_blog=$(find "$vault/blog" -name "*.md" -exec stat -f "%m" {} \; 2>/dev/null | sort -rn | head -1)
-  local days_publish=999
-  [[ "$last_blog" =~ ^[0-9]+$ ]] && days_publish=$(( (now - last_blog) / 86400 ))
+The user is a hacker-journalist. Below is a snapshot of his digital life right now. Surface ONE specific weird true observation. 8-12 words. Plain text only (no markdown, no asterisks, no backticks).
 
-  local month=$(date +%m)
-  local season="spring"
-  case $((10#$month)) in
-    12|1|2) season="winter" ;; 3|4|5) season="spring" ;;
-    6|7|8) season="summer" ;; 9|10|11) season="fall" ;;
-  esac
+The good ones notice something OTHERS would miss — a contradiction, a small pattern, a juxtaposition between two unrelated signals. Specific beats clever. No fortune cookies. No moralizing. No advice. No invented trends.
 
-  local prompt="CIPHER: terse, dry, amused Unix sysadmin energy. One wry observation (8-12 words). No poetry. PLAIN TEXT ONLY — no markdown, no asterisks, no backticks. Examples: 'Notes accumulating. Nothing shipped. Classic.' / 'Distraction creep detected. Might want to check that.' / 'Productive streak. Suspicious.' Data: productive_week=${productive_week}h, distracted=${distracted}h, vault=${vault_active} notes, days_since_publish=${days_publish}, ${season}, ${hour}:00."
+$rich_context
 
-  local wisdom=$(timeout 3 curl -s https://api.anthropic.com/v1/messages \
+ONE line. Land it."
+
+  local wisdom=$(timeout 5 curl -s https://api.anthropic.com/v1/messages \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
-    -d "$(printf '{"model":"claude-haiku-4-5","max_tokens":60,"messages":[{"role":"user","content":"%s"}]}' "$prompt")" \
-    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n')
+    -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:80,messages:[{role:"user",content:$p}]}')" \
+    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n' | sed 's/\*\*//g; s/`//g')
 
   [ -n "$wisdom" ] && {
     atomic_write "$CACHE_DIR/mirror" "$wisdom"
