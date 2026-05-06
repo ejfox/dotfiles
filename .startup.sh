@@ -116,7 +116,7 @@ fetch_stats() {
   local mt rt stats
   # TODO: ejfox.com/api/monkeytype returns {"typingStats":null} — upstream broken (May 2026)
   mt=$(timeout 2 curl -fsSL https://ejfox.com/api/monkeytype 2>/dev/null | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
-  rt=$(timeout 2 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[]? | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{s+=$1} END {printf "%.1fh", s}')
+  rt=$(timeout 2 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[]? | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{s+=$1; n++} END {if (n) printf "%.1fh", s}')
 
   stats="${mt:+$mt WPM}${mt:+${rt:+ • }}${rt:+$rt productive}"
   [ -n "$stats" ] && atomic_write "$CACHE_DIR/stats" "$stats"
