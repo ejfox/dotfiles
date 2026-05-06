@@ -5,7 +5,7 @@
 # Robust, fault-tolerant MOTD with graceful degradation.
 # If anything fails, skip it and keep going.
 #
-# TIMING: Cold ~0.9s | Warm ~0.5s
+# TIMING: Cold ~4s (5 parallel fetchers, mirror API call) | Warm ~1-2s
 ################################################################################
 
 # === SAFETY & CONFIG ===
@@ -236,9 +236,13 @@ surface_mirror() {
     return 0
   fi
 
-  # Need rich context (cipher-daily caches it as a side effect of running)
+  # Need rich context (cipher-daily caches it as a side effect of running).
+  # Skip if context is stale — cipher-daily runs daily, so >24h means something
+  # failed and the mirror would otherwise riff on yesterday's reality.
   local cipher_context_file="$CIPHER_CACHE/context.txt"
   [ -s "$cipher_context_file" ] || return 0
+  local context_age=$(( ($(date +%s) - $(stat -f %m "$cipher_context_file" 2>/dev/null || echo 0)) / 3600 ))
+  [ "$context_age" -gt 24 ] && return 0
 
   # Need API key
   [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.env ] && \
@@ -297,7 +301,7 @@ fi
 ################################################################################
 [ -f "$HOME/tips.txt" ] && {
   TIP=$(shuf -n 1 "$HOME/tips.txt" 2>/dev/null)
-  [ -n "$TIP" ] && echo -e "\033[38;5;240m💡 TIP: $TIP\033[0m" && echo ""
+  [ -n "$TIP" ] && echo -e "\033[38;5;240m TIP: $TIP\033[0m" && echo ""
 }
 
 ################################################################################

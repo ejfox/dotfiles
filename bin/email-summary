@@ -13,7 +13,7 @@ fi
 
 # Check if maildir exists and has been synced
 if [ ! -d "$HOME/Maildir/Inbox" ]; then
-    echo "  📧 Email not synced yet" | tee "$EMAIL_CACHE"
+    echo "   Email not synced yet" | tee "$EMAIL_CACHE"
     exit 0
 fi
 
@@ -49,7 +49,7 @@ find "$HOME/Maildir/Inbox/new" "$HOME/Maildir/Inbox/cur" -type f 2>/dev/null | s
 done > /tmp/email_raw.txt
 
 # Always show the count line first
-output="  📧 $unread_count unread"
+output="   $unread_count unread"
 
 if [ -s /tmp/email_raw.txt ] && command -v llm >/dev/null 2>&1; then
     # BRUTAL FILTER: surface only genuinely urgent items. Ignore noise.
