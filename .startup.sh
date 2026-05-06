@@ -137,13 +137,18 @@ fetch_calendar() {
   cache_ok "$CACHE_DIR/calendar" $TTL_CALENDAR && return 0
   command -v icalBuddy >/dev/null || return 0
 
+  # icalBuddy emits each event as two lines (time, then indented title).
+  # Strip leading whitespace, then `paste -d ' ' - -` collapses pairs into
+  # single lines like "13:30 - 14:30 Lunch". Then take top 3 events and indent.
   icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" -po "datetime,title" -tf "%H:%M" -df "" -b "" \
     eventsToday 2>/dev/null | \
     LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | \
     tr -cd '\11\12\15\40-\176' | \
     grep -v '^[[:space:]]*$' | \
+    sed 's/^[[:space:]]*//' | \
+    paste -d ' ' - - | \
     awk '!seen[$0]++' | head -3 | \
-    sed 's/^[[:space:]]*/  /' > "$CACHE_DIR/calendar.tmp.$$" && \
+    sed 's/^/  /' > "$CACHE_DIR/calendar.tmp.$$" && \
     mv "$CACHE_DIR/calendar.tmp.$$" "$CACHE_DIR/calendar"
 }
 
@@ -265,7 +270,7 @@ ONE line. Land it."
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
     -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:80,messages:[{role:"user",content:$p}]}')" \
-    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n' | sed 's/\*\*//g; s/`//g')
+    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | head -1 | sed 's/\*\*//g; s/`//g; s/[[:space:]]*$//')
 
   [ -n "$wisdom" ] && {
     atomic_write "$CACHE_DIR/mirror" "$wisdom"
