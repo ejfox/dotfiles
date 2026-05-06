@@ -17,24 +17,42 @@ if [ ! -d "$HOME/Maildir/Inbox" ]; then
     exit 0
 fi
 
-# Count unread emails in inbox
-unread_count=$(find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | wc -l | tr -d ' ')
+# Count unread emails in inbox.
+# Maildir convention: new/ = unread (never seen), cur/ = seen (Seen flag in :2,S).
+# Some sync setups flow everything through cur/ — count both sources to be robust.
+unread_new=$(find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | wc -l | tr -d ' ')
+unread_cur=$(find "$HOME/Maildir/Inbox/cur" -type f 2>/dev/null ! -name '*:2,*S*' | wc -l | tr -d ' ')
+unread_count=$((unread_new + unread_cur))
+
+# Sync staleness check — if last sync >12h ago, warn instead of lying
+mbsyncstate="$HOME/Maildir/Inbox/.mbsyncstate"
+if [ -f "$mbsyncstate" ]; then
+    last_sync=$(stat -f %m "$mbsyncstate" 2>/dev/null)
+    age_hours=$(( ($(date +%s) - last_sync) / 3600 ))
+    if [ "$age_hours" -gt 12 ]; then
+        echo "  ⚠ Inbox stale (last synced ${age_hours}h ago)" | tee "$EMAIL_CACHE"
+        exit 0
+    fi
+fi
 
 if [ "$unread_count" -eq 0 ]; then
-    echo "  ✓ Inbox zero"
+    echo "  ✓ Inbox zero" | tee "$EMAIL_CACHE"
     exit 0
 fi
 
-# Get recent emails for AI summary
-find "$HOME/Maildir/Inbox/new" -type f 2>/dev/null | head -10 | while read email; do
-    subject=$(grep -i "^Subject:" "$email" 2>/dev/null | sed 's/Subject: //')
-    from=$(grep -i "^From:" "$email" 2>/dev/null | sed 's/From: //' | sed 's/<.*>//' | tr -d '"')
+# Sample MOST RECENT 10 emails for the LLM filter (Maildir filenames are
+# timestamp-prefixed, so reverse-sort + head = newest first).
+find "$HOME/Maildir/Inbox/new" "$HOME/Maildir/Inbox/cur" -type f 2>/dev/null | sort -r | head -10 | while read email; do
+    subject=$(grep -i "^Subject:" "$email" 2>/dev/null | head -1 | sed 's/Subject: //')
+    from=$(grep -i "^From:" "$email" 2>/dev/null | head -1 | sed 's/From: //' | sed 's/<.*>//' | tr -d '"')
     echo "From: $from | Subject: $subject"
 done > /tmp/email_raw.txt
 
+# Always show the count line first
+output="  📧 $unread_count unread"
+
 if [ -s /tmp/email_raw.txt ] && command -v llm >/dev/null 2>&1; then
-    # NUCLEAR FILTER: Only surface genuinely urgent items
-    # Ignore: newsletters, receipts, marketing, notifications, automated alerts
+    # BRUTAL FILTER: surface only genuinely urgent items. Ignore noise.
     result=$(cat /tmp/email_raw.txt | llm -m 4o-mini --no-log -s "You are a BRUTAL email filter. Only output emails that are:
 - From actual humans who need a response
 - Bills/payments actually due soon (not receipts)
@@ -48,14 +66,10 @@ If NOTHING passes the filter, output exactly: NONE
 Otherwise output max 2 items, format: [!] description (10 words max)
 No [>] or [-] - if it's not urgent, don't show it." 2>/dev/null | tr -cd '\11\12\15\40-\176')
 
-    # Only cache/display if there's something real
     if [ -n "$result" ] && [ "$result" != "NONE" ]; then
-        echo "$result" | sed 's/^/  /' | tee "$EMAIL_CACHE"
-    else
-        rm -f "$EMAIL_CACHE"  # Clear cache so section doesn't show
+        output="$output"$'\n'"$(echo "$result" | sed 's/^/  /')"
     fi
-else
-    echo "  📧 $unread_count unread messages" | tee "$EMAIL_CACHE"
 fi
 
+echo "$output" | tee "$EMAIL_CACHE"
 rm -f /tmp/email_raw.txt
