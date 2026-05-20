@@ -143,3 +143,6 @@ logs/
 # skip-worktree — see ~/.dotfiles/bin/appearance-watcher.
 .config/yazi/theme.toml
 .config/lazygit/config.yml
+
+# Per-machine Ghostty overrides (shaders on/off depending on GPU)
+.config/ghostty/config.local
