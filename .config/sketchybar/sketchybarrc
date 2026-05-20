@@ -102,6 +102,17 @@ sketchybar --add item posts right \
   script="$PLUGIN_DIR/posts.sh" \
   --subscribe posts system_woke
 
+##### Dispatch: pending blog posts (locally modified, not yet in RSS) #####
+# Click opens the Dispatch menubar app for one-click publish.
+# Sits left of `posts` — pending on the left, shipped on the right.
+sketchybar --add item dispatch right \
+  --set dispatch update_freq=120 \
+  icon="" \
+  icon.color=$MUTED \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  script="$PLUGIN_DIR/dispatch.sh" \
+  --subscribe dispatch system_woke
+
 sketchybar --add item demos right \
   --set demos update_freq=120 \
   icon="󰕧" \
@@ -126,4 +137,5 @@ sketchybar --update
 sketchybar --trigger next_event
 sketchybar --trigger demos
 sketchybar --trigger posts
+sketchybar --trigger dispatch
 sketchybar --trigger foundations
