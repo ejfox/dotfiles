@@ -1,0 +1,230 @@
+#!/bin/bash
+# weekly-batch-screenshots - Parse screenshots and batch by time session
+# Usage: weekly-batch-screenshots [-w|--week YYYY-WW] [--json]
+#
+# Parses the raw screenshot dump, groups by time sessions (2+ hour gaps).
+
+set -e
+
+VAULT_DIR="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+BASE_URL="https://ejfox.com/api"
+WEEK=""
+JSON_OUTPUT=false
+SESSION_GAP_SECONDS=7200  # 2 hours
+ENRICH=true  # Fetch music/commits context
+CAPTION=true  # AI captions on by default
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Parse args - week can be positional or flagged
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --week|-w) WEEK="$2"; shift 2 ;;
+    --json) JSON_OUTPUT=true; shift ;;
+    --no-context) ENRICH=false; shift ;;
+    --no-caption) CAPTION=false; shift ;;
+    --fast) ENRICH=false; CAPTION=false; shift ;;  # Skip all enrichment
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]) WEEK="$1"; shift ;;  # Accept YYYY-WW positionally
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
+
+# Default to last week
+if [[ -z "$WEEK" ]]; then
+  WEEK=$(date -v-7d +"%Y-%V" 2>/dev/null || date -d "7 days ago" +"%Y-%V")
+fi
+
+# Normalize: accept both "2026-W16" and "2026-16" — raw files are YYYY-WW-raw.md (no W)
+WEEK="${WEEK//-W/-}"
+
+# Calculate week start/end dates from YYYY-WW (ISO 8601)
+WEEK_DATES=$(python3 -c "
+from datetime import datetime, timedelta
+year, week = '$WEEK'.split('-')
+year, week = int(year), int(week)
+jan1 = datetime(year, 1, 1)
+# ISO week 1 contains the first Thursday
+days_to_mon = (jan1.weekday()) % 7  # days since Monday
+week1_mon = jan1 - timedelta(days=days_to_mon)
+if jan1.weekday() > 3:  # if Jan 1 is Fri/Sat/Sun, week 1 starts next week
+    week1_mon += timedelta(weeks=1)
+target_mon = week1_mon + timedelta(weeks=week-1)
+target_sun = target_mon + timedelta(days=6)
+print(f'{target_mon.date()}|{target_sun.date()}')
+" 2>/dev/null || echo "|")
+WEEK_START=$(echo "$WEEK_DATES" | cut -d'|' -f1)
+WEEK_END=$(echo "$WEEK_DATES" | cut -d'|' -f2)
+
+RAW_FILE="$VAULT_DIR/week-notes/${WEEK}-raw.md"
+
+if [[ ! -f "$RAW_FILE" ]]; then
+  echo "❌ No screenshot dump found: $RAW_FILE" >&2
+  exit 1
+fi
+
+echo "🔍 Week $WEEK ($WEEK_START → $WEEK_END)" >&2
+
+# Parse all screenshots into a temp file with epoch timestamps
+TMPFILE=$(mktemp)
+trap "rm -f $TMPFILE" EXIT
+
+grep '^\!\[Screenshot - ' "$RAW_FILE" | while read -r line; do
+  # Extract: ![Screenshot - 2026-01-19 09:54:38 - filename](url)
+  timestamp=$(echo "$line" | sed -E 's/.*Screenshot - ([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}).*/\1/')
+  url=$(echo "$line" | sed -E 's/.*\]\(([^)]+)\).*/\1/')
+
+  date_part=$(echo "$timestamp" | cut -d' ' -f1)
+  time_part=$(echo "$timestamp" | cut -d' ' -f2)
+
+  # Get epoch for sorting and gap detection
+  epoch=$(date -j -f "%Y-%m-%d %H:%M:%S" "$timestamp" "+%s" 2>/dev/null || date -d "$timestamp" "+%s" 2>/dev/null || echo "0")
+
+  # Get day name
+  day_name=$(date -j -f "%Y-%m-%d" "$date_part" "+%A" 2>/dev/null || date -d "$date_part" "+%A" 2>/dev/null || echo "$date_part")
+
+  # Get period
+  hour=$(echo "$time_part" | cut -d':' -f1)
+  hour_num=$((10#$hour))
+  if [[ $hour_num -ge 6 && $hour_num -lt 12 ]]; then
+    period="morning"
+  elif [[ $hour_num -ge 12 && $hour_num -lt 18 ]]; then
+    period="afternoon"
+  elif [[ $hour_num -ge 18 && $hour_num -lt 22 ]]; then
+    period="evening"
+  else
+    period="late_night"
+  fi
+
+  echo "$epoch|$date_part|$day_name|$time_part|$period|$url"
+done | sort -n > "$TMPFILE"
+
+TOTAL=$(wc -l < "$TMPFILE" | tr -d ' ')
+echo "📊 Found $TOTAL screenshots" >&2
+echo "" >&2
+
+if [[ "$TOTAL" -eq 0 ]]; then
+  echo "No screenshots found." >&2
+  exit 0
+fi
+
+# Process and group into sessions
+prev_epoch=0
+session_num=0
+session_date=""
+session_day=""
+session_period=""
+session_start=""
+session_end=""
+declare -a session_items=()
+
+fetch_context() {
+  local date="$1"
+  local start="$2"
+  local end="$3"
+
+  # Fetch commits for this date
+  local commits=$(curl -s --max-time 5 "$BASE_URL/github" 2>/dev/null | jq -r --arg date "$date" '
+    [(.detail.commits // [])[] | select(.date != null and (.date | startswith($date)))] |
+    .[0:3] | .[] | "     [\(.repository.name)] \(.message | split("\n")[0] | .[0:50])"
+  ' 2>/dev/null)
+
+  # Get top artists
+  local music=$(curl -s --max-time 5 "$BASE_URL/lastfm" 2>/dev/null | jq -r '
+    (.topArtists.artists // [])[:2] | .[] | .name
+  ' 2>/dev/null | tr '\n' ', ' | sed 's/, $//')
+
+  [[ -n "$commits" ]] && echo "$commits"
+  [[ -n "$music" ]] && echo "     🎵 $music"
+}
+
+print_session() {
+  if [[ ${#session_items[@]} -eq 0 ]]; then
+    return
+  fi
+
+  if $JSON_OUTPUT; then
+    echo "  {"
+    echo "    \"id\": $session_num,"
+    echo "    \"date\": \"$session_date\","
+    echo "    \"day\": \"$session_day\","
+    echo "    \"period\": \"$session_period\","
+    echo "    \"time_range\": \"$session_start - $session_end\","
+    echo "    \"count\": ${#session_items[@]},"
+    echo "    \"screenshots\": ["
+    local first=true
+    for item in "${session_items[@]}"; do
+      local t=$(echo "$item" | cut -d'|' -f1)
+      local u=$(echo "$item" | cut -d'|' -f2)
+      if $first; then first=false; else echo ","; fi
+      echo -n "      {\"time\": \"$t\", \"url\": \"$u\"}"
+    done
+    echo ""
+    echo "    ]"
+    echo -n "  }"
+  else
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📸 $session_day $session_period ($session_start → $session_end)"
+    echo "   ${#session_items[@]} screenshots"
+
+    # Fetch and show context
+    if $ENRICH; then
+      fetch_context "$session_date" "$session_start" "$session_end"
+    fi
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    for item in "${session_items[@]}"; do
+      local t=$(echo "$item" | cut -d'|' -f1)
+      local u=$(echo "$item" | cut -d'|' -f2)
+      if $CAPTION; then
+        local cap=$("$SCRIPT_DIR/screenshot-caption" "$u" 2>/dev/null || echo "")
+        echo "   $t  $cap"
+        echo "         $u"
+      else
+        echo "   $t  $u"
+      fi
+    done
+  fi
+}
+
+$JSON_OUTPUT && echo "["
+
+first_session=true
+while IFS='|' read -r epoch date_part day_name time_part period url; do
+  # Check if we need a new session
+  if [[ $prev_epoch -gt 0 ]]; then
+    gap=$((epoch - prev_epoch))
+    if [[ $gap -gt $SESSION_GAP_SECONDS ]]; then
+      # Print current session and start new one
+      print_session
+      $JSON_OUTPUT && ! $first_session && echo ","
+      first_session=false
+      session_items=()
+      ((session_num++))
+    fi
+  fi
+
+  # Update session metadata
+  if [[ ${#session_items[@]} -eq 0 ]]; then
+    session_date="$date_part"
+    session_day="$day_name"
+    session_period="$period"
+    session_start="${time_part%:*}"  # HH:MM
+  fi
+  session_end="${time_part%:*}"
+
+  # Add to current session
+  session_items+=("$time_part|$url")
+  prev_epoch=$epoch
+
+done < "$TMPFILE"
+
+# Print final session
+print_session
+$JSON_OUTPUT && echo "" && echo "]"
+
+if ! $JSON_OUTPUT; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "📊 Total: $TOTAL screenshots in $((session_num + 1)) sessions"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+fi

@@ -1,0 +1,57 @@
+#!/bin/bash
+# screenshot-caption - Analyze a screenshot with GPT-4o and return a description
+# Usage: screenshot-caption <url>
+#        screenshot-caption --batch <raw-file>  # Caption all screenshots in raw.md
+#
+# Caches results in ~/.cache/screenshot-captions/
+
+set -e
+
+CACHE_DIR="$HOME/.cache/screenshot-captions"
+mkdir -p "$CACHE_DIR"
+
+caption_single() {
+  local url="$1"
+  local hash=$(echo "$url" | md5 | cut -c1-16)
+  local cache_file="$CACHE_DIR/$hash.txt"
+
+  # Return cached result if exists
+  if [[ -f "$cache_file" ]]; then
+    cat "$cache_file"
+    return
+  fi
+
+  # Get caption from GPT-4o-mini (fast and cheap)
+  local caption=$(llm -m gpt-4o-mini "Describe this screenshot in one short sentence. What app? What's happening?" -a "$url" 2>/dev/null)
+
+  # Cache and return
+  echo "$caption" > "$cache_file"
+  echo "$caption"
+}
+
+caption_batch() {
+  local raw_file="$1"
+
+  if [[ ! -f "$raw_file" ]]; then
+    echo "File not found: $raw_file" >&2
+    exit 1
+  fi
+
+  # Extract URLs and caption each
+  grep -oE 'https://[^)]+\.png' "$raw_file" | while read -r url; do
+    echo "Captioning: $url" >&2
+    caption=$(caption_single "$url")
+    echo "$url|$caption"
+  done
+}
+
+# Main
+if [[ "$1" == "--batch" ]]; then
+  caption_batch "$2"
+elif [[ -n "$1" ]]; then
+  caption_single "$1"
+else
+  echo "Usage: screenshot-caption <url>"
+  echo "       screenshot-caption --batch <raw-file>"
+  exit 1
+fi
