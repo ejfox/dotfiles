@@ -1,23 +1,23 @@
-n - (zsh) browse current directory with oil.nvim
-vs - (zsh) fuzzy find files with bat preview
-vg - (zsh) grep file contents and jump to matching lines
-o - (zsh) instantly access Obsidian vault (sorted by recency)
-r - (zsh) recent files across ALL ~/code projects
-tips - (zsh) search this cheatsheet with fzf
-note <text> - (zsh) quick capture to Obsidian inbox.md
-yy - (zsh) re-run last command and copy its output
-ask <question> - (zsh) ask LLM about clipboard contents
-explain - (zsh) re-run last command, pipe to LLM
-ding - (zsh) macOS notification + sound (use: long_command; ding)
-gist <file> "desc" - (zsh) create GitHub gist from clipboard
+(zsh) n - browse current directory with oil.nvim
+(zsh) vs - fuzzy find files with bat preview
+(zsh) vg - grep file contents and jump to matching lines
+(zsh) o - instantly access Obsidian vault (sorted by recency)
+(zsh) r - recent files across ALL ~/code projects
+(zsh) tips - search this cheatsheet with fzf
+(zsh) note <text> - quick capture to Obsidian inbox.md
+(zsh) yy - re-run last command and copy its output
+(zsh) ask <question> - ask LLM about clipboard contents
+(zsh) explain - re-run last command, pipe to LLM
+(zsh) ding - macOS notification + sound (use: long_command; ding)
+(zsh) gist <file> "desc" - create GitHub gist from clipboard
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
 (nvim/oil) g. - toggle hidden files
 (nvim/oil) C-p - preview file without opening
 (nvim/oil) gx - open file with external program
 (nvim/oil) _ - jump to cwd (current working directory)
-(nvim/oil) space - to open file in horizontal split (keys look like what they do)
-(nvim/oil) space | to open file in vertical split (keys look like what they do)
+(nvim/oil) space - - open file in horizontal split (keys look like what they do)
+(nvim/oil) space | - open file in vertical split (keys look like what they do)
 (nvim/oil) C-h/j/k/l work normally in oil (tmux-navigator, no shadowing)
 (nvim/oil) auto-refreshes on filesystem changes (no manual refresh needed)
 (tmux) C-a g - lazygit popup (floats over panes)
@@ -145,21 +145,21 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (zsh) ..2 - go up two directories
 (zsh) ..3 - go up three directories
 (sketchybar) CIPHER coach shows when no events in 4hrs
-(nvim/oil) - opens oil (parent dir)
-(lazygit) space = stage, c = commit, P = push, ? = help
-(yazi) enter = open, space = select, zh = toggle hidden
-(yazi) - = horizontal tmux split in current dir
-(yazi) _ = vertical tmux split in current dir
-(yazi) g = lazygit
-(yazi) e = open in nvim
-(yazi) Y = copy path to clipboard
-(yazi) P = preview markdown with glow
-(yazi) D = diff selected files
-(yazi) X = extract archive with ouch
-(yazi) gc = jump to ~/code
-(yazi) gd = jump to ~/.dotfiles
-(yazi) go = jump to Obsidian vault
-(yazi) g~ = jump home
+(nvim/oil) - - opens oil at parent directory (the keybind is literally a dash)
+(lazygit) space - stage | c - commit | P - push | ? - help
+(yazi) enter - open | space - select | zh - toggle hidden
+(yazi) - - horizontal tmux split in current dir
+(yazi) _ - vertical tmux split in current dir
+(yazi) g - lazygit
+(yazi) e - open in nvim
+(yazi) Y - copy path to clipboard
+(yazi) P - preview markdown with glow
+(yazi) D - diff selected files
+(yazi) X - extract archive with ouch
+(yazi) gc - jump to ~/code
+(yazi) gd - jump to ~/.dotfiles
+(yazi) go - jump to Obsidian vault
+(yazi) g~ - jump home
 (yazi) git status icons match oil.nvim: ! + ✗ ? ◌ → ✓
 (nvim) space u w - toggle wrap
 (nvim) space u l - line numbers
@@ -276,6 +276,11 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim) > / < - indent/dedent selection
 (nvim) ctrl-a - increment number
 (nvim) ctrl-x - decrement number
+(nvim) v / V / ctrl-v - visual mode: char-wise / line-wise / block-wise (rectangles)
+(nvim) p / P - paste after/before cursor (linewise: below/above). Mnemonic: P=Previous
+(nvim) :M,Nm<line> - move lines M-N to after <line> (e.g. :285,287m205)
+(nvim) :M,Nt<line> - copy (think "transfer") lines M-N to after <line>
+(nvim) :help registers - the bible on yank/paste; "0=last yank, "+=system clipboard
 (zsh) opin - sign into 1Password
 (zsh) opget "Item" password - grab password from any item
 (zsh) opget "Item" username - grab username
@@ -379,20 +384,20 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (nvim/snacks-git) <C-j>/<C-k> - navigate results while in search input
 (nvim/snacks-git) <C-n>/<C-p> - also navigate results
 (nvim/snacks-git) g? - show help for current picker
-(tmux) C-a - = split horizontal (keeps current path)
-(tmux) C-a _ = split vertical (keeps current path)
-(tmux) C-a c = new window (keeps current path)
-(tmux) M-7/8/9 = select pane 7/8/9 (no prefix needed)
-(zsh) foxpods = switch audio to FOXPODS
-(zsh) speakers = switch to MacBook speakers
-(zsh) morning-ritual = CIPHER analyzes your day, suggests pomodoros
-(zsh) scraps "query" = search Supabase scraps table
-(zsh) summarize_commits = AI summary of recent git history
-(lazygit) a = AI commit message (fzf + Claude)
+(tmux) C-a - - split horizontal (keeps current path)
+(tmux) C-a _ - split vertical (keeps current path)
+(tmux) C-a c - new window (keeps current path)
+(tmux) M-7/8/9 - select pane 7/8/9 (no prefix needed)
+(zsh) foxpods - switch audio to FOXPODS
+(zsh) speakers - switch to MacBook speakers
+(zsh) morning-ritual - CIPHER analyzes your day, suggests pomodoros
+(zsh) scraps "query" - search Supabase scraps table
+(zsh) summarize_commits - AI summary of recent git history
+(lazygit) a - AI commit message (fzf + Claude)
 (nvim) files auto-reload when Claude Code edits them externally
 (nvim) git diff view auto-refreshes on file changes
-(git) git cs "message" = signed commit (GPG key from Keybase)
-(git) unsigned commits = Claude wrote it, signed = you wrote it
+(git) git cs "message" - signed commit (GPG key from Keybase)
+(git) unsigned commits - Claude wrote it; signed - you wrote it
 (voice) "cmd" = switch to command mode
 (voice) "talk" = switch to dictation mode
 (voice) "go ahead" or "send it" = press Enter
