@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Last Letterboxd film + star rating
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+command -v jq >/dev/null || exit 0
+
+CACHE=$(~/.dotfiles/bin/pixel-scenes/.stats-fetch) || exit 0
+
+TITLE=$(jq -r '.letterboxd.films[0].title // ""' "$CACHE")
+RATING=$(jq -r '.letterboxd.films[0].rating // 0' "$CACHE")
+LIKED=$(jq -r '.letterboxd.films[0].liked // false' "$CACHE")
+TOTAL=$(jq -r '.letterboxd.stats.totalFilms // 0' "$CACHE")
+
+[ -z "$TITLE" ] && exit 0
+
+enc() { echo "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g'; }
+
+# Strip "(YYYY)" from title — show year separately
+YEAR=$(echo "$TITLE" | grep -oE '\([0-9]{4}\)' | tr -d '()')
+TITLE_CLEAN=$(echo "$TITLE" | sed 's/ *([0-9]\{4\})$//')
+
+# Wrap title to 2 lines
+LINE1=$(echo "$TITLE_CLEAN" | cut -c1-18 | sed 's/[[:space:]]*$//')
+LINE2=$(echo "$TITLE_CLEAN" | cut -c19-36 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+
+px "clear"
+# Label
+px "text?msg=last%20watched&x=10&y=15&color=mauve&size=1"
+
+# Title
+px "text?msg=$(enc "$LINE1")&x=15&y=55&color=pink&size=3"
+[ -n "$LINE2" ] && px "text?msg=$(enc "$LINE2")&x=15&y=95&color=pink&size=3"
+
+# Year in teal
+[ -n "$YEAR" ] && px "text?msg=${YEAR}&x=15&y=140&color=teal&size=2"
+
+# Star rating — draw filled circles 1-5
+if [ "$RATING" != "0" ] && [ "$RATING" != "null" ]; then
+  # rating like 4.5 — full stars = floor, half star if remainder >= 0.5
+  FULL=$(printf "%.0f" "$(echo "$RATING - 0.5" | bc -l 2>/dev/null || echo 0)")
+  HAS_HALF=$(echo "$RATING" | awk '{print ($1*10) % 10}')
+  STAR_X=15
+  STAR_Y=185
+  for i in 1 2 3 4 5; do
+    if [ "$i" -le "$FULL" ]; then
+      px "circle?x=${STAR_X}&y=${STAR_Y}&radius=8&color=orange"
+    elif [ "$i" -eq $((FULL + 1)) ] && [ "$HAS_HALF" = "5" ]; then
+      px "circle?x=${STAR_X}&y=${STAR_Y}&radius=8&color=dustrose"
+    else
+      px "circle?x=${STAR_X}&y=${STAR_Y}&radius=4&color=mauve"
+    fi
+    STAR_X=$((STAR_X + 24))
+  done
+fi
+
+# heart if liked
+[ "$LIKED" = "true" ] && px "text?msg=loved&x=200&y=180&color=red&size=2"
+
+# total films corner
+px "text?msg=$(enc "${TOTAL} this year")&x=200&y=15&color=mauve&size=1"

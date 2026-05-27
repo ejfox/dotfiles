@@ -315,4 +315,12 @@ fi
 # Start appearance watcher if not running
 pgrep -qf "appearance-watcher" || { appearance-watcher &>/dev/null & disown; }
 
+################################################################################
+# PIXEL CANVAS — fire a fresh scene if the device is on the network.
+# Silent + non-blocking. Backgrounded so it never delays the shell.
+################################################################################
+command -v pixel >/dev/null && {
+  ( pixel greeting &>/dev/null & disown )
+}
+
 echo ""
