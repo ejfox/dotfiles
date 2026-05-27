@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# Top apps used today, by RescueTime. Tries direct API first (RESCUETIME_API_KEY
+# in ~/.env), falls back to ejfox.com/api/stats. Caches result for 10 min.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+command -v jq >/dev/null || exit 0
+
+CACHE="/tmp/rescuetime-today.json"
+MAX_AGE=600
+
+needs_refresh() {
+  [ ! -s "$CACHE" ] && return 0
+  AGE=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || echo 0) ))
+  [ "$AGE" -gt "$MAX_AGE" ]
+}
+
+fetch_direct() {
+  # RescueTime "anapi/data" with productivity grouping
+  local key=""
+  [ -f "$HOME/.env" ] && key=$(grep '^RESCUETIME_API_KEY=' "$HOME/.env" | cut -d= -f2- | tr -d '"' | tr -d "'")
+  [ -z "$key" ] && return 1
+  local today
+  today=$(date +%Y-%m-%d)
+  curl -s --connect-timeout 3 --max-time 6 \
+    "https://www.rescuetime.com/anapi/data?key=${key}&perspective=interval&restrict_kind=overview&restrict_begin=${today}&restrict_end=${today}&format=json" \
+    -o "$CACHE.tmp" 2>/dev/null
+  if [ -s "$CACHE.tmp" ] && jq -e '.rows' "$CACHE.tmp" >/dev/null 2>&1; then
+    mv "$CACHE.tmp" "$CACHE"
+    echo "direct" > "${CACHE}.source"
+    return 0
+  fi
+  rm -f "$CACHE.tmp"
+  return 1
+}
+
+fetch_fallback() {
+  # ejfox.com/api/stats — uses .stats-fetch helper if reachable
+  local stats
+  stats=$(~/.dotfiles/bin/pixel-scenes/.stats-fetch) || return 1
+  # Check if rescueTime field is non-null
+  if jq -e '.rescueTime != null' "$stats" >/dev/null 2>&1; then
+    cp "$stats" "$CACHE"
+    echo "ejfox" > "${CACHE}.source"
+    return 0
+  fi
+  return 1
+}
+
+if needs_refresh; then
+  fetch_direct || fetch_fallback || exit 0
+fi
+[ -s "$CACHE" ] || exit 0
+
+SOURCE=$(cat "${CACHE}.source" 2>/dev/null)
+
+enc() { echo "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
+
+# Parse depending on source
+declare -a APP_NAMES
+declare -a APP_SECONDS
+
+if [ "$SOURCE" = "direct" ]; then
+  # RescueTime anapi/data overview returns: [[rank, time_spent_seconds, num_people, activity, productivity]]
+  # Sort by seconds desc, top 5
+  mapfile -t LINES < <(jq -r '.rows | sort_by(-.[1]) | .[0:5] | .[] | "\(.[3])|\(.[1])"' "$CACHE" 2>/dev/null)
+else
+  # ejfox stats — depends on shape; bail if shape isn't recognized
+  if jq -e '.rescueTime.topActivities' "$CACHE" >/dev/null 2>&1; then
+    mapfile -t LINES < <(jq -r '.rescueTime.topActivities[0:5][] | "\(.name)|\(.duration)"' "$CACHE" 2>/dev/null)
+  else
+    exit 0
+  fi
+fi
+
+[ "${#LINES[@]}" -eq 0 ] && exit 0
+
+for line in "${LINES[@]}"; do
+  APP_NAMES+=("${line%|*}")
+  APP_SECONDS+=("${line#*|}")
+done
+
+# Find max seconds for bar scaling
+MAX=0
+for s in "${APP_SECONDS[@]}"; do
+  [ "$s" -gt "$MAX" ] && MAX=$s
+done
+[ "$MAX" -eq 0 ] && exit 0
+
+px "clear"
+
+# Header
+px "text?msg=apps%20today&x=10&y=15&color=mauve&size=1"
+px "rect?x=10&y=30&w=300&h=1&color=dustrose"
+
+# Bars + labels
+ROW_Y=45
+MAX_BAR_W=180  # max width in pixels
+for i in "${!APP_NAMES[@]}"; do
+  [ "$i" -ge 5 ] && break
+  NAME="${APP_NAMES[$i]}"
+  SEC="${APP_SECONDS[$i]}"
+  NAME_SHORT=$(echo "$NAME" | cut -c1-14)
+
+  # Format duration
+  if [ "$SEC" -ge 3600 ]; then
+    DUR=$(awk -v s="$SEC" 'BEGIN{printf "%.1fh", s/3600}')
+  elif [ "$SEC" -ge 60 ]; then
+    DUR="$((SEC / 60))m"
+  else
+    DUR="${SEC}s"
+  fi
+
+  # Bar width proportional to seconds
+  BAR_W=$(( SEC * MAX_BAR_W / MAX ))
+  [ "$BAR_W" -lt 2 ] && BAR_W=2
+
+  # Color: top one is pink, rest teal/mauve
+  COLOR="teal"
+  [ "$i" -eq 0 ] && COLOR="pink"
+  [ "$i" -ge 3 ] && COLOR="mauve"
+
+  # App name
+  px "text?msg=$(enc "$NAME_SHORT")&x=10&y=${ROW_Y}&color=${COLOR}&size=1"
+  # Bar
+  px "rect?x=10&y=$((ROW_Y + 12))&w=${BAR_W}&h=4&color=${COLOR}"
+  # Duration on the right
+  px "text?msg=$(enc "$DUR")&x=260&y=${ROW_Y}&color=${COLOR}&size=1"
+
+  ROW_Y=$((ROW_Y + 28))
+done
+
+# Footer
+[ "$SOURCE" = "direct" ] && px "text?msg=rescuetime&x=10&y=222&color=mauve&size=1"
