@@ -1,0 +1,1220 @@
+#!/bin/zsh
+# music — manage music.tools.ejfox.com tracks from your terminal
+#
+# read ops hit R2 directly (no 5-min cache lag), writes go through wrangler.
+#
+# commands:
+#   music                          list all tracks, grouped by album
+#   music ls [filter]              list (optionally filter by substring)
+#   music homeless                 show tracks not in an album folder
+#   music albums                   list album names only
+#   music mv <track> [album]       move a track into an album (fuzzy matched)
+#   music rm <track>               delete a track (confirms strongly)
+#   music put <local> [album]      upload a local audio file
+#   music get <track> [out-path]   download a track to local
+#   music new-album <name>         create a new album folder
+#   music refresh                  bust the music app's 5-min track cache
+#   music help                     this help
+#
+# flags (anywhere after the command):
+#   -y, --yes        skip confirmations (for scripting)
+#   --json           emit JSON to stdout (ls, homeless, albums)
+#
+# exit codes: 0 ok, 1 error, 2 user-blocked (e.g. file too large for wrangler)
+
+set -u
+
+# --- setup ----------------------------------------------------------------
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh" >/dev/null 2>&1
+export CLOUDFLARE_ACCOUNT_ID=deffa184038440afc07f53b5e7583a97
+
+BUCKET=ejfox-personal
+CONFIG_DIR="$HOME/.config/music"
+ENV_FILE="$CONFIG_DIR/.env"
+ENV_FILE_LEGACY="$HOME/code/music/music-player/.env"
+STATE_FILE="$CONFIG_DIR/state.json"
+VOICEMEMO_DIR="$HOME/Music/voicememos"
+ARTIST_DEFAULT="ejfox"
+SHARE_DIR="$HOME/.local/share/music-cli"
+LAUNCHAGENT_LABEL="com.ejfox.music-tp7-watch"
+LAUNCHAGENT_PATH="$HOME/Library/LaunchAgents/${LAUNCHAGENT_LABEL}.plist"
+
+# pull R2 keys from ~/.config/music/.env (preferred) or legacy path
+if [ -f "$ENV_FILE" ]; then
+  set -a; source "$ENV_FILE"; set +a
+elif [ -f "$ENV_FILE_LEGACY" ]; then
+  set -a; source "$ENV_FILE_LEGACY"; set +a
+fi
+export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}"
+export AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}"
+export AWS_DEFAULT_REGION=auto
+R2_ENDPOINT="https://${R2_ACCOUNT_ID:-deffa184038440afc07f53b5e7583a97}.r2.cloudflarestorage.com"
+
+# --- colors (tty only) ----------------------------------------------------
+PINK=$'\033[38;5;197m'; TEAL=$'\033[38;5;87m'; MUTED=$'\033[38;5;240m'
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RST=$'\033[0m'
+[ -t 1 ] || { PINK=""; TEAL=""; MUTED=""; BOLD=""; DIM=""; RST=""; }
+
+die() { print -u2 -- "${PINK}error:${RST} $*"; exit 1; }
+mb() { awk -v b="${1:-0}" 'BEGIN{printf "%.1f", b/1024/1024}'; }
+
+# --- flag parsing ---------------------------------------------------------
+YES=0; JSON=0; MP3=0; BITRATE="192k"
+ARGS=()
+i=1
+while [[ $i -le $# ]]; do
+  a="${(P)i}"
+  case "$a" in
+    -y|--yes) YES=1 ;;
+    --json) JSON=1 ;;
+    --mp3) MP3=1 ;;
+    --bitrate) i=$((i+1)); BITRATE="${(P)i}" ;;
+    --bitrate=*) BITRATE="${a#*=}" ;;
+    *) ARGS+=("$a") ;;
+  esac
+  i=$((i+1))
+done
+set -- "${ARGS[@]}"
+
+confirm() {
+  [[ "$YES" == "1" ]] && return 0
+  print -n "${1:-confirm?} [y/N] "
+  read ans
+  [[ "$ans" == "y" || "$ans" == "Y" ]]
+}
+
+# --- wrangler wrapper -----------------------------------------------------
+# captures stderr to a temp log; on failure, shows last 5 lines so you see why.
+wr() {
+  local log=$(mktemp)
+  if ! wrangler "$@" >/dev/null 2>"$log"; then
+    print -u2 "${PINK}wrangler $1 failed:${RST}"
+    tail -5 "$log" >&2
+    rm -f "$log"
+    return 1
+  fi
+  rm -f "$log"
+}
+
+# --- R2 read helpers (authoritative, no cache) ----------------------------
+# emit TSV: key<TAB>size<TAB>lastmod
+# matches the music app's filter: prefixes music/ + field-recordings/, plus
+# root-level audio (minus cyberpunk-news / VOICEMAIL / .r2.mp3 dupes)
+r2_list() {
+  aws s3api list-objects-v2 \
+    --bucket "$BUCKET" \
+    --endpoint-url "$R2_ENDPOINT" \
+    --query 'Contents[].[Key,Size,LastModified]' \
+    --output text 2>/dev/null \
+    | awk -F'\t' '
+        BEGIN{IGNORECASE=1}
+        $1 !~ /\.(mp3|wav)$/   { next }
+        $1 ~  /cyberpunk-news/ { next }
+        $1 ~  /VOICEMAIL/      { next }
+        $1 ~  /\.r2\.mp3/      { next }
+        # match the app: include if under music/ or field-recordings/, or at root
+        $1 ~ /^music\// || $1 ~ /^field-recordings\// || $1 !~ /\// { print }
+      '
+}
+
+# emit JSON list of {key,name,folder,size,lastModified}
+r2_list_json() {
+  r2_list | awk -F'\t' '
+    BEGIN { print "[" }
+    {
+      key=$1; size=$2; lm=$3
+      n=split(key, p, "/")
+      name=p[n]; sub(/\.(mp3|wav)$/, "", name)
+      folder=""
+      for (i=1; i<n; i++) folder=(folder=="")?p[i]:folder"/"p[i]
+      gsub(/"/, "\\\"", key); gsub(/"/, "\\\"", name); gsub(/"/, "\\\"", folder)
+      if (NR>1) print ","
+      printf "{\"key\":\"%s\",\"name\":\"%s\",\"folder\":\"%s\",\"size\":%s,\"lastModified\":\"%s\"}", key, name, folder, size, lm
+    }
+    END { print "\n]" }
+  '
+}
+
+# resolve a track query → exactly one key (or die with options)
+resolve_track() {
+  local q="$1"
+  local matches=$(r2_list | awk -F'\t' -v q="$q" 'BEGIN{IGNORECASE=1} index(tolower($1), tolower(q)) {print $1}')
+  local n=$(print -- "$matches" | grep -c .)
+  if [[ "$n" -eq 0 ]]; then die "no track matched '$q'"; fi
+  if [[ "$n" -gt 1 ]]; then
+    print -u2 "${PINK}multiple matches for '$q':${RST}"
+    print -u2 -- "$matches" | sed 's/^/  /'
+    die "narrow it down"
+  fi
+  print -- "$matches"
+}
+
+# resolve an album query → folder prefix (or new one if no match)
+resolve_album() {
+  local q="$1"
+  local existing=$(r2_list | awk -F'\t' '{n=split($1,p,"/"); if (n>1) {f=p[1]; for(i=2;i<n;i++) f=f"/"p[i]; print f}}' | sort -u)
+  local matches=$(print -- "$existing" | grep -i "$q" || true)
+  local n=$(print -- "$matches" | grep -c .)
+  if [[ "$n" -eq 1 ]]; then
+    print -- "$matches"
+  elif [[ "$n" -gt 1 ]]; then
+    print -u2 "${PINK}multiple album matches:${RST}"
+    print -u2 -- "$matches" | sed 's/^/  /'
+    die "be more specific"
+  else
+    # new album under music/
+    local kebab=$(print -- "$q" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]\+/-/g; s/^-\|-$//g')
+    print -- "music/$kebab"
+  fi
+}
+
+# --- commands -------------------------------------------------------------
+
+cmd_ls() {
+  local filter="${1:-}"
+  if [[ "$JSON" == "1" ]]; then
+    if [[ -n "$filter" ]]; then
+      r2_list_json | jq --arg f "$filter" '[.[] | select(.key | ascii_downcase | contains($f|ascii_downcase))]'
+    else
+      r2_list_json
+    fi
+    return
+  fi
+  local current=""
+  r2_list | sort -k1,1 | while IFS=$'\t' read -r key size lm; do
+    [[ -n "$filter" ]] && [[ "${key:l}" != *"${filter:l}"* ]] && continue
+    local folder="${key%/*}"; [[ "$folder" == "$key" ]] && folder=""
+    local name="${key##*/}"
+    if [[ "$folder" != "$current" ]]; then
+      current="$folder"
+      [[ -n "$folder" ]] && print "\n${BOLD}${TEAL}${folder}${RST}" || print "\n${BOLD}${PINK}(homeless)${RST}"
+    fi
+    printf "  %-50s %s%6s MB%s\n" "$name" "$MUTED" "$(mb "$size")" "$RST"
+  done
+  local total=$(r2_list | wc -l | tr -d ' ')
+  print "\n${MUTED}total: $total tracks${RST}"
+}
+
+cmd_homeless() {
+  local rows=$(r2_list | awk -F'\t' '$1 !~ /\// || ($1 ~ /^music\/[^\/]+$/)')
+  local n=$(print -- "$rows" | grep -c .)
+  if [[ "$JSON" == "1" ]]; then
+    r2_list_json | jq '[.[] | select(.folder == "" or .folder == "music")]'
+    return
+  fi
+  if [[ "$n" -eq 0 ]]; then
+    print "${TEAL}all tracks have a home ✓${RST}"
+    return
+  fi
+  print "${PINK}${n} homeless track$([ "$n" -eq 1 ] || print "s")${RST}\n"
+  print -- "$rows" | while IFS=$'\t' read -r key size lm; do
+    printf "  %s  %s%6s MB%s\n" "$key" "$MUTED" "$(mb "$size")" "$RST"
+  done
+  print "\n${MUTED}move with: music mv <track-substring> <album>${RST}"
+}
+
+cmd_albums() {
+  local list=$(r2_list | awk -F'\t' '{n=split($1,p,"/"); if (n>1) {f=p[1]; for(i=2;i<n;i++) f=f"/"p[i]; print f}}' | sort -u)
+  if [[ "$JSON" == "1" ]]; then
+    print -- "$list" | jq -R . | jq -s .
+  else
+    print -- "$list"
+  fi
+}
+
+cmd_mv() {
+  local query="${1:-}" album_query="${2:-}"
+  [[ -z "$query" ]] && die "usage: music mv <track-substring> [album]"
+  local src=$(resolve_track "$query") || exit 1
+  print "${TEAL}track:${RST} $src"
+
+  if [[ -z "$album_query" ]]; then
+    print "\n${BOLD}existing albums:${RST}"
+    cmd_albums | sed 's/^/  /'
+    print -n "\nalbum (or new name): "; read album_query
+    [[ -z "$album_query" ]] && die "no album given"
+  fi
+  local dst_folder=$(resolve_album "$album_query")
+  local filename="${src##*/}"
+  local dst="$dst_folder/$filename"
+
+  [[ "$src" == "$dst" ]] && { print "${MUTED}already there, nothing to do${RST}"; return; }
+
+  local size=$(r2_list | awk -F'\t' -v k="$src" '$1==k {print $2}')
+  local size_mb=$(awk -v b="$size" 'BEGIN{printf "%.0f", b/1024/1024}')
+  print "${TEAL}move:${RST} $src ${MUTED}->${RST} $dst ${MUTED}(${size_mb} MB)${RST}"
+  if [[ "$size_mb" -gt 300 ]]; then
+    print "${PINK}wrangler caps single PUT at 300 MB.${RST}"
+    print "use Cyberduck: drag $src into $dst_folder/"
+    exit 2
+  fi
+
+  confirm "confirm?" || { print "${MUTED}aborted${RST}"; exit 0; }
+
+  local tmp="/tmp/music-mv-$$-${filename}"
+  wr r2 object get "$BUCKET/$src" --file="$tmp" --remote || die "download failed"
+  wr r2 object put "$BUCKET/$dst" --file="$tmp" --remote || { rm -f "$tmp"; die "upload failed"; }
+  wr r2 object delete "$BUCKET/$src" --remote || { rm -f "$tmp"; die "delete-old failed (orphan at $dst)"; }
+  rm -f "$tmp"
+  note_cache_lag
+  print "${TEAL}ok ✓${RST}  $dst"
+}
+
+cmd_rm() {
+  local query="${1:-}"
+  [[ -z "$query" ]] && die "usage: music rm <track-substring>"
+  local key=$(resolve_track "$query") || exit 1
+  local size=$(r2_list | awk -F'\t' -v k="$key" '$1==k {print $2}')
+  local size_mb=$(mb "$size")
+  print "${PINK}DELETE:${RST} $key ${MUTED}(${size_mb} MB)${RST}"
+  if [[ "$YES" != "1" ]]; then
+    print -n "type the filename to confirm (${key##*/}): "; read typed
+    [[ "$typed" != "${key##*/}" ]] && { print "${MUTED}aborted (no match)${RST}"; exit 0; }
+  fi
+  wr r2 object delete "$BUCKET/$key" --remote || die "delete failed"
+  note_cache_lag
+  print "${TEAL}deleted ✓${RST}"
+}
+
+cmd_put() {
+  local local_file="${1:-}" album_query="${2:-}"
+  [[ -z "$local_file" ]] && die "usage: music put <local-file> [album]"
+  [[ ! -f "$local_file" ]] && die "no such file: $local_file"
+  case "${local_file:l}" in *.mp3|*.wav) ;; *) die "only .mp3 / .wav supported (got $local_file)" ;; esac
+
+  # offer/perform WAV→MP3 conversion before upload
+  if [[ "${local_file:l}" == *.wav ]]; then
+    local do_convert=0
+    if [[ "$MP3" == "1" ]]; then
+      do_convert=1
+    elif [[ "$YES" != "1" ]]; then
+      print -n "${TEAL}convert wav → mp3 (${BITRATE}) before upload? [Y/n] ${RST}"
+      read ans
+      [[ "$ans" != "n" && "$ans" != "N" ]] && do_convert=1
+    fi
+    if [[ "$do_convert" == "1" ]]; then
+      # preserve the original basename so the uploaded key is foo.mp3, not music-conv-PID-foo.mp3
+      local conv_dir="/tmp/music-conv-$$"
+      mkdir -p "$conv_dir"
+      trap '[[ -n "${conv_dir:-}" && -d "$conv_dir" ]] && rm -rf "$conv_dir"' EXIT
+      local base="${local_file##*/}"
+      local mp3_file="$conv_dir/${base%.[Ww][Aa][Vv]}.mp3"
+      print "${MUTED}converting → ${mp3_file##*/} (${BITRATE})${RST}"
+      local ff_log=$(mktemp)
+      if ! ffmpeg -hide_banner -y -i "$local_file" -codec:a libmp3lame -b:a "$BITRATE" "$mp3_file" 2>"$ff_log"; then
+        print -u2 "${PINK}ffmpeg failed:${RST}"; tail -5 "$ff_log" >&2; rm -f "$ff_log"
+        die "conversion failed"
+      fi
+      rm -f "$ff_log"
+      local_file="$mp3_file"
+    fi
+  fi
+
+  local size_bytes=$(wc -c <"$local_file" | tr -d ' ')
+  local size_mb=$(awk -v b="$size_bytes" 'BEGIN{printf "%.0f", b/1024/1024}')
+
+  if [[ -z "$album_query" ]]; then
+    print "${BOLD}existing albums:${RST}"; cmd_albums | sed 's/^/  /'
+    print -n "\nalbum (or new name): "; read album_query
+    [[ -z "$album_query" ]] && die "no album given"
+  fi
+  local dst_folder=$(resolve_album "$album_query")
+  local filename="${local_file##*/}"
+  local dst="$dst_folder/$filename"
+
+  print "${TEAL}upload:${RST} $local_file ${MUTED}->${RST} $dst ${MUTED}(${size_mb} MB)${RST}"
+  if [[ "$size_mb" -gt 300 ]]; then
+    print "${PINK}wrangler caps single PUT at 300 MB.${RST}"
+    print "use Cyberduck to upload into $dst_folder/"
+    exit 2
+  fi
+  confirm "confirm?" || { print "${MUTED}aborted${RST}"; [[ -n "${conv_dir:-}" ]] && rm -rf "$conv_dir"; exit 0; }
+  wr r2 object put "$BUCKET/$dst" --file="$local_file" --remote || { [[ -n "${conv_dir:-}" ]] && rm -rf "$conv_dir"; die "upload failed"; }
+  [[ -n "${conv_dir:-}" ]] && rm -rf "$conv_dir"
+  note_cache_lag
+  print "${TEAL}ok ✓${RST}  $dst"
+}
+
+cmd_get() {
+  local query="${1:-}" out="${2:-}"
+  [[ -z "$query" ]] && die "usage: music get <track-substring> [out-path]"
+  local key=$(resolve_track "$query") || exit 1
+  [[ -z "$out" ]] && out="./${key##*/}"
+  print "${TEAL}download:${RST} $key ${MUTED}->${RST} $out"
+  wr r2 object get "$BUCKET/$key" --file="$out" --remote || die "download failed"
+  print "${TEAL}ok ✓${RST}  $out"
+}
+
+cmd_convert() {
+  local in="${1:-}"
+  [[ -z "$in" ]] && die "usage: music convert <local-wav>"
+  [[ ! -f "$in" ]] && die "no such file: $in"
+  case "${in:l}" in *.wav) ;; *) die "only .wav supported (got $in)" ;; esac
+  local out="${in%.[Ww][Aa][Vv]}.mp3"
+  [[ -f "$out" && "$YES" != "1" ]] && { confirm "overwrite $out?" || { print "${MUTED}aborted${RST}"; exit 0; } }
+  print "${TEAL}convert:${RST} $in ${MUTED}->${RST} $out ${MUTED}(${BITRATE})${RST}"
+  ffmpeg -hide_banner -loglevel error -y -i "$in" -codec:a libmp3lame -b:a "$BITRATE" "$out" || die "ffmpeg failed"
+  local in_mb=$(awk -v b="$(wc -c <"$in")" 'BEGIN{printf "%.1f", b/1024/1024}')
+  local out_mb=$(awk -v b="$(wc -c <"$out")" 'BEGIN{printf "%.1f", b/1024/1024}')
+  print "${TEAL}ok ✓${RST}  $out  ${MUTED}${in_mb} MB → ${out_mb} MB${RST}"
+}
+
+cmd_info() {
+  local query="${1:-}"
+  [[ -z "$query" ]] && die "usage: music info <track-substring>"
+  local key=$(resolve_track "$query") || exit 1
+  local url="https://r2.ejfox.com/$key"
+  local tmp="/tmp/music-info-$$"
+  local size=$(curl -sI "$url" | awk 'tolower($1) ~ /content-length/ {gsub("\r",""); print $2}')
+  # ffprobe can stream from URL — no full download needed for metadata
+  local probe=$(ffprobe -hide_banner -loglevel error -print_format json -show_format -show_streams "$url" 2>/dev/null)
+  if [[ "$JSON" == "1" ]]; then
+    print -- "$probe" | jq --arg key "$key" --arg size "$size" '. + {key: $key, size: ($size|tonumber)}'
+    return
+  fi
+  local dur=$(print -- "$probe" | jq -r '.format.duration // "?"')
+  local br=$(print -- "$probe" | jq -r '.format.bit_rate // "?"')
+  local codec=$(print -- "$probe" | jq -r '.streams[0].codec_name // "?"')
+  local sr=$(print -- "$probe" | jq -r '.streams[0].sample_rate // "?"')
+  local ch=$(print -- "$probe" | jq -r '.streams[0].channels // "?"')
+  local dur_fmt=$(awk -v d="$dur" 'BEGIN{m=int(d/60); s=d-m*60; printf "%d:%05.2f", m, s}')
+  local br_fmt=$(awk -v b="$br" 'BEGIN{if (b ~ /^[0-9]+$/) printf "%d kbps", b/1000; else print "?"}')
+  printf "%s%s%s\n" "$BOLD" "$key" "$RST"
+  printf "  %sduration%s  %s\n" "$MUTED" "$RST" "$dur_fmt"
+  printf "  %scodec%s     %s, %s Hz, %s ch\n" "$MUTED" "$RST" "$codec" "$sr" "$ch"
+  printf "  %sbitrate%s   %s\n" "$MUTED" "$RST" "$br_fmt"
+  printf "  %ssize%s      %s MB\n" "$MUTED" "$RST" "$(mb "$size")"
+  printf "  %surl%s       %s\n" "$MUTED" "$RST" "$url"
+}
+
+# --- state helpers --------------------------------------------------------
+state_get() {
+  local key="$1" default="${2:-}"
+  [[ ! -f "$STATE_FILE" ]] && { print -- "$default"; return; }
+  jq -r --arg k "$key" --arg d "$default" '.[$k] // $d' "$STATE_FILE" 2>/dev/null || print -- "$default"
+}
+state_set() {
+  local key="$1" val="$2"
+  mkdir -p "${STATE_FILE:h}"
+  [[ ! -f "$STATE_FILE" ]] && print "{}" > "$STATE_FILE"
+  local tmp="${STATE_FILE}.tmp.$$"
+  jq --arg k "$key" --arg v "$val" '.[$k] = $v' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+}
+
+# pretty-print a duration in seconds → M:SS
+fmt_dur() {
+  awk -v d="${1:-0}" 'BEGIN{m=int(d/60); s=int(d-m*60); printf "%d:%02d", m, s}'
+}
+
+cmd_import() {
+  local dir="${1:-}"
+  [[ -z "$dir" ]] && die "usage: music import <dir>"
+  [[ ! -d "$dir" ]] && die "no such directory: $dir"
+
+  command -v ffmpeg  >/dev/null || die "ffmpeg not installed"
+
+  # find audio files (top-level only by default)
+  local files=("${(@f)$(find "$dir" -maxdepth 1 -type f \( -iname '*.wav' -o -iname '*.mp3' -o -iname '*.m4a' -o -iname '*.flac' -o -iname '*.aiff' -o -iname '*.aif' \) | sort)}")
+  files=("${(@)files:#}")
+  [[ ${#files[@]} -eq 0 ]] && die "no audio files in $dir"
+
+  local default_album=$(state_get last_album "music/loosies")
+  print "${BOLD}found ${#files[@]} audio file(s)${RST}  ${MUTED}default music album: ${default_album}${RST}\n"
+
+  local i=0 processed=0 skipped=0
+  for f in "${files[@]}"; do
+    i=$((i+1))
+    local base="${f##*/}"
+    local dur=$(ffprobe -hide_banner -loglevel error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null)
+    local size_mb=$(awk -v b="$(wc -c <"$f")" 'BEGIN{printf "%.1f", b/1024/1024}')
+    local mtime=$(stat -f "%Sm" -t "%Y-%m-%d" "$f")
+
+    print "${BOLD}[$i/${#files[@]}]${RST} $base ${MUTED}($(fmt_dur "$dur"), ${size_mb} MB, $mtime)${RST}"
+
+    local category=""
+    while true; do
+      print -n "  ${BOLD}[m]${RST}usic  ${BOLD}[f]${RST}ield  ${BOLD}[s]${RST}peech-archive  ${BOLD}[k]${RST}eep-and-skip  ${MUTED}(default m)${RST}: "
+      read choice
+      [[ -z "$choice" ]] && choice=m
+      case "$choice" in
+        m|M) category=music; break ;;
+        f|F) category=field; break ;;
+        s|S) category=speech; break ;;
+        k|K|skip) category=skip; break ;;
+        *) print "  ${MUTED}pick one of m/f/s/k${RST}" ;;
+      esac
+    done
+
+    if [[ "$category" == "skip" ]]; then
+      print "  ${MUTED}skipped${RST}\n"
+      skipped=$((skipped+1))
+      continue
+    fi
+
+    # determine destination + execute
+    local title="${base%.*}"
+    # strip quotes/backslashes so they don't break ffmpeg -metadata flags
+    local clean_title=$(print -- "$title" | tr '_' ' ' | tr -d '"\\' | sed 's/  */ /g')
+
+    if [[ "$category" == "speech" ]]; then
+      mkdir -p "$VOICEMEMO_DIR"
+      local out="$VOICEMEMO_DIR/${mtime}-${base}"
+      if confirm "  archive → $out ?"; then
+        mv "$f" "$out" || { print "${PINK}  mv failed${RST}"; continue; }
+        print "  ${TEAL}archived ✓${RST}  $out\n"
+        processed=$((processed+1))
+      else
+        print "  ${MUTED}skipped${RST}\n"
+        skipped=$((skipped+1))
+      fi
+      continue
+    fi
+
+    # music or field — figure album/folder
+    local album=""
+    if [[ "$category" == "music" ]]; then
+      print -n "  album ${MUTED}[${default_album}]${RST}: "
+      read album_in
+      [[ -z "$album_in" ]] && album="$default_album" || album=$(resolve_album "$album_in")
+    else
+      album="field-recordings"
+    fi
+
+    # mp3 target name
+    local out_name="${base%.[Ww][Aa][Vv]}"; out_name="${out_name%.[Mm][Pp]3}"; out_name="${out_name%.[Mm]4[Aa]}"
+    local out_key="$album/${out_name}.mp3"
+
+    print "  ${TEAL}plan:${RST} convert → tag → upload"
+    print "  ${MUTED}  source: $f${RST}"
+    print "  ${MUTED}  dest:   $out_key${RST}"
+    print "  ${MUTED}  tags:   title=\"$clean_title\" album=\"${album##*/}\" date=$mtime artist=$ARTIST_DEFAULT${RST}"
+
+    if ! confirm "  go?"; then
+      print "  ${MUTED}skipped${RST}\n"
+      skipped=$((skipped+1))
+      continue
+    fi
+
+    # convert to mp3 with ID3 tags
+    local mp3_tmp="/tmp/music-import-$$-${out_name}.mp3"
+    print -n "  ${MUTED}encoding…${RST}\r"
+    ffmpeg -hide_banner -loglevel error -y -i "$f" \
+      -codec:a libmp3lame -b:a "$BITRATE" \
+      -metadata title="$clean_title" \
+      -metadata album="${album##*/}" \
+      -metadata artist="$ARTIST_DEFAULT" \
+      -metadata date="$mtime" \
+      "$mp3_tmp" 2>/dev/null || { print "${PINK}  ffmpeg failed${RST}\n"; skipped=$((skipped+1)); continue; }
+
+    local size=$(wc -c <"$mp3_tmp" | tr -d ' ')
+    local size_mb_n=$(awk -v b="$size" 'BEGIN{printf "%.0f", b/1024/1024}')
+    print -n "                                                  \r"
+
+    # upload — auto-worker fallback for >300MB (proven trick)
+    if [[ "$size_mb_n" -gt 300 ]]; then
+      print "  ${PINK}>300MB — use Cyberduck (or extend music with auto-worker)${RST}"
+      print "  ${MUTED}encoded mp3 left at: $mp3_tmp${RST}\n"
+      skipped=$((skipped+1))
+      continue
+    fi
+    wr r2 object put "$BUCKET/$out_key" --file="$mp3_tmp" --remote \
+      || { rm -f "$mp3_tmp"; print "${PINK}  upload failed${RST}\n"; skipped=$((skipped+1)); continue; }
+    rm -f "$mp3_tmp"
+
+    [[ "$category" == "music" ]] && state_set last_album "$album"
+
+    print "  ${TEAL}done ✓${RST}  $out_key\n"
+    processed=$((processed+1))
+  done
+
+  print "\n${BOLD}summary${RST}  ${TEAL}${processed} processed${RST}  ${MUTED}${skipped} skipped${RST}"
+  print "${MUTED}default music album now: $(state_get last_album music/loosies)${RST}"
+}
+
+cmd_new_album() {
+  local name="${1:-}"
+  [[ -z "$name" ]] && die "usage: music new-album <name>"
+  local kebab=$(print -- "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]\+/-/g; s/^-\|-$//g')
+  local key="music/$kebab/.placeholder"
+  confirm "create music/$kebab/ ?" || { print "${MUTED}aborted${RST}"; exit 0; }
+  print "placeholder" > /tmp/.music-placeholder
+  wr r2 object put "$BUCKET/$key" --file=/tmp/.music-placeholder --remote || die "create failed"
+  rm -f /tmp/.music-placeholder
+  note_cache_lag
+  print "${TEAL}created${RST} music/$kebab/"
+}
+
+# note: music.tools.ejfox.com caches /api/tracks for 5 min server-side.
+# no public bust endpoint — the CLI reads R2 directly so it's always fresh.
+note_cache_lag() {
+  print -u2 "${MUTED}(music.tools.ejfox.com may take up to 5 min to reflect changes — R2 is authoritative)${RST}"
+}
+
+# --- setup / login --------------------------------------------------------
+
+cmd_login() {
+  mkdir -p "$CONFIG_DIR"
+  print "${BOLD}music login${RST}  ${MUTED}— store R2 credentials at $ENV_FILE${RST}\n"
+
+  local account_id="${R2_ACCOUNT_ID:-deffa184038440afc07f53b5e7583a97}"
+  local access_key="${R2_ACCESS_KEY_ID:-}"
+  local secret_key="${R2_SECRET_ACCESS_KEY:-}"
+
+  # try 1Password first if `op` is available + signed in
+  if command -v op >/dev/null 2>&1 && op vault list >/dev/null 2>&1; then
+    if confirm "pull R2 creds from 1Password (item 'Cloudflare R2 ejfox-personal')?"; then
+      local op_secret=$(op item get "Cloudflare R2 ejfox-personal" --field "secret access key" --reveal 2>/dev/null || true)
+      local op_access=$(op item get "Cloudflare R2 ejfox-personal" --field "access key id" --reveal 2>/dev/null || true)
+      if [[ -n "$op_secret" && -n "$op_access" ]]; then
+        access_key="$op_access"; secret_key="$op_secret"
+        print "${TEAL}✓ pulled from 1Password${RST}"
+      else
+        print "${MUTED}(1Password item not found, falling back to manual prompts)${RST}"
+      fi
+    fi
+  fi
+
+  # manual prompts for anything still missing
+  if [[ -z "$access_key" ]]; then
+    print -n "R2 access key id: "; read access_key
+  fi
+  if [[ -z "$secret_key" ]]; then
+    print -n "R2 secret access key: "
+    trap 'stty echo 2>/dev/null; exit 130' INT TERM
+    stty -echo
+    read secret_key
+    stty echo
+    trap - INT TERM
+    print ""
+  fi
+  print -n "account id ${MUTED}[${account_id}]${RST}: "; read acc_in
+  [[ -n "$acc_in" ]] && account_id="$acc_in"
+
+  # write
+  cat > "$ENV_FILE" <<EOF
+# music-cli R2 credentials — chmod 600
+R2_ACCOUNT_ID=$account_id
+R2_ACCESS_KEY_ID=$access_key
+R2_SECRET_ACCESS_KEY=$secret_key
+R2_BUCKET_NAME=ejfox-personal
+EOF
+  chmod 600 "$ENV_FILE"
+  print "${TEAL}saved ✓${RST}  $ENV_FILE"
+
+  # verify by listing
+  export AWS_ACCESS_KEY_ID="$access_key" AWS_SECRET_ACCESS_KEY="$secret_key"
+  if aws s3api list-objects-v2 --bucket "$BUCKET" --max-items 1 \
+       --endpoint-url "https://${account_id}.r2.cloudflarestorage.com" >/dev/null 2>&1; then
+    print "${TEAL}✓ R2 read works${RST}"
+  else
+    print "${PINK}✗ R2 read failed — double-check your credentials${RST}"
+  fi
+
+  # wrangler is needed for writes
+  if command -v wrangler >/dev/null 2>&1; then
+    if wrangler whoami 2>&1 | grep -q "logged in"; then
+      print "${TEAL}✓ wrangler already authenticated${RST}"
+    else
+      print "${MUTED}wrangler is not authenticated — needed for writes. run:${RST}"
+      print "  wrangler login"
+    fi
+  else
+    print "${MUTED}wrangler not installed — run 'music setup' to install all deps${RST}"
+  fi
+}
+
+cmd_setup() {
+  print "${BOLD}music setup${RST}  ${MUTED}— installing dependencies and config${RST}\n"
+
+  # 1. macOS only
+  if [[ "$(uname)" != "Darwin" ]]; then
+    die "music setup currently supports macOS only"
+  fi
+
+  # 2. brew
+  if ! command -v brew >/dev/null 2>&1; then
+    die "homebrew not found. install from https://brew.sh first."
+  fi
+
+  # 3. brew packages
+  local pkgs=(ffmpeg jq awscli node)
+  local missing=()
+  for p in "${pkgs[@]}"; do
+    command -v "$p" >/dev/null 2>&1 || missing+=("$p")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    print "${TEAL}installing brew packages:${RST} ${missing[*]}"
+    brew install "${missing[@]}" || die "brew install failed"
+  else
+    print "${MUTED}✓ ffmpeg, jq, awscli, node all present${RST}"
+  fi
+
+  # 4. wrangler
+  if ! command -v wrangler >/dev/null 2>&1; then
+    print "${TEAL}installing wrangler...${RST}"
+    npm install -g wrangler || die "npm install -g wrangler failed"
+  else
+    print "${MUTED}✓ wrangler present${RST}"
+  fi
+
+  # 5. wrangler auth
+  if wrangler whoami 2>&1 | grep -q "logged in"; then
+    print "${MUTED}✓ wrangler authenticated${RST}"
+  else
+    print "${TEAL}wrangler login required (browser flow)...${RST}"
+    wrangler login || die "wrangler login failed"
+  fi
+
+  # 6. .env
+  if [[ -f "$ENV_FILE" && -s "$ENV_FILE" ]]; then
+    print "${MUTED}✓ config present: $ENV_FILE${RST}"
+  else
+    print "${TEAL}no config yet — running 'music login'${RST}"
+    cmd_login
+  fi
+
+  # 7. ensure ~/bin is on PATH + symlink (idempotent)
+  mkdir -p "$HOME/bin"
+  case ":$PATH:" in
+    *":$HOME/bin:"*) ;;
+    *) print "${MUTED}note: add \$HOME/bin to PATH in your shell rc${RST}" ;;
+  esac
+
+  # 8. TP-7 detach helper (needs libusb)
+  if [[ -d /usr/local/include/libusb-1.0 ]] || [[ -d "$(brew --prefix libusb 2>/dev/null)/include/libusb-1.0" ]]; then
+    print "${MUTED}building TP-7 USB detach helper…${RST}"
+    local detach_src
+    detach_src=$(cat <<'DETACH_SRC'
+#include <libusb-1.0/libusb.h>
+#include <stdio.h>
+#include <stdlib.h>
+int main() {
+    setvbuf(stdout,NULL,_IONBF,0);
+    int r=libusb_init(NULL); if(r<0){fprintf(stderr,"init:%s\n",libusb_error_name(r));return 1;}
+    libusb_device_handle*h=libusb_open_device_with_vid_pid(NULL,0x2367,0x0019);
+    if(!h){fprintf(stderr,"TP-7 not found\n");libusb_exit(NULL);return 1;}
+    r=libusb_kernel_driver_active(h,0);
+    if(r==1){r=libusb_detach_kernel_driver(h,0);if(r==0)printf("OK\n");else{fprintf(stderr,"detach:%s\n",libusb_error_name(r));libusb_close(h);libusb_exit(NULL);return 1;}}
+    else if(r==0)printf("OK\n");
+    else{fprintf(stderr,"check:%s\n",libusb_error_name(r));libusb_close(h);libusb_exit(NULL);return 1;}
+    libusb_close(h);libusb_exit(NULL);return 0;
+}
+DETACH_SRC
+)
+    local src_file="/tmp/.tp7-detach-driver.c"
+    echo "$detach_src" > "$src_file"
+    local lprefix="$(brew --prefix libusb 2>/dev/null || echo /usr/local)"
+    if cc -o "$SHARE_DIR/tp7-detach-driver" "$src_file" -I"$lprefix/include" -L"$lprefix/lib" -lusb-1.0 2>/dev/null; then
+      chmod 755 "$SHARE_DIR/tp7-detach-driver"
+      rm -f "$src_file"
+      print "${TEAL}TP-7 detach helper installed${RST}"
+
+      # set up passwordless sudo for the detach helper
+      local sudoers_file="/etc/sudoers.d/tp7-detach"
+      local sudoers_line="$USER ALL=(root) NOPASSWD: $SHARE_DIR/tp7-detach-driver"
+      if [[ ! -f "$sudoers_file" ]] || ! grep -qF "$SHARE_DIR/tp7-detach-driver" "$sudoers_file" 2>/dev/null; then
+        print "${MUTED}setting up passwordless sudo for TP-7 detach (requires sudo once)…${RST}"
+        echo "$sudoers_line" | sudo tee "$sudoers_file" >/dev/null 2>&1 && sudo chmod 440 "$sudoers_file" 2>&1
+        if [[ $? -eq 0 ]]; then
+          print "${TEAL}passwordless sudo configured${RST}"
+        else
+          print "${PINK}sudoers setup failed — music tp7 pull will prompt for password each time${RST}"
+        fi
+      fi
+    else
+      print "${PINK}failed to build detach helper (check libusb install)${RST}"
+    fi
+  fi
+
+  # 9. LaunchAgent for auto TP-7 pull
+  if confirm "install LaunchAgent for auto TP-7 pull on connect?"; then
+    cmd_install_watcher
+  fi
+
+  print "\n${TEAL}setup complete ✓${RST}"
+  print "${MUTED}try: music help${RST}"
+}
+
+cmd_install_watcher() {
+  mkdir -p "$SHARE_DIR" "${LAUNCHAGENT_PATH:h}"
+  local handler="$SHARE_DIR/tp7-mount-handler.sh"
+
+  cat > "$handler" <<'HANDLER'
+#!/bin/zsh
+# music-cli — polls for TP-7 in MTP mode, auto-pulls when detected
+export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/bin:$PATH"
+SEEN=/tmp/.music-tp7-seen
+LOCK=/tmp/.music-tp7-pulling
+MUSIC_BIN="${MUSIC_BIN:-$HOME/bin/music}"
+LOG="${HOME}/.local/share/music-cli/watcher.log"
+
+usb_info=$(system_profiler SPUSBDataType 2>/dev/null)
+
+# no TP-7 connected — clear state
+if ! echo "$usb_info" | grep -q "Vendor ID: 0x2367"; then
+  rm -f "$SEEN" "$LOCK"
+  exit 0
+fi
+
+# already handled this session
+[[ -f "$SEEN" ]] && exit 0
+
+# TP-7 connected but not MTP mode
+if ! echo "$usb_info" | grep -q "Product ID: 0x0019"; then
+  touch "$SEEN"
+  osascript -e 'display notification "To pull files: power off, hold STOP + power on" with title "TP-7 connected" sound name "Glass"'
+  exit 0
+fi
+
+# TP-7 in MTP mode — auto-pull
+touch "$SEEN"
+
+# prevent double-runs
+[[ -f "$LOCK" ]] && exit 0
+touch "$LOCK"
+
+osascript -e 'display notification "pulling recordings…" with title "TP-7 MTP detected" sound name "Glass"'
+
+# run pull silently in the background — notifications handle status
+"$MUSIC_BIN" tp7 pull --yes >> "$LOG" 2>&1
+
+rm -f "$LOCK"
+HANDLER
+  chmod +x "$handler"
+
+  cat > "$LAUNCHAGENT_PATH" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LAUNCHAGENT_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>$handler</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>10</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$SHARE_DIR/watcher.log</string>
+  <key>StandardErrorPath</key>
+  <string>$SHARE_DIR/watcher.log</string>
+</dict>
+</plist>
+PLIST
+
+  launchctl unload "$LAUNCHAGENT_PATH" 2>/dev/null
+  launchctl load "$LAUNCHAGENT_PATH" || die "launchctl load failed"
+  print "${TEAL}LaunchAgent installed ✓${RST}"
+  print "${MUTED}  polls every 10s for TP-7 in MTP mode${RST}"
+  print "${MUTED}  auto-runs music tp7 pull when detected${RST}"
+  print "${MUTED}  handler: $handler${RST}"
+  print "${MUTED}  plist:   $LAUNCHAGENT_PATH${RST}"
+}
+
+cmd_uninstall_watcher() {
+  if [[ -f "$LAUNCHAGENT_PATH" ]]; then
+    launchctl unload "$LAUNCHAGENT_PATH" 2>/dev/null
+    rm -f "$LAUNCHAGENT_PATH"
+    print "${TEAL}LaunchAgent removed ✓${RST}"
+  else
+    print "${MUTED}(no LaunchAgent installed)${RST}"
+  fi
+  rm -f "$SHARE_DIR/tp7-mount-handler.sh" "$SHARE_DIR/watcher.log" /tmp/.music-tp7-seen
+}
+
+# --- TP-7 MTP pull --------------------------------------------------------
+# The TP-7 uses MTP over USB Mass Storage class. To enter MTP mode,
+# hold STOP while powering on. macOS's kernel Mass Storage driver grabs
+# the interface, so we need sudo to detach it before gphoto2 can talk MTP.
+
+TP7_VENDOR_ID=2367
+TP7_MTP_PID="0019"
+TP7_STAGING="${HOME}/tp7"
+TP7_DETACH_HELPER="${HOME}/.local/share/music-cli/tp7-detach-driver"
+
+tp7_is_connected() {
+  system_profiler SPUSBDataType 2>/dev/null | grep -q "Vendor ID: 0x${TP7_VENDOR_ID}"
+}
+
+tp7_is_mtp_mode() {
+  system_profiler SPUSBDataType 2>/dev/null | grep -q "Product ID: 0x${TP7_MTP_PID}"
+}
+
+tp7_field_kit_running() {
+  pgrep -xf "/Applications/field kit.app/Contents/MacOS/field kit" >/dev/null 2>&1
+}
+
+# detach the macOS kernel Mass Storage driver so gphoto2 can claim the interface
+tp7_detach_driver() {
+  if [[ ! -x "$TP7_DETACH_HELPER" ]]; then
+    die "detach helper not found at $TP7_DETACH_HELPER (run: music setup)"
+  fi
+
+  # close Field Kit if running (it holds the USB interface)
+  if tp7_field_kit_running; then
+    print "${MUTED}closing Field Kit to release USB…${RST}"
+    osascript -e 'tell application "field kit" to quit' 2>/dev/null
+    sleep 1
+  fi
+
+  print "${MUTED}detaching kernel driver (sudo required)…${RST}"
+  local result
+  result=$(sudo "$TP7_DETACH_HELPER" 2>&1)
+  if [[ $? -ne 0 ]]; then
+    print "${PINK}failed to detach driver: ${result}${RST}"
+    return 1
+  fi
+  return 0
+}
+
+tp7_wait_for_gphoto() {
+  local tries=${1:-6}
+  local i=0
+  while [[ $i -lt $tries ]]; do
+    if gphoto2 --auto-detect 2>/dev/null | grep -qi "tp-7"; then
+      return 0
+    fi
+    i=$((i+1))
+    sleep 0.5
+  done
+  return 1
+}
+
+cmd_tp7() {
+  local subcmd="${1:-pull}"
+  case "$subcmd" in
+    pull|import) shift 2>/dev/null; cmd_tp7_pull "$@" ;;
+    ls|list)     cmd_tp7_ls ;;
+    status)      cmd_tp7_status ;;
+    *)           die "unknown tp7 command: $subcmd (try: pull, ls, status)" ;;
+  esac
+}
+
+cmd_tp7_status() {
+  if ! tp7_is_connected; then
+    print "${MUTED}TP-7 not connected${RST}"
+    return 1
+  fi
+  local pid=$(system_profiler SPUSBDataType 2>/dev/null | grep -A3 "TP-7" | awk '/Product ID/{print $NF}')
+  print "${TEAL}TP-7 connected${RST} (PID $pid)"
+  tp7_field_kit_running && print "${MUTED}Field Kit is running${RST}"
+
+  if tp7_is_mtp_mode; then
+    print "${MUTED}MTP mode active${RST}"
+  else
+    print "${MUTED}not in MTP mode — to enter MTP: power off, then hold STOP + power on${RST}"
+  fi
+}
+
+cmd_tp7_ls() {
+  if ! tp7_is_connected; then die "TP-7 not connected"; fi
+
+  if ! tp7_is_mtp_mode; then
+    die "TP-7 not in MTP mode. Power off, then hold STOP while powering on."
+  fi
+
+  tp7_detach_driver || return 1
+
+  if ! tp7_wait_for_gphoto 8; then
+    die "gphoto2 can't reach TP-7 — try unplugging and re-plugging in MTP mode"
+  fi
+
+  gphoto2 --folder /store_00010001/recordings --list-files 2>/dev/null
+  gphoto2 --folder /store_00010001/memo --list-files 2>/dev/null
+}
+
+cmd_tp7_pull() {
+  command -v gphoto2 >/dev/null || die "gphoto2 not installed (brew install gphoto2)"
+  if ! tp7_is_connected; then die "TP-7 not connected (check USB cable)"; fi
+
+  if ! tp7_is_mtp_mode; then
+    print "${PINK}TP-7 not in MTP mode.${RST}"
+    print "To enter MTP mode: ${BOLD}power off the TP-7, then hold STOP while turning it on${RST}"
+    return 1
+  fi
+
+  # --- sane defaults: pull, import new to R2, keep memos local, don't delete ---
+  # pass --no-import to skip R2 upload, --clean to delete from TP-7 after
+  local do_import=1 do_clean=0
+  for arg in "$@"; do
+    case "$arg" in
+      --no-import) do_import=0 ;;
+      --clean)     do_clean=1 ;;
+    esac
+  done
+
+  print "${BOLD}preparing TP-7 for file transfer…${RST}"
+  tp7_detach_driver || return 1
+
+  if ! tp7_wait_for_gphoto 8; then
+    print "${PINK}gphoto2 can't reach TP-7 after driver detach.${RST}"
+    print "try: unplug and re-plug in MTP mode, then run ${TEAL}music tp7${RST}"
+    return 1
+  fi
+  print "${TEAL}TP-7 MTP ready${RST}\n"
+
+  local pull_dir="${TP7_STAGING}/latest"
+  mkdir -p "$pull_dir/recordings" "$pull_dir/memos"
+
+  # --- phase 1: download from TP-7 ---
+
+  # progress monitor: watches download dir for new/growing files
+  tp7_progress_monitor() {
+    local dir="$1" label="$2"
+    local count=0
+    while true; do
+      local tmpfile=$(find "$dir" -name 'tmpfile*' -type f 2>/dev/null | head -1)
+      if [[ -n "$tmpfile" ]]; then
+        local sz=$(stat -f%z "$tmpfile" 2>/dev/null || echo 0)
+        local mb=$(awk -v b="$sz" 'BEGIN{printf "%.0f", b/1024/1024}')
+        printf "\r  ${MUTED}${label} downloading… %s MB${RST}  " "$mb"
+      fi
+      local done_count=$(find "$dir" -name '*.wav' -o -name '*.WAV' 2>/dev/null | wc -l | tr -d ' ')
+      if [[ "$done_count" -gt "$count" ]]; then
+        local newest=$(ls -t "$dir"/*.wav "$dir"/*.WAV 2>/dev/null | head -1)
+        local newest_name="${newest##*/}"
+        local newest_sz=$(stat -f%z "$newest" 2>/dev/null || echo 0)
+        local newest_mb=$(awk -v b="$newest_sz" 'BEGIN{printf "%.0f", b/1024/1024}')
+        count=$done_count
+        printf "\r  ${TEAL}[${count}]${RST} ${newest_name} ${MUTED}(${newest_mb} MB)${RST}              \n"
+      fi
+      sleep 1
+    done
+  }
+
+  print "${BOLD}pulling recordings…${RST}"
+  tp7_progress_monitor "$pull_dir/recordings" "rec" &
+  local rec_monitor_pid=$!
+  (cd "$pull_dir/recordings" && gphoto2 --folder /store_00010001/recordings --get-all-files --skip-existing 2>/dev/null)
+  local rec_exit=$?
+  kill $rec_monitor_pid 2>/dev/null; wait $rec_monitor_pid 2>/dev/null
+  printf "\r                                                       \r"
+
+  # TP-7 MTP connection often drops after recordings — re-detach for memos
+  print "${BOLD}pulling memos…${RST}"
+  if tp7_is_mtp_mode; then
+    tp7_detach_driver >/dev/null 2>&1
+    tp7_wait_for_gphoto 6 2>/dev/null
+  fi
+  tp7_progress_monitor "$pull_dir/memos" "memo" &
+  local memo_monitor_pid=$!
+  (cd "$pull_dir/memos" && gphoto2 --folder /store_00010001/memo --get-all-files --skip-existing 2>/dev/null)
+  local memo_exit=$?
+  kill $memo_monitor_pid 2>/dev/null; wait $memo_monitor_pid 2>/dev/null
+  printf "\r                                                       \r"
+
+  local rec_count=$(find "$pull_dir/recordings" -type f 2>/dev/null | wc -l | tr -d ' ')
+  local memo_count=$(find "$pull_dir/memos" -type f 2>/dev/null | wc -l | tr -d ' ')
+  rmdir "$pull_dir/recordings" 2>/dev/null
+  rmdir "$pull_dir/memos" 2>/dev/null
+  local total=$((rec_count + memo_count))
+
+  if [[ "$total" -eq 0 ]]; then
+    print "\n${MUTED}no audio files found on TP-7${RST}"
+    return 0
+  fi
+
+  print "\n${TEAL}pulled ${rec_count} recording(s), ${memo_count} memo(s)${RST} -> ${pull_dir}\n"
+
+  [[ "$memo_count" -gt 0 ]] && print "${MUTED}${memo_count} memo(s) saved locally: ${pull_dir}/memos/${RST}"
+
+  # --- phase 2: import new recordings to R2 ---
+  local imported_count=0
+  if [[ "$rec_count" -gt 0 && "$do_import" -eq 1 ]]; then
+    local default_album=$(state_get last_album "music/loosies")
+
+    # check what's already on R2 (using aws s3api, not wrangler)
+    local -A on_r2
+    local r2_key
+    while IFS=$'\t' read -r r2_key _sz _mod; do
+      [[ "$r2_key" == *.mp3 ]] && on_r2[${r2_key##*/}]=1
+    done < <(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$default_album/" \
+      --endpoint-url "$R2_ENDPOINT" --query 'Contents[].[Key,Size,LastModified]' \
+      --output text 2>/dev/null)
+
+    local i=0
+    for f in "$pull_dir/recordings"/*.wav(N) "$pull_dir/recordings"/*.WAV(N); do
+      [[ -f "$f" ]] || continue
+      local base="${f##*/}"
+      local title="${base%.*}"
+      local mp3_name="${title}.mp3"
+      local out_key="${default_album}/${mp3_name}"
+
+      if [[ -n "${on_r2[$mp3_name]:-}" ]]; then
+        continue  # already on R2
+      fi
+
+      i=$((i+1))
+      local dur=$(ffprobe -hide_banner -loglevel error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null)
+      local clean_title=$(print -- "$title" | tr '_' ' ' | tr -d '"\\' | sed 's/  */ /g')
+      local tmp_mp3="/tmp/music-tp7-$$-${mp3_name}"
+      local mtime=$(stat -f "%Sm" -t "%Y-%m-%d" "$f")
+
+      print -n "  ${MUTED}[$i] ${base} ($(fmt_dur "$dur")) encoding…${RST}\r"
+      ffmpeg -hide_banner -loglevel error -y -i "$f" \
+        -codec:a libmp3lame -b:a "$BITRATE" \
+        -metadata title="$clean_title" \
+        -metadata album="${default_album##*/}" \
+        -metadata artist="$ARTIST_DEFAULT" \
+        -metadata date="$mtime" \
+        "$tmp_mp3" </dev/null 2>/dev/null || { print "  ${PINK}[$i] ${base} encode failed${RST}"; continue; }
+
+      print -n "  ${MUTED}[$i] ${base} ($(fmt_dur "$dur")) uploading…${RST}\r"
+      local up_log=$(mktemp)
+      if wrangler r2 object put "$BUCKET/$out_key" --file="$tmp_mp3" --remote >/dev/null 2>"$up_log"; then
+        print "  ${TEAL}[$i] ${base}${RST} -> ${MUTED}${out_key}${RST}       "
+        imported_count=$((imported_count + 1))
+      else
+        if grep -q "CLOUDFLARE_API_TOKEN\|auth token" "$up_log" 2>/dev/null; then
+          print "  ${PINK}wrangler auth expired — run: wrangler login${RST}"
+          rm -f "$up_log" "$tmp_mp3"
+          break
+        fi
+        print "  ${PINK}[$i] ${base} upload failed${RST}       "
+      fi
+      rm -f "$up_log"
+      rm -f "$tmp_mp3"
+    done
+
+    if [[ "$i" -eq 0 ]]; then
+      print "${MUTED}all recordings already on R2${RST}"
+    else
+      print "${TEAL}imported ${imported_count} new recording(s) to ${default_album}${RST}"
+    fi
+  fi
+
+  # --- phase 3: cleanup TP-7 (only with --clean and verified copies) ---
+  if [[ "$do_clean" -eq 1 && "$rec_count" -gt 0 ]]; then
+    local local_ok=1
+    for f in "$pull_dir/recordings"/*.wav(N) "$pull_dir/recordings"/*.WAV(N); do
+      [[ -f "$f" ]] || continue
+      local sz=$(stat -f%z "$f" 2>/dev/null || echo 0)
+      [[ "$sz" -lt 1000 ]] && { local_ok=0; print "${PINK}warning: ${f##*/} looks incomplete${RST}"; }
+    done
+
+    if [[ "$local_ok" -eq 1 ]]; then
+      print "${MUTED}clearing recordings from TP-7…${RST}"
+      gphoto2 --folder /store_00010001/recordings --delete-all-files 2>/dev/null \
+        && print "${TEAL}TP-7 recordings cleared${RST}" \
+        || print "${PINK}delete failed — files may still be on TP-7${RST}"
+    else
+      print "${PINK}incomplete files detected — skipping TP-7 cleanup${RST}"
+    fi
+  fi
+
+  # --- completion notification ---
+  local summary=""
+  [[ "$imported_count" -gt 0 ]] && summary="${imported_count} recording(s) imported"
+  [[ "$imported_count" -eq 0 && "$rec_count" -gt 0 ]] && summary="${rec_count} recording(s) pulled (already on R2)"
+  [[ "$memo_count" -gt 0 ]] && summary="${summary:+$summary, }${memo_count} memo(s) saved locally"
+  [[ -z "$summary" ]] && summary="no new files"
+
+  osascript -e "display notification \"${summary}\" with title \"TP-7\" sound name \"Glass\"" 2>/dev/null
+
+  print "\n${TEAL}done — ${summary}${RST}"
+}
+
+cmd_recent() {
+  local limit="${1:-10}"
+  local tmplist=$(mktemp)
+  aws s3api list-objects-v2 --bucket "$BUCKET" --endpoint-url "$R2_ENDPOINT" \
+    --query 'Contents[].[Key,Size,LastModified]' --output text 2>/dev/null \
+    | awk -F'\t' '$1 ~ /\.(mp3|wav)$/' \
+    | sort -t$'\t' -k3 -r \
+    | head -n "$limit" > "$tmplist"
+
+  if [[ ! -s "$tmplist" ]]; then
+    print "${MUTED}no tracks found${RST}"
+    rm -f "$tmplist"
+    return
+  fi
+
+  print "${BOLD}recent uploads${RST}\n"
+  local i=0
+  while IFS=$'\t' read -r key size lastmod; do
+    i=$((i+1))
+    local name="${key##*/}"
+    name="${name%.*}"
+    local folder="${key%/*}"
+    local size_mb=$(awk -v b="$size" 'BEGIN{printf "%.1f", b/1024/1024}')
+    # parse date from lastmod (2026-05-27T23:14:55.000Z → May 27)
+    local pretty_date=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${lastmod%%.*}" "+%b %d %H:%M" 2>/dev/null || echo "$lastmod")
+
+    local display_name=$(print -- "$name" | tr '_' ' ' | sed 's/  */ /g')
+    print "  ${TEAL}${i}.${RST} ${display_name}  ${MUTED}${size_mb}MB  ${pretty_date}  ${folder}${RST}"
+  done < "$tmplist"
+  rm -f "$tmplist"
+  print ""
+}
+
+cmd_help() {
+  cat <<EOF
+${BOLD}music${RST} — manage music.tools.ejfox.com tracks from your terminal
+
+reads hit R2 directly (no 5-min cache lag); writes go through wrangler.
+
+${BOLD}commands${RST}
+  ${TEAL}music${RST}                          list all tracks, grouped by album
+  ${TEAL}music ls${RST} [filter]              list (optionally filter by substring)
+  ${TEAL}music homeless${RST}                 tracks not in an album folder
+  ${TEAL}music albums${RST}                   list album names only
+  ${TEAL}music mv${RST} <track> [album]       move a track (fuzzy matched)
+  ${TEAL}music rm${RST} <track>               delete (strong confirm: type filename)
+  ${TEAL}music put${RST} <local> [album]      upload a local .mp3/.wav (prompts to mp3-convert on .wav)
+  ${TEAL}music get${RST} <track> [out]        download a track
+  ${TEAL}music convert${RST} <local.wav>      local WAV → MP3 (next to source, no R2)
+  ${TEAL}music info${RST} <track>             ffprobe metadata for an R2 track
+  ${TEAL}music import${RST} <dir>             walk a folder, ask category per file, tag + upload
+  ${TEAL}music new-album${RST} <name>         create a new album folder
+  ${TEAL}music recent${RST} [n]              show last n uploads (default 10)
+
+${BOLD}tp-7${RST}  ${MUTED}(hold STOP + power on to enter MTP mode)${RST}
+  ${TEAL}music tp7${RST}                     pull recordings off TP-7 via MTP + import
+  ${TEAL}music tp7 ls${RST}                  list files on connected TP-7
+  ${TEAL}music tp7 status${RST}              check TP-7 connection status
+
+${BOLD}setup${RST}
+  ${TEAL}music setup${RST}                    install deps + LaunchAgent (run once on a new machine)
+  ${TEAL}music login${RST}                    store R2 credentials (called by setup if missing)
+  ${TEAL}music install-watcher${RST}          install just the TP-7 mount LaunchAgent
+  ${TEAL}music uninstall-watcher${RST}        remove the LaunchAgent
+  ${TEAL}music help${RST}                     this help
+
+${BOLD}flags${RST}
+  ${TEAL}-y, --yes${RST}             skip confirmations
+  ${TEAL}--json${RST}                machine-readable output (ls, homeless, albums, info)
+  ${TEAL}--mp3${RST}                 force WAV→MP3 conversion during put (no prompt)
+  ${TEAL}--bitrate${RST} <rate>      mp3 bitrate, default 192k (e.g. 320k, 128k)
+
+${BOLD}notes${RST}
+  ${MUTED}files >300 MB use the temp-worker trick (auto-deployed if needed — not yet wired in cli)${RST}
+  ${MUTED}exit codes: 0 ok, 1 error, 2 user-blocked${RST}
+EOF
+}
+
+# --- dispatch -------------------------------------------------------------
+case "${1:-ls}" in
+  ls|"") shift 2>/dev/null; cmd_ls "${1:-}" ;;
+  homeless|orphans) cmd_homeless ;;
+  albums) cmd_albums ;;
+  mv|move) shift; cmd_mv "$@" ;;
+  rm|delete) shift; cmd_rm "$@" ;;
+  put|upload) shift; cmd_put "$@" ;;
+  get|download) shift; cmd_get "$@" ;;
+  convert) shift; cmd_convert "$@" ;;
+  info|probe) shift; cmd_info "$@" ;;
+  import) shift; cmd_import "$@" ;;
+  tp7) shift; cmd_tp7 "$@" ;;
+  new-album|mkalbum) shift; cmd_new_album "$@" ;;
+  recent) shift 2>/dev/null; cmd_recent "$@" ;;
+  setup) cmd_setup ;;
+  login) cmd_login ;;
+  install-watcher) cmd_install_watcher ;;
+  uninstall-watcher) cmd_uninstall_watcher ;;
+  help|-h|--help) cmd_help ;;
+  *) die "unknown command: $1 (try: music help)" ;;
+esac
