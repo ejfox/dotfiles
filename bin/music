@@ -844,6 +844,59 @@ tp7_is_mtp_mode() {
   system_profiler SPUSBDataType 2>/dev/null | grep -q "Product ID: 0x${TP7_MTP_PID}"
 }
 
+WHISPER_MODEL="${HOME}/.local/share/music-cli/models/ggml-base.en.bin"
+
+# analyze a WAV file: returns "speech|<title>" or "instrumental|<title>"
+tp7_analyze_audio() {
+  local wav="$1"
+  local base="${wav##*/}"
+  local mtime=$(stat -f "%Sm" -t "%b%d" "$wav" 2>/dev/null | tr -d ' ')
+
+  # no whisper model → fall back to date-based name
+  if [[ ! -f "$WHISPER_MODEL" ]] || ! command -v whisper-cli >/dev/null 2>&1; then
+    echo "instrumental|recording-${mtime,,}"
+    return
+  fi
+
+  # convert first 30s to 16kHz mono for whisper
+  local tmp_wav="/tmp/music-whisper-$$.wav"
+  ffmpeg -hide_banner -loglevel error -y -i "$wav" -t 30 -ar 16000 -ac 1 "$tmp_wav" 2>/dev/null
+  if [[ ! -f "$tmp_wav" ]]; then
+    echo "instrumental|recording-${mtime,,}"
+    return
+  fi
+
+  local transcript
+  transcript=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp_wav" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  rm -f "$tmp_wav"
+
+  # empty or only whitespace
+  if [[ -z "$transcript" ]]; then
+    echo "instrumental|recording-${mtime,,}"
+    return
+  fi
+
+  # parenthetical descriptions like (dramatic music), [music], (silence) → instrumental
+  local cleaned=$(echo "$transcript" | sed 's/([^)]*)//g; s/\[[^]]*\]//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  if [[ -z "$cleaned" || ${#cleaned} -lt 4 ]]; then
+    # use the parenthetical as a hint if available
+    local hint=$(echo "$transcript" | grep -oE '\(([^)]+)\)' | head -1 | tr -d '()')
+    if [[ -n "$hint" ]]; then
+      echo "instrumental|${hint,,}-${mtime,,}"
+    else
+      echo "instrumental|recording-${mtime,,}"
+    fi
+    return
+  fi
+
+  # real speech — use first ~6 words, slugified
+  local slug=$(echo "$cleaned" | awk '{for(i=1;i<=6&&i<=NF;i++) printf "%s ", $i}' \
+    | sed 's/[^a-zA-Z0-9 ]//g' | sed 's/  */ /g; s/^ *//; s/ *$//' \
+    | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | head -c 60)
+  [[ -z "$slug" ]] && slug="recording-${mtime,,}"
+  echo "speech|${slug}"
+}
+
 tp7_field_kit_running() {
   pgrep -xf "/Applications/field kit.app/Contents/MacOS/field kit" >/dev/null 2>&1
 }
@@ -1050,23 +1103,66 @@ cmd_tp7_pull() {
 
       i=$((i+1))
       local dur=$(ffprobe -hide_banner -loglevel error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null)
-      local clean_title=$(print -- "$title" | tr '_' ' ' | tr -d '"\\' | sed 's/  */ /g')
-      local tmp_mp3="/tmp/music-tp7-$$-${mp3_name}"
       local mtime=$(stat -f "%Sm" -t "%Y-%m-%d" "$f")
 
-      print -n "  ${MUTED}[$i] ${base} ($(fmt_dur "$dur")) encoding…${RST}\r"
+      # auto-name via whisper analysis
+      print -n "  ${MUTED}[$i] ${base} analyzing…${RST}\r"
+      local analysis=$(tp7_analyze_audio "$f")
+      local audio_type="${analysis%%|*}"
+      local smart_title="${analysis#*|}"
+      local display_title=$(print -- "$smart_title" | tr '-' ' ')
+
+      # detect BPM via aubio
+      local bpm=""
+      if command -v aubio >/dev/null 2>&1; then
+        bpm=$(aubio tempo "$f" 2>/dev/null | tail -1 | grep -oE '[0-9]+' | head -1)
+      fi
+
+      # detect musical key via keyfinder (needs 16-bit PCM)
+      local key="" keyfinder="${HOME}/.local/share/music-cli/keyfinder-cli"
+      if [[ -x "$keyfinder" ]]; then
+        local tmp_pcm="/tmp/music-key-$$.wav"
+        ffmpeg -hide_banner -loglevel error -y -i "$f" -t 120 -acodec pcm_s16le -ar 44100 "$tmp_pcm" 2>/dev/null
+        key=$("$keyfinder" "$tmp_pcm" 2>/dev/null)
+        rm -f "$tmp_pcm"
+      fi
+
+      # build metadata-rich title
+      local meta_parts=("$display_title")
+      [[ -n "$bpm" && "$bpm" -gt 40 && "$bpm" -lt 300 ]] && meta_parts+=("${bpm}bpm")
+      [[ -n "$key" ]] && meta_parts+=("$key")
+      local rich_title="${(j: :)meta_parts}"
+
+      # use smart name for the mp3 filename too
+      local smart_mp3="${smart_title}.mp3"
+      local smart_key="${default_album}/${smart_mp3}"
+      # check if smart-named version already on R2
+      if [[ -n "${on_r2[$smart_mp3]:-}" ]]; then
+        continue
+      fi
+
+      local tmp_mp3="/tmp/music-tp7-$$-${smart_mp3}"
+
+      print -n "  ${MUTED}[$i] ${base} -> ${smart_title} encoding…${RST}\r"
       ffmpeg -hide_banner -loglevel error -y -i "$f" \
+        -af "silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB,areverse" \
         -codec:a libmp3lame -b:a "$BITRATE" \
-        -metadata title="$clean_title" \
+        -metadata title="$rich_title" \
         -metadata album="${default_album##*/}" \
         -metadata artist="$ARTIST_DEFAULT" \
         -metadata date="$mtime" \
+        -metadata genre="$audio_type" \
+        ${bpm:+-metadata "TBPM=$bpm"} \
+        ${key:+-metadata "TKEY=$key"} \
         "$tmp_mp3" </dev/null 2>/dev/null || { print "  ${PINK}[$i] ${base} encode failed${RST}"; continue; }
 
-      print -n "  ${MUTED}[$i] ${base} ($(fmt_dur "$dur")) uploading…${RST}\r"
+      print -n "  ${MUTED}[$i] ${smart_title} ($(fmt_dur "$dur")) uploading…${RST}\r"
       local up_log=$(mktemp)
-      if wrangler r2 object put "$BUCKET/$out_key" --file="$tmp_mp3" --remote >/dev/null 2>"$up_log"; then
-        print "  ${TEAL}[$i] ${base}${RST} -> ${MUTED}${out_key}${RST}       "
+      if wrangler r2 object put "$BUCKET/$smart_key" --file="$tmp_mp3" --remote >/dev/null 2>"$up_log"; then
+        local meta_info="${audio_type}"
+        [[ -n "$bpm" && "$bpm" -gt 40 && "$bpm" -lt 300 ]] && meta_info="${meta_info} ${bpm}bpm"
+        [[ -n "$key" ]] && meta_info="${meta_info} ${key}"
+        print "  ${TEAL}[$i] ${display_title}${RST} ${MUTED}(${meta_info})${RST} -> ${MUTED}${smart_key}${RST}       "
         imported_count=$((imported_count + 1))
       else
         if grep -q "CLOUDFLARE_API_TOKEN\|auth token" "$up_log" 2>/dev/null; then
@@ -1074,7 +1170,7 @@ cmd_tp7_pull() {
           rm -f "$up_log" "$tmp_mp3"
           break
         fi
-        print "  ${PINK}[$i] ${base} upload failed${RST}       "
+        print "  ${PINK}[$i] ${smart_title} upload failed${RST}       "
       fi
       rm -f "$up_log"
       rm -f "$tmp_mp3"
