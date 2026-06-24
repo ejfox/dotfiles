@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# screenshot-cloudinary — upload new screenshots & screen recordings to Cloudinary,
+# copy the public URL to the clipboard.
+#
+# Triggered by the launchd agent com.ejfox.screenshot-cloudinary whenever
+# ~/screenshots changes (WatchPaths). Replaces the old Automator Folder Action
+# that crashed ScriptMonitor.app on every screenshot.
+#
+# CLOUDINARY_URL is read from ~/.env (NOT hardcoded — ~/.dotfiles is a public repo).
+#
+# State of already-uploaded files is kept in $STATE so WatchPaths re-fires
+# (which happen on any dir change, including deletes) don't re-upload.
+
+set -u
+
+WATCH_DIR="$HOME/screenshots"
+STATE="$HOME/.local/share/screenshot-cloudinary/uploaded.list"
+CLD=/usr/local/bin/cld
+JQ=/usr/local/bin/jq
+
+# Load secrets (CLOUDINARY_URL) from ~/.env
+if [ -f "$HOME/.env" ]; then
+  # shellcheck disable=SC1090
+  source "$HOME/.env"
+fi
+
+mkdir -p "$(dirname "$STATE")"
+touch "$STATE"
+
+if [ -z "${CLOUDINARY_URL:-}" ]; then
+  echo "$(date '+%Y-%m-%d %H:%M:%S') ERR  CLOUDINARY_URL not set (expected in ~/.env)"
+  osascript -e 'display notification "CLOUDINARY_URL missing from ~/.env" with title "Screenshot upload failed"' 2>/dev/null
+  exit 1
+fi
+export CLOUDINARY_URL
+
+# macOS may still be writing the file when the dir-change event fires; give it a beat.
+sleep 1
+
+upload_one() {
+  local file="$1" rtype="$2"
+
+  # Skip if we've already uploaded this exact path.
+  grep -Fqx "$file" "$STATE" && return 0
+
+  # Videos can take a while to finish writing; wait until the size is stable.
+  if [ "$rtype" = "video" ]; then
+    local s1 s2
+    s1=$(stat -f%z "$file" 2>/dev/null)
+    sleep 2
+    s2=$(stat -f%z "$file" 2>/dev/null)
+    [ "$s1" != "$s2" ] && return 0   # still being written; a later event will catch it
+  fi
+
+  local out exit_code url
+  out=$("$CLD" uploader upload "$file" \
+    resource_type="$rtype" type=upload use_filename=true unique_filename=false 2>&1)
+  exit_code=$?
+
+  if [ $exit_code -eq 0 ]; then
+    url=$(echo "$out" | "$JQ" -r '.secure_url // .url' 2>/dev/null)
+    if [ -n "$url" ] && [ "$url" != "null" ]; then
+      echo "$file" >> "$STATE"
+      echo "$url" | pbcopy
+      osascript -e "display notification \"URL copied: $url\" with title \"Uploaded ($rtype)\"" 2>/dev/null
+      echo "$(date '+%Y-%m-%d %H:%M:%S') OK   $file -> $url"
+    else
+      echo "$(date '+%Y-%m-%d %H:%M:%S') ERR  no URL in output for $file: $out"
+    fi
+  else
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ERR  upload failed ($exit_code) for $file: $out"
+  fi
+}
+
+shopt -s nullglob nocaseglob
+for file in "$WATCH_DIR"/*.png "$WATCH_DIR"/*.jpg "$WATCH_DIR"/*.jpeg "$WATCH_DIR"/*.gif; do
+  [ -f "$file" ] && upload_one "$file" image
+done
+for file in "$WATCH_DIR"/*.mov "$WATCH_DIR"/*.mp4 "$WATCH_DIR"/*.m4v; do
+  [ -f "$file" ] && upload_one "$file" video
+done
