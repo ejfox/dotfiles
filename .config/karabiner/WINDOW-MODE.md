@@ -3,6 +3,8 @@
 > ## ✅ RESOLVED 2026-06-29 — and the ENTIRE prior diagnosis was barking up the wrong tree
 > The leader is **⌥Space** (Option+Space), NOT Ctrl+Space. Press ⌥Space, then a direction.
 > - **Directions:** `h`←  `l`→  `k`↑  `j`↓ **and the arrow keys** ←→↑↓ ; `space` = maximize ; `esc`/`q`/2s = exit.
+> - **Cross-display:** repeating the same direction when the window is *already* there **throws it to the next display** (cycles).
+> - **Snap engine = Hammerspoon, NOT Rectangle Pro (changed later 2026-06-29).** Karabiner's direction keys shell out to `/usr/local/bin/hs -c "windowSnap('top')"` (function in `~/.dotfiles/hammerspoon/init.lua`). Why: Rectangle's `subsequentExecutionMode=2` (across-monitor on repeat) is IGNORED when actions arrive via its `rectangle-pro://` URL scheme — it only tracks repeats from its own hotkeys. Hammerspoon reads the window's real frame, so "already there → next display" is actual logic, not Rectangle's timing guess. (Window moves use the Accessibility API, immune to the Secure-Event-Input starvation that killed the *old* eventtap leader — that was key *capture*, which is still Karabiner's job.)
 >
 > ### 🚨 BROKEN AGAIN? DO THIS FIRST — open **Karabiner-EventViewer**, press your leader, READ what it emits.
 > That one step would have saved ~2 hours. Do NOT touch daemons, drivers, permissions, or reboot until you have
