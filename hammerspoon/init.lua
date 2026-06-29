@@ -126,3 +126,88 @@ hueKeyTap:start()
 local count = 0
 for _ in pairs(keyPos) do count = count + 1 end
 hs.alert.show("hue-key loaded: " .. count .. " keys live", 3)
+
+-- ── Window management ───────────────────────────────────────────────────────
+-- Moved OUT of Hammerspoon (2026-06-27). The old hs.eventtap window-mode was
+-- silently starved by macOS Secure Event Input (Safari password fields, etc.),
+-- so Ctrl+Space went dead with no error and the watchdog couldn't see it.
+-- Window snapping now lives in two secure-input-immune layers:
+--   • Rectangle Pro  — does the actual snap   (Carbon RegisterEventHotKey)
+--   • Karabiner      — Ctrl+Space leader → fires Rectangle's ⌃⌥ h/j/k/l/m, o/u
+-- See ~/.dotfiles/hammerspoon/RETROSPECTIVE-window-mode.md for the full story.
+
+-- ── Robustness: keep the hue-key eventtap alive ─────────────────────────────
+-- macOS silently disables eventtaps after sleep/wake (hammerspoon #1502/#1859).
+-- Re-arm on wake + a periodic health check. Only hueKeyTap uses a tap now —
+-- window-mode no longer does, so it can never be starved by secure input.
+local function rearmTaps()
+  if hueKeyTap then pcall(function() hueKeyTap:stop(); hueKeyTap:start() end) end
+end
+if caffeineWatcher then caffeineWatcher:stop() end
+caffeineWatcher = hs.caffeinate.watcher.new(function(ev)
+  local W = hs.caffeinate.watcher
+  if ev == W.systemDidWake or ev == W.screensDidWake or ev == W.sessionDidBecomeActive then
+    rearmTaps()
+  end
+end):start()
+if tapHealthTimer then tapHealthTimer:stop() end
+tapHealthTimer = hs.timer.doEvery(30, function()
+  if hueKeyTap and not hueKeyTap:isEnabled() then pcall(function() hueKeyTap:start() end) end
+end)
+
+-- ── Auto-reload config on save ──────────────────────────────────────────────
+-- init.lua is symlinked from the dotfiles; watch that dir and reload on save.
+if configReloader then configReloader:stop() end
+configReloader = hs.pathwatcher.new(os.getenv("HOME") .. "/.dotfiles/hammerspoon/", function(paths)
+  for _, p in ipairs(paths) do
+    if p:sub(-4) == ".lua" then
+      hs.timer.doAfter(0.25, hs.reload)  -- small debounce so the save fully lands
+      return
+    end
+  end
+end):start()
+
+-- ── Window snapping (called by the Karabiner ⌥Space leader via `hs -c`) ──────
+-- Karabiner captures ⌥Space + direction and shells out to:
+--     /usr/local/bin/hs -c "windowSnap('top')"
+-- Snaps the focused window to a half/full of its CURRENT display. If the window
+-- is ALREADY sitting at that exact rect, it's thrown to the same slot on the
+-- NEXT display (cycles) — so pressing top→top→top walks it across your screens.
+-- Uses the Accessibility API (window moves), NOT an eventtap, so macOS Secure
+-- Event Input can't starve it — that only ever affected key capture (Karabiner's job).
+local SNAP_UNITS = {
+  left   = { x = 0,   y = 0,   w = 0.5, h = 1   },
+  right  = { x = 0.5, y = 0,   w = 0.5, h = 1   },
+  top    = { x = 0,   y = 0,   w = 1,   h = 0.5 },
+  bottom = { x = 0,   y = 0.5, w = 1,   h = 0.5 },
+  full   = { x = 0,   y = 0,   w = 1,   h = 1   },
+}
+
+local function snapRectFor(screen, u)
+  local f = screen:frame()   -- usable area: excludes menu bar + dock
+  return hs.geometry.rect(f.x + u.x * f.w, f.y + u.y * f.h, u.w * f.w, u.h * f.h)
+end
+
+local function snapSameRect(a, b)
+  local tol = 12  -- px slop so near-misses still count as "already there"
+  return math.abs(a.x - b.x) < tol and math.abs(a.y - b.y) < tol
+     and math.abs(a.w - b.w) < tol and math.abs(a.h - b.h) < tol
+end
+
+function windowSnap(dir)  -- global on purpose: reachable via `hs -c`
+  local u = SNAP_UNITS[dir]
+  if not u then return end
+  local win = hs.window.focusedWindow()
+  if not win then return end
+  local screen = win:screen()
+  local target = snapRectFor(screen, u)
+  if snapSameRect(win:frame(), target) then
+    local nxt = screen:next()                       -- cycles; == screen if only one display
+    if nxt and nxt:id() ~= screen:id() then
+      target = snapRectFor(nxt, u)                  -- escalate: same slot, next display
+    end
+  end
+  win:setFrame(target, 0)                           -- 0 = no animation, instant snap
+end
+
+hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display", 2)

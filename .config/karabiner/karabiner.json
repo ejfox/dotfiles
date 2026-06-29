@@ -150,7 +150,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-h-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=left-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-h-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('left')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -185,7 +185,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-l-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=right-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-l-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('right')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -220,7 +220,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-k-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=top-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-k-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('top')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -255,7 +255,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-j-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=bottom-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-j-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottom')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -290,7 +290,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-space-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=maximize'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-space-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('full')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -395,7 +395,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-left_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=left-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-left_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('left')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -430,7 +430,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-right_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=right-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-right_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('right')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -465,7 +465,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-up_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=top-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-up_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('top')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -500,7 +500,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-down_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=bottom-half'"
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-down_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottom')\""
                                     }
                                 ],
                                 "type": "basic"
