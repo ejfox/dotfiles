@@ -4,6 +4,510 @@
             "complex_modifications": {
                 "rules": [
                     {
+                        "description": "Window mode: Ctrl+Space → Rectangle Pro (one-shot: h/j/k/l halves, space=fill, esc/q/2s exit). ⚠️ BROKEN? run window-mode-doctor + read ~/.config/karabiner/WINDOW-MODE.md",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_unless",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "option"
+                                        ]
+                                    }
+                                },
+                                "parameters": {
+                                    "basic.to_delayed_action_delay_milliseconds": 2000
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 1
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": "◆ WINDOW MODE   —   h ◧  l ◨  k ⬒  j ⬓   space = fill   (one-shot · esc/q exits)"
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) LEADER-on(opt)\" >> /tmp/kbn-debug.log"
+                                    }
+                                ],
+                                "to_delayed_action": {
+                                    "to_if_invoked": [
+                                        {
+                                            "set_variable": {
+                                                "name": "winmode",
+                                                "value": 0
+                                            }
+                                        },
+                                        {
+                                            "set_notification_message": {
+                                                "id": "winmode",
+                                                "text": ""
+                                            }
+                                        },
+                                        {
+                                            "shell_command": "/bin/echo \"$(date +%H:%M:%S) AUTO-EXIT\" >> /tmp/kbn-debug.log"
+                                        }
+                                    ]
+                                },
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_unless",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "control"
+                                        ]
+                                    }
+                                },
+                                "parameters": {
+                                    "basic.to_delayed_action_delay_milliseconds": 2000
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 1
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": "◆ WINDOW MODE   —   h ◧  l ◨  k ⬒  j ⬓   space = fill   (one-shot · esc/q exits)"
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) LEADER-on\" >> /tmp/kbn-debug.log"
+                                    }
+                                ],
+                                "to_delayed_action": {
+                                    "to_if_invoked": [
+                                        {
+                                            "set_variable": {
+                                                "name": "winmode",
+                                                "value": 0
+                                            }
+                                        },
+                                        {
+                                            "set_notification_message": {
+                                                "id": "winmode",
+                                                "text": ""
+                                            }
+                                        },
+                                        {
+                                            "shell_command": "/bin/echo \"$(date +%H:%M:%S) AUTO-EXIT\" >> /tmp/kbn-debug.log"
+                                        }
+                                    ]
+                                },
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "h",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-h-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=left-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "l",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-l-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=right-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "k",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-k-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=top-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "j",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-j-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=bottom-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "spacebar",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-space-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=maximize'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "escape",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) EXIT-esc\" >> /tmp/kbn-debug.log"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "q",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) EXIT-q\" >> /tmp/kbn-debug.log"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "left_arrow",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-left_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=left-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "right_arrow",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-right_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=right-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "up_arrow",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-up_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=top-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "down_arrow",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-down_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/bin/open 'rectangle-pro://execute-action?name=bottom-half'"
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
                         "description": "Double tap left shift → Ctrl+A (Select All)",
                         "manipulators": [
                             {
@@ -16,12 +520,18 @@
                                 ],
                                 "from": {
                                     "key_code": "left_shift",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
                                         "key_code": "a",
-                                        "modifiers": ["left_control"]
+                                        "modifiers": [
+                                            "left_control"
+                                        ]
                                     }
                                 ],
                                 "type": "basic"
@@ -29,7 +539,11 @@
                             {
                                 "from": {
                                     "key_code": "left_shift",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -38,7 +552,9 @@
                                             "value": 1
                                         }
                                     },
-                                    { "key_code": "left_shift" }
+                                    {
+                                        "key_code": "left_shift"
+                                    }
                                 ],
                                 "to_delayed_action": {
                                     "to_if_canceled": [
@@ -63,7 +579,7 @@
                         ]
                     },
                     {
-                        "description": "Double tap right shift → Toggle microphone mute",
+                        "description": "Double tap right shift → Toggle microphone mute (NOTE: /Users/ejfox/bin/mic-toggle is MISSING — errors until created or removed)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -75,7 +591,11 @@
                                 ],
                                 "from": {
                                     "key_code": "right_shift",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -87,7 +607,11 @@
                             {
                                 "from": {
                                     "key_code": "right_shift",
-                                    "modifiers": { "optional": ["any"] }
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
                                 },
                                 "to": [
                                     {
@@ -96,7 +620,9 @@
                                             "value": 1
                                         }
                                     },
-                                    { "key_code": "right_shift" }
+                                    {
+                                        "key_code": "right_shift"
+                                    }
                                 ],
                                 "to_delayed_action": {
                                     "to_if_canceled": [
@@ -122,15 +648,33 @@
                     }
                 ]
             },
+            "devices": [
+                {
+                    "identifiers": {
+                        "is_consumer": true,
+                        "product_id": 16941,
+                        "vendor_id": 8352
+                    },
+                    "ignore": false
+                }
+            ],
             "name": "Default profile",
             "selected": true,
             "simple_modifications": [
                 {
-                    "from": { "key_code": "caps_lock" },
-                    "to": [{ "key_code": "escape" }]
+                    "from": {
+                        "key_code": "caps_lock"
+                    },
+                    "to": [
+                        {
+                            "key_code": "escape"
+                        }
+                    ]
                 }
             ],
-            "virtual_hid_keyboard": { "keyboard_type_v2": "ansi" }
+            "virtual_hid_keyboard": {
+                "keyboard_type_v2": "ansi"
+            }
         }
     ]
 }
