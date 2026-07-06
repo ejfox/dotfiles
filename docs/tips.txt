@@ -426,3 +426,12 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (voice) NATO alphabet: alpha bravo charlie delta echo foxtrot...
 (voice) "screenshot" = cmd-shift-4, "screen record" = cmd-shift-5
 (voice) "hide this" / "quit this" = cmd-h / cmd-q
+(winmode) Opt+Space then h/l/k/j (or arrows) = snap half left/right/top/bottom
+(winmode) Opt+Space then Space = maximize
+(winmode) repeat same direction when already there = throw to next display
+(winmode) Opt+Space then Shift+h/l = quarter on that side (Shift+h = top-left)
+(winmode) repeat the same shift-key = toggle to the other quarter on that side
+(winmode) Shift+k/j = top/bottom quarters, repeat toggles left/right corner
+(winmode) Opt+Space then Shift+Space = golden-ratio centered float (again = phi^2 smaller)
+(winmode) Opt+Space then u = undo last snap (vim u!)
+(winmode) esc/q/2s idle = exit mode; one-shot, can't get stuck

@@ -181,6 +181,27 @@ local SNAP_UNITS = {
   top    = { x = 0,   y = 0,   w = 1,   h = 0.5 },
   bottom = { x = 0,   y = 0.5, w = 1,   h = 0.5 },
   full   = { x = 0,   y = 0,   w = 1,   h = 1   },
+  -- Shift layer: quarters
+  topLeft     = { x = 0,   y = 0,   w = 0.5, h = 0.5 },
+  bottomLeft  = { x = 0,   y = 0.5, w = 0.5, h = 0.5 },
+  topRight    = { x = 0.5, y = 0,   w = 0.5, h = 0.5 },
+  bottomRight = { x = 0.5, y = 0.5, w = 0.5, h = 0.5 },
+}
+
+-- ⇧Space: centered float at 1/φ of the screen; again = 1/φ² (golden all the way down)
+local PHI = (1 + math.sqrt(5)) / 2
+for name, s in pairs({ golden = 1 / PHI, goldenSmall = 1 / (PHI * PHI) }) do
+  SNAP_UNITS[name] = { x = (1 - s) / 2, y = (1 - s) / 2, w = s, h = s }
+end
+
+-- Shift+direction = quarter on that side; pressing again toggles to the other
+-- quarter on the same side (⇧H: top-left ⇄ bottom-left, ⇧K: top-left ⇄ top-right).
+local CYCLES = {
+  leftQuarters   = { "topLeft", "bottomLeft" },
+  rightQuarters  = { "topRight", "bottomRight" },
+  topQuarters    = { "topLeft", "topRight" },
+  bottomQuarters = { "bottomLeft", "bottomRight" },
+  goldenCenter   = { "golden", "goldenSmall" },
 }
 
 local function snapRectFor(screen, u)
@@ -194,20 +215,45 @@ local function snapSameRect(a, b)
      and math.abs(a.w - b.w) < tol and math.abs(a.h - b.h) < tol
 end
 
+local lastSnap = nil  -- single-depth undo: frame before the most recent snap
+
+local function cyclePosition(win, screen, cycle)
+  for i, name in ipairs(cycle) do
+    if snapSameRect(win:frame(), snapRectFor(screen, SNAP_UNITS[name])) then return i end
+  end
+end
+
 function windowSnap(dir)  -- global on purpose: reachable via `hs -c`
+  local cycle = CYCLES[dir]
   local u = SNAP_UNITS[dir]
-  if not u then return end
+  if not cycle and not u then return end
   local win = hs.window.focusedWindow()
   if not win then return end
   local screen = win:screen()
-  local target = snapRectFor(screen, u)
-  if snapSameRect(win:frame(), target) then
-    local nxt = screen:next()                       -- cycles; == screen if only one display
-    if nxt and nxt:id() ~= screen:id() then
-      target = snapRectFor(nxt, u)                  -- escalate: same slot, next display
+  local target
+  if cycle then
+    local i = cyclePosition(win, screen, cycle)
+    local nextName = i and cycle[i % #cycle + 1] or cycle[1]
+    target = snapRectFor(screen, SNAP_UNITS[nextName])
+  else
+    target = snapRectFor(screen, u)
+    if snapSameRect(win:frame(), target) then
+      local nxt = screen:next()                     -- cycles; == screen if only one display
+      if nxt and nxt:id() ~= screen:id() then
+        target = snapRectFor(nxt, u)                -- escalate: same slot, next display
+      end
     end
   end
+  lastSnap = { id = win:id(), frame = win:frame() }
   win:setFrame(target, 0)                           -- 0 = no animation, instant snap
+end
+
+function windowSnapUndo()  -- global: reachable via `hs -c`; ⌥Space u
+  local win = hs.window.focusedWindow()
+  if win and lastSnap and lastSnap.id == win:id() then
+    win:setFrame(lastSnap.frame, 0)
+    lastSnap = nil
+  end
 end
 
 hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display", 2)
