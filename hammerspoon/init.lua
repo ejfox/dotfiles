@@ -167,6 +167,36 @@ configReloader = hs.pathwatcher.new(os.getenv("HOME") .. "/.dotfiles/hammerspoon
   end
 end):start()
 
+-- ── Window arrangement logging ───────────────────────────────────────────────
+-- Snapshots all standard windows every 5 min (+ after every ⌥Space snap) to
+-- ~/.local/share/usage-logs/windows/YYYY-MM-DD.jsonl — same convention as the
+-- shell/nvim/tmux usage logs. Positions are screen FRACTIONS (0-1) so they map
+-- directly onto SNAP_UNITS. Purpose: mine a week of real arranging behavior to
+-- design layout presets from actual usage, not guesses.
+local WINLOG_DIR = os.getenv("HOME") .. "/.local/share/usage-logs/windows/"
+local function logWindowSnapshot(trigger)
+  local focused = hs.window.focusedWindow()
+  local wins = {}
+  for _, w in ipairs(hs.window.orderedWindows()) do
+    local app = w:application()
+    if w:isStandard() and app then
+      local f, sf = w:frame(), w:screen():frame()
+      wins[#wins + 1] = string.format(
+        '{"app":%q,"x":%.3f,"y":%.3f,"w":%.3f,"h":%.3f,"screen":%q,"focused":%s}',
+        app:name() or "?", (f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
+        f.w / sf.w, f.h / sf.h, w:screen():name() or "?", tostring(w == focused))
+    end
+  end
+  local out = io.open(WINLOG_DIR .. os.date("%Y-%m-%d") .. ".jsonl", "a")
+  if out then
+    out:write(string.format('{"ts":"%s","trigger":%q,"windows":[%s]}\n',
+      os.date("!%Y-%m-%dT%H:%M:%SZ"), trigger, table.concat(wins, ",")))
+    out:close()
+  end
+end
+if winlogTimer then winlogTimer:stop() end
+winlogTimer = hs.timer.doEvery(300, function() pcall(logWindowSnapshot, "periodic") end)
+
 -- ── Window snapping (called by the Karabiner ⌥Space leader via `hs -c`) ──────
 -- Karabiner captures ⌥Space + direction and shells out to:
 --     /usr/local/bin/hs -c "windowSnap('top')"
@@ -246,6 +276,7 @@ function windowSnap(dir)  -- global on purpose: reachable via `hs -c`
   end
   lastSnap = { id = win:id(), frame = win:frame() }
   win:setFrame(target, 0)                           -- 0 = no animation, instant snap
+  hs.timer.doAfter(0.3, function() pcall(logWindowSnapshot, "snap") end)
 end
 
 function windowSnapUndo()  -- global: reachable via `hs -c`; ⌥Space u
