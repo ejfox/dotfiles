@@ -441,3 +441,5 @@
 (winmode) Opt+Space then u = undo last snap (vim u!)
 (winmode) esc/q/2s idle = exit mode; one-shot, can't get stuck
 (winmode) arrangements auto-logged to ~/.local/share/usage-logs/windows/ (for layout presets, July 2026)
+(mic) double-tap right shift = mute/unmute real mics (Shure + built-in, never loopbacks)
+(mic) red muted-mic icon appears in sketchybar while muted; click it to unmute

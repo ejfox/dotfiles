@@ -64,6 +64,17 @@ sketchybar --add item talon left \
   label.drawing=off \
   --subscribe talon talon_state
 
+##### Mic Mute Indicator ##### (fired by bin/mic-toggle via `--trigger mic_change`)
+# Hidden while mics are live; red 󰍭 while muted so you never talk to a dead mic.
+sketchybar --add event mic_change
+sketchybar --add item mic left \
+  --set mic \
+  updates=on \
+  script="$PLUGIN_DIR/mic.sh" \
+  drawing=off \
+  click_script="$HOME/bin/mic-toggle" \
+  --subscribe mic mic_change system_woke
+
 ##### Next Calendar Event #####
 sketchybar --add item next_event left \
   --set next_event update_freq=60 \
