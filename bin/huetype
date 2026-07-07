@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# huetype — toggle keyboard→lights reactive typing (Hammerspoon + hue-stream)
+#
+# Usage:
+#   huetype              toggle on/off (default; good for single-key bindings)
+#   huetype on           enable
+#   huetype off          disable (also clears any in-flight light bursts)
+#   huetype toggle       same as no-arg
+#   huetype status       print "on" or "off"
+#   huetype pick         interactive fzf TUI to choose target rooms — the
+#                        focused room lights up vulpes pink as you navigate
+#   huetype mode         print current mode
+#   huetype mode subtle  warm-white baseline, keys add a ~10% bump (usable)
+#   huetype mode dramatic  dark baseline, keys strobe full color (default)
+#
+# State persists in ~/.config/hue-key/{enabled,targets,mode}.
+# Exits non-zero if Hammerspoon isn't running or the hs CLI isn't available.
+
+set -euo pipefail
+
+CONFIG_DIR="${HOME}/.config/hue-key"
+ENABLED_FILE="${CONFIG_DIR}/enabled"
+TARGETS_FILE="${CONFIG_DIR}/targets"
+MODE_FILE="${CONFIG_DIR}/mode"
+DAEMON_HOST="127.0.0.1"
+DAEMON_PORT="9999"
+
+# Vulpes pink (#e60067) normalized to 0..1 sRGB.
+HIGHLIGHT_COLOR='[0.902,0,0.404]'
+
+die() { printf 'huetype: %s\n' "$*" >&2; exit 1; }
+
+require_hs() {
+  command -v hs >/dev/null || die "hs CLI not found (enable hs.ipc in Hammerspoon)"
+  local probe
+  probe=$(hs -c "type(hueSetEnabled)" 2>/dev/null || true)
+  [[ "$probe" == "function" ]] || die "Hammerspoon not running, or init.lua not loaded"
+}
+
+is_on() {
+  [[ ! -f "$ENABLED_FILE" ]] && return 0
+  [[ "$(tr -d '[:space:]' < "$ENABLED_FILE")" != "0" ]]
+}
+
+# Send a JSON message to the hue-stream daemon via bash's built-in /dev/udp.
+send_daemon() {
+  local msg="$1"
+  printf '%s' "$msg" > "/dev/udp/${DAEMON_HOST}/${DAEMON_PORT}" 2>/dev/null || true
+}
+
+apply() {
+  require_hs
+  local target="$1"  # "true" | "false"
+  hs -c "hueSetEnabled(${target})" >/dev/null
+  [[ "$target" == "true" ]] && echo "huetype: on" || echo "huetype: off"
+}
+
+# ─── _highlight: internal; used by `pick` as fzf preview command ─────────
+# Usage: huetype _highlight "<room substring>"   → light that room vulpes pink
+#        huetype _highlight -                    → clear highlight (restore)
+cmd_highlight() {
+  local name="${1:-}"
+  if [[ -z "$name" || "$name" == "-" ]]; then
+    send_daemon '{"type":"highlight","target":[]}'
+    echo "· release"
+    return 0
+  fi
+  local escaped="${name//\"/\\\"}"
+  send_daemon "{\"type\":\"highlight\",\"target\":[\"${escaped}\"],\"color\":${HIGHLIGHT_COLOR}}"
+  echo "◆ ${name}"
+}
+
+# ─── pick: fzf TUI with live light preview ────────────────────────────────
+cmd_pick() {
+  command -v fzf  >/dev/null || die "fzf not installed"
+  command -v hue  >/dev/null || die "'hue' CLI not on PATH (see ~/.dotfiles/bin/hue)"
+  require_hs
+
+  # Source Hue creds so `hue list` works.
+  [[ -f "$HOME/.env" ]] && set -a && . "$HOME/.env" && set +a
+
+  # Remember tap state so filter keystrokes don't pulse the real targets while picking.
+  local was_on=0
+  is_on && was_on=1
+  hs -c "if hueKeyTap and hueKeyTap:isEnabled() then hueKeyTap:stop() end" >/dev/null
+
+  cleanup_pick() {
+    send_daemon '{"type":"highlight","target":[]}'
+    if [[ "$was_on" == "1" ]]; then
+      hs -c "if hueKeyTap and not hueKeyTap:isEnabled() then hueKeyTap:start() end" >/dev/null 2>&1 || true
+    fi
+  }
+  trap cleanup_pick EXIT
+
+  local rooms
+  rooms=$(hue list 2>/dev/null \
+    | awk '/^rooms:/{f=1;next} /^$/{f=0} f' \
+    | awk '{sub(/^[[:space:]]+● /,""); sub(/[[:space:]]+[0-9]+%$/,""); print}')
+  [[ -z "$rooms" ]] && die "couldn't list rooms (check HUE_BRIDGE_IP / HUE_APP_KEY in ~/.env)"
+
+  local self_q
+  self_q=$(printf '%q' "$0")
+
+  local selected
+  selected=$(printf '%s\n' "$rooms" | fzf \
+    --multi \
+    --prompt='target › ' \
+    --header=$'TAB multi-select   ENTER save   ESC cancel' \
+    --preview="$self_q _highlight {}" \
+    --preview-window='down,1,border-none' \
+    --height=60% \
+    --reverse \
+    --border=rounded \
+    --pointer='▸' \
+    --marker='◆' \
+    --color='bg+:#0d0d0d,fg+:#e60067:bold,hl:#e60067,hl+:#e60067:bold,pointer:#e60067,marker:#6eedf7,prompt:#e60067,header:#735865,border:#73264a,info:#735865,spinner:#e60067'
+  ) || selected=""
+
+  if [[ -z "$selected" ]]; then
+    echo "huetype: targets unchanged" >&2
+    return 0
+  fi
+
+  local joined
+  joined=$(printf '%s\n' "$selected" | paste -sd, -)
+  printf '%s\n' "$joined" > "$TARGETS_FILE"
+  echo "huetype: targets = ${joined}"
+}
+
+cmd_mode() {
+  local arg="${1:-}"
+  if [[ -z "$arg" ]]; then
+    [[ -f "$MODE_FILE" ]] && tr -d '[:space:]' < "$MODE_FILE" || echo "dramatic"
+    return 0
+  fi
+  case "$arg" in
+    subtle|dramatic) ;;
+    *) die "mode must be 'subtle' or 'dramatic'" ;;
+  esac
+  printf '%s\n' "$arg" > "$MODE_FILE"
+  # Hammerspoon's pathwatcher on CONFIG_DIR picks up the change and pushes
+  # the right ambient to the daemon; no hs -c call needed.
+  echo "huetype: mode = $arg"
+}
+
+case "${1:-toggle}" in
+  on)             apply true ;;
+  off)            apply false ;;
+  toggle|"")      if is_on; then apply false; else apply true; fi ;;
+  status)         is_on && echo on || echo off ;;
+  pick)           cmd_pick ;;
+  mode)           shift; cmd_mode "${1:-}" ;;
+  _highlight)     shift; cmd_highlight "${1:-}" ;;
+  -h|--help|help) sed -n '2,18p' "$0" | sed -E 's/^#[[:space:]]?//' ;;
+  *)              die "unknown command '$1' (try: on, off, toggle, status, pick, mode)" ;;
+esac

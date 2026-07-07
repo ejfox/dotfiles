@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Show a 🌞 Foundation task (or any today task) as a little nudge.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+
+# Pull today's tasks from Things — shared 5-min cache (avoids Touch ID spam)
+command -v things-cli >/dev/null || exit 0
+
+CACHE="/tmp/things-today.cache"
+needs_refresh() {
+  [ ! -s "$CACHE" ] && return 0
+  AGE=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || echo 0) ))
+  [ "$AGE" -gt 300 ]
+}
+if needs_refresh; then
+  things-cli today 2>/dev/null > "$CACHE.tmp" && mv "$CACHE.tmp" "$CACHE"
+fi
+TASKS=$(head -50 "$CACHE" 2>/dev/null)
+[ -z "$TASKS" ] && exit 0
+
+# Prefer 🌞-prefixed (foundation) tasks; fall back to any task
+PICK=$(echo "$TASKS" | grep "🌞" | shuf -n 1)
+[ -z "$PICK" ] && PICK=$(echo "$TASKS" | grep -v "^$" | shuf -n 1)
+[ -z "$PICK" ] && exit 0
+
+# Strip things-cli formatting: leading "- ", 🌞 emoji, trailing " (date | project)"
+TITLE=$(echo "$PICK" \
+  | sed 's/^-[[:space:]]*//' \
+  | sed 's/🌞//g' \
+  | sed 's/[[:space:]]*([^)]*)[[:space:]]*$//' \
+  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+  | cut -c1-26)
+[ -z "$TITLE" ] && exit 0
+
+# URL encode spaces
+TITLE_ENC=$(echo "$TITLE" | sed 's/ /%20/g; s/&/%26/g; s/?/%3F/g')
+
+px "clear"
+# Small label
+px "text?msg=foundation&x=10&y=20&color=mauve&size=1"
+# Sun-ish accent
+px "circle?x=280&y=30&radius=12&color=orange"
+px "circle?x=280&y=30&radius=6&color=pink"
+# Task title — wrap to two lines if long
+if [ ${#TITLE} -gt 13 ]; then
+  LINE1=$(echo "$TITLE" | cut -c1-13 | sed 's/[[:space:]]*$//' | sed 's/ /%20/g; s/&/%26/g')
+  LINE2=$(echo "$TITLE" | cut -c14-26 | sed 's/^[[:space:]]*//' | sed 's/ /%20/g; s/&/%26/g')
+  px "text?msg=${LINE1}&x=20&y=100&color=pink&size=3"
+  [ -n "$LINE2" ] && px "text?msg=${LINE2}&x=20&y=140&color=pink&size=3"
+else
+  px "text?msg=${TITLE_ENC}&x=20&y=120&color=pink&size=3"
+fi
+
+# Bottom hairline
+px "rect?x=20&y=220&w=280&h=1&color=dustrose"

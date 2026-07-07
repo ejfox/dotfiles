@@ -1,0 +1,97 @@
+#!/bin/bash
+# weekly-session-context - Cross-reference a time window with music, commits, apps
+# Usage: weekly-session-context --date YYYY-MM-DD --start HH:MM --end HH:MM
+#
+# Fetches what was happening during a specific time window:
+# - Music playing (Last.fm)
+# - Commits made (GitHub)
+# - Top apps (RescueTime)
+
+set -e
+
+BASE_URL="https://ejfox.com/api"
+DATE=""
+START=""
+END=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --date|-d) DATE="$2"; shift 2 ;;
+    --start|-s) START="$2"; shift 2 ;;
+    --end|-e) END="$2"; shift 2 ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
+
+if [[ -z "$DATE" ]] || [[ -z "$START" ]] || [[ -z "$END" ]]; then
+  echo "Usage: weekly-session-context --date YYYY-MM-DD --start HH:MM --end HH:MM" >&2
+  exit 1
+fi
+
+# Get day name
+DAY=$(date -j -f "%Y-%m-%d" "$DATE" "+%A" 2>/dev/null || date -d "$DATE" "+%A" 2>/dev/null || echo "$DATE")
+
+echo "🔍 Context for $DAY $DATE ($START → $END)"
+echo ""
+
+# Fetch APIs in background
+LASTFM=$(curl -s --max-time 10 "$BASE_URL/lastfm" 2>/dev/null || echo '{}')
+GITHUB=$(curl -s --max-time 10 "$BASE_URL/github" 2>/dev/null || echo '{}')
+RESCUETIME=$(curl -s --max-time 10 "$BASE_URL/rescuetime" 2>/dev/null || echo '{}')
+
+# Parse start/end to epoch for comparison
+START_EPOCH=$(date -j -f "%Y-%m-%d %H:%M" "$DATE $START" "+%s" 2>/dev/null || echo 0)
+END_EPOCH=$(date -j -f "%Y-%m-%d %H:%M" "$DATE $END" "+%s" 2>/dev/null || echo 0)
+
+# Last.fm - find tracks from this window
+echo "🎵 Music"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "$LASTFM" | jq -r '
+  (.recentTracks.tracks // [])[] |
+  select(.date.uts != null) |
+  "\(.date.uts)|\(.name) - \(.artist.name)"
+' 2>/dev/null | while IFS='|' read -r uts track; do
+  if [[ -n "$uts" ]] && [[ $uts -ge $START_EPOCH ]] && [[ $uts -le $END_EPOCH ]]; then
+    time_str=$(date -r "$uts" "+%H:%M" 2>/dev/null || echo "??:??")
+    echo "   $time_str  $track"
+  fi
+done
+
+# If no tracks in window, show top artists for context
+track_count=$(echo "$LASTFM" | jq -r '(.recentTracks.tracks // [])[] | select(.date.uts != null) | .date.uts' 2>/dev/null | while read uts; do
+  [[ $uts -ge $START_EPOCH ]] && [[ $uts -le $END_EPOCH ]] && echo "1"
+done | wc -l | tr -d ' ')
+
+if [[ "$track_count" -eq 0 ]]; then
+  echo "   (No tracks with timestamps in this window)"
+  echo "   Top artists this week:"
+  echo "$LASTFM" | jq -r '(.topArtists.artists // [])[:3] | .[] | "   • \(.name) (\(.playcount) plays)"' 2>/dev/null
+fi
+echo ""
+
+# GitHub - find commits from this date
+echo "💻 Commits on $DATE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "$GITHUB" | jq -r --arg date "$DATE" '
+  (.detail.commits // [])[] |
+  select(.date != null and (.date | startswith($date))) |
+  "   [\(.repository.name)] \(.message | split("\n")[0] | .[0:60])"
+' 2>/dev/null | head -10
+
+commit_count=$(echo "$GITHUB" | jq -r --arg date "$DATE" '
+  [(.detail.commits // [])[] | select(.date != null and (.date | startswith($date)))] | length
+' 2>/dev/null || echo 0)
+
+if [[ "$commit_count" -eq 0 ]]; then
+  echo "   (No commits on this date)"
+fi
+echo ""
+
+# RescueTime - show top apps for the week (daily breakdown not available via API)
+echo "📊 Top Apps (week)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "$RESCUETIME" | jq -r '(.week.activities // [])[:5] | .[] | "   \(.name): \(.time.formatted // "?")"' 2>/dev/null
+echo ""
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Context loaded"

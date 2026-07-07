@@ -1,0 +1,4 @@
+#!/bin/bash
+# Re-sync all CLI tool themes to whatever macOS appearance is currently set to.
+# Run this whenever something looks wrong — files got stomped, fresh shell, etc.
+exec "$HOME/.dotfiles/bin/appearance-watcher" --sync

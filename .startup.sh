@@ -5,7 +5,7 @@
 # Robust, fault-tolerant MOTD with graceful degradation.
 # If anything fails, skip it and keep going.
 #
-# TIMING: Cold ~0.9s | Warm ~0.5s
+# TIMING: Cold ~4s (5 parallel fetchers, mirror API call) | Warm ~1-2s
 ################################################################################
 
 # === SAFETY & CONFIG ===
@@ -114,8 +114,9 @@ fetch_stats() {
   [ "$ONLINE" -eq 0 ] || return 0
 
   local mt rt stats
+  # TODO: ejfox.com/api/monkeytype returns {"typingStats":null} — upstream broken (May 2026)
   mt=$(timeout 2 curl -fsSL https://ejfox.com/api/monkeytype 2>/dev/null | jq -r '.typingStats.bestWPM // empty' 2>/dev/null)
-  rt=$(timeout 2 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[]? | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{s+=$1} END {printf "%.1fh", s}')
+  rt=$(timeout 2 curl -fsSL https://ejfox.com/api/rescuetime 2>/dev/null | jq -r '.week.categories[]? | select(.productivity == 2) | .time.hoursDecimal' 2>/dev/null | awk '{s+=$1; n++} END {if (n) printf "%.1fh", s}')
 
   stats="${mt:+$mt WPM}${mt:+${rt:+ • }}${rt:+$rt productive}"
   [ -n "$stats" ] && atomic_write "$CACHE_DIR/stats" "$stats"
@@ -136,13 +137,18 @@ fetch_calendar() {
   cache_ok "$CACHE_DIR/calendar" $TTL_CALENDAR && return 0
   command -v icalBuddy >/dev/null || return 0
 
+  # icalBuddy emits each event as two lines (time, then indented title).
+  # Strip leading whitespace, then `paste -d ' ' - -` collapses pairs into
+  # single lines like "13:30 - 14:30 Lunch". Then take top 3 events and indent.
   icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" -po "datetime,title" -tf "%H:%M" -df "" -b "" \
     eventsToday 2>/dev/null | \
     LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | \
     tr -cd '\11\12\15\40-\176' | \
     grep -v '^[[:space:]]*$' | \
+    sed 's/^[[:space:]]*//' | \
+    paste -d ' ' - - | \
     awk '!seen[$0]++' | head -3 | \
-    sed 's/^[[:space:]]*/  /' > "$CACHE_DIR/calendar.tmp.$$" && \
+    sed 's/^/  /' > "$CACHE_DIR/calendar.tmp.$$" && \
     mv "$CACHE_DIR/calendar.tmp.$$" "$CACHE_DIR/calendar"
 }
 
@@ -165,7 +171,7 @@ fetch_mirror_data() {
   fi
 
   if ! cache_ok "$CACHE_DIR/github.json" 30; then
-    timeout 6 curl -fsSL https://ejfox.com/api/github > "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null && \
+    timeout 3 curl -fsSL https://ejfox.com/api/github > "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null && \
       json_ok "$CACHE_DIR/github.json.tmp.$$" && \
       mv "$CACHE_DIR/github.json.tmp.$$" "$CACHE_DIR/github.json"
     rm -f "$CACHE_DIR/github.json.tmp.$$" 2>/dev/null
@@ -179,8 +185,17 @@ fetch_calendar &
 fetch_email &
 fetch_mirror_data &
 
-# Wait with timeout (prevents infinite hang)
-timeout 5 wait 2>/dev/null || true
+# Bounded wait: poll children until done or 5s deadline, then kill stragglers.
+# (Plain `timeout 5 wait` is a no-op — `wait` runs in a child shell with no jobs.)
+deadline=$(($(date +%s) + 5))
+while [ -n "$(jobs -rp)" ]; do
+  [ "$(date +%s)" -ge "$deadline" ] && {
+    kill $(jobs -rp) 2>/dev/null
+    break
+  }
+  sleep 0.1
+done
+wait 2>/dev/null || true
 
 ################################################################################
 # DISPLAY
@@ -226,37 +241,36 @@ surface_mirror() {
     return 0
   fi
 
+  # Need rich context (cipher-daily caches it as a side effect of running).
+  # Skip if context is stale — cipher-daily runs daily, so >24h means something
+  # failed and the mirror would otherwise riff on yesterday's reality.
+  local cipher_context_file="$CIPHER_CACHE/context.txt"
+  [ -s "$cipher_context_file" ] || return 0
+  local context_age=$(( ($(date +%s) - $(stat -f %m "$cipher_context_file" 2>/dev/null || echo 0)) / 3600 ))
+  [ "$context_age" -gt 24 ] && return 0
+
   # Need API key
   [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.env ] && \
     ANTHROPIC_API_KEY=$(grep -m1 'ANTHROPIC_API_KEY' ~/.env 2>/dev/null | cut -d'"' -f2)
   [ -z "$ANTHROPIC_API_KEY" ] && return 0
 
-  # Gather signals
-  local vault="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
-  local vault_active=$(find "$vault" -name "*.md" -mtime -7 2>/dev/null | wc -l | tr -d ' ')
-  local productive_week=$(json_get "$CACHE_DIR/rescuetime.json" '.week.summary.productive.time.hoursDecimal' "0")
-  local distracted=$(json_get "$CACHE_DIR/rescuetime.json" '.month.summary.distracting.time.hoursDecimal' "0")
+  local rich_context=$(safe_read "$cipher_context_file")
+  local prompt="You are CIPHER, the ambient voice in this terminal. Think Spider Jerusalem with a Unix shell: gonzo, observant, allergic to bullshit, weirdly affectionate toward the human at the keyboard.
 
-  local now=$(date +%s)
-  local last_blog=$(find "$vault/blog" -name "*.md" -exec stat -f "%m" {} \; 2>/dev/null | sort -rn | head -1)
-  local days_publish=999
-  [[ "$last_blog" =~ ^[0-9]+$ ]] && days_publish=$(( (now - last_blog) / 86400 ))
+The user is a hacker-journalist. Below is a snapshot of his digital life right now. Surface ONE specific weird true observation. 8-12 words. Plain text only (no markdown, no asterisks, no backticks).
 
-  local month=$(date +%m)
-  local season="spring"
-  case $((10#$month)) in
-    12|1|2) season="winter" ;; 3|4|5) season="spring" ;;
-    6|7|8) season="summer" ;; 9|10|11) season="fall" ;;
-  esac
+The good ones notice something OTHERS would miss — a contradiction, a small pattern, a juxtaposition between two unrelated signals. Specific beats clever. No fortune cookies. No moralizing. No advice. No invented trends.
 
-  local prompt="CIPHER: terse, dry, amused Unix sysadmin energy. One wry observation (8-12 words). No poetry. Examples: 'Notes accumulating. Nothing shipped. Classic.' / 'Distraction creep detected. Might want to check that.' / 'Productive streak. Suspicious.' Data: productive_week=${productive_week}h, distracted=${distracted}h, vault=${vault_active} notes, days_since_publish=${days_publish}, ${season}, ${hour}:00."
+$rich_context
 
-  local wisdom=$(timeout 3 curl -s https://api.anthropic.com/v1/messages \
+ONE line. Land it."
+
+  local wisdom=$(timeout 5 curl -s https://api.anthropic.com/v1/messages \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
-    -d "$(printf '{"model":"claude-3-5-haiku-latest","max_tokens":60,"messages":[{"role":"user","content":"%s"}]}' "$prompt")" \
-    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | tr -d '\n')
+    -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:80,messages:[{role:"user",content:$p}]}')" \
+    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | head -1 | sed 's/\*\*//g; s/`//g; s/[[:space:]]*$//')
 
   [ -n "$wisdom" ] && {
     atomic_write "$CACHE_DIR/mirror" "$wisdom"
@@ -292,7 +306,7 @@ fi
 ################################################################################
 [ -f "$HOME/tips.txt" ] && {
   TIP=$(shuf -n 1 "$HOME/tips.txt" 2>/dev/null)
-  [ -n "$TIP" ] && echo -e "\033[38;5;240m💡 TIP: $TIP\033[0m" && echo ""
+  [ -n "$TIP" ] && echo -e "\033[38;5;240m TIP: $TIP\033[0m" && echo ""
 }
 
 ################################################################################
@@ -300,5 +314,13 @@ fi
 ################################################################################
 # Start appearance watcher if not running
 pgrep -qf "appearance-watcher" || { appearance-watcher &>/dev/null & disown; }
+
+################################################################################
+# PIXEL CANVAS — fire a fresh scene if the device is on the network.
+# Silent + non-blocking. Backgrounded so it never delays the shell.
+################################################################################
+command -v pixel >/dev/null && {
+  ( pixel greeting &>/dev/null & disown )
+}
 
 echo ""

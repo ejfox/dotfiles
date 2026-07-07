@@ -51,6 +51,7 @@ calendar=""
 if command -v icalBuddy >/dev/null 2>&1; then
   calendar=$(timeout 3 icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" \
     -tf "%H:%M" -df "" -b "" eventsToday+1 2>/dev/null | \
+    LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | \
     tr -cd '\11\12\15\40-\176' | head -8 || echo "")
 fi
 
@@ -58,6 +59,64 @@ fi
 vault_recent=0
 [ -d "$OBSIDIAN_VAULT" ] && \
   vault_recent=$(find "$OBSIDIAN_VAULT" -name "*.md" -mtime -3 2>/dev/null | wc -l | tr -d ' ')
+
+# Recent Obsidian notes (last 7d, top 5 by mtime — what EJ has been thinking about)
+recent_notes=""
+if [ -d "$OBSIDIAN_VAULT" ]; then
+  recent_notes=$(find "$OBSIDIAN_VAULT" -name "*.md" -mtime -7 -not -path "*/.obsidian/*" -print0 2>/dev/null | \
+    xargs -0 stat -f "%m %N" 2>/dev/null | sort -rn | head -5 | sed 's/^[0-9]* //' | \
+    while IFS= read -r f; do basename "$f" .md; done)
+fi
+
+# Git momentum (commits across ~/code in last 48h — what shipped)
+git_momentum=""
+if [ -d "$HOME/code" ]; then
+  git_momentum=$(find "$HOME/code" -maxdepth 2 -name ".git" -type d 2>/dev/null | while read -r g; do
+    repo="${g%/.git}"
+    log=$(timeout 1 git -C "$repo" log --since="2 days ago" --pretty="%s" --author="ejfox\|EJ" 2>/dev/null | head -1)
+    [ -z "$log" ] && log=$(timeout 1 git -C "$repo" log --since="2 days ago" --pretty="%s" 2>/dev/null | head -1)
+    [ -n "$log" ] && echo "$(basename "$repo"): $log"
+  done | head -8)
+fi
+
+# Shell command frequency from today's usage log (top 5 verbs)
+shell_top=""
+shell_log="$HOME/.local/share/usage-logs/shell/$(date +%Y-%m-%d).jsonl"
+if [ -f "$shell_log" ]; then
+  shell_top=$(jq -r 'select(.event=="cmd_start") | .cmd // empty' "$shell_log" 2>/dev/null | \
+    awk '{print $1}' | sort | uniq -c | sort -rn | head -5 | \
+    awk '{printf "%s(%d) ", $2, $1}')
+fi
+
+# Stale Things tasks (in Today list, created >2 days ago — true carry-overs, not daily rituals)
+stale_tasks=$(timeout 5 osascript -e 'tell application "Things3"
+    set todayTodos to to dos of list "Today"
+    set staleList to ""
+    set cutoff to (current date) - 2 * days
+    repeat with aTodo in todayTodos
+        try
+            set createDate to creation date of aTodo
+            if createDate < cutoff then
+                set staleList to staleList & name of aTodo & "\n"
+            end if
+        end try
+    end repeat
+    return staleList
+end tell' 2>/dev/null | head -5 || echo "")
+
+# GitHub: open PRs awaiting review + your open PRs (signal: blocked or in flight)
+gh_signal=""
+if command -v gh >/dev/null 2>&1; then
+  my_prs=$(timeout 3 gh pr list --author @me --state open --limit 5 --json title,repository -q '.[] | "\(.repository.name): \(.title)"' 2>/dev/null | head -5)
+  review_prs=$(timeout 3 gh pr list --search "is:open review-requested:@me" --limit 3 --json title,repository -q '.[] | "REVIEW \(.repository.name): \(.title)"' 2>/dev/null | head -3)
+  gh_signal=$(printf "%s\n%s" "$my_prs" "$review_prs" | grep -v '^$' | head -8)
+fi
+
+# Mastodon recent posts (top 3 originals from @ejfox@mastodon.social, account id 794007)
+mastodon_recent=$(timeout 3 curl -fsSL "https://mastodon.social/api/v1/accounts/794007/statuses?limit=3&exclude_replies=true&exclude_reblogs=true" 2>/dev/null | \
+  jq -r '.[] | .content' 2>/dev/null | \
+  sed 's/<[^>]*>//g; s/&quot;/"/g; s/&#39;/'\''/g; s/&amp;/\&/g; s/&nbsp;/ /g; s/&lt;/</g; s/&gt;/>/g' | \
+  cut -c1-120 | head -3)
 
 # Day context
 dow=$(date +%A)
@@ -69,9 +128,23 @@ hour=$(date +%H)
 context="Day: $dow, $hour:00
 Tasks today:
 $today_tasks
+Stale (carried over >1 day):
+$stale_tasks
 Calendar:
 $calendar
-Vault: $vault_recent notes touched in 3 days"
+Vault: $vault_recent notes touched in 3 days
+Recent notes (top 5):
+$recent_notes
+Shipped last 48h:
+$git_momentum
+Shell verbs today: $shell_top
+GitHub:
+$gh_signal
+Mastodon: $mastodon_recent"
+
+# Cache context blob so the .startup.sh mirror function can reuse it.
+# The mirror is ambient/observational; sharing context keeps it grounded.
+echo "$context" > "$CACHE_DIR/context.txt" 2>/dev/null
 
 prompt="CIPHER: terse, dry, amused Unix sysadmin energy. You guide a hacker-journalist.
 
@@ -80,6 +153,7 @@ Based on today's context, give 3 focus priorities. Rules:
 - Dry observations welcome ('Ship it or delete it')
 - Be specific to the actual tasks, not generic
 - No 'optimize' 'leverage' 'maximize' bullshit
+- PLAIN TEXT ONLY. No markdown, no asterisks, no bold, no backticks, no headers. This is rendered in a terminal MOTD.
 
 $context
 
@@ -92,15 +166,15 @@ response=$(timeout 30 curl -s https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
-  -d "$(jq -n --arg p "$prompt" '{model:"claude-3-5-haiku-latest",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
+  -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:200,messages:[{role:"user",content:$p}]}')" \
   2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null)
 
 ################################################################################
 # SAVE (atomic write, validate before saving)
 ################################################################################
 if [ -n "$response" ] && [ ${#response} -gt 20 ]; then
-  # Clean: remove blank lines, trim
-  cleaned=$(echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//')
+  # Clean: remove blank lines, trim, strip markdown (bold/italic/code) in case model ignored prompt
+  cleaned=$(echo "$response" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//' | sed 's/\*\*//g; s/`//g; s/__//g')
 
   # Atomic write
   tmp="$CACHE_FILE.tmp.$$"

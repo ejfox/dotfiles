@@ -1,8 +1,12 @@
 #!/bin/bash
-# Watches for macOS appearance changes and updates btop theme
+# Watches for macOS appearance changes and updates btop + lazygit themes
 # Run in background: appearance-watcher &
 
 BTOP_CONF="$HOME/.config/btop/btop.conf"
+LAZYGIT_CONFIG="$HOME/.config/lazygit/config.yml"
+LAZYGIT_DARK="$HOME/.config/lazygit/vulpes-reddishnovember-dark.yml"
+LAZYGIT_LIGHT="$HOME/.config/lazygit/vulpes-reddishnovember-light.yml"
+CLAUDE_SETTINGS="$HOME/.claude.json"
 LAST_MODE=""
 
 get_mode() {
@@ -30,15 +34,84 @@ set_btop_theme() {
     fi
 }
 
-# Initial state
+set_lazygit_theme() {
+    local mode="$1"
+    local src="$LAZYGIT_LIGHT"
+    [[ "$mode" == "dark" ]] && src="$LAZYGIT_DARK"
+
+    if [[ -f "$src" ]]; then
+        cp "$src" "$LAZYGIT_CONFIG"
+    fi
+}
+
+set_tmux_theme() {
+    local mode="$1"
+    local theme_file="$HOME/.dotfiles/vulpes-reddish2-${mode}-tmux.tmux.conf"
+    [[ -f "$theme_file" ]] || return 0
+
+    # Resolve symlink since macOS sed -i doesn't follow symlinks
+    local conf
+    conf=$(readlink -f "$HOME/.tmux.conf" 2>/dev/null || realpath "$HOME/.tmux.conf" 2>/dev/null || echo "$HOME/.tmux.conf")
+    sed -i '' "s|^source-file ~/.dotfiles/vulpes-reddish2-.*-tmux.tmux.conf|source-file ~/.dotfiles/vulpes-reddish2-${mode}-tmux.tmux.conf|" "$conf"
+    tmux source-file "$theme_file" 2>/dev/null
+}
+
+set_yazi_theme() {
+    local mode="$1"
+    local src="$HOME/.config/yazi/vulpes-reddishnovember-${mode}.toml"
+    [[ -f "$src" ]] && ln -sf "$src" "$HOME/.config/yazi/theme.toml"
+}
+
+set_fzf_theme() {
+    local mode="$1"
+    local src="$HOME/.config/fzf/theme-${mode}.sh"
+    [[ -f "$src" ]] && ln -sf "$src" "$HOME/.config/fzf/current.sh"
+}
+
+set_claude_theme() {
+    local mode="$1"
+    # 'light'/'dark' use Claude Code's hardcoded palette and are immune to
+    # weird ANSI slot colors. 'light-ansi' borrowed the terminal's ANSI bg
+    # for the input chrome and rendered as unreadable dark grey on light.
+    local theme="light"
+    [[ "$mode" == "dark" ]] && theme="dark"
+
+    if [[ -f "$CLAUDE_SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
+        local tmp
+        tmp=$(mktemp)
+        jq --arg t "$theme" '.theme = $t' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+    fi
+}
+
+sync_all() {
+    local mode="$1"
+    set_btop_theme "$mode"
+    set_lazygit_theme "$mode"
+    set_tmux_theme "$mode"
+    set_yazi_theme "$mode"
+    set_fzf_theme "$mode"
+    set_claude_theme "$mode"
+}
+
+# --sync: re-apply current mode to all tools and exit (no daemon loop).
+# Use after a `git checkout` or other action that knocks files out of sync.
+if [[ "$1" == "--sync" ]]; then
+    MODE=$(get_mode)
+    sync_all "$MODE"
+    echo "✓ appearance-watcher: synced all tools to $MODE"
+    exit 0
+fi
+
+# Initial state — sync everything so current state matches current mode
 LAST_MODE=$(get_mode)
+sync_all "$LAST_MODE"
 
 while true; do
     sleep 2
     CURRENT_MODE=$(get_mode)
 
     if [[ "$CURRENT_MODE" != "$LAST_MODE" ]]; then
-        set_btop_theme "$CURRENT_MODE"
+        sync_all "$CURRENT_MODE"
         LAST_MODE="$CURRENT_MODE"
     fi
 done

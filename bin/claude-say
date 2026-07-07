@@ -26,6 +26,7 @@ VOICES=(
   "8quEMRkSpwEaWBzHvTLv"  # 4: frequency — hypnotic
   "34lPwSZ54D8fWbX1aHzk"  # 5: danny/static — warm and playful
 )
+VOICE_NAMES=( "host" "maya" "sarah" "edward" "frequency" "danny" )
 
 # Pick voice based on window number
 if [ -n "$WIN" ]; then
@@ -34,6 +35,14 @@ else
   VOICE_IDX=0
 fi
 ELEVENLABS_VOICE_ID="${VOICES[$VOICE_IDX]}"
+VOICE_NAME="${VOICE_NAMES[$VOICE_IDX]}"
+
+# Mirror to pixel canvas — capture last-spoken message + window + voice name, fire `said`.
+# Backgrounded so it never blocks playback; fails silent if device offline.
+printf '%s' "$MSG" > /tmp/claude-say-last.txt 2>/dev/null
+printf '%s' "$WIN" > /tmp/claude-say-last-win.txt 2>/dev/null
+printf '%s' "$VOICE_NAME" > /tmp/claude-say-last-voice.txt 2>/dev/null
+( command -v pixel >/dev/null && pixel said &>/dev/null & disown ) 2>/dev/null
 ELEVENLABS_MODEL="eleven_flash_v2_5"
 EXHAUSTED_FLAG="/tmp/claude-say-exhausted"
 

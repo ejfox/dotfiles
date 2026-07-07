@@ -1,0 +1,528 @@
+#!/bin/bash
+# weekly-interview - Interactive weekly review wizard with inline images
+# Requires: Ghostty (for inline images), jq, curl
+
+set -e
+
+VAULT_DIR="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+BASE_URL="https://ejfox.com/api"
+WEEK=$(date +"%Y-%V")
+
+# Colors
+BOLD='\033[1m'
+DIM='\033[2m'
+ITALIC='\033[3m'
+CYAN='\033[36m'
+YELLOW='\033[33m'
+GREEN='\033[32m'
+MAGENTA='\033[35m'
+RESET='\033[0m'
+
+# Editor
+EDITOR="${EDITOR:-nvim}"
+
+# Fun encouragements
+ENCOURAGEMENTS=(
+  "nice."
+  "hell yeah."
+  "noted 📝"
+  "got it."
+  "word."
+  "solid."
+  "✓"
+  "locked in."
+  "good one."
+)
+
+random_encouragement() {
+  echo "${ENCOURAGEMENTS[$RANDOM % ${#ENCOURAGEMENTS[@]}]}"
+}
+
+# Collected answers
+VIBE=""
+DAY_NOTES=()
+SCREENSHOT_NOTES=()
+MEDIA_NOTES=""
+SHIPPED_NOTES=""
+LEARNED=""
+FREEFORM=""
+
+# Helper: print styled
+print_header() {
+  echo ""
+  echo -e "${BOLD}${CYAN}$1${RESET}"
+  echo -e "${DIM}────────────────────────────────────────${RESET}"
+}
+
+print_prompt() {
+  echo ""
+  echo -e "${YELLOW}$1${RESET}"
+}
+
+# Helper: show image inline (Ghostty/Kitty protocol)
+show_image() {
+  local url="$1"
+  local width="${2:-40}"
+
+  # Download to temp file
+  local tmp=$(mktemp /tmp/weekly-img-XXXXXX)
+  curl -s "$url" -o "$tmp" 2>/dev/null
+
+  if [[ -f "$tmp" && -s "$tmp" ]]; then
+    # Use kitten icat if available, otherwise try kitty protocol directly
+    if command -v kitten &>/dev/null; then
+      kitten icat --align left --place "${width}x30@0x0" "$tmp" 2>/dev/null || true
+    elif command -v imgcat &>/dev/null; then
+      imgcat --width "$width" "$tmp" 2>/dev/null || true
+    else
+      # Fallback: just show URL
+      echo -e "${DIM}[Image: $url]${RESET}"
+    fi
+  fi
+  rm -f "$tmp"
+}
+
+# Helper: open $EDITOR for longer responses
+# Usage: result=$(edit_response "optional prefill text")
+edit_response() {
+  local prefill="$1"
+  local tmp=$(mktemp /tmp/weekly-edit-XXXXXX.md)
+
+  # Prefill with any existing text
+  [[ -n "$prefill" ]] && echo "$prefill" > "$tmp"
+
+  # Open editor
+  $EDITOR "$tmp" </dev/tty >/dev/tty
+
+  # Read back contents
+  if [[ -f "$tmp" ]]; then
+    cat "$tmp"
+    rm -f "$tmp"
+  fi
+}
+
+# Helper: smart prompt that supports :e for editor mode
+# Usage: response=$(ask_smart "prompt text")
+ask_smart() {
+  local prompt="$1"
+  local response
+
+  echo -e "${DIM}(enter to skip, :e for editor)${RESET}"
+  read -r -p "> " response
+
+  # Check for editor trigger
+  if [[ "$response" == ":e" || "$response" == ":edit" ]]; then
+    echo -e "${DIM}Opening $EDITOR...${RESET}" >&2
+    response=$(edit_response "")
+  fi
+
+  # Show encouragement if they wrote something
+  if [[ -n "$response" && "$response" != "skip" ]]; then
+    echo -e "${DIM}$(random_encouragement)${RESET}" >&2
+  fi
+
+  echo "$response"
+}
+
+# Helper: read user input with default
+ask() {
+  local prompt="$1"
+  local default="$2"
+  local response
+
+  if [[ -n "$default" ]]; then
+    read -r -p "$prompt [$default]: " response
+    echo "${response:-$default}"
+  else
+    read -r -p "$prompt: " response
+    echo "$response"
+  fi
+}
+
+# Helper: yes/no question
+confirm() {
+  local prompt="$1"
+  local response
+  read -r -p "$prompt [y/N]: " response
+  [[ "$response" =~ ^[Yy] ]]
+}
+
+clear
+echo ""
+echo -e "${BOLD}${CYAN}╔════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${CYAN}║                                                ║${RESET}"
+echo -e "${BOLD}${CYAN}║         ${MAGENTA}SUNDAY INTERVIEW${CYAN}                       ║${RESET}"
+echo -e "${BOLD}${CYAN}║         ${DIM}Week $WEEK${CYAN}                              ║${RESET}"
+echo -e "${BOLD}${CYAN}║                                                ║${RESET}"
+echo -e "${BOLD}${CYAN}╚════════════════════════════════════════════════╝${RESET}"
+echo ""
+
+# ═══════════════════════════════════════════════════════════════
+# CHECK FOR EXISTING CONTENT
+# ═══════════════════════════════════════════════════════════════
+WEEK_FILE="$VAULT_DIR/week-notes/${WEEK}.md"
+ALREADY_INTERVIEWED=false
+APPEND_MODE=true
+EXISTING_CONTENT=""
+
+if [[ -f "$WEEK_FILE" ]]; then
+  EXISTING_CONTENT=$(cat "$WEEK_FILE")
+
+  # Check for interview marker
+  if grep -q "## Week.*Interview" "$WEEK_FILE" 2>/dev/null; then
+    ALREADY_INTERVIEWED=true
+    echo -e "${YELLOW}⚠ You've already done an interview for Week $WEEK${RESET}"
+    echo ""
+    echo -e "  ${DIM}1)${RESET} Add more   ${DIM}- append additional notes${RESET}"
+    echo -e "  ${DIM}2)${RESET} Start fresh ${DIM}- replace previous interview${RESET}"
+    echo -e "  ${DIM}3)${RESET} Quit       ${DIM}- keep what you have${RESET}"
+    echo ""
+    read -r -p "Choice [1/2/3]: " CHOICE
+
+    case "$CHOICE" in
+      1)
+        echo -e "${DIM}Cool, we'll add to what's there.${RESET}"
+        APPEND_MODE=true
+        ;;
+      2)
+        echo -e "${DIM}Starting fresh. Old interview will be replaced.${RESET}"
+        APPEND_MODE=false
+        # Remove old interview section
+        EXISTING_CONTENT=$(echo "$EXISTING_CONTENT" | sed '/## Week.*Interview/,$d')
+        ;;
+      3|q|quit)
+        echo -e "${GREEN}Keeping your existing notes. See ya!${RESET}"
+        exit 0
+        ;;
+      *)
+        echo -e "${DIM}Defaulting to 'add more'${RESET}"
+        APPEND_MODE=true
+        ;;
+    esac
+    echo ""
+  else
+    # File exists but no interview yet
+    WORD_COUNT=$(wc -w < "$WEEK_FILE" | tr -d ' ')
+    if [[ $WORD_COUNT -gt 50 ]]; then
+      echo -e "${DIM}Found existing notes (~$WORD_COUNT words). Interview will be appended.${RESET}"
+    fi
+  fi
+else
+  echo -e "${YELLOW}No week file yet — I'll create one.${RESET}"
+fi
+
+echo -e "${DIM}Let's capture your week. Recognition, not recall.${RESET}"
+echo -e "${DIM}Type ${RESET}:e${DIM} anytime to open your editor for longer thoughts.${RESET}"
+
+# Fetch data
+echo ""
+echo -e "${DIM}Fetching your week's receipts...${RESET}"
+echo ""
+
+# Spinner helper
+spin() {
+  local pid=$1
+  local label=$2
+  local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  while kill -0 "$pid" 2>/dev/null; do
+    for (( i=0; i<${#spinstr}; i++ )); do
+      printf "\r  ${CYAN}${spinstr:$i:1}${RESET} %s" "$label"
+      sleep 0.1
+    done
+  done
+  printf "\r  ${GREEN}✓${RESET} %s\n" "$label"
+}
+
+# Fetch APIs with progress
+curl -s --max-time 10 "$BASE_URL/rescuetime" > /tmp/wk-rescuetime.json 2>/dev/null &
+spin $! "RescueTime"
+RESCUETIME=$(cat /tmp/wk-rescuetime.json 2>/dev/null || echo '{}')
+
+curl -s --max-time 10 "$BASE_URL/github" > /tmp/wk-github.json 2>/dev/null &
+spin $! "GitHub"
+GITHUB=$(cat /tmp/wk-github.json 2>/dev/null || echo '{}')
+
+curl -s --max-time 10 "$BASE_URL/lastfm" > /tmp/wk-lastfm.json 2>/dev/null &
+spin $! "Last.fm"
+LASTFM=$(cat /tmp/wk-lastfm.json 2>/dev/null || echo '{}')
+
+curl -s --max-time 10 "$BASE_URL/letterboxd" > /tmp/wk-letterboxd.json 2>/dev/null &
+spin $! "Letterboxd"
+LETTERBOXD=$(cat /tmp/wk-letterboxd.json 2>/dev/null || echo '{}')
+
+curl -s --max-time 10 "$BASE_URL/goodreads" > /tmp/wk-goodreads.json 2>/dev/null &
+spin $! "Goodreads"
+GOODREADS=$(cat /tmp/wk-goodreads.json 2>/dev/null || echo '{}')
+
+curl -s --max-time 10 "$BASE_URL/chess" > /tmp/wk-chess.json 2>/dev/null &
+spin $! "Chess.com"
+CHESS=$(cat /tmp/wk-chess.json 2>/dev/null || echo '{}')
+
+# Load screenshots from raw file
+RAW_FILE="$VAULT_DIR/week-notes/${WEEK}-raw.md"
+SCREENSHOTS=()
+if [[ -f "$RAW_FILE" ]]; then
+  while IFS= read -r line; do
+    # Extract URLs from markdown image syntax
+    if [[ "$line" == *"![Screenshot"*"](http"* ]]; then
+      url=$(echo "$line" | grep -oE 'https://[^)]+' | head -1)
+      [[ -n "$url" ]] && SCREENSHOTS+=("$url")
+    fi
+  done < "$RAW_FILE"
+fi
+echo -e "  ${GREEN}✓${RESET} Screenshots (${#SCREENSHOTS[@]} found)"
+
+# Quick stats
+RT_TOTAL=$(echo "$RESCUETIME" | jq -r '.week.summary.totalTime.formatted // "N/A"' 2>/dev/null)
+RT_PRODUCTIVE=$(echo "$RESCUETIME" | jq -r '.week.summary.productivePercent // 0' 2>/dev/null)
+GH_COMMITS=$(echo "$GITHUB" | jq -r '(.detail.commits // []) | length' 2>/dev/null)
+
+echo ""
+echo -e "${BOLD}${GREEN}Ready!${RESET} ${GH_COMMITS} commits · ${RT_TOTAL} screen time · ${#SCREENSHOTS[@]} screenshots"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 1: Vibe Check
+# ═══════════════════════════════════════════════════════════════
+print_header "📊 PHASE 1: Vibe Check"
+echo -e "How was your week? ${DIM}One word, one vibe, one sentence.${RESET}"
+VIBE=$(ask_smart)
+[[ "$VIBE" == "skip" ]] && VIBE=""
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 2: Day by Day
+# ═══════════════════════════════════════════════════════════════
+print_header "📅 PHASE 2: Day by Day"
+
+# Get commits grouped by day
+DAYS=("Monday" "Tuesday" "Wednesday" "Thursday" "Friday" "Saturday" "Sunday")
+
+for i in {0..6}; do
+  # Calculate date for this day of the week
+  DAY_OFFSET=$((i - $(date +%u) + 1))
+  DAY_DATE=$(date -v${DAY_OFFSET}d +"%Y-%m-%d" 2>/dev/null || date -d "$DAY_OFFSET days" +"%Y-%m-%d" 2>/dev/null)
+  DAY_NAME="${DAYS[$i]}"
+
+  # Get commits for this day
+  DAY_COMMITS=$(echo "$GITHUB" | jq -r --arg date "$DAY_DATE" '
+    [.detail.commits[] | select(.occurredAt | startswith($date))] |
+    if length > 0 then
+      "• " + (.[0:3] | map(.repository.name + ": " + (.message | split("\n")[0] | .[0:50])) | join("\n• "))
+    else
+      empty
+    end
+  ' 2>/dev/null)
+
+  # Skip days with no activity
+  if [[ -z "$DAY_COMMITS" ]]; then
+    continue
+  fi
+
+  echo ""
+  echo -e "${BOLD}$DAY_NAME ($DAY_DATE)${RESET}"
+  echo -e "${DIM}$DAY_COMMITS${RESET}"
+
+  echo -e "${MAGENTA}Anything to capture about $DAY_NAME?${RESET}"
+  NOTE=$(ask_smart)
+  if [[ -n "$NOTE" && "$NOTE" != "skip" ]]; then
+    DAY_NOTES+=("**$DAY_NAME**: $NOTE")
+  fi
+done
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 3: Screenshots
+# ═══════════════════════════════════════════════════════════════
+if [[ ${#SCREENSHOTS[@]} -gt 0 ]]; then
+  print_header "📸 PHASE 3: Screenshots (${#SCREENSHOTS[@]} total)"
+
+  echo -e "${DIM}I'll show you each screenshot. Tell me what it is, or 'skip'.${RESET}"
+
+  SHOWN=0
+  for url in "${SCREENSHOTS[@]}"; do
+    ((SHOWN++))
+
+    echo ""
+    echo -e "${BOLD}Screenshot $SHOWN/${#SCREENSHOTS[@]}${RESET}"
+
+    # Extract timestamp from URL if possible
+    TIMESTAMP=$(echo "$url" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+    [[ -n "$TIMESTAMP" ]] && echo -e "${DIM}From: $TIMESTAMP${RESET}"
+
+    # Show inline image
+    show_image "$url" 60
+
+    echo -e "${MAGENTA}What's going on here?${RESET} ${DIM}(skip/done to stop)${RESET}"
+    read -r -p "> " NOTE
+
+    [[ "$NOTE" == "done" ]] && break
+    if [[ "$NOTE" == ":e" || "$NOTE" == ":edit" ]]; then
+      echo -e "${DIM}Opening $EDITOR...${RESET}"
+      NOTE=$(edit_response "")
+    fi
+
+    [[ "$NOTE" == "skip" || -z "$NOTE" ]] && continue
+
+    echo -e "${DIM}$(random_encouragement)${RESET}"
+    SCREENSHOT_NOTES+=("![]($url)\n*$NOTE*")
+
+    # Check in every 5 screenshots
+    if [[ $SHOWN -ge 5 && $((SHOWN % 5)) -eq 0 ]]; then
+      REMAINING=$((${#SCREENSHOTS[@]} - SHOWN))
+      if [[ $REMAINING -gt 0 ]]; then
+        if ! confirm "$REMAINING more screenshots. Keep going?"; then
+          break
+        fi
+      fi
+    fi
+  done
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 4: Media
+# ═══════════════════════════════════════════════════════════════
+print_header "🎬 PHASE 4: Media"
+
+# Films
+FILMS=$(echo "$LETTERBOXD" | jq -r '(.films // [])[:5] | map(.title + (if .rating then " (" + .rating + ")" else "" end)) | join(", ")' 2>/dev/null)
+[[ -n "$FILMS" && "$FILMS" != "null" ]] && echo -e "Films: ${FILMS}"
+
+# Music
+ARTISTS=$(echo "$LASTFM" | jq -r '(.topArtists.artists // [])[:5] | map(.name) | join(", ")' 2>/dev/null)
+[[ -n "$ARTISTS" && "$ARTISTS" != "null" ]] && echo -e "Top artists: ${ARTISTS}"
+
+# Books
+BOOKS=$(echo "$GOODREADS" | jq -r '(.currentlyReading // [])[:3] | map(.title) | join(", ")' 2>/dev/null)
+[[ -n "$BOOKS" && "$BOOKS" != "null" ]] && echo -e "Reading: ${BOOKS}"
+
+echo -e "${MAGENTA}Any hot takes? Standouts? Meh?${RESET}"
+MEDIA_NOTES=$(ask_smart)
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 5: What Shipped
+# ═══════════════════════════════════════════════════════════════
+print_header "🚀 PHASE 5: What You Shipped"
+
+# Top repos by commit count
+TOP_REPOS=$(echo "$GITHUB" | jq -r '
+  [.detail.commits[].repository.name] | group_by(.) |
+  map({name: .[0], count: length}) | sort_by(-.count) | .[0:3] |
+  map("• " + .name + " (" + (.count|tostring) + " commits)") | join("\n")
+' 2>/dev/null)
+
+echo -e "${DIM}$TOP_REPOS${RESET}"
+
+echo -e "${MAGENTA}What did you actually ship?${RESET} ${DIM}Features, fixes, anything tangible.${RESET}"
+SHIPPED_NOTES=$(ask_smart)
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 6: Learnings
+# ═══════════════════════════════════════════════════════════════
+print_header "📚 PHASE 6: Learnings"
+echo -e "What did you learn? ${DIM}Technical, personal, vibes — all count.${RESET}"
+LEARNED=$(ask_smart)
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 7: Freeform
+# ═══════════════════════════════════════════════════════════════
+print_header "💭 PHASE 7: Brain Dump"
+echo -e "Anything else floating around? ${DIM}Dreams, anxieties, half-baked ideas.${RESET}"
+FREEFORM=$(ask_smart)
+
+# ═══════════════════════════════════════════════════════════════
+# COMPILE
+# ═══════════════════════════════════════════════════════════════
+echo ""
+echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${BOLD}${GREEN}  ✍️  Compiling your week...${RESET}"
+echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+
+OUTPUT="
+## Week $WEEK Interview
+
+> Captured $(date '+%Y-%m-%d %H:%M')
+
+"
+
+[[ -n "$VIBE" ]] && OUTPUT+="### Vibe
+$VIBE
+
+"
+
+if [[ ${#DAY_NOTES[@]} -gt 0 ]]; then
+  OUTPUT+="### What happened
+"
+  for note in "${DAY_NOTES[@]}"; do
+    OUTPUT+="$note
+"
+  done
+  OUTPUT+="
+"
+fi
+
+[[ -n "$SHIPPED_NOTES" ]] && OUTPUT+="### What I shipped
+$SHIPPED_NOTES
+
+"
+
+[[ -n "$LEARNED" ]] && OUTPUT+="### What I learned
+$LEARNED
+
+"
+
+[[ -n "$MEDIA_NOTES" ]] && OUTPUT+="### Media notes
+$MEDIA_NOTES
+
+"
+
+if [[ ${#SCREENSHOT_NOTES[@]} -gt 0 ]]; then
+  OUTPUT+="### Screenshots
+"
+  for note in "${SCREENSHOT_NOTES[@]}"; do
+    OUTPUT+="$note
+
+"
+  done
+fi
+
+[[ -n "$FREEFORM" ]] && OUTPUT+="### Raw thoughts
+$FREEFORM
+
+"
+
+# Write to file based on mode
+if [[ -f "$WEEK_FILE" ]]; then
+  if [[ "$ALREADY_INTERVIEWED" == true && "$APPEND_MODE" == false ]]; then
+    # Replace mode: write existing content (with old interview stripped) + new interview
+    echo "$EXISTING_CONTENT" > "$WEEK_FILE"
+    echo "" >> "$WEEK_FILE"
+    echo "$OUTPUT" >> "$WEEK_FILE"
+    echo -e "${GREEN}✓${RESET} Replaced interview in $WEEK_FILE"
+  else
+    # Append mode: just add to end
+    echo "" >> "$WEEK_FILE"
+    echo "$OUTPUT" >> "$WEEK_FILE"
+    echo -e "${GREEN}✓${RESET} Appended to $WEEK_FILE"
+  fi
+else
+  # Create new file with frontmatter
+  cat > "$WEEK_FILE" << EOF
+---
+tags:
+  - weekly-notes
+  - reflections
+  - progress
+date: $(date -Iseconds)
+---
+## $WEEK
+
+$OUTPUT
+EOF
+  echo -e "${GREEN}✓${RESET} Created $WEEK_FILE"
+fi
+
+echo ""
+echo -e "${BOLD}${GREEN}╔════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${GREEN}║                                                ║${RESET}"
+echo -e "${BOLD}${GREEN}║   Week $WEEK captured. Go touch grass. 🌱       ║${RESET}"
+echo -e "${BOLD}${GREEN}║                                                ║${RESET}"
+echo -e "${BOLD}${GREEN}╚════════════════════════════════════════════════╝${RESET}"
+echo ""
