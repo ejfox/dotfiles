@@ -18,15 +18,33 @@ mode: dictation
 ^open music$: user.switcher_focus("Music")
 ^open OBS$: user.switcher_focus("OBS")
 
-# === RECTANGLE PRO WINDOW MANAGEMENT ===
-^snap left$: key(cmd-alt-left)
-^snap right$: key(cmd-alt-right)
-^snap full$: key(alt-ctrl-up)
-^snap down$: key(cmd-alt-down)
-^window bigger$: key(cmd-ctrl-=)
-^window smaller$: key(cmd-ctrl--)
-^window grid$: key(f1)
-^window cascade$: key(f12)
+# === DIVVY WINDOW MANAGEMENT ===
+# Global hotkey: alt-space opens Divvy panel, then shortcut selects layout
+# Divvy shortcuts: Space=fullscreen, L=left half, R=right half, S=screen 2 full
+^snap full$:
+    key(alt-space)
+    sleep(150ms)
+    key(space)
+^window expand$:
+    key(alt-space)
+    sleep(150ms)
+    key(space)
+^window left$:
+    key(alt-space)
+    sleep(150ms)
+    key(left)
+^window right$:
+    key(alt-space)
+    sleep(150ms)
+    key(right)
+^send to screen two$:
+    user.move_window_to_screen(2)
+    sleep(200ms)
+    key(alt-space)
+    sleep(150ms)
+    key(space)
+^window grid$:
+    key(alt-space)
 
 # === SPACES ===
 ^desk left$: key(cmd-ctrl-left)
@@ -41,6 +59,9 @@ mode: dictation
 ^spotlight$: key(cmd-space)
 ^screenshot$: key(cmd-shift-4)
 ^screen record$: key(cmd-shift-5)
+
+# === QUICK DICTATION ===
+^nope$: user.clear_last_phrase()
 
 # === QUICK FOCUS ===
 ^switch app$: key(cmd-tab)
