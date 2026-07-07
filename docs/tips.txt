@@ -435,3 +435,4 @@ gist <file> "desc" - (zsh) create GitHub gist from clipboard
 (winmode) Opt+Space then Shift+Space = golden-ratio centered float (again = phi^2 smaller)
 (winmode) Opt+Space then u = undo last snap (vim u!)
 (winmode) esc/q/2s idle = exit mode; one-shot, can't get stuck
+(winmode) arrangements auto-logged to ~/.local/share/usage-logs/windows/ (for layout presets, July 2026)
