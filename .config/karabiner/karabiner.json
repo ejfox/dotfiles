@@ -4,7 +4,7 @@
             "complex_modifications": {
                 "rules": [
                     {
-                        "description": "Window mode: Ctrl+Space \u2192 Rectangle Pro (one-shot: h/j/k/l halves, shift+h/j/k/l quarters (repeat toggles the pair), shift+space golden-ratio center, space=fill, u=undo, esc/q/2s exit). \u26a0\ufe0f BROKEN? run window-mode-doctor + read ~/.config/karabiner/WINDOW-MODE.md",
+                        "description": "Window mode: \u2325Space \u2192 Hammerspoon windowSnap (one-shot: h/j/k/l halves, shift+h/j/k/l quarters (repeat toggles the pair), shift+space golden-ratio center, space=fill, u=undo, esc/q/2s exit). \u26a0\ufe0f BROKEN? run window-mode-doctor + read ~/.config/karabiner/WINDOW-MODE.md",
                         "manipulators": [
                             {
                                 "conditions": [
