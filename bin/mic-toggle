@@ -1,10 +1,25 @@
 #!/bin/bash
-# Toggle mic mute, update sketchybar, and toggle Talon sleep/wake
-IV=$(/usr/bin/osascript -e 'input volume of (get volume settings)')
-if [ "$IV" -gt 0 ]; then
-  /usr/bin/osascript -e 'set volume input volume 0'
+# mic-toggle — hard-mute the actual microphones. Karabiner: double-tap right shift.
+# AppleScript can't control the XONE 96 (default input is a DJ mixer), so this
+# uses Hammerspoon's audiodevice API — and ONLY touches real mics, never
+# loopback/routing devices (BlackHole, NDI, Spotify-to-Xone would break rigs).
+HS=$(command -v hs || echo /usr/local/bin/hs)
+"$HS" -c '
+local MICS = { ["Shure MVX2U"] = true, ["iMac Pro Microphone"] = true, ["MacBook Pro Microphone"] = true }
+local target = nil
+for _, d in ipairs(hs.audiodevice.allInputDevices()) do
+  if MICS[d:name()] and d:inputMuted() ~= nil then target = not d:inputMuted() break end
+end
+if target == nil then
+  print("no mutable mic found")
 else
-  /usr/bin/osascript -e 'set volume input volume 100'
-fi
-/opt/homebrew/bin/sketchybar --trigger mic_change 2>/dev/null
-/usr/bin/touch /tmp/talon-mic-toggle
+  for _, d in ipairs(hs.audiodevice.allInputDevices()) do
+    if MICS[d:name()] and d:inputMuted() ~= nil then d:setInputMuted(target) end
+  end
+  hs.alert.show(target and "🔇 mics muted" or "🎙️ mics live", 1.2)
+  print(target and "muted" or "live")
+end
+'
+SKETCHYBAR=$(command -v sketchybar || echo /usr/local/bin/sketchybar)
+"$SKETCHYBAR" --trigger mic_change 2>/dev/null
+touch /tmp/talon-mic-toggle
