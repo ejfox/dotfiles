@@ -2,6 +2,15 @@
 
 # Get battery info from ioreg (more accurate than pmset)
 BATTERY_INFO=$(ioreg -rc AppleSmartBattery)
+
+# Desktop Mac (iMac/Studio/mini): no battery at all → hide the item, keep the
+# bar OLED black, and bail before empty-PERCENT math paints the bar alarm-red.
+if [ -z "$BATTERY_INFO" ]; then
+  sketchybar --bar color="0xff000000"
+  sketchybar --set battery drawing=off
+  exit 0
+fi
+
 PERCENTAGE=$(echo "$BATTERY_INFO" | grep -o '"CurrentCapacity" = [0-9]*' | awk '{print $3}')
 MAX_CAPACITY=$(echo "$BATTERY_INFO" | grep -o '"MaxCapacity" = [0-9]*' | awk '{print $3}')
 DESIGN_CAPACITY=$(echo "$BATTERY_INFO" | grep -o '"DesignCapacity" = [0-9]*' | awk '{print $3}')
