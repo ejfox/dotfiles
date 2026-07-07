@@ -1,0 +1,9 @@
+#!/bin/bash
+# Stop the hue-stream daemon gracefully, restore whole house to chill coding vibe
+echo '{"type":"quit"}' | nc -u -w1 127.0.0.1 9999
+sleep 1
+hue scene office "relax 2"
+hue scene bedroom "relax 2"
+hue scene kitchen "relax 2"
+hue scene "living room" "relax 2"
+echo "hue-stream stopped → whole house relax 2"

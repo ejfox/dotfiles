@@ -1,0 +1,37 @@
+#!/bin/bash
+# Pre-activate entertainment config, then start hue-stream daemon.
+# The bridge needs the config active BEFORE DTLS connects.
+source ~/.env
+
+# Activate and wait for ready
+python3 -c "
+import json, os, ssl, urllib.request, time
+BRIDGE = os.environ['HUE_BRIDGE_IP']
+KEY = os.environ['HUE_APP_KEY']
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+def api(method, path, body=None):
+    data = json.dumps(body).encode() if body else None
+    req = urllib.request.Request(f'https://{BRIDGE}/clip/v2{path}', data=data, method=method,
+        headers={'hue-application-key': KEY, 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
+        return json.loads(r.read())
+for c in api('GET', '/resource/entertainment_configuration')['data']:
+    if c['metadata']['name'] == 'ejfox-stream':
+        try: api('PUT', f'/resource/entertainment_configuration/{c[\"id\"]}', {'action': 'stop'})
+        except: pass
+        time.sleep(1)
+        api('PUT', f'/resource/entertainment_configuration/{c[\"id\"]}', {'action': 'start'})
+        for i in range(20):
+            time.sleep(0.3)
+            cur = api('GET', f'/resource/entertainment_configuration/{c[\"id\"]}')['data'][0]
+            if cur.get('status') == 'active':
+                print('bridge active, starting daemon...')
+                time.sleep(1)
+                break
+"
+
+# Now start daemon — config is already active, so it skips activation
+cd ~/.dotfiles/hue-stream/node
+exec node hue-stream.js daemon "${1:-dark}" --no-activate

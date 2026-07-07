@@ -146,3 +146,7 @@ logs/
 
 # Per-machine Ghostty overrides (shaders on/off depending on GPU)
 .config/ghostty/config.local
+
+# Karabiner local backups (machine-specific, never sync)
+.config/karabiner/automatic_backups/
+.config/karabiner/karabiner.json.pre-*
