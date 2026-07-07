@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Cache ejfox.com/api/stats to /tmp. Other scenes read from cache.
+# Refreshes if older than 5 minutes. Returns 1 if cache missing/empty.
+set -u
+
+CACHE="/tmp/ejfox-stats.json"
+MAX_AGE=300  # seconds
+
+needs_refresh() {
+  [ ! -s "$CACHE" ] && return 0
+  AGE=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || echo 0) ))
+  [ "$AGE" -gt "$MAX_AGE" ]
+}
+
+if needs_refresh; then
+  curl -s --connect-timeout 3 --max-time 8 "https://ejfox.com/api/stats" -o "$CACHE.tmp" 2>/dev/null && \
+    [ -s "$CACHE.tmp" ] && mv "$CACHE.tmp" "$CACHE"
+fi
+
+[ -s "$CACHE" ] || exit 1
+echo "$CACHE"

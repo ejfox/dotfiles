@@ -533,6 +533,9 @@ tmux send-keys -t 0:6.2 "watch -n 0.5 'cat /tmp/mermaid_display 2>/dev/null || e
 1. **nvim not found**: Check if `/opt/homebrew/bin` is in PATH
 2. **Missing aliases**: Verify config merged properly from backups
 3. **Config loss**: Always check backup files before major changes
+4. **Theme broken / unreadable in dark or light mode**: Run `theme`. Full
+   architecture, recovery steps, and known cruft in
+   [`docs/THEME-SYSTEM.md`](docs/THEME-SYSTEM.md).
 
 ## Testing checklist:
 - [ ] `which nvim` returns `/opt/homebrew/bin/nvim`

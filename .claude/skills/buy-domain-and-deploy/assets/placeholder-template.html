@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SITE_TITLE</title>
+<meta name="description" content="SITE_DESCRIPTION">
+<meta name="robots" content="noindex,nofollow">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; background: #000; color: #f0f0f0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-height: 100%; }
+  main { max-width: 56ch; padding: 12vh 6vw 6vh; line-height: 1.6; }
+  h1 { font-size: clamp(1.5rem, 5vw, 2.25rem); margin: 0 0 1.2em; letter-spacing: -0.01em; }
+  h1 .accent { color: #e60067; }
+  p { margin: 0 0 1.2em; }
+  .lede { font-size: 1.05rem; color: #ccc; }
+  .small { color: #888; font-size: 0.85rem; }
+  hr { border: none; border-top: 1px solid #222; margin: 3em 0; }
+  a { color: #6eedf7; text-decoration: underline; text-underline-offset: 0.2em; }
+  a:hover { color: #fff; }
+  .pending { display: inline-block; padding: 0.25em 0.6em; background: #1a1a1a; border: 1px solid #333; color: #999; font-size: 0.8rem; }
+  .stub { display: inline-block; padding: 0.15em 0.5em; background: #110011; border: 1px dashed #6b1a3d; color: #735865; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>HEADLINE_PLAIN <span class="accent">HEADLINE_ACCENT</span>.</h1>
+  <p class="lede">LEDE_TEXT</p>
+  <p>BODY_TEXT</p>
+  <hr>
+  <p><strong>Reach out:</strong></p>
+  <p>Email &mdash; <a href="mailto:CONTACT_EMAIL_HERE"><span class="stub">CONTACT_EMAIL_HERE</span></a></p>
+  <p><span class="pending">Pending</span> PENDING_NOTE</p>
+  <p class="small">SAFETY_NOTE</p>
+</main>
+</body>
+</html>

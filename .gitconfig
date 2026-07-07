@@ -25,22 +25,63 @@
 
 [delta]
 	navigate = true
-	dark = true
 	side-by-side = false
+	features = light-vulpes
+	# line-numbers moved into named features so they can be overridden per-feature.
+	# Followup: features = light-vulpes / dark-vulpes auto-switched by wrapper.
+
+[delta "light-vulpes"]
+	# Light Vulpes 2.0 — Risograph Editorial
+	# Colors verified by chroma-js (themes/light-vulpes-v2/diff-bg-pick.mjs).
+	# All fg/bg pairs pass WCAG AA (≥4.5:1) against their actual bg.
+	#
+	# syntax-theme deliberately OMITTED — when on, GitHub theme paints diff text
+	# in #6e7781 light grey for comments, which fails contrast on any tinted bg.
+	# Plain accent-on-paper-wash reads in every context (lazygit, claude-code,
+	# git diff piped to less). Syntax highlighting reappears in nvim diff buffers.
+	light = true
 	line-numbers = true
-	# Vulpes red theme - green additions, red deletions
-	minus-style = "#ff5577" "#3d1a22"
-	minus-emph-style = bold "#ff2244" "#5d1a2a"
-	plus-style = "#77ff99" "#1a2d22"
-	plus-emph-style = bold "#44ff77" "#1a4d2a"
-	line-numbers-minus-style = "#ff5577"
-	line-numbers-plus-style = "#77ff99"
-	line-numbers-zero-style = "#73264a"
-	hunk-header-style = file line-number syntax
+	minus-style                = "#a8003c" "#edd1d0"
+	minus-emph-style           = bold "#5c0030" "#e6c0c2"
+	plus-style                 = "#4d6618" "#dcded5"
+	plus-emph-style            = bold "#2a3d10" "#afc3b6"
+	line-numbers-minus-style   = bold "#a8003c"
+	line-numbers-plus-style    = bold "#3d6e3d"
+	line-numbers-zero-style    = "#6a5d60"
+	line-numbers-left-style    = "#6a5d60"
+	line-numbers-right-style   = "#6a5d60"
+	hunk-header-style          = file line-number syntax
+	hunk-header-decoration-style = "#a8003c" box
+	file-style                 = "#000000" bold
+	file-decoration-style      = "#a8003c" ul
+	commit-decoration-style    = "#a8003c" box ul
+
+[delta "lazygit"]
+	# Lazygit-specific overrides — used via `delta --features=lazygit` in
+	# lazygit's git.paging.pager. Suppresses delta's line numbers (lazygit
+	# draws its own column) while preserving all the bg/fg styling from the
+	# active feature (light-vulpes or dark-vulpes).
+	line-numbers = false
+	file-style = omit
+	hunk-header-decoration-style = omit
+	file-decoration-style = omit
+
+[delta "dark-vulpes"]
+	# Original dark-mode emissive palette, preserved for the auto-switch followup.
+	dark = true
+	line-numbers = true
+	minus-style                = "#ff5577" "#3d1a22"
+	minus-emph-style           = bold "#ff2244" "#5d1a2a"
+	plus-style                 = "#77ff99" "#1a2d22"
+	plus-emph-style            = bold "#44ff77" "#1a4d2a"
+	line-numbers-minus-style   = "#ff5577"
+	line-numbers-plus-style    = "#77ff99"
+	line-numbers-zero-style    = "#73264a"
+	hunk-header-style          = file line-number syntax
 	hunk-header-decoration-style = "#ff0055" box
-	file-style = "#ff0055" bold
-	file-decoration-style = "#ff0055" ul
-	commit-decoration-style = "#ff0077" box ul
+	file-style                 = "#ff0055" bold
+	file-decoration-style      = "#ff0055" ul
+	commit-decoration-style    = "#ff0077" box ul
 
 [merge]
 	conflictstyle = diff3

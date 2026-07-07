@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# pixel - draw to EJ's 320x240 pixel canvas (http://192.168.1.173)
+#
+# Usage:
+#   pixel                    # pick a random scene and draw it
+#   pixel <scene-name>       # run a specific scene
+#   pixel list               # list available scenes
+#   pixel clear              # clear the screen
+#   pixel ping               # check if device is reachable (exit 0/1)
+#   pixel raw <endpoint>     # raw GET request (e.g. `pixel raw "text?msg=hi&x=10&y=10"`)
+#
+# Silent + graceful if the device is offline. Safe to run from MOTD or launchd.
+
+set -u
+
+DEVICE="${PIXEL_CANVAS_HOST:-192.168.1.173}"
+BASE="http://${DEVICE}"
+SCENES_DIR="${PIXEL_SCENES_DIR:-$HOME/.dotfiles/bin/pixel-scenes}"
+
+# --- reachability check ---------------------------------------------------
+# Fast: 1s connect timeout, 2s total. Anything else = device offline.
+pixel_ping() {
+  curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" \
+    "${BASE}/info" 2>/dev/null | grep -q "^200$"
+}
+
+# --- HTTP helpers (used by scene scripts via export) ---------------------
+px() {
+  # px <endpoint-with-querystring>  e.g. px "text?msg=hi&x=10&y=10&color=pink"
+  curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${PIXEL_BASE}/$1" 2>/dev/null || true
+}
+
+px_batch() {
+  # px_batch '<json-array>'
+  curl -s --connect-timeout 1 --max-time 2 -o /dev/null \
+    -X POST "${PIXEL_BASE}/batch" -H "Content-Type: application/json" \
+    --data "$1" 2>/dev/null || true
+}
+
+export -f px px_batch
+export PIXEL_BASE="${BASE}"
+
+# --- subcommands ----------------------------------------------------------
+cmd="${1:-random}"
+
+case "$cmd" in
+  ping)
+    pixel_ping && exit 0 || exit 1
+    ;;
+  clear)
+    pixel_ping || exit 0
+    px "clear"
+    exit 0
+    ;;
+  list)
+    [ -d "$SCENES_DIR" ] && find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*' -exec basename {} \; | sort
+    exit 0
+    ;;
+  raw)
+    shift
+    pixel_ping || exit 0
+    px "$*"
+    exit 0
+    ;;
+  say)
+    # pixel say "any text" — ad-hoc message push.
+    # Persists to /tmp/pixel-last-say.txt so the scene can also be re-fired.
+    shift
+    MSG="$*"
+    [ -z "$MSG" ] && { echo "pixel say: need a message" >&2; exit 1; }
+    pixel_ping || exit 0
+    printf '%s' "$MSG" > /tmp/pixel-last-say.txt 2>/dev/null
+
+    # URL-encode helper
+    enc() { echo "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
+
+    # Word-wrap to ~26 chars/line at size 2
+    wrap_text() {
+      local s="$1" max="$2"
+      while [ -n "$s" ]; do
+        if [ ${#s} -le "$max" ]; then echo "$s"; break; fi
+        local chunk="${s:0:$max}" cut_at
+        cut_at=$(echo "$chunk" | awk '{for(i=length;i>0;i--) if(substr($0,i,1)==" "){print i-1; exit}}')
+        [ -z "$cut_at" ] || [ "$cut_at" -eq 0 ] && cut_at=$max
+        echo "${s:0:$cut_at}"
+        s="${s:$cut_at}"; s="${s# }"
+      done
+    }
+
+    px "clear"
+    # Label
+    px "text?msg=msg&x=10&y=15&color=mauve&size=1"
+    # Right-side accent — three dots
+    px "circle?x=290&y=15&radius=3&color=hotpink"
+    px "circle?x=278&y=15&radius=3&color=teal"
+    px "circle?x=266&y=15&radius=3&color=mauve"
+
+    # Body — up to 7 lines at size 2
+    LINE_Y=55
+    COUNT=0
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      px "text?msg=$(enc "$line")&x=15&y=${LINE_Y}&color=pink&size=2"
+      LINE_Y=$((LINE_Y + 24))
+      COUNT=$((COUNT + 1))
+      [ "$COUNT" -ge 7 ] && break
+    done < <(wrap_text "$MSG" 26)
+
+    # Bottom hairline
+    px "rect?x=10&y=225&w=300&h=1&color=dustrose"
+    exit 0
+    ;;
+  random|"")
+    pixel_ping || exit 0
+    [ -d "$SCENES_DIR" ] || exit 0
+    scene=$(find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*' | shuf -n 1)
+    [ -n "$scene" ] && exec "$scene"
+    ;;
+  *)
+    # named scene
+    pixel_ping || exit 0
+    if [ -x "$SCENES_DIR/$cmd" ]; then
+      exec "$SCENES_DIR/$cmd"
+    else
+      echo "pixel: unknown scene '$cmd'" >&2
+      echo "available scenes:" >&2
+      "$0" list >&2
+      exit 1
+    fi
+    ;;
+esac

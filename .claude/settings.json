@@ -56,7 +56,7 @@
     "rust-analyzer-lsp@claude-plugins-official": true
   },
   "alwaysThinkingEnabled": false,
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "fastMode": true,
   "skipDangerousModePermissionPrompt": true,
   "preferredNotifChannel": "terminal_bell",

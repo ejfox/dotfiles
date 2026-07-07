@@ -130,62 +130,62 @@ return {
         return ""
       end
 
-      -- Vulpes mode colors - entire bar changes
-      local vulpes_red = "#e60067"
-      local vulpes_blue = "#6eedf7"  -- cyberpunk teal
-      local vulpes_bg = "#0d0d0d"
-      local vulpes_fg = "#f2cfdf"
+      -- Vulpes mode colors — reactive to vim.o.background.
+      -- Light translates dark roles preserving the system:
+      --   pink bg = brand (insert)
+      --   teal bg = inverse hue (visual)
+      --   sepia/amber bg = command (warm warn)
+      --   bg/fg = bg_alt and ink.primary (raised surface)
+      local function build_vulpes_theme()
+        local is_dark = vim.o.background == "dark"
+        local c = is_dark and {
+          bg       = "#0d0d0d",  -- bg_alt
+          fg       = "#f2cfdf",  -- soft pink-cream
+          inactive = "#735865",  -- linenr
+          insert_bg   = "#e60067", insert_fg   = "#000000",  -- brand pink + black
+          visual_bg   = "#6eedf7", visual_fg   = "#000000",  -- bright teal + black
+          replace_bg  = "#ff1aca", replace_fg  = "#000000",  -- magenta keyword + black
+          command_bg  = "#ffaa00", command_fg  = "#000000",  -- amber + black
+        } or {
+          bg       = "#ebe2d6",  -- bg_alt warm tan (raised from white)
+          fg       = "#1a0f14",  -- ink.primary
+          inactive = "#6a5d60",  -- ink.fade
+          insert_bg   = "#a8003c", insert_fg   = "#ffffff",  -- accent.strong + white
+          visual_bg   = "#1a5e6e", visual_fg   = "#ffffff",  -- deep teal + white
+          replace_bg  = "#7a0044", replace_fg  = "#ffffff",  -- deep magenta + white
+          command_bg  = "#8a5530", command_fg  = "#ffffff",  -- sepia + white
+        }
 
-      local vulpes_theme = {
-        normal = {
-          a = { fg = vulpes_fg, bg = vulpes_bg },
-          b = { fg = vulpes_fg, bg = vulpes_bg },
-          c = { fg = vulpes_fg, bg = vulpes_bg },
-          x = { fg = vulpes_fg, bg = vulpes_bg },
-          y = { fg = vulpes_fg, bg = vulpes_bg },
-          z = { fg = vulpes_fg, bg = vulpes_bg },
-        },
-        insert = {
-          a = { fg = "#000000", bg = vulpes_red },
-          b = { fg = "#000000", bg = vulpes_red },
-          c = { fg = "#000000", bg = vulpes_red },
-          x = { fg = "#000000", bg = vulpes_red },
-          y = { fg = "#000000", bg = vulpes_red },
-          z = { fg = "#000000", bg = vulpes_red },
-        },
-        visual = {
-          a = { fg = "#000000", bg = vulpes_blue },
-          b = { fg = "#000000", bg = vulpes_blue },
-          c = { fg = "#000000", bg = vulpes_blue },
-          x = { fg = "#000000", bg = vulpes_blue },
-          y = { fg = "#000000", bg = vulpes_blue },
-          z = { fg = "#000000", bg = vulpes_blue },
-        },
-        replace = {
-          a = { fg = "#000000", bg = "#ff1aca" },
-          b = { fg = "#000000", bg = "#ff1aca" },
-          c = { fg = "#000000", bg = "#ff1aca" },
-          x = { fg = "#000000", bg = "#ff1aca" },
-          y = { fg = "#000000", bg = "#ff1aca" },
-          z = { fg = "#000000", bg = "#ff1aca" },
-        },
-        command = {
-          a = { fg = "#000000", bg = "#ffaa00" },
-          b = { fg = "#000000", bg = "#ffaa00" },
-          c = { fg = "#000000", bg = "#ffaa00" },
-          x = { fg = "#000000", bg = "#ffaa00" },
-          y = { fg = "#000000", bg = "#ffaa00" },
-          z = { fg = "#000000", bg = "#ffaa00" },
-        },
-        inactive = {
-          a = { fg = "#735865", bg = vulpes_bg },
-          b = { fg = "#735865", bg = vulpes_bg },
-          c = { fg = "#735865", bg = vulpes_bg },
-          x = { fg = "#735865", bg = vulpes_bg },
-          y = { fg = "#735865", bg = vulpes_bg },
-          z = { fg = "#735865", bg = vulpes_bg },
-        },
-      }
+        local function row(fg, bg)
+          return { a = { fg = fg, bg = bg }, b = { fg = fg, bg = bg }, c = { fg = fg, bg = bg },
+                   x = { fg = fg, bg = bg }, y = { fg = fg, bg = bg }, z = { fg = fg, bg = bg } }
+        end
+
+        return {
+          normal   = row(c.fg, c.bg),
+          insert   = row(c.insert_fg,  c.insert_bg),
+          visual   = row(c.visual_fg,  c.visual_bg),
+          replace  = row(c.replace_fg, c.replace_bg),
+          command  = row(c.command_fg, c.command_bg),
+          inactive = row(c.inactive, c.bg),
+        }
+      end
+
+      local vulpes_theme = build_vulpes_theme()
+
+      -- Re-setup lualine when colorscheme changes (auto-dark-mode flips it)
+      vim.api.nvim_create_autocmd("ColorScheme", {
+        group = vim.api.nvim_create_augroup("VulpesLualineReactive", { clear = true }),
+        callback = function()
+          vim.schedule(function()
+            local ok, lualine = pcall(require, "lualine")
+            if not ok then return end
+            local cfg = lualine.get_config()
+            cfg.options.theme = build_vulpes_theme()
+            lualine.setup(cfg)
+          end)
+        end,
+      })
 
       return {
         options = {

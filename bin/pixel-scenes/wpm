@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Typing flex: best WPM, recent test, # of tests
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+command -v jq >/dev/null || exit 0
+
+CACHE=$(~/.dotfiles/bin/pixel-scenes/.stats-fetch) || exit 0
+
+BEST=$(jq -r '.monkeyType.typingStats.bestWPM // 0' "$CACHE")
+AVG=$(jq -r '.monkeyType.typingStats.averageWpm // 0' "$CACHE")
+TESTS=$(jq -r '.monkeyType.typingStats.testsCompleted // 0' "$CACHE")
+RECENT=$(jq -r '.monkeyType.typingStats.recentTests[0].wpm // 0' "$CACHE")
+
+[ "$BEST" = "0" ] || [ "$BEST" = "null" ] && exit 0
+
+# Round to int
+BEST_INT=$(printf "%.0f" "$BEST")
+AVG_INT=$(printf "%.0f" "$AVG")
+RECENT_INT=$(printf "%.0f" "$RECENT")
+
+enc() { echo "$1" | sed 's/ /%20/g'; }
+
+px "clear"
+# Label
+px "text?msg=best%20wpm&x=10&y=15&color=mauve&size=1"
+
+# THE NUMBER. Huge.
+px "text?msg=${BEST_INT}&x=80&y=70&color=pink&size=8"
+
+# Stats row at bottom
+px "text?msg=$(enc "avg ${AVG_INT}")&x=20&y=200&color=teal&size=2"
+px "text?msg=$(enc "${TESTS} tests")&x=180&y=200&color=teal&size=2"
+
+# Hairline
+px "rect?x=10&y=185&w=300&h=1&color=dustrose"

@@ -247,7 +247,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "tmux_create_pane": {
         const { direction, title } = args;
         const flag = direction === "horizontal" ? "-h" : "-v";
-        const result = tmux(`split-window ${flag} -P -F "#{pane_id}"`);
+        // Target the pane THIS Claude Code is running in, not the user's
+        // currently-focused pane. Critical when multiple Claudes run in
+        // different windows — each one should split off its own pane.
+        const target = CURRENT_PANE ? `-t "${CURRENT_PANE}"` : "";
+        const result = tmux(`split-window ${flag} ${target} -P -F "#{pane_id}"`);
         if (title) {
           tmux(`select-pane -t "${result}" -T "${title}"`);
         }

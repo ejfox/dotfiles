@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Big time + small date. Hot pink primary, mauve secondary.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+
+H=$(date +%H)
+M=$(date +%M)
+DATE=$(date +"%a %b %-d")
+
+px "clear"
+# Big time, centered-ish
+px "text?msg=${H}%3A${M}&x=70&y=85&color=pink&size=5"
+# Date below in mauve
+px "text?msg=${DATE// /%20}&x=110&y=160&color=mauve&size=2"
+
+# Tiny corner accents
+px "rect?x=10&y=10&w=20&h=2&color=teal"
+px "rect?x=10&y=10&w=2&h=20&color=teal"
+px "rect?x=290&y=228&w=20&h=2&color=teal"
+px "rect?x=308&y=210&w=2&h=20&color=teal"

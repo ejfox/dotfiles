@@ -53,11 +53,15 @@ clipboard-paste-protection = false
 # custom-shader-animation = true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ACTIVE STACK: Vulpes Classic (disabled - GPU/fan relief on iMac Pro)
+# ACTIVE STACK: per-machine via config.local (gitignored)
+# Default here is OFF for fan-relief on Intel boxes (iMac Pro).
+# M1+ machines opt in via ~/.config/ghostty/config.local — see template below.
 # ─────────────────────────────────────────────────────────────────────────────
 # custom-shader = /Users/ejfox/.config/ghostty/shaders/bloom-vulpes.glsl
 # custom-shader = /Users/ejfox/.config/ghostty/shaders/tft-subtle.glsl
 # custom-shader = /Users/ejfox/.config/ghostty/shaders/vignette-vulpes.glsl
+
+config-file = ?config.local
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EXTRAS (stuff we tried, keeping for later)
