@@ -7,19 +7,32 @@
 # ~/screenshots changes (WatchPaths). Replaces the old Automator Folder Action
 # that crashed ScriptMonitor.app on every screenshot.
 #
-# CLOUDINARY_URL is read from ~/.env (NOT hardcoded — ~/.dotfiles is a public repo).
+# Secrets are read from ~/.env (NOT hardcoded — ~/.dotfiles is a public repo):
+#   CLOUDINARY_URL   — required, the upload target
+#   GEMINI_API_KEY   — optional, enables AI auto-rename (Gemini Flash, vision).
+#                      Get a free key at https://aistudio.google.com/apikey
+#
+# AI auto-rename (images only): before upload, Gemini Flash reads the screenshot
+# and produces a slug like "website2-nav-dropdown-clipped"; the file is renamed
+# in place to "<YYYY-MM-DD>-<slug>.png" so the local file AND the Cloudinary
+# public_id share a descriptive name. If GEMINI_API_KEY is unset or the call
+# fails, upload proceeds with the original macOS filename (graceful fallback).
 #
 # State of already-uploaded files is kept in $STATE so WatchPaths re-fires
-# (which happen on any dir change, including deletes) don't re-upload.
+# (which happen on any dir change, including renames/deletes) don't re-upload.
 
 set -u
 
 WATCH_DIR="$HOME/screenshots"
 STATE="$HOME/.local/share/screenshot-cloudinary/uploaded.list"
+LOCK="$HOME/.local/share/screenshot-cloudinary/lock"
 CLD=/usr/local/bin/cld
 JQ=/usr/local/bin/jq
+# Cheapest reliable Gemini vision model. Swap to gemini-2.5-flash-lite for even
+# lower cost, or gemini-2.0-flash if 2.5 is unavailable on your key.
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-2.5-flash}"
 
-# Load secrets (CLOUDINARY_URL) from ~/.env
+# Load secrets (CLOUDINARY_URL, GEMINI_API_KEY) from ~/.env
 if [ -f "$HOME/.env" ]; then
   # shellcheck disable=SC1090
   source "$HOME/.env"
@@ -35,8 +48,105 @@ if [ -z "${CLOUDINARY_URL:-}" ]; then
 fi
 export CLOUDINARY_URL
 
+# Serialize invocations. WatchPaths fires again on the rename we do below; without
+# a lock that re-fire could race to re-upload the renamed file. A stale lock (a
+# crashed prior run) older than 5 min is cleared first.
+[ -d "$LOCK" ] && [ -n "$(find "$LOCK" -maxdepth 0 -mmin +5 2>/dev/null)" ] && rmdir "$LOCK" 2>/dev/null
+if ! mkdir "$LOCK" 2>/dev/null; then
+  exit 0   # another invocation owns this run; it will pick up current files
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
 # macOS may still be writing the file when the dir-change event fires; give it a beat.
 sleep 1
+
+# Extract a YYYY-MM-DD date for the new filename: prefer the date already in the
+# macOS screenshot name ("Screenshot 2026-06-29 at 10.43.05 AM.png"), else mtime.
+file_date() {
+  local d
+  d=$(basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+  if [ -n "$d" ]; then
+    echo "$d"
+  else
+    stat -f '%Sm' -t '%Y-%m-%d' "$1" 2>/dev/null
+  fi
+}
+
+mime_for() {
+  case "${1##*.}" in
+    png|PNG)            echo image/png ;;
+    jpg|jpeg|JPG|JPEG)  echo image/jpeg ;;
+    gif|GIF)            echo image/gif ;;
+    *)                  echo image/png ;;
+  esac
+}
+
+# Ask Gemini Flash for a project-aware content slug. Echoes a sanitized slug on
+# success; returns non-zero (and echoes nothing) on any failure so callers fall
+# back to the original filename.
+smart_slug() {
+  local file="$1" mime prompt resp slug rc tmp_b64 tmp_payload
+  [ -z "${GEMINI_API_KEY:-}" ] && return 1
+
+  mime=$(mime_for "$file")
+  prompt='You are naming a screenshot file. Look at the image and output a single short slug of the form project-content. If a project, app, repository, website, or filename is clearly visible (title bar, terminal prompt, browser URL, editor tab), begin with that short project name. Then add 2-4 words describing what the screenshot shows. Rules: lowercase only; words separated by single hyphens; letters, numbers and hyphens only; no spaces; no file extension; no quotes; under 50 characters. Respond with ONLY the slug.'
+
+  # A screenshot's base64 (~3-4 MB) is too large to pass as a jq --arg or a curl
+  # --data argument (exceeds ARG_MAX). Route both through temp files instead.
+  tmp_b64=$(mktemp) || return 1
+  tmp_payload=$(mktemp) || { rm -f "$tmp_b64"; return 1; }
+
+  base64 < "$file" | tr -d '\n' > "$tmp_b64" || { rm -f "$tmp_b64" "$tmp_payload"; return 1; }
+  "$JQ" -n --arg p "$prompt" --rawfile d "$tmp_b64" --arg m "$mime" \
+    '{contents:[{parts:[{text:$p},{inline_data:{mime_type:$m,data:($d|rtrimstr("\n"))}}]}],
+      generationConfig:{temperature:0.2,maxOutputTokens:30}}' > "$tmp_payload" \
+    || { rm -f "$tmp_b64" "$tmp_payload"; return 1; }
+
+  resp=$(curl -sf -m 30 -X POST \
+    "https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent" \
+    -H 'Content-Type: application/json' \
+    -H "x-goog-api-key: ${GEMINI_API_KEY}" \
+    --data @"$tmp_payload")
+  rc=$?
+  rm -f "$tmp_b64" "$tmp_payload"
+  [ $rc -ne 0 ] && return 1
+
+  slug=$(echo "$resp" | "$JQ" -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+  [ -z "$slug" ] && return 1
+
+  # Sanitize: lowercase, collapse anything non-alphanumeric to single hyphens,
+  # trim leading/trailing hyphens, cap length.
+  slug=$(echo "$slug" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' \
+         | sed -E 's/^-+//; s/-+$//; s/-+/-/g' | cut -c1-60)
+  [ -z "$slug" ] && return 1
+  echo "$slug"
+}
+
+# Rename an image in place to <date>-<slug>.<ext> using smart_slug. Echoes the
+# (possibly new) path; on any failure echoes the original path unchanged.
+ai_rename() {
+  local file="$1" slug date ext base newpath n
+  slug=$(smart_slug "$file") || { echo "$file"; return 0; }
+  [ -z "$slug" ] && { echo "$file"; return 0; }
+
+  date=$(file_date "$file")
+  ext="${file##*.}"
+  base="${date:+$date-}$slug"
+  newpath="$WATCH_DIR/${base}.${ext}"
+  n=2
+  while [ -e "$newpath" ] && [ "$newpath" != "$file" ]; do
+    newpath="$WATCH_DIR/${base}-${n}.${ext}"; n=$((n + 1))
+  done
+
+  if [ "$newpath" != "$file" ] && mv "$file" "$newpath" 2>/dev/null; then
+    # Record the OLD path too so a rename-triggered re-fire never re-touches it.
+    echo "$file" >> "$STATE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null) AI   renamed $(basename "$file") -> $(basename "$newpath")" >&2
+    echo "$newpath"
+  else
+    echo "$file"
+  fi
+}
 
 upload_one() {
   local file="$1" rtype="$2"
@@ -51,6 +161,12 @@ upload_one() {
     sleep 2
     s2=$(stat -f%z "$file" 2>/dev/null)
     [ "$s1" != "$s2" ] && return 0   # still being written; a later event will catch it
+  fi
+
+  # AI auto-rename (images only); no-op fallback if GEMINI_API_KEY unset / call fails.
+  if [ "$rtype" = "image" ]; then
+    file=$(ai_rename "$file")
+    grep -Fqx "$file" "$STATE" && return 0   # already uploaded under the new name
   fi
 
   local out exit_code url

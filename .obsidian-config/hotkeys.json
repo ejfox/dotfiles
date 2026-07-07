@@ -29,7 +29,7 @@
       "modifiers": [
         "Ctrl"
       ],
-      "key": " "
+      "key": "A"
     }
   ],
   "obsidian-prozen:zenmode": [
@@ -72,12 +72,6 @@
         "Mod"
       ],
       "key": "O"
-    },
-    {
-      "modifiers": [
-        "Ctrl"
-      ],
-      "key": "A"
     }
   ],
   "quick-explorer:go-next": [

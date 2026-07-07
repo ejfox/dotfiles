@@ -5,7 +5,10 @@ Usage:
   hue list                     list rooms + scenes with on/off state
   hue on <room>                turn room on
   hue off <room>               turn room off
+  hue toggle <room>            toggle room on/off
   hue dim <0-100> <room>       set brightness (0 = off)
+  hue brighter <room>          brightness +20
+  hue dimmer <room>            brightness -20
   hue scene <name>             recall a scene (scene knows its room)
 
 Reads HUE_BRIDGE_IP and HUE_APP_KEY from env (set in ~/.env).
@@ -106,6 +109,25 @@ def cmd_dim(level: int, query: str) -> None:
     print(f"{room['metadata']['name']}: {level}%")
 
 
+def cmd_toggle(query: str) -> None:
+    room = find(api("GET", "/resource/room")["data"], query)
+    gid = room_group_id(room)
+    groups = {g["id"]: g for g in api("GET", "/resource/grouped_light")["data"]}
+    current = groups.get(gid, {}).get("on", {}).get("on", False)
+    api("PUT", f"/resource/grouped_light/{gid}", {"on": {"on": not current}})
+    print(f"{room['metadata']['name']}: {'on' if not current else 'off'}")
+
+
+def cmd_step(query: str, delta: int) -> None:
+    room = find(api("GET", "/resource/room")["data"], query)
+    gid = room_group_id(room)
+    groups = {g["id"]: g for g in api("GET", "/resource/grouped_light")["data"]}
+    current_bri = groups.get(gid, {}).get("dimming", {}).get("brightness", 50)
+    new_bri = max(1, min(100, int(current_bri) + delta))
+    api("PUT", f"/resource/grouped_light/{gid}", {"on": {"on": True}, "dimming": {"brightness": float(new_bri)}})
+    print(f"{room['metadata']['name']}: {new_bri}%")
+
+
 def cmd_scene(query: str) -> None:
     scene = find(api("GET", "/resource/scene")["data"], query)
     api("PUT", f"/resource/scene/{scene['id']}", {"recall": {"action": "active"}})
@@ -124,6 +146,12 @@ def main() -> None:
         cmd_on(" ".join(rest), True)
     elif cmd == "off" and rest:
         cmd_on(" ".join(rest), False)
+    elif cmd == "toggle" and rest:
+        cmd_toggle(" ".join(rest))
+    elif cmd == "brighter" and rest:
+        cmd_step(" ".join(rest), 20)
+    elif cmd == "dimmer" and rest:
+        cmd_step(" ".join(rest), -20)
     elif cmd == "dim" and len(rest) >= 2:
         cmd_dim(int(rest[0]), " ".join(rest[1:]))
     elif cmd == "scene" and rest:
