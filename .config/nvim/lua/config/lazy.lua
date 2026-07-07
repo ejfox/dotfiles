@@ -30,7 +30,8 @@
 --   ├── obsidian.lua       - Note-taking
 --   ├── copilot-inline.lua - AI suggestions
 --   ├── claude-code-workflow.lua - Copy code with paths
---   └── usage-logging.lua  - Activity tracking
+--   ├── usage-logging.lua  - Activity tracking
+--   └── strudel.lua        - Live coding music (strudel.cc)
 --
 -- ============================================================================
 
