@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# window-mode-doctor — diagnose & SAFELY recover Ctrl+Space window mode (Karabiner → Rectangle Pro)
+#
+# Safe to run anytime, repeatedly. It does ONLY:
+#   - read-only health checks
+#   - winmode=0 rescue (un-sticks the mode if it was armed)
+#   - the ONE official Karabiner restart (console_user_server) — NEVER thrashes other daemons
+# Full runbook + the "why": ~/.config/karabiner/WINDOW-MODE.md
+set -uo pipefail
+
+CFG="$HOME/.config/karabiner/karabiner.json"
+KC="/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli"
+TRACE="/tmp/kbn-debug.log"
+DOC="$HOME/.config/karabiner/WINDOW-MODE.md"
+LOGS="$HOME/.local/share/karabiner/log"
+issues=0
+
+b(){ printf "\033[1m%s\033[0m\n" "$1"; }
+ok(){ printf "  \033[32m✓\033[0m %s\n" "$1"; }
+bad(){ printf "  \033[31m✗\033[0m %s\n" "$1"; issues=$((issues+1)); }
+warn(){ printf "  \033[33m!\033[0m %s\n" "$1"; }
+
+b "▏window-mode-doctor   $(date '+%Y-%m-%d %H:%M:%S')"
+echo "  runbook: $DOC"
+echo
+
+b "1. CONFIG"
+if python3 -m json.tool "$CFG" >/dev/null 2>&1; then ok "karabiner.json is valid JSON"
+else bad "karabiner.json is INVALID JSON  →  restore: cp $CFG.pre-winmode-fix-2026-06-27 $CFG"; fi
+if grep -q 'to_delayed_action_delay_milliseconds' "$CFG" 2>/dev/null; then ok "one-shot rule present (has the 2s safety timeout — cannot get stuck)"
+else warn "window rule missing its 2s timeout — it could stick. See $DOC"; fi
+
+b "2. DRIVER / GRAB LAYER"
+if systemextensionsctl list 2>/dev/null | grep -qi 'pqrs.*activated enabled'; then ok "DriverKit extension [activated enabled]"
+else bad "DriverKit extension NOT active  →  REBOOT, then re-allow in System Settings › General › Login Items & Extensions"; fi
+if grep -qiE 'driver_version|mismatch' "$LOGS/"*.log 2>/dev/null; then bad "driver_version MISMATCH in logs  →  see $DOC 'driver' section"
+else ok "no driver-version mismatch ever logged"; fi
+
+b "3. RECTANGLE PRO (snap target)"
+if pgrep -f 'Rectangle Pro' >/dev/null 2>&1; then ok "Rectangle Pro is running"
+else bad "Rectangle Pro NOT running  →  open -a 'Rectangle Pro'"; fi
+
+b "4. SAFE RECOVERY (official 1-service restart + un-stick — never thrashes other daemons)"
+if [ -x "$KC" ]; then
+  "$KC" --set-variables '{"winmode":0}' 2>/dev/null && ok "winmode forced to 0 (un-stuck if it was armed)"
+else warn "karabiner_cli not found at expected path"; fi
+if launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.karabiner_console_user_server" 2>/dev/null; then
+  ok "rule engine restarted — the OFFICIAL single-service restart"
+else warn "restart returned nonzero (may still be fine)"; fi
+: > "$TRACE" 2>/dev/null && ok "trace log cleared for a clean test"
+
+echo
+if [ "$issues" -eq 0 ]; then b "▏VERDICT: machine-side looks healthy. Now test with your fingers:"
+else b "▏VERDICT: $issues issue(s) above — fix those first, then test:"; fi
+cat <<'EOF'
+  1. Tap Caps Lock        → LED stays OFF  = Karabiner IS grabbing keys ✓   (LED lights = grab dead → REBOOT)
+  2. Ctrl+Space then  h   → window snaps left AND your spaces type normally ✓
+  3. Verify:  cat /tmp/kbn-debug.log   → expect:  LEADER-on  then  DIR-h-fired
+EOF
+echo
+b "▏IF IT STILL DOES NOTHING:"
+cat <<EOF
+  • Cmd-Tab also sticky, or nothing happens at all?  → a modifier is STUCK → REBOOT (the known fix; clears it).
+  • Ctrl+Space dead but Caps / double-Left-Shift work? → macOS owns ⌃Space:
+        System Settings › Keyboard › Keyboard Shortcuts › Input Sources › uncheck "Select the previous input source"
+  • Caps Lock LED lights up (not remapped)?           → grab not attached → REBOOT.
+  • Anything weirder?                                 → read the full runbook:  $DOC
+  • DO NOT 'fix' this by restarting Karabiner daemons in a loop — that is what broke it last time.
+EOF
