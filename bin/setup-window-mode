@@ -17,6 +17,15 @@ link() {  # link <target-in-dotfiles> <live-path>
     ok "$live already → $target"
     return
   fi
+  # Guard against self-linking: if <live> already resolves to the SAME real file
+  # as <target> — e.g. its parent dir is itself a symlink into dotfiles
+  # (~/.hammerspoon → ~/.dotfiles/hammerspoon) — then the mv+ln below would back
+  # up the real file and symlink it to ITSELF, bricking the config. Skip: the
+  # file is already reachable at <live> via the parent symlink.
+  if [ -e "$live" ] && [ "$(readlink -f "$live" 2>/dev/null)" = "$(readlink -f "$target" 2>/dev/null)" ]; then
+    ok "$live already resolves to $target (parent dir symlinked) — nothing to do"
+    return
+  fi
   if [ -e "$live" ] || [ -L "$live" ]; then
     mv "$live" "$live.pre-window-mode.bak"
     warn "backed up existing $live → $live.pre-window-mode.bak"
