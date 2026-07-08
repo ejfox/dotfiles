@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# setup-window-mode — wire up ⌥Space window snapping on a fresh machine.
+#
+# Architecture (see .config/karabiner/WINDOW-MODE.md for the full story):
+#   Karabiner (⌥Space leader) → /usr/local/bin/hs -c "windowSnap('left')" → Hammerspoon
+#
+# Idempotent: safe to re-run. Backs up anything it would overwrite.
+set -euo pipefail
+
+DOT="$HOME/.dotfiles"
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
+
+link() {  # link <target-in-dotfiles> <live-path>
+  local target=$1 live=$2
+  if [ "$(readlink "$live" 2>/dev/null)" = "$target" ]; then
+    ok "$live already → $target"
+    return
+  fi
+  if [ -e "$live" ] || [ -L "$live" ]; then
+    mv "$live" "$live.pre-window-mode.bak"
+    warn "backed up existing $live → $live.pre-window-mode.bak"
+  fi
+  mkdir -p "$(dirname "$live")"
+  ln -s "$target" "$live"
+  ok "linked $live → $target"
+}
+
+echo "── apps ──"
+for app in Hammerspoon Karabiner-Elements; do
+  if [ -d "/Applications/$app.app" ]; then
+    ok "$app.app installed"
+  else
+    warn "$app.app missing — brew install --cask $(echo "$app" | tr '[:upper:]' '[:lower:]')"
+  fi
+done
+
+echo "── symlinks ──"
+mkdir -p "$HOME/.hammerspoon"
+link "$DOT/hammerspoon/init.lua" "$HOME/.hammerspoon/init.lua"
+link "$DOT/.config/karabiner" "$HOME/.config/karabiner"
+
+echo "── hs CLI (Karabiner shells out to /usr/local/bin/hs) ──"
+if [ -x /usr/local/bin/hs ]; then
+  ok "/usr/local/bin/hs present"
+else
+  HS_BIN="/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs"
+  if [ -x "$HS_BIN" ]; then
+    sudo ln -sf "$HS_BIN" /usr/local/bin/hs
+    ok "linked /usr/local/bin/hs → $HS_BIN"
+  else
+    warn "Hammerspoon not installed yet — re-run after installing"
+  fi
+fi
+
+cat <<'EOF'
+
+── manual steps (one-time, GUI) ──
+  1. Launch Hammerspoon → grant Accessibility permission (it moves windows).
+     init.lua requires hs.ipc; if `hs -c "print('ok')"` fails, run
+     `hs.ipc.cliInstall()` in the Hammerspoon console.
+  2. Launch Karabiner-Elements → approve the DriverKit extension + input
+     monitoring prompts. Config auto-loads from the symlinked dir.
+  3. VOYAGER: the leader fires on ⌥Space (also ⌃Space). Make sure a thumb
+     key sends left_option — verify with Karabiner-EventViewer FIRST if it
+     "does nothing" (the Ergodox lesson: read what the keyboard emits
+     before touching anything else).
+
+── test ──
+  Focus a window, press ⌥Space then h → snaps left. Same direction again
+  throws it to the next display. ⇧h/l/k/j = quarters, ⇧Space = golden
+  float, u = undo, Space = maximize.
+EOF
