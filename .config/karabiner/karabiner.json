@@ -39,7 +39,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-space-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('goldenCenter')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-space-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('goldenCenter')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -77,7 +77,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-h-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('leftQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-h-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('leftQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -115,7 +115,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-l-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('rightQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-l-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('rightQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -153,7 +153,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-k-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('topQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-k-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('topQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -191,7 +191,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-j-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottomQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-j-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('bottomQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -229,7 +229,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-left-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('leftQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-left-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('leftQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -267,7 +267,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-right-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('rightQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-right-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('rightQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -305,7 +305,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-up-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('topQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-up-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('topQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -343,7 +343,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-down-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottomQuarters')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-shift-down-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('bottomQuarters')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -492,7 +492,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-h-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('left')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-h-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('left')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -527,7 +527,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-l-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('right')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-l-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('right')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -562,7 +562,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-k-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('top')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-k-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('top')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -597,7 +597,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-j-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottom')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-j-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('bottom')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -632,7 +632,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-space-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('full')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-space-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('full')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -667,7 +667,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-u-undo-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnapUndo()\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-u-undo-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnapUndo()\""
                                     }
                                 ],
                                 "type": "basic"
@@ -772,7 +772,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-left_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('left')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-left_arrow-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('left')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -807,7 +807,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-right_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('right')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-right_arrow-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('right')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -842,7 +842,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-up_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('top')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-up_arrow-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('top')\""
                                     }
                                 ],
                                 "type": "basic"
@@ -877,7 +877,7 @@
                                         }
                                     },
                                     {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-down_arrow-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"windowSnap('bottom')\""
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-down_arrow-fired\" >> /tmp/kbn-debug.log ; /opt/homebrew/bin/hs -c \"windowSnap('bottom')\""
                                     }
                                 ],
                                 "type": "basic"
