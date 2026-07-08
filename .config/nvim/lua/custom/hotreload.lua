@@ -34,6 +34,11 @@ end
 
 -- Reload visible buffers in current tab
 local function reload_visible_buffers()
+  -- Bail in the command-line window (q:/q//q?) — checktime is invalid there (E11)
+  if vim.fn.getcmdwintype() ~= "" then
+    return
+  end
+
   local current_tab = vim.api.nvim_get_current_tabpage()
   local windows = vim.api.nvim_tabpage_list_wins(current_tab)
 

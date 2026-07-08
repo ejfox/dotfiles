@@ -30,14 +30,14 @@ syntect_theme = ""
 
 [mode]
 normal_main = { fg = "#ffffff", bg = "#a8003c", bold = true }
-normal_alt = { fg = "#a8003c", bg = "#ebe2d6" }
+normal_alt = { fg = "#a8003c", bg = "reset" }
 select_main = { fg = "#ffffff", bg = "#7a3055", bold = true }
-select_alt = { fg = "#7a3055", bg = "#ebe2d6" }
+select_alt = { fg = "#7a3055", bg = "reset" }
 unset_main = { fg = "#ffffff", bg = "#9e3050", bold = true }
-unset_alt = { fg = "#9e3050", bg = "#ebe2d6" }
+unset_alt = { fg = "#9e3050", bg = "reset" }
 
 [status]
-overall = { fg = "#1a0f14", bg = "#ffffff" }
+overall = { fg = "#1a0f14", bg = "reset" }
 sep_left = { open = "", close = "" }
 sep_right = { open = "", close = "" }
 
@@ -50,12 +50,12 @@ perm_sep = { fg = "#6a5d60" }
 
 # Progress
 progress_label = { fg = "#1a0f14", bold = true }
-progress_normal = { fg = "#a8003c", bg = "#ebe2d6" }
-progress_error = { fg = "#9e3050", bg = "#ebe2d6" }
+progress_normal = { fg = "#a8003c", bg = "reset" }
+progress_error = { fg = "#9e3050", bg = "reset" }
 
 [tabs]
 active = { fg = "#ffffff", bg = "#a8003c" }
-inactive = { fg = "#6a5d60", bg = "#ebe2d6" }
+inactive = { fg = "#6a5d60", bg = "reset" }
 
 [input]
 border = { fg = "#a8003c" }
@@ -74,7 +74,7 @@ title = {}
 hovered = { underline = true }
 
 [which]
-mask = { bg = "#ebe2d6" }
+mask = { bg = "reset" }
 cand = { fg = "#a8003c" }
 rest = { fg = "#6a5d60" }
 desc = { fg = "#1a0f14" }
@@ -86,7 +86,7 @@ on = { fg = "#7a3055" }
 run = { fg = "#a8003c" }
 desc = { fg = "#6a5d60" }
 hovered = { bg = "#ebe2d6", bold = true }
-footer = { fg = "#6a5d60", bg = "#ebe2d6" }
+footer = { fg = "#6a5d60", bg = "reset" }
 
 # Git status — chartreuse + burgundy duo (mirrors lazygit/delta/nvim)
 [git]
