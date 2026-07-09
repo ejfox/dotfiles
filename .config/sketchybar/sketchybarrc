@@ -86,10 +86,17 @@ sketchybar --add item next_event left \
   click_script="open -a Calendar" \
   --subscribe next_event system_woke
 
-# ===== RIGHT SIDE (left → right): demos, posts, battery =====
-# sketchybar renders right-side items in reverse add-order, so battery is added
+# ===== RIGHT SIDE (left → right): demos, posts, battery, clock =====
+# sketchybar renders right-side items in reverse add-order, so clock is added
 # FIRST to become the rightmost anchor, and demos is added LAST to sit leftmost.
-# (No clock — the macOS menu bar already shows the time.)
+
+##### Clock ##### (rightmost anchor, macOS convention)
+# Time-of-day glyph + 12-hour time. Added FIRST among right items → renders rightmost.
+sketchybar --add item clock right \
+  --set clock update_freq=15 \
+  icon.color=$MUTED \
+  label.color=$MUTED \
+  script="$PLUGIN_DIR/clock.sh"
 
 ##### Battery #####
 sketchybar --add item battery right \
