@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# mac-stay-reachable — keep this Mac reachable over Tailscale 24/7, even asleep.
+#
+# THE LOCKOUT (2026-07-09): the iMac Pro went to sleep ~1h after EJ left the
+# house, dropped off the tailnet, and there was NOTHING on its home LAN to wake
+# it — stranded 100 miles away until physically back. (Compounded by the laptop's
+# Tailscale being wedged mid-extension-upgrade, and the VPS being logged out.)
+#
+# This prevents the iMac half of that: a desktop that never system-sleeps stays
+# on the tailnet, so `ssh imacpro` always works. Run ONCE on the always-on Mac
+# (needs sudo). Idempotent — safe to re-run.
+#
+# Still manual (CLI can't set it): Tailscale → Settings → enable "Run Unattended"
+# so it stays connected at the login screen / after logout.
+set -euo pipefail
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
+warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
+
+echo "── power: never system-sleep, wake on network ──"
+# -c = "on AC power" profile (a desktop is always AC). sleep 0 = never sleep the
+# system; disksleep 0 = don't spin disks down; womp 1 = Wake On Magic Packet.
+sudo pmset -c sleep 0 disksleep 0 womp 1
+ok "system sleep OFF, disk sleep OFF, wake-on-magic-packet ON"
+warn "the DISPLAY can still sleep — that's fine, only SYSTEM sleep drops the tailnet"
+
+echo "── current power state ──"
+pmset -g custom 2>/dev/null | grep -E " sleep| womp| disksleep" | sed 's/^/    /' || true
+
+echo "── Tailscale: one manual step ──"
+warn "open Tailscale → Settings → enable 'Run Unattended' (keeps it connected"
+warn "at the login screen and after logout — the CLI can't toggle this)"
+
+echo
+ok "done. this Mac should now survive sleep without leaving the tailnet."
+echo "  bulletproof tier: leave a \$35 Pi at home on the tailnet as a permanent"
+echo "  foothold + wake-on-LAN sender, so even a fully-off machine is reachable."
