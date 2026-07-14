@@ -16,8 +16,9 @@ CYAN='\033[0;36m'
 DIM='\033[2m'
 NC='\033[0m'
 
-# Detect Homebrew prefix
-if [[ -d "/opt/homebrew" ]]; then
+# Detect Homebrew prefix (check for the binary — a bare /opt/homebrew dir can
+# exist as leftover cruft on Intel machines)
+if [[ -x "/opt/homebrew/bin/brew" ]]; then
   BREW_PREFIX="/opt/homebrew"
   ARCH="Apple Silicon"
 else
@@ -87,13 +88,10 @@ CONFIG_DIRS=(
   "btop"
   "atuin"
   "bat"
-  "htop"
+  "fzf"
   "karabiner"
   "lazygit"
-  "neofetch"
-  "neomutt"
   "sketchybar"
-  "wireshark"
   "zsh"
 )
 
