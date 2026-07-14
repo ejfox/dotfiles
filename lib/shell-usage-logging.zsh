@@ -1,6 +1,8 @@
 # shell-usage-logging.zsh - Log shell activity for analysis
 # Source this from .zshrc
 
+zmodload zsh/datetime 2>/dev/null   # provides $EPOCHSECONDS
+
 USAGE_LOG_DIR="$HOME/.local/share/usage-logs/shell"
 mkdir -p "$USAGE_LOG_DIR"
 

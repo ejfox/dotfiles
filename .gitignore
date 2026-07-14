@@ -150,3 +150,4 @@ logs/
 # Karabiner local backups (machine-specific, never sync)
 .config/karabiner/automatic_backups/
 .config/karabiner/karabiner.json.pre-*
+.config/fzf/current.sh

@@ -163,145 +163,20 @@ export LESS_TERMCAP_ue=$'\e[0m'               # end underline
 # Vulpes autosuggestion color (subtle mauve)
 export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=240'
 
-# Vulpes theme integration - MUST load before p10k for colors to work
-# Unified theme switcher functions (switches ZSH, Yazi, and Lazygit)
-vulpes-dark() {
-  # ZSH colors
-  source ~/.config/zsh/themes/vulpes-reddishnovember-dark.zsh
+# Vulpes theme — session colors only. All FILE mutations (lazygit, yazi, tmux,
+# btop, fzf symlink, claude) belong to bin/appearance-watcher; see
+# docs/THEME-SYSTEM.md. This block must load before p10k for colors to work.
+if defaults read -g AppleInterfaceStyle &>/dev/null; then
+  source ~/.config/zsh/themes/vulpes-reddishnovember-dark.zsh 2>/dev/null
+else
+  source ~/.config/zsh/themes/vulpes-reddishnovember-light.zsh 2>/dev/null
+fi
+[ -f ~/.config/fzf/current.sh ] && source ~/.config/fzf/current.sh
 
-  # Yazi theme symlink
-  ln -sf ~/.config/yazi/vulpes-reddishnovember-dark.toml ~/.config/yazi/theme.toml
-
-  # Lazygit config
-  cp ~/.config/lazygit/config.yml ~/.config/lazygit/config.yml.bak 2>/dev/null
-  cat > ~/.config/lazygit/config.yml << 'EOF'
-# vulpes-reddishnovember-dark - Lazygit Theme
-gui:
-  theme:
-    activeBorderColor: ['#e60067', bold]
-    inactiveBorderColor: ['#ffffff']
-    searchingActiveBorderColor: ['#ff0022', bold]
-    optionsTextColor: ['#ff0095']
-    selectedLineBgColor: ['#1a1a1a']
-    selectedRangeBgColor: ['#1a1a1a']
-    cherryPickedCommitBgColor: ['#ff0095']
-    cherryPickedCommitFgColor: ['#0d0d0d']
-    unstagedChangesColor: ['#ff001e']
-    defaultFgColor: ['#f2cfdf']
-  commitLength:
-    show: true
-  showFileTree: true
-  showListFooter: true
-  showRandomTip: true
-  showBranchCommitHash: false
-  showBottomLine: true
-  showCommandLog: true
-  authorColors:
-    "*": '#e60067'
-  branchColors:
-    "main": '#ffffff'
-    "master": '#ffffff'
-    "develop": '#ff0095'
-    "feature/*": '#ff0022'
-    "fix/*": '#ff001e'
-EOF
-
-  # FZF colors - vulpes red dark
-  export FZF_DEFAULT_OPTS="
-    --color=fg:#f5d0dc,bg:#0d0d0d,hl:#ff0055
-    --color=fg+:#ffffff,bg+:#2d1a22,hl+:#ff3344
-    --color=info:#ff0077,prompt:#ff0055,pointer:#ff0055
-    --color=marker:#ff0055,spinner:#ff0077,header:#73264a
-    --color=border:#73264a
-  "
-
-  echo "✓ Switched to vulpes-reddishnovember-dark (ZSH, Yazi, Lazygit, FZF)"
-  echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
-}
-
-vulpes-light() {
-  # ZSH colors
-  source ~/.config/zsh/themes/vulpes-reddishnovember-light.zsh
-
-  # Yazi theme symlink
-  ln -sf ~/.config/yazi/vulpes-reddishnovember-light.toml ~/.config/yazi/theme.toml
-
-  # Lazygit config
-  cp ~/.config/lazygit/config.yml ~/.config/lazygit/config.yml.bak 2>/dev/null
-  cat > ~/.config/lazygit/config.yml << 'EOF'
-# vulpes-reddishnovember-light - Lazygit Theme
-gui:
-  theme:
-    activeBorderColor: ['#fa0070', bold]
-    inactiveBorderColor: ['#000000']
-    searchingActiveBorderColor: ['#e0001e', bold]
-    optionsTextColor: ['#e00083']
-    selectedLineBgColor: ['#efefef']
-    selectedRangeBgColor: ['#efefef']
-    cherryPickedCommitBgColor: ['#e00083']
-    cherryPickedCommitFgColor: ['#f7f7f7']
-    unstagedChangesColor: ['#e0001a']
-    defaultFgColor: ['#501630']
-  commitLength:
-    show: true
-  showFileTree: true
-  showListFooter: true
-  showRandomTip: true
-  showBranchCommitHash: false
-  showBottomLine: true
-  showCommandLog: true
-  authorColors:
-    "*": '#fa0070'
-  branchColors:
-    "main": '#d60044'
-    "master": '#d60044'
-    "develop": '#e00083'
-    "feature/*": '#e0001e'
-    "fix/*": '#e0001a'
-EOF
-
-  # FZF colors - vulpes red light
-  export FZF_DEFAULT_OPTS="
-    --color=fg:#2d1a22,bg:#fff5f8,hl:#cc0044
-    --color=fg+:#0d0d0d,bg+:#f5e0e8,hl+:#dd2244
-    --color=info:#cc0055,prompt:#cc0044,pointer:#cc0044
-    --color=marker:#cc0044,spinner:#cc0055,header:#d4a0b0
-    --color=border:#d4a0b0
-  "
-
-  echo "✓ Switched to vulpes-reddishnovember-light (ZSH, Yazi, Lazygit, FZF)"
-  echo "  Note: Ghostty, Neovim, and Bat auto-switch with system appearance"
-}
-
-# Auto-detect macOS system appearance and apply theme
-vulpes-auto() {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # Check macOS appearance mode
-    if defaults read -g AppleInterfaceStyle &>/dev/null; then
-      # Dark mode is on (suppress output on startup)
-      if [[ "$1" != "silent" ]]; then
-        vulpes-dark
-      else
-        source ~/.config/zsh/themes/vulpes-reddishnovember-dark.zsh >/dev/null 2>&1
-        ln -sf ~/.config/yazi/vulpes-reddishnovember-dark.toml ~/.config/yazi/theme.toml 2>/dev/null
-      fi
-    else
-      # Light mode is on (suppress output on startup)
-      if [[ "$1" != "silent" ]]; then
-        vulpes-light
-      else
-        source ~/.config/zsh/themes/vulpes-reddishnovember-light.zsh >/dev/null 2>&1
-        ln -sf ~/.config/yazi/vulpes-reddishnovember-light.toml ~/.config/yazi/theme.toml 2>/dev/null
-      fi
-    fi
-  else
-    echo "Auto-detection only supported on macOS"
-    echo "Manually run: vulpes-dark or vulpes-light"
-  fi
-}
-
-# Auto-sync themes with system appearance on shell startup
-vulpes-auto silent
+# Muscle-memory shims for the retired vulpes-* switcher functions
+alias vulpes-dark='theme-dark'
+alias vulpes-light='theme-light'
+alias vulpes-auto='theme'
 
 # ZSH syntax highlighting - load after theme
 # Fast syntax highlighting (faster than zsh-syntax-highlighting)
@@ -311,9 +186,6 @@ vulpes-auto silent
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-# Smart git commit with LLM integration
-alias commit='git add -A && diff_output=$(git diff --cached) && if [ ${#diff_output} -gt 100000 ]; then commit_msg=$(echo -e "$(git diff --name-only)\n\n$(echo "$diff_output" | head -c 1024)" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) The git diff is too large to process fully. Based on the list of changed files and the first part of the diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); else commit_msg=$(echo "$diff_output" | llm -m "gpt-4o-mini" -s "$(cat ~/.llm/git_commit_template.txt) Based on the following git diff, generate 10 concise and informative git commit messages using relevant Conventional Commits types and scopes. Ensure that each commit message is appropriate for the changes made, with no stray newlines between the suggestions. Respond with ONLY the commit messages, each separated by a single newline."); fi && selected_msg=$(echo "$commit_msg" | fzf --prompt="Select a commit message:") && git commit -m "$selected_msg"'
 
 # Custom aliases and commands
 # Override Oh My Zsh ls aliases with lsd
@@ -327,23 +199,19 @@ alias cheatsheet="cheatsheets"
 alias dev="yarn dev"
 alias yarni="yarn install"
 alias nodei="node index.js"
-alias c="clear && refresh"
+alias c="clear"
 alias yd="yarn dev"
 alias pbp="pbpaste"
 alias pbc="pbcopy"
-alias pbjson="pbpaste | jsonfui"
 alias catcopy="cat | pbcopy"
-alias jcurl="curl -s \"$1\" | jsonfui"
 alias tmuxkill="tmux kill-server"
 alias tmuxnew="tmux new -s"
 alias showcase="open \"https://ejfox-codeshowcase.web.val.run/?code=$(pbpaste | jq -sRr @uri)\""
 alias vault="cd $HOME/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox"
 alias agentvault="cd $HOME/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/agent-vault"
-alias pico8="/Applications/PICO-8.app/Contents/MacOS/pico8"
 alias nukeyarn="rm yarn.lock;rm -rf node_modules"
 alias ghpub='gh repo create $1 --public --source=. --remote=origin --push'
 alias sshvps='vps'  # Use mosh-powered vps() function
-alias sshsmallweb='ssh -i ~/.ssh/2024-mbp.pem smallweb@208.113.130.118'
 
 # Cracked SSH helpers - never lose your VPS session again
 vps() {
@@ -391,103 +259,25 @@ sshkeepalive() {
 
 # Based on your actual usage patterns (you're welcome)
 alias cl='claude --dangerously-skip-permissions'  # Your 651x favorite command
-alias cln='claude --no-approval'  # When you need even more speed
 alias clc='claude commit'  # Let the robots write your commit messages
 alias ta='tmux attach -t 0'  # Your default tmux session
 alias t0='tmux attach -t 0'  # Alternative for muscle memory
 alias metro='z ~/code/metro-maker4'  # Jump to metro-maker4 (using z)
-alias ddhq='z ~/client-code/ddhq'  # Jump to ddhq (using z)
 alias coach='z ~/code/coachartie2'  # Jump to coachartie2 (using z)
-alias cc='z ~/client-code'  # Client code directory (using z)
 alias ccode='z ~/code'  # Main code directory (renamed to avoid conflict)
 alias ..2='cd ../..'  # Go up two directories (renamed)
 alias ..3='cd ../../..'  # Go up three directories (renamed)
 alias nrd='npm run dev'  # Your 423x daily ritual (renamed to avoid conflict)
 alias nred='npm run electron:dev'  # When you need electron (renamed)
 alias yy='npx yalc'  # Shortcut for yalc commands (shortened)
-alias newsketch='
-  ART_DIR=~/art
-  TODAY=$(date +"%m-%d")
-  INDEX=$(ls $ART_DIR | grep $TODAY | awk -F"[-.]" "{print \$3}" | sort -n | tail -n 1)
-  if [ -z "$INDEX" ]; then
-    INDEX=1
-  else
-    INDEX=$((INDEX+1))
-  fi
-  SKETCH_FILE="$TODAY-$INDEX.js"
-  cp $ART_DIR/template/default-sketch.js $ART_DIR/$SKETCH_FILE
-  echo "Created $ART_DIR/$SKETCH_FILE"
-  cd $ART_DIR
-  npx canvas-sketch-cli $SKETCH_FILE --open &
-  code $ART_DIR/art.code-workspace
-'
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 [ -f "$HOME/.deno/env" ] && . "$HOME/.deno/env"
 # Load environment variables from ~/.env (not committed to git)
 [ -f ~/.env ] && source ~/.env
 
 # Load local customizations (1Password helpers, etc)
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
-
-scraps() {
-  local limit=${1:-10}     # Default to 10 rows
-  local filter=${2:-""}    # Optional filter, e.g., "type=eq.note"
-
-  curl -s "$PERSONAL_SUPABASE_URL/rest/v1/scraps?select=id,content,summary,created_at,updated_at,tags,relationships,metadata,scrap_id,graph_imported,url,screenshot_url,location,title,latitude,longitude,type,published_at,shared,processing_instance_id,processing_started_at,source&order=id.desc&limit=$limit&$filter" \
-    -H "apikey: $PERSONAL_SUPABASE_ANON_KEY" \
-    -H "Authorization: Bearer $PERSONAL_SUPABASE_ANON_KEY" \
-    -H "Content-Type: application/json" | jq
-}
-
-summarize_commits() {
-    # Configurable defaults
-    local default_since="48.hours"   # Default time range
-    local default_commits=5         # Default number of commits
-
-    # Optional arguments
-    local since="${1:-$default_since}" # Accept user input or use default
-    local num_commits="${2:-$default_commits}" # Default to 5 commits if not provided
-
-    # Retrieve the latest N commits in the given time frame
-    local commits=()
-    while IFS= read -r commit; do
-        commits+=("$commit")
-    done < <(git log --since="$since" --pretty=format:"%H" -n "$num_commits")
-
-    # Check if there are any commits in the specified range
-    if [ ${#commits[@]} -eq 0 ]; then
-        echo "No commits found in the last $since."
-        return 1
-    fi
-
-    # Generate diffs for the retrieved commits
-    local diffs=""
-    for commit in "${commits[@]}"; do
-        diffs+="$(git show "$commit")\n\n"
-    done
-
-    # Send the diffs to the LLM for summarization
-    echo -e "$diffs" | llm -m "gpt-3.5-turbo-16k" "Summarize the following git diffs in detail, particularly focused on describing the delta, summarizing the changes that were made:"
-}
-
-# >>> conda initialize - lazy loaded for speed >>>
-conda() {
-    unset -f conda
-    __conda_setup="$("$BREW_PREFIX/Caskroom/miniconda/base/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
-    if [ $? -eq 0 ]; then
-        eval "$__conda_setup"
-    else
-        if [ -f "$BREW_PREFIX/Caskroom/miniconda/base/etc/profile.d/conda.sh" ]; then
-            . "$BREW_PREFIX/Caskroom/miniconda/base/etc/profile.d/conda.sh"
-        else
-            export PATH="$BREW_PREFIX/Caskroom/miniconda/base/bin:$PATH"
-        fi
-    fi
-    unset __conda_setup
-    conda "$@"
-}
-# <<< conda initialize <<<
 
 # Initialize zoxide (smarter cd command) - lazy loaded
 z() {
@@ -509,7 +299,7 @@ export VISUAL="nvim"
 export MANPAGER='nvim +Man!'
 
 # Quick tips lookup
-tips() { grep -i "${1:-.}" ~/tips.txt | fzf --height=50% --reverse; }
+tips() { grep -i "${1:-.}" ~/.dotfiles/docs/tips.txt | fzf --height=50% --reverse; }
 
 # Quick note to Obsidian inbox
 note() { echo "- $* ($(date '+%H:%M'))" >> ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox/inbox.md && echo "noted"; }
@@ -531,71 +321,20 @@ gist() { pbpaste | gh gist create -f "${1:-snippet.txt}" -d "${2:-}" && echo "gi
 
 alias foxpods='SwitchAudioSource -s "FOXPODS"'
 alias speakers='SwitchAudioSource -s "MacBook Pro Speakers"'
-alias sw="smallweb"
-alias pip="uv pip"
-alias pip3="uv pip"
-export UV_SYSTEM_PYTHON=1
 
 # UV FOREVER 🚀
+export UV_SYSTEM_PYTHON=1
 alias python="uv run python"
 alias pip="uv pip"
 alias pip3="uv pip"
-alias venv="uv venv"
 alias install="uv tool install"
 
 # Quick uv commands
 alias uvi="uv tool install"      # install any Python CLI tool
 alias uvr="uv run"               # run in isolated env
 alias uvs="uv sync"              # sync dependencies
-alias uvx="uvx"                  # run without installing
 
-# Never see pip conflicts again
-export UV_SYSTEM_PYTHON=1
-# ========================================
-# UV HELPERS - Remind you to use uv instead
-# ========================================
-
-# Override pip to remind about uv
-function pip() {
-  echo "💡 Use uv instead:"
-  echo "  • uv add <package>        (in a project)"
-  echo "  • uv tool install <tool>  (for CLI tools)"
-  echo "  • uv pip install <pkg>    (if you really need pip)"
-  echo ""
-  echo "Running traditional pip..."
-  command pip "$@"
-}
-
-function pip3() {
-  echo "💡 Use uv instead:"
-  echo "  • uv add <package>        (in a project)"
-  echo "  • uv tool install <tool>  (for CLI tools)"
-  echo "  • uv pip install <pkg>    (if you really need pip)"
-  echo ""
-  echo "Running traditional pip3..."
-  command pip3 "$@"
-}
-
-# Override python to suggest uv for projects
-function python() {
-  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
-    echo "💡 Python project detected! Use: uv run python"
-    echo "   This ensures correct dependencies are loaded"
-    echo ""
-  fi
-  command python "$@"
-}
-
-function python3() {
-  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]]; then
-    echo "💡 Python project detected! Use: uv run python"
-    echo "   This ensures correct dependencies are loaded"
-    echo ""
-  fi
-  command python3 "$@"
-}
-
-# Override venv commands
+# Steer venv workflows toward uv
 alias venv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias virtualenv='echo "💡 Use uv instead: uv init (new) or uv sync (existing)"'
 alias activate='echo "💡 No activation needed! Just use: uv run python"'
@@ -606,7 +345,7 @@ alias cd='z'
 alias stream-motd='rm -rf /tmp/startup_cache/* && ~/.startup.sh'
 
 # Random tip from tips.txt (video game loading screen style)
-alias tip='shuf -n 1 ~/tips.txt'
+alias tip='shuf -n 1 ~/.dotfiles/docs/tips.txt'
 
 # Nvim fuzzy finder aliases
 alias v='nvim'
@@ -614,32 +353,6 @@ alias vs='nvim $(fzf --preview "bat --color=always --style=numbers {}" --preview
 alias vg='nvim $(rg --line-number --no-heading --color=always . | fzf --ansi --preview "echo {} | cut -d: -f1,2 | xargs -I {} sh -c \"bat --color=always --highlight-line \$(echo {} | cut -d: -f2) \$(echo {} | cut -d: -f1)\"" --delimiter ":" --preview-window=right:60%:wrap | cut -d: -f1)'
 alias o='cd ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox && nvim "$(fd -e md -E .trash -E attachments -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|^\./||" | fzf --preview "bat --color=always --style=numbers {}" --preview-window=right:60%:wrap --with-nth=-2.. --delimiter=/)"'
 alias r='nvim "$(fd -t f -e js -e ts -e vue -e md -e jsx -e tsx -e css -e scss -e py -e go -e rs -E node_modules -E dist -E build -E .next -E .nuxt -E out -E target -E vendor . ~/code -x stat -f "%m {}" | sort -rn | cut -d" " -f2- | sed "s|$HOME/code/||" | fzf --preview "bat --color=always --style=numbers ~/code/{}" --preview-window=right:60% --prompt=\"  \" --pointer=\"\" --marker=\"󰄲\" | sed "s|^|$HOME/code/|")"'
-
-
-# JINA_CLI_BEGIN
-
-## autocomplete
-if [[ ! -o interactive ]]; then
-    return
-fi
-
-compctl -K _jina jina
-
-_jina() {
-  local words completions
-  read -cA words
-
-  if [ "${#words}" -eq 2 ]; then
-    completions="$(jina commands)"
-  else
-    completions="$(jina completions ${words[2,-2]})"
-  fi
-
-  reply=(${(ps:
-:)completions})
-}
-
-
 
 
 
@@ -653,90 +366,20 @@ alias n='nvim .'
 ulimit -n 4096
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
-# JINA_CLI_END
-
-
-# Initialize rbenv (if installed)
-# Install with: brew install rbenv
-command -v rbenv &>/dev/null && eval "$(rbenv init - zsh)"
-
-# Email shortcuts
-alias m='neomutt'
-alias ei='email-insights'
-
 # IRC shortcuts
 alias fp='irssi'
 alias ircsesh='tmux new-session -d -s irc "irssi" && tmux attach -t irc'
-alias irclog='tail -f ~/.dotfiles/.irssi/logs/**/*.log | head -50'
-
-# cmus YouTube integration 
-alias yt="~/.config/cmus/cmus-yt.sh"
-alias ytp="~/.config/cmus/yt-playlist.sh"
-alias cm="cmus"
-alias cmp="cmus-remote -u"  # pause/play toggle
-alias cmn="cmus-remote -n"  # next
-alias cmr="cmus-remote -r"  # previous
-alias cms="cmus-remote -s"  # stop
-alias cmq="cmus-remote -Q"  # current track info
-# This line has been cleaned up - the duplicate paths and VMware Fusion issue have been resolved
-# The PATH is now managed by the earlier export PATH statements in this file
-
-# Mermaid ASCII tool configuration
-export PATH="$HOME/bin:$PATH"
-
-# Mermaid ASCII aliases
-alias mermaid="mermaid-ascii"
-alias ascii-mermaid="mermaid-ascii"
-alias mmd="mermaid-ascii"
-
-# Tmux + Mermaid functions
-send-mermaid() {
-    local target_pane=${1}
-    if [[ -z "$target_pane" ]]; then
-        echo "Usage: send-mermaid <pane_target>"
-        echo "Available panes:"
-        tmux list-panes -a -F "  #{session_name}:#{window_index}.#{pane_index} - #{pane_title} (#{pane_current_command})"
-        echo ""
-        echo "Example: echo 'graph TD"$'\n'"A --> B"$'\n'"B --> C' | send-mermaid 0:6.2"
-        echo "NOTE: Use multiline syntax, NOT semicolons!"
-        return 1
-    fi
-    local temp_file="/tmp/mermaid_$(date +%s).txt"
-
-    # Use ASCII-only mode (-a flag) for terminal compatibility
-    if mermaid-ascii -a -f - > "$temp_file" 2>/dev/null; then
-        tmux send-keys -t "$target_pane" "clear && echo '🎯 MERMAID DIAGRAM:' && cat '$temp_file' && rm '$temp_file'" Enter
-    else
-        echo "❌ Error: Failed to generate mermaid diagram"
-        echo "Check your syntax - use multiline format:"
-        echo "graph TD"
-        echo "A --> B"
-        echo "B --> C"
-        echo ""
-        echo "NOT: graph TD; A-->B; B-->C"
-        rm -f "$temp_file"
-        return 1
-    fi
-}
 
 list-panes() {
     tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index} - #{pane_title} (#{pane_current_command})"
 }
 
-# Auto-sync lazygit theme with system appearance
-if [[ -x "$HOME/.local/bin/lazygit-theme-sync" ]]; then
-    "$HOME/.local/bin/lazygit-theme-sync" &>/dev/null
-fi
 
 
 
 
 # RSS reader alias
 alias rss="newsboat"
-
-# DDHQ TUI alias
-alias elections="$HOME/client-code/ddhq/ddhq-rust-tui/target/release/ddhq-tui"
-alias scrap="scrapbook-cli"
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
@@ -748,3 +391,6 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # Fly.io
 export FLYCTL_INSTALL="$HOME/.fly"
 export PATH="$FLYCTL_INSTALL/bin:$PATH"
+
+# Shell leg of usage logging (tmux/nvim/hammerspoon/talon legs live elsewhere)
+[ -f ~/.dotfiles/lib/shell-usage-logging.zsh ] && source ~/.dotfiles/lib/shell-usage-logging.zsh

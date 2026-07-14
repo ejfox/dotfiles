@@ -9,10 +9,10 @@ if [ -f "$ZEN_STATE" ]; then
   
   # Show tmux status
   tmux set -g status on 2>/dev/null
-  
-  # Start sketchybar
-  brew services start sketchybar 2>/dev/null
-  
+
+  # Show sketchybar (it's plist-loaded, not brew-services-managed)
+  sketchybar --bar hidden=off 2>/dev/null
+
   echo "◯ normal"
 else
   # ENTER ZEN MODE
@@ -20,9 +20,9 @@ else
   
   # Hide tmux status
   tmux set -g status off 2>/dev/null
-  
-  # Stop sketchybar
-  brew services stop sketchybar 2>/dev/null
-  
+
+  # Hide sketchybar (it's plist-loaded, not brew-services-managed)
+  sketchybar --bar hidden=on 2>/dev/null
+
   echo "◆ zen"
 fi
