@@ -142,6 +142,7 @@ hs.alert.show("hue-key loaded: " .. count .. " keys live", 3)
 -- window-mode no longer does, so it can never be starved by secure input.
 local function rearmTaps()
   if hueKeyTap then pcall(function() hueKeyTap:stop(); hueKeyTap:start() end) end
+  if modLogTap then pcall(function() modLogTap:stop(); modLogTap:start() end) end
 end
 if caffeineWatcher then caffeineWatcher:stop() end
 caffeineWatcher = hs.caffeinate.watcher.new(function(ev)
@@ -153,7 +154,39 @@ end):start()
 if tapHealthTimer then tapHealthTimer:stop() end
 tapHealthTimer = hs.timer.doEvery(30, function()
   if hueKeyTap and not hueKeyTap:isEnabled() then pcall(function() hueKeyTap:start() end) end
+  if modLogTap and not modLogTap:isEnabled() then pcall(function() modLogTap:start() end) end
 end)
+
+-- ── Modifier transition logging (stuck-⌘ hunt, 2026-07-12) ──────────────────
+-- Logs every modifier state CHANGE (post-Karabiner, what apps actually see) to
+-- ~/.local/share/usage-logs/modifiers/YYYY-MM-DD.jsonl with ms timestamps and
+-- the raw keycode that caused it (55=left⌘ 54=right⌘ 58=l⌥ 61=r⌥ 56=l⇧ 60=r⇧
+-- 59=l⌃ 62=r⌃). A "cmd" entry with no following "" entry = stuck at flag level.
+-- Remove this section once the Karabiner 16.1.0 stuck-modifier bug is resolved.
+local MODLOG_DIR = os.getenv("HOME") .. "/.local/share/usage-logs/modifiers/"
+local prevMods = "?"
+if modLogTap then modLogTap:stop() end
+modLogTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(e)
+  local f = e:getFlags()
+  local names = {}
+  for _, k in ipairs({ "cmd", "alt", "ctrl", "shift", "fn" }) do
+    if f[k] then names[#names + 1] = k end
+  end
+  local cur = table.concat(names, " ")
+  if cur ~= prevMods then
+    prevMods = cur
+    local now = hs.timer.secondsSinceEpoch()
+    local out = io.open(MODLOG_DIR .. os.date("%Y-%m-%d") .. ".jsonl", "a")
+    if out then
+      out:write(string.format('{"ts":"%s.%03dZ","mods":%q,"keycode":%d}\n',
+        os.date("!%Y-%m-%dT%H:%M:%S", math.floor(now)), math.floor((now % 1) * 1000),
+        cur, e:getKeyCode()))
+      out:close()
+    end
+  end
+  return false
+end)
+modLogTap:start()
 
 -- ── Auto-reload config on save ──────────────────────────────────────────────
 -- init.lua is symlinked from the dotfiles; watch that dir and reload on save.
