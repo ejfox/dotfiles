@@ -43,6 +43,13 @@ Nvim handles its own flip via `auto-dark-mode.nvim` (in
 `~/.dotfiles/.config/nvim/lua/plugins/theming.lua`); the watcher doesn't touch
 nvim.
 
+Session-local colors (zsh prompt palette + `FZF_DEFAULT_OPTS`) are the one leg
+a daemon can't do — `.zshrc` sources `.config/zsh/themes/…-{mode}.zsh` and
+`~/.config/fzf/current.sh` at shell start. That block is read-only: the old
+`vulpes-dark`/`vulpes-light` zshrc functions that rewrote lazygit config via
+heredoc were removed 2026-07-13 (they fought the watcher); they survive as
+aliases to `theme-dark`/`theme-light`/`theme`.
+
 ## Source-of-truth files per tool
 
 | Tool | Source file(s) | Active config |

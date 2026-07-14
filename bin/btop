@@ -2,7 +2,10 @@
 # Wrapper for btop that auto-switches theme based on system appearance
 
 BTOP_CONF="$HOME/.config/btop/btop.conf"
-BTOP_BIN="/opt/homebrew/bin/btop"
+# Hardcoded paths (Intel first) — `command -v btop` would find this wrapper itself
+for BTOP_BIN in /usr/local/bin/btop /opt/homebrew/bin/btop; do
+    [ -x "$BTOP_BIN" ] && break
+done
 
 # Check system appearance (returns "Dark" if dark mode, fails/empty if light)
 if defaults read -g AppleInterfaceStyle 2>/dev/null | grep -q "Dark"; then

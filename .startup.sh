@@ -153,13 +153,6 @@ fetch_calendar() {
 }
 
 
-fetch_email() {
-  [ -x "$HOME/.email-summary.sh" ] || return 0
-  timeout 5 "$HOME/.email-summary.sh" > "$CACHE_DIR/email.tmp.$$" 2>/dev/null && \
-    [ -s "$CACHE_DIR/email.tmp.$$" ] && mv "$CACHE_DIR/email.tmp.$$" "$CACHE_DIR/email"
-  rm -f "$CACHE_DIR/email.tmp.$$" 2>/dev/null
-}
-
 fetch_mirror_data() {
   [ "$ONLINE" -eq 0 ] || return 0
 
@@ -182,7 +175,6 @@ fetch_mirror_data() {
 fetch_stats &
 fetch_tasks &
 fetch_calendar &
-fetch_email &
 fetch_mirror_data &
 
 # Bounded wait: poll children until done or 5s deadline, then kill stragglers.
@@ -220,7 +212,6 @@ show_section() {
 
 show_section "$CACHE_DIR/tasks" "FOCUS"
 show_section "$CACHE_DIR/calendar" "SCHEDULE"
-show_section "$CACHE_DIR/email" "INBOX"
 
 ################################################################################
 # MIRROR - Ambient observation (25% chance, always late night)

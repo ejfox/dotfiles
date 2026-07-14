@@ -24,7 +24,6 @@ ln -sf ~/.dotfiles/.startup.sh ~/.startup.sh
 ln -sf ~/.dotfiles/.zen-mode.sh ~/.zen-mode.sh
 ln -sf ~/.dotfiles/.p10k.zsh ~/.p10k.zsh
 ln -sf ~/.dotfiles/.gitconfig ~/.gitconfig
-ln -sf ~/.dotfiles/.npmrc ~/.npmrc
 ln -sf ~/.dotfiles/.zprofile ~/.zprofile
 ln -sf ~/.dotfiles/.bash_profile ~/.bash_profile
 ln -sf ~/.dotfiles/.zshenv ~/.zshenv
@@ -42,17 +41,14 @@ ln -sf ~/.dotfiles/.config/btop ~/.config/btop
 ln -sf ~/.dotfiles/.config/minimal-prompt.zsh ~/.config/minimal-prompt.zsh
 ln -sf ~/.dotfiles/.config/atuin ~/.config/atuin
 ln -sf ~/.dotfiles/.config/bat ~/.config/bat
-ln -sf ~/.dotfiles/.config/htop ~/.config/htop
 ln -sf ~/.dotfiles/.config/karabiner ~/.config/karabiner
 ln -sf ~/.dotfiles/.config/lazygit ~/.config/lazygit
-ln -sf ~/.dotfiles/.config/neofetch ~/.config/neofetch
-ln -sf ~/.dotfiles/.config/neomutt ~/.config/neomutt
 ln -sf ~/.dotfiles/.config/sketchybar ~/.config/sketchybar
-ln -sf ~/.dotfiles/.config/wireshark ~/.config/wireshark
 ln -sf ~/.dotfiles/.config/zsh ~/.config/zsh
+ln -sf ~/.dotfiles/.config/fzf ~/.config/fzf
 
-# Talon voice control overrides
-ln -sf ~/.dotfiles/talon-overrides ~/.talon/user/ejfox-overrides
+# Talon voice control overrides (-n: replace the symlink itself, don't descend into it)
+ln -sfn ~/.dotfiles/talon-overrides ~/.talon/user/talon-overrides
 
 # Enable pre-commit security hook
 git config core.hooksPath .githooks
