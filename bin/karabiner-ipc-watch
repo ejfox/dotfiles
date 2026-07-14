@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# karabiner-ipc-watch — live monitor for the Karabiner 16.1.0 IPC-churn bug
+# (pqrs-org/Karabiner-Elements#4491) that drops the device grab mid-session
+# and strands modifiers (the stuck left-⌘ of July 2026).
+#
+# Two watchers in one process (run under launchd, KeepAlive):
+#   1. tail -F the daemon log; on an IPC-churn signature → log + notify.
+#   2. every 20s read live modifier state via Hammerspoon's `hs` CLI; if the
+#      SAME modifier is down for 3 consecutive checks (~60s — nobody holds ⌘
+#      that long) → it's stuck → notify with the fix (tap the key to clear).
+#
+# Incidents append to $INCIDENT_LOG (usage-logs convention) so a felt stuck-key
+# moment can be correlated with a logged grabber drop after the fact.
+# Diagnosis + evidence: ~/.claude/projects/-Users-ejfox/memory/karabiner-16-1-stuck-modifier.md
+
+DAEMON_LOG="/var/log/karabiner/core_service.log"
+INCIDENT_LOG="$HOME/.local/share/usage-logs/karabiner-incidents.log"
+HS="/usr/local/bin/hs"
+mkdir -p "$(dirname "$INCIDENT_LOG")"
+
+log_incident() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$INCIDENT_LOG"
+}
+
+notify() { # $1 = message
+  osascript -e "display notification \"$1\" with title \"Karabiner watch\"" 2>/dev/null
+}
+
+mods_down() { # prints space-separated held modifiers, e.g. "cmd" (empty if none)
+  "$HS" -c 'local m=hs.eventtap.checkKeyboardModifiers(); local o={} for k in pairs(m) do o[#o+1]=k end print(table.concat(o," "))' 2>/dev/null
+}
+
+# ── 1. IPC-churn signature watcher ──────────────────────────────────────────
+ipc_watch() {
+  local last_notify=0
+  tail -n 0 -F "$DAEMON_LOG" 2>/dev/null | while IFS= read -r line; do
+    case "$line" in
+      *"peer_error_occurred"*|*"device_grabber is stopped"*|*"current_console_user_id: none"*)
+        log_incident "IPC: $line"
+        local now; now=$(date +%s)
+        if (( now - last_notify > 60 )); then   # debounce: one alert per burst
+          last_notify=$now
+          # give the daemon a moment to re-grab, then see if a modifier got stranded
+          sleep 12
+          local held; held=$(mods_down)
+          if [[ -n "$held" ]]; then
+            log_incident "IPC: modifier stranded after regrab: $held"
+            notify "Grabber dropped (bug #4491) — $held looks STUCK. Tap the key to clear it."
+          else
+            notify "Karabiner grabber dropped + re-grabbed (bug #4491). Modifiers look clean."
+          fi
+        fi
+        ;;
+    esac
+  done
+}
+
+# ── 2. stuck-modifier sentinel (catches stuck keys from ANY cause) ─────────
+sentinel() {
+  local prev="" count=0 alerted=""
+  while sleep 20; do
+    local held; held=$(mods_down)
+    if [[ -n "$held" && "$held" == "$prev" ]]; then
+      (( count++ ))
+    else
+      count=0 alerted=""
+    fi
+    prev="$held"
+    if (( count >= 2 )) && [[ "$alerted" != "$held" ]]; then   # same mods ≥ ~60s
+      alerted="$held"
+      log_incident "SENTINEL: '$held' held >60s — probably stuck"
+      notify "Modifier stuck: $held (held >60s). Tap the key to clear it."
+    fi
+  done
+}
+
+log_incident "watcher started (pid $$)"
+ipc_watch &
+sentinel &
+wait
