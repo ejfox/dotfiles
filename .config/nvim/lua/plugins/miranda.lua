@@ -32,6 +32,7 @@ return {
     local function mtime(p) local s = uv.fs_stat(p); return s and s.mtime.sec or 0 end
 
     local function maybe_rebuild_ctx()
+      if vim.fn.executable(CTX_GEN) == 0 then return end -- script not provisioned on this machine
       local cm = mtime(CTX)
       for _, s in ipairs({
         x("~/.config/nvim/lua/config/keymaps.lua"),
