@@ -146,7 +146,10 @@ export NVM_DIR="$HOME/.nvm"
 PATH=~/.console-ninja/.bin:$PATH
 
 # Terminal settings
-export TERM="xterm-256color"
+# TERM override removed 2026-07-15: it stomped Ghostty's xterm-ghostty, which
+# blinded tmux to the Sync capability → laggy/tearing scroll in panes. Let the
+# terminal set its own TERM. If an ancient ssh host complains, fix per-host:
+#   infocmp -x xterm-ghostty | ssh host tic -x -
 export COLORTERM="truecolor"
 touch ~/.hushlogin
 export MAILCHECK=0
