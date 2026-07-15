@@ -320,4 +320,68 @@ function windowSnapUndo()  -- global: reachable via `hs -c`; ⌥Space u
   end
 end
 
-hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display", 2)
+-- ── Autoplace: newborn windows snap to their data-proven home slot ───────────
+-- Added 2026-07-15. Mined from a week of window logs (~/.local/share/usage-logs/
+-- windows/): a few apps get manually snapped to the same slot nearly every time
+-- a window appears — Safari→left-half was the single most common manual snap.
+-- This catches NEWLY CREATED windows of whitelisted apps and snaps them there.
+--
+-- What it will NEVER do: move an existing window, touch float-class apps
+-- (Messages, Discord, Things, 1Password, Fantastical — deliberately absent
+-- from the table), or move a window already sitting at its home slot (so
+-- macOS frame-restoration wins when it's already right).
+--
+-- ★★ TO DISABLE (if you forgot this exists: yes, Claude added it 2026-07-15) ★★
+--   1. Instant, survives reloads:   touch ~/.config/autoplace-disabled
+--      (re-enable:                  rm ~/.config/autoplace-disabled)
+--   2. This session only:           /usr/local/bin/hs -c "autoplaceFilter:pause()"
+--   3. Forever: delete this whole section (down to the next ── rule).
+--
+-- UNDO a bad placement: ⌥Space u — autoplace sets lastSnap like a manual snap.
+-- AUDIT: each placement logs trigger:"autoplace" to the windows JSONL and
+-- flashes a 1s alert. To grade it later: autoplace entries followed by a
+-- hand-move within ~1 min were wrong guesses → prune that app from the table.
+local AUTOPLACE_DISABLE_FILE = os.getenv("HOME") .. "/.config/autoplace-disabled"
+local AUTOPLACE_MIN_W, AUTOPLACE_MIN_H = 500, 300 -- px; skips dialog/panel-sized windows
+
+local AUTOPLACE_HOMES = {
+  -- app              screen (name substring)  slot (SNAP_UNITS)  evidence, Jul 2026 logs
+  ["Safari"]        = { screen = "Retina", slot = "left",  label = "left-half" },      -- #1 manual snap
+  ["Mail"]          = { screen = "Retina", slot = "right", label = "right-half" },     -- 93% of observations
+  ["Google Chrome"] = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 60% born there already
+  ["Spotify"]       = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 100% of observations
+}
+
+local function autoplaceScreen(pattern)
+  for _, s in ipairs(hs.screen.allScreens()) do
+    if (s:name() or ""):find(pattern, 1, true) then return s end
+  end
+end
+
+local function autoplace(win, appName)
+  local home = AUTOPLACE_HOMES[appName]
+  if not home then return end
+  if hs.fs.attributes(AUTOPLACE_DISABLE_FILE) then return end
+  if not win:isStandard() then return end
+  -- Mail compose windows are new windows too, but they belong floating
+  if appName == "Mail" and (win:title() or ""):find("New Message") then return end
+  local f = win:frame()
+  if f.w < AUTOPLACE_MIN_W or f.h < AUTOPLACE_MIN_H then return end
+  local screen = autoplaceScreen(home.screen)
+  if not screen then return end -- target display unplugged → do nothing
+  local target = snapRectFor(screen, SNAP_UNITS[home.slot])
+  if snapSameRect(f, target) then return end -- already home
+  lastSnap = { id = win:id(), frame = f } -- ⌥Space u restores
+  win:setFrame(target, 0)
+  hs.alert.show("⌂ " .. appName .. " → " .. home.label .. "   (⌥Space u undoes)", 1)
+  hs.timer.doAfter(0.3, function() pcall(logWindowSnapshot, "autoplace") end)
+end
+
+if autoplaceFilter then autoplaceFilter:unsubscribeAll() end
+autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify" })
+autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
+  -- brief delay so the app finishes its own frame-restore before we judge
+  hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
+end)
+
+hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display + autoplace", 2)
