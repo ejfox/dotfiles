@@ -136,13 +136,17 @@ logs/
 # -----------------------------------------------------------------------------
 # AUTO-FLIPPED BY appearance-watcher (live state, not source of truth)
 # -----------------------------------------------------------------------------
-# These are rewritten on every macOS dark/light flip. Sources tracked elsewhere:
+# These are rewritten on every macOS dark/light flip — live state, untracked.
+# The tracked sources of truth live alongside them:
 #   - yazi:    .config/yazi/vulpes-reddishnovember-{dark,light}.toml
 #   - lazygit: .config/lazygit/vulpes-reddishnovember-{dark,light}.yml
-# btop.conf and .tmux.conf stay tracked (only 1-2 lines flip) but are marked
-# skip-worktree — see ~/.dotfiles/bin/appearance-watcher.
+#   - btop:    .config/btop/btop-{dark,light}.conf  (edit BOTH to change a setting)
+#   - tmux:    vulpes-reddish2-{dark,light}-tmux.tmux.conf (via 'current' symlink)
+# skip-worktree hack retired 2026-07-15 — no tracked file flips anymore.
 .config/yazi/theme.toml
 .config/lazygit/config.yml
+.config/btop/btop.conf
+vulpes-reddish2-current-tmux.tmux.conf
 
 # Per-machine Ghostty overrides (shaders on/off depending on GPU)
 .config/ghostty/config.local

@@ -19,19 +19,14 @@ get_mode() {
 
 set_btop_theme() {
     local mode="$1"
-    local theme="vulpes-reddish2-${mode}-btop"
-
-    if [[ -f "$BTOP_CONF" ]]; then
-        sed -i '' "s/color_theme = .*/color_theme = \"$theme\"/" "$BTOP_CONF"
-        # Light mode needs theme background, dark mode uses terminal transparency
-        if [[ "$mode" == "light" ]]; then
-            sed -i '' "s/theme_background = .*/theme_background = True/" "$BTOP_CONF"
-        else
-            sed -i '' "s/theme_background = .*/theme_background = False/" "$BTOP_CONF"
-        fi
-        # Signal btop to reload config
-        pkill -SIGUSR2 btop 2>/dev/null
-    fi
+    # btop.conf is UNTRACKED live state (like lazygit's config.yml); the
+    # tracked sources are btop-{dark,light}.conf. To change a btop setting
+    # permanently, edit BOTH variants — btop.conf gets overwritten on flips.
+    local src="$HOME/.config/btop/btop-${mode}.conf"
+    [[ -f "$src" ]] || return 0
+    cp "$src" "$BTOP_CONF"
+    # Signal btop to reload config
+    pkill -SIGUSR2 btop 2>/dev/null
 }
 
 set_lazygit_theme() {
@@ -49,10 +44,9 @@ set_tmux_theme() {
     local theme_file="$HOME/.dotfiles/vulpes-reddish2-${mode}-tmux.tmux.conf"
     [[ -f "$theme_file" ]] || return 0
 
-    # Resolve symlink since macOS sed -i doesn't follow symlinks
-    local conf
-    conf=$(readlink -f "$HOME/.tmux.conf" 2>/dev/null || realpath "$HOME/.tmux.conf" 2>/dev/null || echo "$HOME/.tmux.conf")
-    sed -i '' "s|^source-file ~/.dotfiles/vulpes-reddish2-.*-tmux.tmux.conf|source-file ~/.dotfiles/vulpes-reddish2-${mode}-tmux.tmux.conf|" "$conf"
+    # Repoint the untracked 'current' symlink — .tmux.conf sources it via a
+    # line that never changes, so theme flips never touch a tracked file.
+    ln -sf "$theme_file" "$HOME/.dotfiles/vulpes-reddish2-current-tmux.tmux.conf"
     tmux source-file "$theme_file" 2>/dev/null
 }
 
