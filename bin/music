@@ -709,12 +709,14 @@ DETACH_SRC
       rm -f "$src_file"
       print "${TEAL}TP-7 detach helper installed${RST}"
 
-      # set up passwordless sudo for the detach helper
+      # set up passwordless sudo for the detach helper AND the root pull script
+      # (both are needed: the watcher/import path runs tp7-root-pull.sh via sudo -n)
       local sudoers_file="/etc/sudoers.d/tp7-detach"
-      local sudoers_line="$USER ALL=(root) NOPASSWD: $SHARE_DIR/tp7-detach-driver"
-      if [[ ! -f "$sudoers_file" ]] || ! grep -qF "$SHARE_DIR/tp7-detach-driver" "$sudoers_file" 2>/dev/null; then
-        print "${MUTED}setting up passwordless sudo for TP-7 detach (requires sudo once)…${RST}"
-        echo "$sudoers_line" | sudo tee "$sudoers_file" >/dev/null 2>&1 && sudo chmod 440 "$sudoers_file" 2>&1
+      local sudoers_line="$USER ALL=(root) NOPASSWD: $SHARE_DIR/tp7-detach-driver
+$USER ALL=(root) NOPASSWD: $SHARE_DIR/tp7-root-pull.sh"
+      if [[ ! -f "$sudoers_file" ]] || ! grep -qF "tp7-root-pull.sh" "$sudoers_file" 2>/dev/null; then
+        print "${MUTED}setting up passwordless sudo for TP-7 pull (requires sudo once)…${RST}"
+        print -- "$sudoers_line" | sudo tee "$sudoers_file" >/dev/null 2>&1 && sudo chmod 440 "$sudoers_file" 2>&1
         if [[ $? -eq 0 ]]; then
           print "${TEAL}passwordless sudo configured${RST}"
         else

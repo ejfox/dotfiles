@@ -18,8 +18,18 @@ jlog() {
     >> "$JLOG_DIR/$(date +%F).jsonl"
 }
 
+# keep the watcher log bounded (~1MB cap, keep last 256KB)
+if [[ -f "$LOG" && $(stat -f%z "$LOG" 2>/dev/null || echo 0) -gt 1048576 ]]; then
+  tail -c 262144 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+fi
+
 # Teenage Engineering vendor id = 0x2367 (9063); TP-7 MTP-mode product id = 0x0019 (25).
-# ioreg -p IOUSB prints these as decimal.
+# ioreg -p IOUSB prints these as decimal. The two greps are independent, so in
+# theory another attached device with idProduct 25 could fake "MTP mode" while
+# the TP-7 sits in disk mode — accepted: worst case is one harmless NODEV pull
+# attempt, and the odds are negligible. (Event-driven launchd IOKit matching
+# exists but needs an XPC event-consumer helper to avoid relaunch loops; a
+# 17ms ioreg poll every 10s is simpler and effectively free.)
 usb_info=$(ioreg -p IOUSB -l 2>/dev/null)
 
 # no TP-7 connected — clear state

@@ -3,12 +3,18 @@
 # guaranteed field-kit fallback. Called by the launchd watcher (tp7-mount-handler.sh)
 # when a TP-7 is detected in MTP mode. Safe to run by hand too.
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/bin:$PATH"
+setopt extendedglob
 
 SH=/Users/ejfox/.local/share/music-cli
 DEST="${1:-/Users/ejfox/tp7/latest/recordings}"
 LOG="${HOME}/.local/share/music-cli/import.log"
 JLOG_DIR="${HOME}/.local/share/usage-logs/music"
 mkdir -p "$DEST" "$JLOG_DIR"
+
+# keep the human log bounded (~1MB cap, keep last 256KB)
+if [[ -f "$LOG" && $(stat -f%z "$LOG" 2>/dev/null || echo 0) -gt 1048576 ]]; then
+  tail -c 262144 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+fi
 
 notify() { osascript -e "display notification \"$1\" with title \"TP-7 import\" sound name \"Glass\"" 2>/dev/null; }
 log()    { echo "[$(date '+%F %T')] $1" >> "$LOG"; }
@@ -46,6 +52,7 @@ total=0; nextpct=25
 #   END got=<n> failed=<n>
 sudo -n "$SH/tp7-root-pull.sh" "$DEST" 2>>"$LOG" | while IFS= read -r line; do
   log "$line"
+  line="${line##[[:space:]]#}"   # puller may emit leading whitespace — don't let it break the case match
   case "$line" in
     *TOPULL=*)
       total="${line##*TOPULL=}"; total="${total%%[^0-9]*}"
