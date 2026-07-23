@@ -981,7 +981,6 @@ cmd_tp7_ls() {
 }
 
 cmd_tp7_pull() {
-  command -v gphoto2 >/dev/null || die "gphoto2 not installed (brew install gphoto2)"
   if ! tp7_is_connected; then die "TP-7 not connected (check USB cable)"; fi
 
   if ! tp7_is_mtp_mode; then
@@ -1000,65 +999,27 @@ cmd_tp7_pull() {
     esac
   done
 
-  print "${BOLD}preparing TP-7 for file transfer…${RST}"
-  tp7_detach_driver || return 1
-
-  if ! tp7_wait_for_gphoto 8; then
-    print "${PINK}gphoto2 can't reach TP-7 after driver detach.${RST}"
-    print "try: unplug and re-plug in MTP mode, then run ${TEAL}music tp7${RST}"
-    return 1
+  # close Field Kit if running (it holds the USB interface)
+  if tp7_field_kit_running; then
+    print "${MUTED}closing Field Kit to release USB…${RST}"
+    osascript -e 'tell application "field kit" to quit' 2>/dev/null
+    sleep 1
   fi
-  print "${TEAL}TP-7 MTP ready${RST}\n"
 
   local pull_dir="${TP7_STAGING}/latest"
   mkdir -p "$pull_dir/recordings" "$pull_dir/memos"
 
   # --- phase 1: download from TP-7 ---
-
-  # progress monitor: watches download dir for new/growing files
-  tp7_progress_monitor() {
-    local dir="$1" label="$2"
-    local count=0
-    while true; do
-      local tmpfile=$(find "$dir" -name 'tmpfile*' -type f 2>/dev/null | head -1)
-      if [[ -n "$tmpfile" ]]; then
-        local sz=$(stat -f%z "$tmpfile" 2>/dev/null || echo 0)
-        local mb=$(awk -v b="$sz" 'BEGIN{printf "%.0f", b/1024/1024}')
-        printf "\r  ${MUTED}${label} downloading… %s MB${RST}  " "$mb"
-      fi
-      local done_count=$(find "$dir" -name '*.wav' -o -name '*.WAV' 2>/dev/null | wc -l | tr -d ' ')
-      if [[ "$done_count" -gt "$count" ]]; then
-        local newest=$(ls -t "$dir"/*.wav "$dir"/*.WAV 2>/dev/null | head -1)
-        local newest_name="${newest##*/}"
-        local newest_sz=$(stat -f%z "$newest" 2>/dev/null || echo 0)
-        local newest_mb=$(awk -v b="$newest_sz" 'BEGIN{printf "%.0f", b/1024/1024}')
-        count=$done_count
-        printf "\r  ${TEAL}[${count}]${RST} ${newest_name} ${MUTED}(${newest_mb} MB)${RST}              \n"
-      fi
-      sleep 1
-    done
-  }
-
-  print "${BOLD}pulling recordings…${RST}"
-  tp7_progress_monitor "$pull_dir/recordings" "rec" &
-  local rec_monitor_pid=$!
-  (cd "$pull_dir/recordings" && gphoto2 --folder /store_00010001/recordings --get-all-files --skip-existing 2>/dev/null)
-  local rec_exit=$?
-  kill $rec_monitor_pid 2>/dev/null; wait $rec_monitor_pid 2>/dev/null
-  printf "\r                                                       \r"
-
-  # TP-7 MTP connection often drops after recordings — re-detach for memos
-  print "${BOLD}pulling memos…${RST}"
-  if tp7_is_mtp_mode; then
-    tp7_detach_driver >/dev/null 2>&1
-    tp7_wait_for_gphoto 6 2>/dev/null
+  # Same root MTP engine as the auto-watcher (tp7-root-pull.sh: detaches the
+  # kernel driver, suppresses ptpcamerad, pulls via libmtp with skip-existing).
+  # gphoto2 as non-root can't claim the interface on macOS 15.7+ — don't go back.
+  print "${BOLD}pulling from TP-7…${RST}"
+  if ! sudo -n "$SHARE_DIR/tp7-root-pull.sh" "$pull_dir/recordings"; then
+    print "${PINK}pull failed — opening Field Kit as fallback${RST}"
+    print "${MUTED}(if sudo failed: run music setup to reinstall the tp7-detach sudoers entry)${RST}"
+    open -a "field kit" 2>/dev/null
+    return 1
   fi
-  tp7_progress_monitor "$pull_dir/memos" "memo" &
-  local memo_monitor_pid=$!
-  (cd "$pull_dir/memos" && gphoto2 --folder /store_00010001/memo --get-all-files --skip-existing 2>/dev/null)
-  local memo_exit=$?
-  kill $memo_monitor_pid 2>/dev/null; wait $memo_monitor_pid 2>/dev/null
-  printf "\r                                                       \r"
 
   local rec_count=$(find "$pull_dir/recordings" -type f 2>/dev/null | wc -l | tr -d ' ')
   local memo_count=$(find "$pull_dir/memos" -type f 2>/dev/null | wc -l | tr -d ' ')
@@ -1194,9 +1155,11 @@ cmd_tp7_pull() {
 
     if [[ "$local_ok" -eq 1 ]]; then
       print "${MUTED}clearing recordings from TP-7…${RST}"
-      gphoto2 --folder /store_00010001/recordings --delete-all-files 2>/dev/null \
+      # best-effort: gphoto2 usually can't claim the device as non-root on
+      # modern macOS — if this fails, wipe from the TP-7's own UI instead
+      command -v gphoto2 >/dev/null && gphoto2 --folder /store_00010001/recordings --delete-all-files 2>/dev/null \
         && print "${TEAL}TP-7 recordings cleared${RST}" \
-        || print "${PINK}delete failed — files may still be on TP-7${RST}"
+        || print "${PINK}delete failed — clear from the TP-7 itself (files are safe locally)${RST}"
     else
       print "${PINK}incomplete files detected — skipping TP-7 cleanup${RST}"
     fi

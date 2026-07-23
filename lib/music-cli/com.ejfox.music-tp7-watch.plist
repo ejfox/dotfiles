@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ejfox.music-tp7-watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/ejfox/.local/share/music-cli/tp7-mount-handler.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>10</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/ejfox/.local/share/music-cli/watcher.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/ejfox/.local/share/music-cli/watcher.log</string>
+</dict>
+</plist>
