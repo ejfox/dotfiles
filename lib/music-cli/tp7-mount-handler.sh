@@ -32,9 +32,13 @@ fi
 # 17ms ioreg poll every 10s is simpler and effectively free.)
 usb_info=$(ioreg -p IOUSB -l 2>/dev/null)
 
-# no TP-7 connected — clear state
+# no TP-7 connected — clear session state. The LOCK belongs to tp7-import.sh
+# (PID-stamped); only clear it if the owning process is dead.
 if ! echo "$usb_info" | grep -q '"idVendor" = 9063'; then
-  rm -f "$SEEN" "$LOCK"
+  rm -f "$SEEN"
+  if [[ -f "$LOCK" ]] && ! kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
+    rm -f "$LOCK"
+  fi
   exit 0
 fi
 
@@ -53,12 +57,7 @@ fi
 touch "$SEEN"
 jlog device_seen mode=mtp
 
-# prevent double-runs
-[[ -f "$LOCK" ]] && exit 0
-touch "$LOCK"
-
 # self-healing importer: tries the CLI pull, auto-falls-back to field kit on failure.
 # milestone notifications (25/50/75/100% of delta) handled inside; no per-file spam.
+# Locking lives inside tp7-import.sh (PID-stamped single-flight).
 /Users/ejfox/.local/share/music-cli/tp7-import.sh >> "$LOG" 2>&1
-
-rm -f "$LOCK"

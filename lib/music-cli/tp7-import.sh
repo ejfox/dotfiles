@@ -9,7 +9,21 @@ SH=/Users/ejfox/.local/share/music-cli
 DEST="${1:-/Users/ejfox/tp7/latest/recordings}"
 LOG="${HOME}/.local/share/music-cli/import.log"
 JLOG_DIR="${HOME}/.local/share/usage-logs/music"
+LOCK=/tmp/.music-tp7-pulling
 mkdir -p "$DEST" "$JLOG_DIR"
+
+# single-flight: the import owns its lock (PID-stamped). A stale lock from a
+# crashed run is detected by the dead PID and taken over. This also protects
+# manual runs racing the launchd watcher.
+if [[ -f "$LOCK" ]]; then
+  oldpid=$(<"$LOCK")
+  if [[ -n "$oldpid" ]] && kill -0 "$oldpid" 2>/dev/null; then
+    echo "another import (pid $oldpid) is running — exiting"
+    exit 0
+  fi
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT INT TERM
 
 # keep the human log bounded (~1MB cap, keep last 256KB)
 if [[ -f "$LOG" && $(stat -f%z "$LOG" 2>/dev/null || echo 0) -gt 1048576 ]]; then
@@ -94,3 +108,7 @@ else
     log "=== import FAILED — fell back to field kit ==="
   fi
 fi
+
+# post-pull: quarantine truncated wavs (mid-transfer unplug protection),
+# organize into by-date/ hardlinks, and sync raw wavs to R2
+"$SH/tp7-post.sh"

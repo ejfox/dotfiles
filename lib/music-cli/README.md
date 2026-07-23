@@ -61,6 +61,34 @@ sudo chown -R root:wheel /usr/local/libexec/music-cli
 # then point /etc/sudoers.d/tp7-detach and tp7-import.sh at the libexec copies
 ```
 
+## Post-pull pass (tp7-post.sh, added 2026-07-23)
+
+Runs after every import (also fine by hand). Three phases:
+
+1. **Integrity / mid-transfer protection** — a USB unplug mid-download leaves
+   a wav whose RIFF header declares more bytes than exist on disk. Those get
+   moved to `~/tp7/quarantine/`, which removes their names from the
+   skip-existing ledger, so the next connect re-pulls them automatically.
+2. **Organize** — hardlinks every wav into `~/tp7/by-date/YYYY-MM-DD/` (date
+   parsed from the TP-7's timestamped filenames). Zero extra disk. RULE:
+   `latest/recordings` is the dedupe ledger against the device — never move
+   files out of it while they're still on the TP-7; only link.
+3. **Backup to R2** (`ejfox-personal/tp7-raw/`) — capability-detecting:
+   - probes S3 write each run; with a write-capable token it uses
+     `aws s3 sync` (multipart, any size, resumable)
+   - **current state**: the music S3 keypair is READ-ONLY and wrangler caps
+     uploads at 300MiB — so files ≤250MiB go up via wrangler and larger ones
+     are flagged LOCAL-ONLY in notifications/logs.
+   - **to finish this properly**: Cloudflare dashboard → R2 → Manage API
+     Tokens → create an "Object Read & Write" token scoped to
+     `ejfox-personal`, put its S3 credentials in `~/.config/music/.env` as
+     `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`. The script upgrades itself
+     to full sync on the next run, no code change.
+
+Locking: `tp7-import.sh` owns `/tmp/.music-tp7-pulling` (PID-stamped
+single-flight; stale locks from crashed runs are detected via dead PID). The
+watcher only clears it when the owner is dead. Manual + auto runs can't race.
+
 ## Debugging
 
 - Human logs: `~/.local/share/music-cli/{watcher,import}.log` (auto-truncated at 1MB)
