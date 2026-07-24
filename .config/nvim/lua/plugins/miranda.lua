@@ -3,6 +3,7 @@ return {
   "ejfox/miranda.nvim",
   dir = vim.fn.stdpath("config") .. "/lua/plugins",
   name = "miranda",
+  enabled = false, -- disabled 2026-07-15: ~/.config/miranda/ not provisioned on this machine; was erroring on every FocusGained
   lazy = false,
   priority = 100,
   config = function()
