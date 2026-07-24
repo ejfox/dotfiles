@@ -202,6 +202,11 @@
 (nvim) zK - peek inside fold (nvim-ufo)
 (nvim) zj - jump to next fold
 (nvim) zk - jump to prev fold
+(nvim) zA - toggle fold recursively (all nesting under cursor)
+(nvim) zm / zr - fold more / less, one nesting level at a time
+(nvim) [z / ]z - jump to start / end of current open fold
+(nvim) zv - reveal cursor line (open just enough folds to see it)
+(nvim) zi - toggle folding entirely on/off
 (nvim) * - search word under cursor
 (nvim) # - search backwards
 (nvim) ciw - change word
@@ -443,3 +448,6 @@
 (winmode) arrangements auto-logged to ~/.local/share/usage-logs/windows/ (for layout presets, July 2026)
 (mic) double-tap right shift = mute/unmute real mics (Shure + built-in, never loopbacks)
 (mic) red muted-mic icon appears in sketchybar while muted; click it to unmute
+(winmode) Opt+Space then ? = toggle floating translucent cheatsheet panel (drag by top edge)
+(winmode) cheatsheet panel focused? Opt+Space h/l/etc snap/throw it like any window
+(winmode) new Safari/Mail/Chrome/Spotify windows auto-snap home (autoplace, July 2026); touch ~/.config/autoplace-disabled to stop

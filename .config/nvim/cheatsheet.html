@@ -34,7 +34,8 @@
     padding: 4px 6px;
     line-height: 1.25;
   }
-  .grid { columns: 4; column-gap: 5px; }
+  /* fluid: as many columns as fit at >=150px each (max 4) — no horizontal scrollbar */
+  .grid { columns: 4 150px; column-gap: 5px; }
 
   header {
     display: flex; justify-content: space-between; align-items: center;
@@ -141,9 +142,7 @@
   details.hidden { display: none; }
   .r.hidden { display: none; }
 
-  @media (max-width: 1100px) { .grid { columns: 3; } }
-  @media (max-width: 750px) { .grid { columns: 2; } }
-  @media (max-width: 450px) { .grid { columns: 1; } }
+  html, body { overflow-x: hidden; }
 </style>
 </head>
 <body>
@@ -154,6 +153,8 @@
   <span class="controls">
     <button onclick="toggleAll(true)">open all</button>
     <button onclick="toggleAll(false)">collapse</button>
+      <button onclick="zoomBy(-0.1)" title="text smaller (-)">A&#8722;</button>
+    <button onclick="zoomBy(0.1)" title="text bigger (+)">A+</button>
   </span>
 </header>
 <input type="text" id="search" placeholder="/ search keybindings...">
@@ -392,12 +393,20 @@
 <!-- FOLDS                                 -->
 <!-- ══════════════════════════════════════ -->
 
-<details>
+<details class="primary" open>
   <summary>Folds</summary>
   <div class="c">
     <div class="r dd"><kbd>za</kbd><span class="d">toggle fold</span></div>
+    <div class="r"><kbd>zo / zc</kbd><span class="d">open / close fold</span></div>
+    <div class="r"><kbd>zA</kbd><span class="d">toggle recursively</span></div>
     <div class="r"><kbd>zR / zM</kbd><span class="d">open all / close all</span></div>
-    <div class="r"><kbd>zK</kbd><span class="d">peek fold</span></div>
+    <div class="r"><kbd>zm / zr</kbd><span class="d">fold more / less (one level)</span></div>
+    <div class="r"><kbd>zj / zk</kbd><span class="d">next / prev fold</span></div>
+    <div class="r"><kbd>[z / ]z</kbd><span class="d">start / end of open fold</span></div>
+    <div class="r"><kbd>zv</kbd><span class="d">reveal cursor line</span></div>
+    <div class="r"><kbd>zK</kbd><span class="d">peek inside fold (ufo)</span></div>
+    <div class="r"><kbd>zi</kbd><span class="d">toggle folding entirely</span></div>
+    <div class="o">z looks like folded paper &#8212; then o/c/a: open, close, alternate</div>
   </div>
 </details>
 
@@ -486,6 +495,22 @@ document.addEventListener('keydown', (e) => {
     search.dispatchEvent(new Event('input'));
     search.blur();
   }
+});
+
+// text zoom — A−/A+ buttons or bare +/- keys (0 = reset); persists via localStorage
+let cheatZoom = parseFloat(localStorage.getItem('cheatZoom')) || 1;
+function applyZoom() { document.body.style.zoom = cheatZoom; }
+function zoomBy(d) {
+  cheatZoom = Math.round(Math.min(2, Math.max(0.5, cheatZoom + d)) * 100) / 100;
+  localStorage.setItem('cheatZoom', cheatZoom);
+  applyZoom();
+}
+applyZoom();
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=') zoomBy(0.1);
+  else if (e.key === '-') zoomBy(-0.1);
+  else if (e.key === '0') { cheatZoom = 1; localStorage.setItem('cheatZoom', 1); applyZoom(); }
 });
 </script>
 </body>
