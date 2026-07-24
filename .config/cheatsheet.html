@@ -37,7 +37,9 @@
     padding: 4px 6px;
     line-height: 1.25;
   }
-  .grid { columns: 5; column-gap: 5px; }
+  /* fluid columns: as many as fit at >=150px each (max 6) — the count drops
+     instead of the columns overflowing, so no horizontal scrollbar at any width */
+  .grid { columns: 6 150px; column-gap: 5px; }
 
   header {
     display: flex; justify-content: space-between; align-items: center;
@@ -151,10 +153,7 @@
   details.hidden { display: none; }
   .r.hidden { display: none; }
 
-  @media (max-width: 1400px) { .grid { columns: 4; } }
-  @media (max-width: 1100px) { .grid { columns: 3; } }
-  @media (max-width: 750px) { .grid { columns: 2; } }
-  @media (max-width: 450px) { .grid { columns: 1; } }
+  html, body { overflow-x: hidden; } /* belt-and-suspenders: never a horizontal bar */
 </style>
 </head>
 <body>
@@ -168,6 +167,8 @@
     <button onclick="filterTool('lazygit')" id="btn-lazygit">lazygit</button>
     <button onclick="toggleAll(true)">open all</button>
     <button onclick="toggleAll(false)">collapse</button>
+      <button onclick="zoomBy(-0.1)" title="text smaller (-)">A&#8722;</button>
+    <button onclick="zoomBy(0.1)" title="text bigger (+)">A+</button>
   </span>
 </header>
 <input type="text" id="search" placeholder="/ search keybindings...">
@@ -177,6 +178,38 @@
 <!-- ═══════════════════════════════════════════ -->
 <!--                 NVIM                        -->
 <!-- ═══════════════════════════════════════════ -->
+
+<details class="accent" open data-tool="both">
+  <summary>ejfox Workflow</summary>
+  <div class="c">
+    <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: lazygit popup</span></div>
+    <div class="r dd"><kbd>Space &#8594; a</kbd><span class="d">lazygit: stage, AI commit</span></div>
+    <div class="r dd"><kbd>&#9141;gg</kbd><span class="d">nvim: open lazygit</span></div>
+    <div class="r"><kbd>Enter &#8594; v &#8594; Space</kbd><span class="d">lazygit: partial hunk staging</span></div>
+    <div class="r"><kbd>&#9141;gm &#8594; ]h</kbd><span class="d">nvim: diff main, walk hunks</span></div>
+    <div class="div"></div>
+    <div class="o">C-a g = float lazygit over your panes, dismiss when done</div>
+    <div class="o">stage with space, AI commit with a, push with P</div>
+    <div class="o">z to undo anything (reflog-powered safety net)</div>
+  </div>
+</details>
+
+<details class="primary" open data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Folds</summary>
+  <div class="c">
+    <div class="r dd"><kbd>za</kbd><span class="d">toggle fold</span></div>
+    <div class="r"><kbd>zo / zc</kbd><span class="d">open / close fold</span></div>
+    <div class="r"><kbd>zA</kbd><span class="d">toggle recursively</span></div>
+    <div class="r"><kbd>zR / zM</kbd><span class="d">open all / close all</span></div>
+    <div class="r"><kbd>zm / zr</kbd><span class="d">fold more / less (one level)</span></div>
+    <div class="r"><kbd>zj / zk</kbd><span class="d">next / prev fold</span></div>
+    <div class="r"><kbd>[z / ]z</kbd><span class="d">start / end of open fold</span></div>
+    <div class="r"><kbd>zv</kbd><span class="d">reveal cursor line</span></div>
+    <div class="r"><kbd>zK</kbd><span class="d">peek inside fold (ufo)</span></div>
+    <div class="r"><kbd>zi</kbd><span class="d">toggle folding entirely</span></div>
+    <div class="o">z looks like folded paper &#8212; then o/c/a: open, close, alternate</div>
+  </div>
+</details>
 
 <details open data-tool="nvim">
   <summary><span class="badge nvim">nvim</span> Move in File</summary>
@@ -190,6 +223,62 @@
     <div class="r"><kbd>gi</kbd><span class="d">go to last insert spot</span></div>
     <div class="r"><kbd>* / #</kbd><span class="d">search word forward / back</span></div>
     <div class="r"><kbd>.</kbd><span class="d">repeat last change</span></div>
+  </div>
+</details>
+
+<details open data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Navigate</summary>
+  <div class="c">
+    <div class="r dd"><kbd>&#9141;ff</kbd><span class="d">find file</span></div>
+    <div class="r"><kbd>&#9141;sg</kbd><span class="d">live grep</span></div>
+    <div class="r"><kbd>&#9141;/</kbd><span class="d">grep from root</span></div>
+    <div class="r"><kbd>&#9141;fb</kbd><span class="d">buffers</span></div>
+    <div class="r"><kbd>&#9141;fr</kbd><span class="d">recent files</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>s</kbd><span class="d">flash jump</span></div>
+    <div class="r"><kbd>S</kbd><span class="d">flash treesitter select</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>H / L</kbd><span class="d">prev / next buffer</span></div>
+    <div class="r"><kbd>&#9141;bd</kbd><span class="d">close buffer</span></div>
+    <div class="r"><kbd>&#9141;| / &#9141;-</kbd><span class="d">vsplit / hsplit</span></div>
+    <div class="r"><kbd>C-h/j/k/l</kbd><span class="d">move between splits</span></div>
+  </div>
+</details>
+
+<details open data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Oil &#8212; Files as Buffers</summary>
+  <div class="c">
+    <div class="r dd"><kbd>-</kbd><span class="d">open parent dir</span></div>
+    <div class="r"><kbd>&#9166;</kbd><span class="d">open file</span></div>
+    <div class="r"><kbd>_</kbd><span class="d">open cwd</span></div>
+    <div class="r"><kbd>C-p</kbd><span class="d">preview</span></div>
+    <div class="r"><kbd>g.</kbd><span class="d">toggle dotfiles</span></div>
+    <div class="r"><kbd>gs</kbd><span class="d">change sort</span></div>
+    <div class="r"><kbd>`</kbd><span class="d">:cd here</span></div>
+    <div class="r"><kbd>gx</kbd><span class="d">open with system app</span></div>
+    <div class="r"><kbd>g\</kbd><span class="d">toggle trash</span></div>
+    <div class="n">edit filename = rename, delete line = delete file</div>
+  </div>
+</details>
+
+<details open data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Understand &amp; Fix</summary>
+  <div class="c">
+    <div class="r dd"><kbd>gd</kbd><span class="d">go to definition</span></div>
+    <div class="r"><kbd>gr</kbd><span class="d">references</span></div>
+    <div class="r"><kbd>gI</kbd><span class="d">implementation</span></div>
+    <div class="r"><kbd>gy</kbd><span class="d">type definition</span></div>
+    <div class="r"><kbd>K</kbd><span class="d">hover docs</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>gai / gao</kbd><span class="d">incoming / outgoing calls</span></div>
+    <div class="r"><kbd>&#9141;ss / &#9141;sS</kbd><span class="d">file / workspace symbols</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>&#9141;ca</kbd><span class="d">code action</span></div>
+    <div class="r"><kbd>&#9141;cr</kbd><span class="d">rename symbol</span></div>
+    <div class="r"><kbd>&#9141;cd</kbd><span class="d">line diagnostics</span></div>
+    <div class="r"><kbd>&#9141;co</kbd><span class="d">organize imports</span></div>
+    <div class="r"><kbd>]d / [d</kbd><span class="d">next / prev diagnostic</span></div>
+    <div class="o">native LSP, not telescope &#8212; instant jumps</div>
   </div>
 </details>
 
@@ -231,59 +320,51 @@
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Understand &amp; Fix</summary>
+<details data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Claude Code Workflow</summary>
   <div class="c">
-    <div class="r dd"><kbd>gd</kbd><span class="d">go to definition</span></div>
-    <div class="r"><kbd>gr</kbd><span class="d">references</span></div>
-    <div class="r"><kbd>gI</kbd><span class="d">implementation</span></div>
-    <div class="r"><kbd>gy</kbd><span class="d">type definition</span></div>
-    <div class="r"><kbd>K</kbd><span class="d">hover docs</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>gai / gao</kbd><span class="d">incoming / outgoing calls</span></div>
-    <div class="r"><kbd>&#9141;ss / &#9141;sS</kbd><span class="d">file / workspace symbols</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>&#9141;ca</kbd><span class="d">code action</span></div>
-    <div class="r"><kbd>&#9141;cr</kbd><span class="d">rename symbol</span></div>
-    <div class="r"><kbd>&#9141;cd</kbd><span class="d">line diagnostics</span></div>
-    <div class="r"><kbd>&#9141;co</kbd><span class="d">organize imports</span></div>
-    <div class="r"><kbd>]d / [d</kbd><span class="d">next / prev diagnostic</span></div>
-    <div class="o">native LSP, not telescope &#8212; instant jumps</div>
+    <div class="r dd"><kbd>&#9141;yr</kbd><span class="d">copy + relative path</span></div>
+    <div class="r"><kbd>&#9141;ya</kbd><span class="d">copy + absolute path</span></div>
+    <div class="n"><em>visual mode</em> &#8212; gives <em>file:10-15 ```code```</em></div>
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Navigate</summary>
+<details data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Your Overrides</summary>
   <div class="c">
-    <div class="r dd"><kbd>&#9141;ff</kbd><span class="d">find file</span></div>
-    <div class="r"><kbd>&#9141;sg</kbd><span class="d">live grep</span></div>
-    <div class="r"><kbd>&#9141;/</kbd><span class="d">grep from root</span></div>
-    <div class="r"><kbd>&#9141;fb</kbd><span class="d">buffers</span></div>
-    <div class="r"><kbd>&#9141;fr</kbd><span class="d">recent files</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>s</kbd><span class="d">flash jump</span></div>
-    <div class="r"><kbd>S</kbd><span class="d">flash treesitter select</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>H / L</kbd><span class="d">prev / next buffer</span></div>
-    <div class="r"><kbd>&#9141;bd</kbd><span class="d">close buffer</span></div>
-    <div class="r"><kbd>&#9141;| / &#9141;-</kbd><span class="d">vsplit / hsplit</span></div>
-    <div class="r"><kbd>C-h/j/k/l</kbd><span class="d">move between splits</span></div>
+    <div class="o">native LSP not telescope &#8212; instant, no fuzzy</div>
+    <div class="o">oil not neo-tree &#8212; dirs are buffers</div>
+    <div class="o">inline copilot not cmp &#8212; ghost text not menu</div>
+    <div class="o">pbcopy not OSC52 &#8212; avoids clipboard spam</div>
+    <div class="o">cmdheight=0 &#8212; statusline shows everything</div>
+    <div class="o">virtualedit=all &#8212; cursor anywhere, past EOL</div>
+    <div class="o">C-h/l/s disabled in oil &#8212; split nav priority</div>
+    <div class="o">vscode-js-debug disabled &#8212; janky</div>
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Oil &#8212; Files as Buffers</summary>
+<details class="accent" open data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> The ] / [ Pattern</summary>
   <div class="c">
-    <div class="r dd"><kbd>-</kbd><span class="d">open parent dir</span></div>
-    <div class="r"><kbd>&#9166;</kbd><span class="d">open file</span></div>
-    <div class="r"><kbd>_</kbd><span class="d">open cwd</span></div>
-    <div class="r"><kbd>C-p</kbd><span class="d">preview</span></div>
-    <div class="r"><kbd>g.</kbd><span class="d">toggle dotfiles</span></div>
-    <div class="r"><kbd>gs</kbd><span class="d">change sort</span></div>
-    <div class="r"><kbd>`</kbd><span class="d">:cd here</span></div>
-    <div class="r"><kbd>gx</kbd><span class="d">open with system app</span></div>
-    <div class="r"><kbd>g\</kbd><span class="d">toggle trash</span></div>
-    <div class="n">edit filename = rename, delete line = delete file</div>
+    <div class="r"><kbd>]h / [h</kbd><span class="d">git hunk</span></div>
+    <div class="r"><kbd>]H / [H</kbd><span class="d">first / last hunk</span></div>
+    <div class="r"><kbd>]d / [d</kbd><span class="d">diagnostic</span></div>
+    <div class="r"><kbd>]x / [x</kbd><span class="d">merge conflict</span></div>
+    <div class="r"><kbd>]s / [s</kbd><span class="d">copilot suggestion</span></div>
+    <div class="r"><kbd>]q / [q</kbd><span class="d">quickfix</span></div>
+    <div class="n"><em>]</em> forward &nbsp; <em>[</em> back &nbsp; always</div>
+  </div>
+</details>
+
+<details data-tool="nvim">
+  <summary><span class="badge nvim">nvim</span> Surround</summary>
+  <div class="c">
+    <div class="r dd"><kbd>cs{c}{n}</kbd><span class="d">change surround</span></div>
+    <div class="r"><kbd>ys{m}{c}</kbd><span class="d">add surround</span></div>
+    <div class="r"><kbd>yss{c}</kbd><span class="d">surround line</span></div>
+    <div class="r"><kbd>ds{c}</kbd><span class="d">delete surround</span></div>
+    <div class="r"><kbd>S{c}</kbd><span class="d">visual surround</span></div>
+    <div class="n"><em>a</em>&#8594;&lt;&gt; <em>b</em>&#8594;() <em>B</em>&#8594;{} <em>r</em>&#8594;[] <em>q</em>&#8594;quotes</div>
   </div>
 </details>
 
@@ -299,27 +380,6 @@
     <div class="r"><kbd>M-&#9166;</kbd><span class="d">open panel</span></div>
     <div class="r"><kbd>]] / [[</kbd><span class="d">panel: next / prev</span></div>
     <div class="n">:Copilot disable / enable / status</div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Claude Code Workflow</summary>
-  <div class="c">
-    <div class="r dd"><kbd>&#9141;yr</kbd><span class="d">copy + relative path</span></div>
-    <div class="r"><kbd>&#9141;ya</kbd><span class="d">copy + absolute path</span></div>
-    <div class="n"><em>visual mode</em> &#8212; gives <em>file:10-15 ```code```</em></div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Surround</summary>
-  <div class="c">
-    <div class="r dd"><kbd>cs{c}{n}</kbd><span class="d">change surround</span></div>
-    <div class="r"><kbd>ys{m}{c}</kbd><span class="d">add surround</span></div>
-    <div class="r"><kbd>yss{c}</kbd><span class="d">surround line</span></div>
-    <div class="r"><kbd>ds{c}</kbd><span class="d">delete surround</span></div>
-    <div class="r"><kbd>S{c}</kbd><span class="d">visual surround</span></div>
-    <div class="n"><em>a</em>&#8594;&lt;&gt; <em>b</em>&#8594;() <em>B</em>&#8594;{} <em>r</em>&#8594;[] <em>q</em>&#8594;quotes</div>
   </div>
 </details>
 
@@ -354,61 +414,6 @@
     <div class="r"><kbd>&#9141;du</kbd><span class="d">toggle UI</span></div>
     <div class="r"><kbd>&#9141;de</kbd><span class="d">eval</span></div>
     <div class="n">UI auto-opens on start, closes on terminate</div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Folds</summary>
-  <div class="c">
-    <div class="r dd"><kbd>za</kbd><span class="d">toggle fold</span></div>
-    <div class="r"><kbd>zR / zM</kbd><span class="d">open all / close all</span></div>
-    <div class="r"><kbd>zK</kbd><span class="d">peek fold</span></div>
-  </div>
-</details>
-
-<details class="accent" open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> The ] / [ Pattern</summary>
-  <div class="c">
-    <div class="r"><kbd>]h / [h</kbd><span class="d">git hunk</span></div>
-    <div class="r"><kbd>]H / [H</kbd><span class="d">first / last hunk</span></div>
-    <div class="r"><kbd>]d / [d</kbd><span class="d">diagnostic</span></div>
-    <div class="r"><kbd>]x / [x</kbd><span class="d">merge conflict</span></div>
-    <div class="r"><kbd>]s / [s</kbd><span class="d">copilot suggestion</span></div>
-    <div class="r"><kbd>]q / [q</kbd><span class="d">quickfix</span></div>
-    <div class="n"><em>]</em> forward &nbsp; <em>[</em> back &nbsp; always</div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Your Overrides</summary>
-  <div class="c">
-    <div class="o">native LSP not telescope &#8212; instant, no fuzzy</div>
-    <div class="o">oil not neo-tree &#8212; dirs are buffers</div>
-    <div class="o">inline copilot not cmp &#8212; ghost text not menu</div>
-    <div class="o">pbcopy not OSC52 &#8212; avoids clipboard spam</div>
-    <div class="o">cmdheight=0 &#8212; statusline shows everything</div>
-    <div class="o">virtualedit=all &#8212; cursor anywhere, past EOL</div>
-    <div class="o">C-h/l/s disabled in oil &#8212; split nav priority</div>
-    <div class="o">vscode-js-debug disabled &#8212; janky</div>
-  </div>
-</details>
-
-<!-- ═══════════════════════════════════════════ -->
-<!--                 LAZYGIT                     -->
-<!-- ═══════════════════════════════════════════ -->
-
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Panel Navigation</summary>
-  <div class="c">
-    <div class="r dd"><kbd>Tab / Shift-Tab</kbd><span class="d">next / prev panel</span></div>
-    <div class="r dd"><kbd>1-5</kbd><span class="d">jump to panel by number</span></div>
-    <div class="r"><kbd>[ / ]</kbd><span class="d">prev / next tab within panel</span></div>
-    <div class="r"><kbd>h / l</kbd><span class="d">scroll left / right (diff)</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>? / x</kbd><span class="d">keybinding menu / context menu</span></div>
-    <div class="r"><kbd>+</kbd><span class="d">open/close command log</span></div>
-    <div class="r"><kbd>q / Esc</kbd><span class="d">quit / cancel</span></div>
-    <div class="n"><em>1</em> Status <em>2</em> Files <em>3</em> Branches <em>4</em> Commits <em>5</em> Stash</div>
   </div>
 </details>
 
@@ -452,23 +457,33 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Branches (Panel 3)</summary>
+<details class="gold" open data-tool="lazygit">
+  <summary><span class="badge lazygit">lazygit</span> Panel Navigation</summary>
   <div class="c">
-    <div class="r dd"><kbd>Space</kbd><span class="d">checkout branch</span></div>
-    <div class="r dd"><kbd>n</kbd><span class="d">new branch</span></div>
-    <div class="r"><kbd>d</kbd><span class="d">delete branch</span></div>
-    <div class="r"><kbd>r</kbd><span class="d">rebase onto branch</span></div>
-    <div class="r"><kbd>M</kbd><span class="d">merge into current</span></div>
-    <div class="r"><kbd>R</kbd><span class="d">rename branch</span></div>
-    <div class="r"><kbd>f</kbd><span class="d">fast-forward</span></div>
+    <div class="r dd"><kbd>Tab / Shift-Tab</kbd><span class="d">next / prev panel</span></div>
+    <div class="r dd"><kbd>1-5</kbd><span class="d">jump to panel by number</span></div>
+    <div class="r"><kbd>[ / ]</kbd><span class="d">prev / next tab within panel</span></div>
+    <div class="r"><kbd>h / l</kbd><span class="d">scroll left / right (diff)</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>c</kbd><span class="d">checkout by name</span></div>
-    <div class="r"><kbd>u</kbd><span class="d">set upstream</span></div>
-    <div class="r"><kbd>P</kbd><span class="d">push</span></div>
-    <div class="r"><kbd>p</kbd><span class="d">pull</span></div>
+    <div class="r"><kbd>? / x</kbd><span class="d">keybinding menu / context menu</span></div>
+    <div class="r"><kbd>+</kbd><span class="d">open/close command log</span></div>
+    <div class="r"><kbd>q / Esc</kbd><span class="d">quit / cancel</span></div>
+    <div class="n"><em>1</em> Status <em>2</em> Files <em>3</em> Branches <em>4</em> Commits <em>5</em> Stash</div>
+  </div>
+</details>
+
+<details class="gold" open data-tool="lazygit">
+  <summary><span class="badge lazygit">lazygit</span> Push / Pull / Sync</summary>
+  <div class="c">
+    <div class="r dd"><kbd>P</kbd><span class="d">push (global)</span></div>
+    <div class="r dd"><kbd>p</kbd><span class="d">pull (global)</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fetch (global)</span></div>
+    <div class="r"><kbd>Shift-P</kbd><span class="d">push with options menu</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>[ / ]</kbd><span class="d">tabs: Local / Remote / Tags</span></div>
+    <div class="r"><kbd>z</kbd><span class="d">undo (via reflog)</span></div>
+    <div class="r"><kbd>Z</kbd><span class="d">redo (via reflog)</span></div>
+    <div class="n"><em>z</em> undo is magic &#8212; reverts almost any git operation</div>
+    <div class="o">P/p are global &#8212; work from any panel</div>
   </div>
 </details>
 
@@ -498,47 +513,22 @@
 </details>
 
 <details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Stash (Panel 5)</summary>
+  <summary><span class="badge lazygit">lazygit</span> Branches (Panel 3)</summary>
   <div class="c">
-    <div class="r dd"><kbd>Space</kbd><span class="d">apply stash</span></div>
-    <div class="r"><kbd>g</kbd><span class="d">pop stash (apply + drop)</span></div>
-    <div class="r"><kbd>d</kbd><span class="d">drop stash</span></div>
-    <div class="r"><kbd>n</kbd><span class="d">new branch from stash</span></div>
-    <div class="r"><kbd>r</kbd><span class="d">rename stash</span></div>
-    <div class="r"><kbd>Enter</kbd><span class="d">view stash contents</span></div>
-    <div class="n"><em>Space</em> = apply (keep stash), <em>g</em> = pop (remove stash)</div>
-  </div>
-</details>
-
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Push / Pull / Sync</summary>
-  <div class="c">
-    <div class="r dd"><kbd>P</kbd><span class="d">push (global)</span></div>
-    <div class="r dd"><kbd>p</kbd><span class="d">pull (global)</span></div>
-    <div class="r"><kbd>f</kbd><span class="d">fetch (global)</span></div>
-    <div class="r"><kbd>Shift-P</kbd><span class="d">push with options menu</span></div>
+    <div class="r dd"><kbd>Space</kbd><span class="d">checkout branch</span></div>
+    <div class="r dd"><kbd>n</kbd><span class="d">new branch</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">delete branch</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">rebase onto branch</span></div>
+    <div class="r"><kbd>M</kbd><span class="d">merge into current</span></div>
+    <div class="r"><kbd>R</kbd><span class="d">rename branch</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fast-forward</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>z</kbd><span class="d">undo (via reflog)</span></div>
-    <div class="r"><kbd>Z</kbd><span class="d">redo (via reflog)</span></div>
-    <div class="n"><em>z</em> undo is magic &#8212; reverts almost any git operation</div>
-    <div class="o">P/p are global &#8212; work from any panel</div>
-  </div>
-</details>
-
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Interactive Rebase</summary>
-  <div class="c">
-    <div class="r dd"><kbd>e</kbd><span class="d">start editing commit</span></div>
-    <div class="r"><kbd>p</kbd><span class="d">pick</span></div>
-    <div class="r"><kbd>s</kbd><span class="d">squash</span></div>
-    <div class="r"><kbd>f</kbd><span class="d">fixup</span></div>
-    <div class="r"><kbd>d</kbd><span class="d">drop</span></div>
-    <div class="r"><kbd>r</kbd><span class="d">reword</span></div>
+    <div class="r"><kbd>c</kbd><span class="d">checkout by name</span></div>
+    <div class="r"><kbd>u</kbd><span class="d">set upstream</span></div>
+    <div class="r"><kbd>P</kbd><span class="d">push</span></div>
+    <div class="r"><kbd>p</kbd><span class="d">pull</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>C-j / C-k</kbd><span class="d">move commit down / up</span></div>
-    <div class="r"><kbd>m</kbd><span class="d">continue rebase</span></div>
-    <div class="r"><kbd>M</kbd><span class="d">abort rebase</span></div>
-    <div class="n">select multiple commits with <em>v</em>, then <em>s</em> to squash all</div>
+    <div class="r"><kbd>[ / ]</kbd><span class="d">tabs: Local / Remote / Tags</span></div>
   </div>
 </details>
 
@@ -572,6 +562,36 @@
 </details>
 
 <details class="gold" data-tool="lazygit">
+  <summary><span class="badge lazygit">lazygit</span> Stash (Panel 5)</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Space</kbd><span class="d">apply stash</span></div>
+    <div class="r"><kbd>g</kbd><span class="d">pop stash (apply + drop)</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">drop stash</span></div>
+    <div class="r"><kbd>n</kbd><span class="d">new branch from stash</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">rename stash</span></div>
+    <div class="r"><kbd>Enter</kbd><span class="d">view stash contents</span></div>
+    <div class="n"><em>Space</em> = apply (keep stash), <em>g</em> = pop (remove stash)</div>
+  </div>
+</details>
+
+<details class="gold" data-tool="lazygit">
+  <summary><span class="badge lazygit">lazygit</span> Interactive Rebase</summary>
+  <div class="c">
+    <div class="r dd"><kbd>e</kbd><span class="d">start editing commit</span></div>
+    <div class="r"><kbd>p</kbd><span class="d">pick</span></div>
+    <div class="r"><kbd>s</kbd><span class="d">squash</span></div>
+    <div class="r"><kbd>f</kbd><span class="d">fixup</span></div>
+    <div class="r"><kbd>d</kbd><span class="d">drop</span></div>
+    <div class="r"><kbd>r</kbd><span class="d">reword</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>C-j / C-k</kbd><span class="d">move commit down / up</span></div>
+    <div class="r"><kbd>m</kbd><span class="d">continue rebase</span></div>
+    <div class="r"><kbd>M</kbd><span class="d">abort rebase</span></div>
+    <div class="n">select multiple commits with <em>v</em>, then <em>s</em> to squash all</div>
+  </div>
+</details>
+
+<details class="gold" data-tool="lazygit">
   <summary><span class="badge lazygit">lazygit</span> Global Shortcuts</summary>
   <div class="c">
     <div class="r"><kbd>@ (status)</kbd><span class="d">open recent repos</span></div>
@@ -579,25 +599,6 @@
     <div class="r"><kbd>R</kbd><span class="d">refresh</span></div>
     <div class="r"><kbd>W</kbd><span class="d">diff options menu</span></div>
     <div class="r"><kbd>C-w</kbd><span class="d">toggle whitespace</span></div>
-  </div>
-</details>
-
-<!-- ═══════════════════════════════════════════ -->
-<!--               WORKFLOW                      -->
-<!-- ═══════════════════════════════════════════ -->
-
-<details class="accent" open data-tool="both">
-  <summary>ejfox Workflow</summary>
-  <div class="c">
-    <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: lazygit popup</span></div>
-    <div class="r dd"><kbd>Space &#8594; a</kbd><span class="d">lazygit: stage, AI commit</span></div>
-    <div class="r dd"><kbd>&#9141;gg</kbd><span class="d">nvim: open lazygit</span></div>
-    <div class="r"><kbd>Enter &#8594; v &#8594; Space</kbd><span class="d">lazygit: partial hunk staging</span></div>
-    <div class="r"><kbd>&#9141;gm &#8594; ]h</kbd><span class="d">nvim: diff main, walk hunks</span></div>
-    <div class="div"></div>
-    <div class="o">C-a g = float lazygit over your panes, dismiss when done</div>
-    <div class="o">stage with space, AI commit with a, push with P</div>
-    <div class="o">z to undo anything (reflog-powered safety net)</div>
   </div>
 </details>
 
@@ -666,6 +667,22 @@ document.addEventListener('keydown', (e) => {
     search.dispatchEvent(new Event('input'));
     search.blur();
   }
+});
+
+// text zoom — A−/A+ buttons or bare +/- keys (0 = reset); persists via localStorage
+let cheatZoom = parseFloat(localStorage.getItem('cheatZoom')) || 1;
+function applyZoom() { document.body.style.zoom = cheatZoom; }
+function zoomBy(d) {
+  cheatZoom = Math.round(Math.min(2, Math.max(0.5, cheatZoom + d)) * 100) / 100;
+  localStorage.setItem('cheatZoom', cheatZoom);
+  applyZoom();
+}
+applyZoom();
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=') zoomBy(0.1);
+  else if (e.key === '-') zoomBy(-0.1);
+  else if (e.key === '0') { cheatZoom = 1; localStorage.setItem('cheatZoom', 1); applyZoom(); }
 });
 </script>
 </body>

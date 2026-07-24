@@ -286,11 +286,26 @@ local function cyclePosition(win, screen, cycle)
   end
 end
 
+-- The floating cheatsheet panel (see Cheatsheet section below) belongs to
+-- Hammerspoon itself, so hs.window.focusedWindow() won't return it. When the
+-- panel is visible and Hammerspoon is frontmost (i.e. you clicked the panel),
+-- treat it as the snap target so ⌥Space keys move/resize/throw it like any
+-- other window. cheatsheetView is a global defined further down — resolved at
+-- call time, so the forward reference is fine.
+local function snapTarget()
+  if cheatsheetView and cheatsheetView:isVisible()
+      and hs.application.frontmostApplication():bundleID() == "org.hammerspoon.Hammerspoon" then
+    local w = cheatsheetView:hswindow()
+    if w then return w end
+  end
+  return hs.window.focusedWindow()
+end
+
 function windowSnap(dir)  -- global on purpose: reachable via `hs -c`
   local cycle = CYCLES[dir]
   local u = SNAP_UNITS[dir]
   if not cycle and not u then return end
-  local win = hs.window.focusedWindow()
+  local win = snapTarget()
   if not win then return end
   local screen = win:screen()
   local target
@@ -313,7 +328,7 @@ function windowSnap(dir)  -- global on purpose: reachable via `hs -c`
 end
 
 function windowSnapUndo()  -- global: reachable via `hs -c`; ⌥Space u
-  local win = hs.window.focusedWindow()
+  local win = snapTarget()
   if win and lastSnap and lastSnap.id == win:id() then
     win:setFrame(lastSnap.frame, 0)
     lastSnap = nil
@@ -383,5 +398,66 @@ autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
   -- brief delay so the app finishes its own frame-restore before we judge
   hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
 end)
+
+-- ── Cheatsheet: floating translucent panel (⌥Space ?) ────────────────────────
+-- Added 2026-07-15. Shows ~/.dotfiles/.config/cheatsheet.html in a floating,
+-- translucent webview — no titlebar chrome, draggable by its top edge,
+-- resizable from edges, follows you across Spaces. Toggle with ⌥Space ?
+-- (a manipulator in the Karabiner winmode rule shells to `hs -c
+-- "cheatsheetToggle()"`). Toggle again to hide; frame position/size persist
+-- across toggles and reloads (hs.settings "cheatsheet_frame").
+-- The translucent background is injected here — the master HTML is untouched,
+-- so the Safari `cheatsheets` command still renders opaque as before.
+local CHEAT_HTML = os.getenv("HOME") .. "/.dotfiles/.config/cheatsheet.html"
+
+local function cheatsheetFrame()
+  local saved = hs.settings.get("cheatsheet_frame")
+  if saved then return hs.geometry.rect(saved) end
+  local sf = hs.screen.mainScreen():frame()
+  local w, h = math.min(1240, sf.w * 0.72), math.min(880, sf.h * 0.85)
+  return hs.geometry.rect(sf.x + (sf.w - w) / 2, sf.y + (sf.h - h) / 2, w, h)
+end
+
+function cheatsheetToggle() -- global on purpose: reachable via `hs -c`
+  if cheatsheetView and cheatsheetView:isVisible() then
+    local f = cheatsheetView:frame()
+    hs.settings.set("cheatsheet_frame", { x = f.x, y = f.y, w = f.w, h = f.h })
+    cheatsheetView:hide()
+    return
+  end
+  if not cheatsheetView then
+    local uc = hs.webview.usercontent.new("cheat")
+    uc:injectScript({
+      source = [[
+        var s = document.createElement('style');
+        s.textContent = 'html, body { background: rgba(10, 10, 13, 0.80) !important; }';
+        document.head.appendChild(s);
+      ]],
+      injectionTime = "documentEnd",
+    })
+    cheatsheetView = hs.webview.new(cheatsheetFrame(), { javaScriptEnabled = true }, uc)
+      :windowStyle({ "titled", "fullSizeContentView", "resizable" })
+      :titleVisibility("hidden")
+      :windowTitle("")
+      :transparent(true)
+      :shadow(true)
+      :level(hs.drawing.windowLevels.floating)
+      :behavior(hs.drawing.windowBehaviors.canJoinAllSpaces)
+      :allowTextEntry(true)
+      :allowMagnificationGestures(true) -- pinch-zoom works too, on top of the A−/A+ controls
+      :url("file://" .. CHEAT_HTML)
+    -- persist frame on EVERY move/resize — hs.settings writes to disk, so the
+    -- panel returns to its last spot for life: across toggles, hs.reload, and reboots
+    cheatsheetView:windowCallback(function(action, wv)
+      if action == "frameChange" then
+        local ok, f = pcall(function() return wv:frame() end)
+        if ok and f then
+          hs.settings.set("cheatsheet_frame", { x = f.x, y = f.y, w = f.w, h = f.h })
+        end
+      end
+    end)
+  end
+  cheatsheetView:show():bringToFront()
+end
 
 hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display + autoplace", 2)

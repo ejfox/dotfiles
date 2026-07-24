@@ -25,6 +25,7 @@ what the keyboard actually emits before touching anything else.
 | `⇧h` `⇧l` `⇧k` `⇧j` | quarter on that side; repeat toggles the pair |
 | `⇧space` | golden-ratio centered float (again = 1/φ²) |
 | `u` | undo last snap |
+| `?` | toggle floating translucent cheatsheet panel (drag by top edge) |
 | `esc` / `q` / 2 s | exit mode |
 
 ## Autoplace — newborn windows snap themselves home (added 2026-07-15)

@@ -881,6 +881,41 @@
                                     }
                                 ],
                                 "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "name": "winmode",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "key_code": "slash",
+                                    "modifiers": {
+                                        "optional": [
+                                            "any"
+                                        ]
+                                    }
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "winmode",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "set_notification_message": {
+                                            "id": "winmode",
+                                            "text": ""
+                                        }
+                                    },
+                                    {
+                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) DIR-slash-cheatsheet-fired\" >> /tmp/kbn-debug.log ; /usr/local/bin/hs -c \"cheatsheetToggle()\""
+                                    }
+                                ],
+                                "type": "basic"
                             }
                         ]
                     },
