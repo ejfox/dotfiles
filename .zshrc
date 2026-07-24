@@ -12,7 +12,9 @@ function '??' {
 # fi
 
 # Startup script (execute as subprocess to avoid job control noise)
-[ -f ~/.startup.sh ] && ~/.startup.sh
+# Skipped inside tmux — splits/panes shouldn't pay ~300ms + banner reprint.
+# `stream-motd` alias still forces a fresh run anywhere.
+[ -f ~/.startup.sh ] && [ -z "$TMUX" ] && ~/.startup.sh
 
 # Apply Claude Code theme customizations (if configured)
 [ -f ~/.dotfiles/.tweakcc-apply.sh ] && ~/.dotfiles/.tweakcc-apply.sh
@@ -53,13 +55,10 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Case-sensitive completion must be off. _ and - will be interchangeable.
 # HYPHEN_INSENSITIVE="true"
 
-# Uncomment one of the following lines to change the auto-update behavior
-# zstyle ':omz:update' mode disabled  # disable automatic updates
-# zstyle ':omz:update' mode auto      # update automatically without asking
-# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
-
-# Uncomment the following line to change how often to auto-update (in days).
-# zstyle ':omz:update' frequency 13
+# Auto-update: reminder only, every 13 days (the update check cost ~145ms
+# on every shell startup when left at defaults)
+zstyle ':omz:update' mode reminder
+zstyle ':omz:update' frequency 13
 
 # Uncomment the following line if pasting URLs and other text is messed up.
 # DISABLE_MAGIC_FUNCTIONS="true"
@@ -134,10 +133,14 @@ setopt HIST_IGNORE_DUPS
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
 
-# NVM configuration - initialize for p10k prompt detection
+# NVM configuration — loaded with --no-use so shell startup skips nvm_auto
+# (measured: full load ~1.0s, --no-use ~76ms). Default node goes on PATH
+# statically instead; `nvm use <ver>` still works when actually switching.
+# Bump the pinned path when upgrading node (must match ~/.nvm/versions/node/).
 export NVM_DIR="$HOME/.nvm"
-[ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"
+[ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh" --no-use
 [ -s "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
+export PATH="$NVM_DIR/versions/node/v22.22.2/bin:$PATH"
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
