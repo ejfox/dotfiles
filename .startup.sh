@@ -137,17 +137,19 @@ fetch_calendar() {
   cache_ok "$CACHE_DIR/calendar" $TTL_CALENDAR && return 0
   command -v icalBuddy >/dev/null || return 0
 
-  # icalBuddy emits each event as two lines (time, then indented title).
-  # Strip leading whitespace, then `paste -d ' ' - -` collapses pairs into
-  # single lines like "13:30 - 14:30 Lunch". Then take top 3 events and indent.
-  icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" -po "datetime,title" -tf "%H:%M" -df "" -b "" \
+  # -ps "/ /" makes icalBuddy emit each event on ONE line ("13:30 - 14:30 Lunch").
+  # All-day events have no time (blank datetime via -df "") so they get an
+  # "all day" prefix instead. The old `paste -d ' ' - -` two-line collapse
+  # mispaired all-day titles with the NEXT event's time.
+  icalBuddy -f -nc -nrd -npn -n -iep "datetime,title" -po "datetime,title" -ps "/ /" -tf "%H:%M" -df "" -b "" \
     eventsToday 2>/dev/null | \
     LC_ALL=C sed 's/\x1b\[[0-9;]*m//g' | \
     tr -cd '\11\12\15\40-\176' | \
     grep -v '^[[:space:]]*$' | \
     sed 's/^[[:space:]]*//' | \
-    paste -d ' ' - - | \
-    awk '!seen[$0]++' | head -3 | \
+    sed -E '/^[0-9]{1,2}:[0-9]{2}/!s/^/all day       /' | \
+    grep -vE '^[0-9]{1,2}:[0-9]{2} - [0-9]{1,2}:[0-9]{2}[[:space:]]+Meeting$' | \
+    awk '!seen[$0]++' | head -4 | \
     sed 's/^/  /' > "$CACHE_DIR/calendar.tmp.$$" && \
     mv "$CACHE_DIR/calendar.tmp.$$" "$CACHE_DIR/calendar"
 }
