@@ -263,8 +263,23 @@ sshkeepalive() {
 # Based on your actual usage patterns (you're welcome)
 alias cl='claude --dangerously-skip-permissions'  # Your 651x favorite command
 alias clc='claude commit'  # Let the robots write your commit messages
-alias ta='tmux attach -t 0'  # Your default tmux session
-alias t0='tmux attach -t 0'  # Alternative for muscle memory
+# Smart tmux resume — bare `tmux` outside tmux attaches to the most recent
+# session instead of spawning a new numbered one. On a cold boot (no server)
+# it starts one fresh session and lets tmux-continuum restore everything;
+# resurrect then switches the client over and kills the bootstrap session.
+# GOTCHA: after a reboot, let the restore finish before opening a second
+# terminal or splitting — resurrect only cleans up the bootstrap session if
+# exactly ONE pane exists server-wide, otherwise it fossilizes into the next
+# auto-save (that's how the numbered zombie sessions used to accumulate).
+tmux() {
+  if [ $# -eq 0 ] && [ -z "$TMUX" ]; then
+    command tmux attach 2>/dev/null || command tmux new-session
+  else
+    command tmux "$@"
+  fi
+}
+alias ta='tmux'  # attach-or-restore (session 0 is long gone; attach picks most recent)
+alias t0='tmux'  # muscle-memory alias, same behavior
 alias metro='z ~/code/metro-maker4'  # Jump to metro-maker4 (using z)
 alias coach='z ~/code/coachartie2'  # Jump to coachartie2 (using z)
 alias ccode='z ~/code'  # Main code directory (renamed to avoid conflict)
