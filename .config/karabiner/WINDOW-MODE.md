@@ -11,6 +11,8 @@
 > That one step would have saved ~2 hours. Do NOT touch daemons, drivers, permissions, or reboot until you have
 > confirmed *what key codes the keyboard actually sends.* Then `cat /tmp/kbn-debug.log` to see which rule fired.
 >
+> **Bug #6 (2026-07-14): wrong `hs` path.** Direction keys called `/opt/homebrew/bin/hs` — but this iMac Pro is **Intel**, so Homebrew/`hs` live at **`/usr/local/bin/hs`**. Leader armed, debug echo fired, snap silently no-oped (`window-mode-doctor` all green — it can't see a bad shell path). Fix: replaced all 19 occurrences. **Any future edit to the rule must use `/usr/local/bin/hs`.** Backup: `karabiner.json.pre-hspath-fix-2026-07-14`.
+>
 > **The 5 real bugs (none were daemon/driver/permission/reboot — all of those were green the whole time):**
 > 1. **Modifier mismatch (the big one).** The Ergodox EZ thumb key sends **`left_option`**, but the rule required **`control`** → rule never matched, log stayed empty. EventViewer showed `flags left_option` in 5 seconds. Fix: leader fires on `option` (kept `control` too).
 > 2. **Directions only matched bare keys.** You hold Option while tapping the direction, so `h` arrived as `option+h` and didn't match a bare-`h` manipulator. Fix: `from.modifiers.optional: ["any"]` on every direction/exit.
