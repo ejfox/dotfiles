@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # cheatsheets — open EJ's keybinding cheatsheet in various forms.
 #
-#   cheatsheets              master sheet in Safari (default)
+#   cheatsheets              floating translucent Hammerspoon panel (default; ⌥Space ?)
+#   cheatsheets web          master sheet in Safari (full browser)
 #   cheatsheets app          borderless standalone window (Chrome/Brave --app mode)
-#   cheatsheets panel        toggle the floating translucent Hammerspoon overlay (⌥Space ?)
 #   cheatsheets nvim         nvim-only sheet in Safari
 #   cheatsheets lazygit      lazygit-only sheet in Safari
-#   cheatsheets gen          just regenerate the tips array (used by the HS panel)
+#   cheatsheets gen          just regenerate the tips array (used by the panel)
 #   cheatsheets -h|help      this help
 #
-# Every render regenerates cheatsheet-tips.js from docs/tips.txt so the rotating
-# "tip of the moment" banner + the full auto-index are always current. A <script
-# src> file is used instead of fetch() because Safari/WebKit block fetch() of
-# local files under file://.
+# The default toggles the Hammerspoon overlay (falls back to Safari if hs isn't
+# running). Every render regenerates cheatsheet-tips.js from docs/tips.txt so the
+# rotating "tip of the moment" banner + the full auto-index stay current. A
+# <script src> file is used instead of fetch() because Safari/WebKit block
+# fetch() of local files under file://.
 
 MASTER="$HOME/.dotfiles/.config/cheatsheet.html"
 NVIM_SHEET="$HOME/.dotfiles/.config/nvim/cheatsheet.html"
@@ -32,6 +33,16 @@ open(out, "w").write("window.TIPS=" + json.dumps(lines, ensure_ascii=False) + ";
 PY
 }
 
+open_panel() {          # the Hammerspoon floating overlay; Safari if hs is absent
+  gen_tips
+  if command -v hs >/dev/null; then
+    hs -c "cheatsheetToggle()"
+  else
+    echo "Hammerspoon 'hs' not found — opening in Safari instead." >&2
+    open -a Safari "$MASTER"
+  fi
+}
+
 open_borderless() {
   local url="file://$MASTER"
   if [ -d "/Applications/Google Chrome.app" ]; then
@@ -44,16 +55,14 @@ open_borderless() {
   fi
 }
 
-usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
 
-case "${1:-all}" in
-  -h|--help|help) usage ;;
-  gen|--gen)      gen_tips ;;
-  panel|float|hs) gen_tips
-                  command -v hs >/dev/null && hs -c "cheatsheetToggle()" \
-                    || echo "Hammerspoon CLI 'hs' not found — is Hammerspoon running?" >&2 ;;
-  app|window)     gen_tips; open_borderless ;;
-  nvim)           gen_tips; open -a Safari "$NVIM_SHEET" ;;
-  lazygit)        gen_tips; open -a Safari "$LG_SHEET" ;;
-  all|*)          gen_tips; open -a Safari "$MASTER" ;;
+case "${1:-panel}" in
+  -h|--help|help)      usage ;;
+  gen|--gen)           gen_tips ;;
+  web|safari|browser)  gen_tips; open -a Safari "$MASTER" ;;
+  app|window)          gen_tips; open_borderless ;;
+  nvim)                gen_tips; open -a Safari "$NVIM_SHEET" ;;
+  lazygit)             gen_tips; open -a Safari "$LG_SHEET" ;;
+  panel|float|hs|all|*) open_panel ;;
 esac
