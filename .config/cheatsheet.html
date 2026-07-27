@@ -40,7 +40,7 @@
   /* fluid columns: as many ~215px columns as fit the FULL window width (no count
      cap, so wide screens fill edge-to-edge and balance instead of leaving the
      right half empty). column-width only => auto count => no horizontal scrollbar. */
-  .grid { column-width: 215px; column-gap: 8px; }
+  .grid { column-width: 235px; column-gap: 10px; }
 
   header {
     display: flex; justify-content: space-between; align-items: center;
@@ -102,7 +102,7 @@
   summary .badge.lazygit { background: rgba(247,200,110,0.12); color: var(--gold40); }
 
   .c { padding: 0 6px; }
-  .r { display: flex; justify-content: space-between; padding: 1px 0; }
+  .r { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 1px 0; row-gap: 0; }
   .r:hover { background: var(--base08); border-radius: 2px; }
   .r.highlight { background: var(--base15); }
 
@@ -118,11 +118,13 @@
 
   kbd {
     font-family: inherit; font-size: 10px; color: var(--fg80);
-    white-space: nowrap; min-width: 64px;
+    white-space: normal; overflow-wrap: break-word; flex: 0 0 auto;
   }
   .d {
-    color: var(--fg40); text-align: right; flex: 1; padding-left: 6px;
-    white-space: normal; overflow-wrap: anywhere;   /* wrap instead of clipping to "…" */
+    /* min-width guarantees the description never gets crushed into a 1-char-per-line
+       sliver — if it can't sit beside a long kbd, the row wraps and it drops below */
+    color: var(--fg40); text-align: right; flex: 1 1 7em; min-width: 7em; padding-left: 8px;
+    white-space: normal; overflow-wrap: break-word;
     font-size: 10px;
   }
   .r { align-items: baseline; }   /* keep kbd aligned to first line of a wrapped desc */
@@ -151,6 +153,14 @@
   details.gold { border-left-color: rgba(247,200,110,0.2); }
   details.gold[open] { border-left-color: rgba(247,200,110,0.5); }
   details.gold[open] summary { color: var(--gold70); }
+
+  /* colored keys per domain so the auto-index reads like the curated cards:
+     nvim=teal (above), git/lazygit=gold, tmux=pink, prose=dim italic */
+  details.gold kbd { color: var(--gold70); }
+  details.primary kbd { color: var(--base80); }
+  details.prose { border-left-color: var(--fg10); }
+  details.prose[open] summary { color: var(--fg40); }
+  details.prose .d { text-align: left; font-style: italic; padding-left: 0; }
 
   details.hidden { display: none; }
   .r.hidden { display: none; }
@@ -730,6 +740,12 @@ document.addEventListener('keydown', (e) => {
   const soft = new Set(['reading','vibe','wisdom','workflow']);   // prose → bottom
   order.sort((a,b) => (soft.has(a) - soft.has(b)) || (groups[b].length - groups[a].length));
   const toolFor = c => c.startsWith('nvim') ? 'nvim' : (c === 'lazygit' ? 'lazygit' : 'both');
+  // color tone by domain, mirroring the curated cards: nvim=teal, git=gold,
+  // tmux=pink, prose (reading/vibe/wisdom)=dim italic, everything else=neutral
+  const tone = c => c.startsWith('nvim') ? 'accent'
+    : (c === 'lazygit' || c === 'git' || c === 'gist') ? 'gold'
+    : (c.startsWith('tmux')) ? 'primary'
+    : soft.has(c) ? 'prose' : '';
 
   const frag = document.createDocumentFragment();
   const hdr = document.createElement('div');
@@ -741,6 +757,7 @@ document.addEventListener('keydown', (e) => {
   for (const cat of order) {
     const d = document.createElement('details');
     d.dataset.tool = toolFor(cat);
+    const t = tone(cat); if (t) d.className = t;
     const rows = groups[cat].map(r => {
       const i = r.indexOf(' - ');
       return i === -1
