@@ -459,3 +459,10 @@
 (tmux) C-a D - drop a dev-server strip (30%) below the current pane, same dir
 (kbd) fn key now does NOTHING - was causing ~1 stuck-key incident every 2 days (0 useful presses in 17k)
 (cheatsheet) `cheatsheet` alias opens the full HTML in Safari; Opt+Space then ? = floating translucent winmode panel
+(alfred) note <text> - append to Obsidian inbox (same as terminal `note`)
+(alfred) tip - random tip shown in Large Type
+(alfred) cheat - toggle the floating cheatsheet panel
+(alfred) hue <x> - control Hue lights
+(alfred) foxpods / speakers - switch audio output
+(alfred) td <task> - new Things 3 to-do (today)
+(alfred) ask <q> - ask an LLM about your clipboard
