@@ -34,6 +34,25 @@ vim.keymap.set("n", "gai", vim.lsp.buf.incoming_calls, { desc = "Incoming Calls"
 vim.keymap.set("n", "gao", vim.lsp.buf.outgoing_calls, { desc = "Outgoing Calls" })
 
 -- ============================================================================
+-- DISPLAY-LINE MOTION
+-- ============================================================================
+-- WHY: usage logs show `gjgjgj…` and `gkgkgk…` as the #1 and #3 most-repeated
+-- key sequences (wrap=true is on but j/k moved by logical line). Make j/k move
+-- by DISPLAY line; the v:count==0 guard keeps 10j / relativenumber jumps exact.
+vim.keymap.set({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, desc = "Down (display line)" })
+vim.keymap.set({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, desc = "Up (display line)" })
+
+-- ============================================================================
+-- PROJECT .env JUMP
+-- ============================================================================
+-- WHY: .env opened 9× across projects — a recurring "where are my keys" reach.
+-- Roots to the git dir so it works uniformly across newswell/website2/metro.
+vim.keymap.set("n", "<leader>fe", function()
+  local root = vim.fs.root(0, { ".git" }) or vim.fn.getcwd()
+  vim.cmd.edit(root .. "/.env")
+end, { desc = "Open project .env" })
+
+-- ============================================================================
 -- GIT DIFF NAVIGATION
 -- ============================================================================
 -- Jump across ALL changed files vs main (loads into quickfix, use ]q/[q)

@@ -991,7 +991,7 @@
                         ]
                     },
                     {
-                        "description": "Double tap right shift \u2192 Toggle microphone mute (NOTE: /Users/ejfox/bin/mic-toggle is MISSING \u2014 errors until created or removed)",
+                        "description": "Double tap right shift \u2192 Toggle microphone mute (bin/mic-toggle, Hammerspoon-based)",
                         "manipulators": [
                             {
                                 "conditions": [

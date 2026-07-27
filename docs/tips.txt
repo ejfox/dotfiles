@@ -451,3 +451,11 @@
 (winmode) Opt+Space then ? = toggle floating translucent cheatsheet panel (drag by top edge)
 (winmode) cheatsheet panel focused? Opt+Space h/l/etc snap/throw it like any window
 (winmode) new Safari/Mail/Chrome/Spotify windows auto-snap home (autoplace, July 2026); touch ~/.config/autoplace-disabled to stop
+(NEW 2026-07-27, from usage-log audit) ↓↓↓
+(nvim) j / k - now move by DISPLAY line (wrapped-line friendly); 5j/10k still jump exact lines
+(nvim) <leader>fe - open THIS project's .env (roots to the git dir automatically)
+(tmux) C-a C - spawn your trio (claude + dev shell + zsh) in a repo you fzf-pick — replaces the old yazi workspace
+(tmux) C-a f - fuzzy JUMP to any open pane across all windows/sessions (shows dir + running cmd)
+(tmux) C-a D - drop a dev-server strip (30%) below the current pane, same dir
+(kbd) fn key now does NOTHING - was causing ~1 stuck-key incident every 2 days (0 useful presses in 17k)
+(cheatsheet) `cheatsheet` alias opens the full HTML in Safari; Opt+Space then ? = floating translucent winmode panel

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# tmux-project-layout — spawn EJ's real working trio in a chosen repo.
+#
+# Data-driven: 125 days of tmux logs show his repeated pane arrangement is
+# claude (big left pane) + a dev/server shell + a free zsh, rebuilt hundreds of
+# times in the same handful of repos. This picks a repo and builds that trio in
+# one keystroke (bound to prefix + p). Dev servers are NOT auto-run because the
+# command varies per repo (npm run dev / e-dev / yarn dev) — the right column is
+# two ready shells in the correct dir.
+set -euo pipefail
+
+# Hot repos ranked by pane-activity in the usage logs; falls back to a ~/code scan.
+REPOS=(
+  ~/code/newswell/newswell-studio
+  ~/code/metro-maker4/next-app-2
+  ~/code/website2
+  ~/code/metro-maker4
+  ~/code/ejthirdbear/gem-viz
+)
+
+list_repos() {
+  for r in "${REPOS[@]}"; do [ -d "$r" ] && echo "$r"; done
+  # plus any other top-level git repos under ~/code not already listed
+  find ~/code -maxdepth 2 -name .git -type d 2>/dev/null \
+    | sed 's|/.git$||' | sort -u
+}
+
+DIR=$(list_repos | awk '!seen[$0]++' | sed "s|$HOME|~|" \
+  | fzf --reverse --prompt="repo trio> " --height=60%) || exit 0
+DIR="${DIR/#\~/$HOME}"
+[ -d "$DIR" ] || exit 0
+NAME=$(basename "$DIR")
+
+# Build the trio: left = claude, right column = two shells (top for dev, bottom free)
+tmux new-window -c "$DIR" -n "$NAME"
+tmux split-window -h -p 55 -c "$DIR"     # right column
+tmux split-window -v -p 50 -c "$DIR"     # right column → top / bottom
+tmux select-pane -L                       # back to the big left pane
+tmux send-keys "cl" Enter                 # `cl` = his claude --dangerously-skip alias
+tmux select-pane -R                        # land focus on the top-right dev shell
