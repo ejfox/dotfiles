@@ -297,8 +297,8 @@ fi
 ################################################################################
 # TIP
 ################################################################################
-[ -f "$HOME/tips.txt" ] && {
-  TIP=$(shuf -n 1 "$HOME/tips.txt" 2>/dev/null)
+[ -f "$HOME/.dotfiles/docs/tips.txt" ] && {
+  TIP=$(shuf -n 1 "$HOME/.dotfiles/docs/tips.txt" 2>/dev/null)
   [ -n "$TIP" ] && echo -e "\033[38;5;240m TIP: $TIP\033[0m" && echo ""
 }
 

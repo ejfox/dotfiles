@@ -9,6 +9,10 @@
 
 set -e
 
+# Notify wrapper: no-op if terminal-notifier isn't installed. Always returns 0
+# so a missing notifier can't trip `set -e` and abort after a successful POST.
+notify() { command -v terminal-notifier >/dev/null 2>&1 && terminal-notifier "$@"; return 0; }
+
 source ~/.env
 
 ENDPOINT="https://tldraw.tools.ejfox.com/api/webhook/screenshot"
@@ -92,7 +96,7 @@ if [[ -z "$URL" ]]; then
   else
     URL=$(get_latest_screenshot)
     if [[ -z "$URL" ]]; then
-      terminal-notifier -title "Canvas ✗" -message "No recent screenshots found" -sound Basso
+      notify -title "Canvas ✗" -message "No recent screenshots found" -sound Basso
       echo "✗ No screenshots in Obsidian weekly notes" >&2
       exit 1
     fi
@@ -101,7 +105,7 @@ fi
 
 # Validate URL
 if [[ ! "$URL" =~ ^https?:// ]]; then
-  terminal-notifier -title "Canvas ✗" -message "Clipboard isn't an image URL" -sound Basso
+  notify -title "Canvas ✗" -message "Clipboard isn't an image URL" -sound Basso
   echo "✗ Not a URL: $URL" >&2
   exit 1
 fi
@@ -143,20 +147,20 @@ if echo "$RESPONSE" | jq -e '.success' >/dev/null 2>&1; then
 
   # Clickable notification - opens canvas on click
   if [[ -n "$LABEL" ]]; then
-    terminal-notifier -title "📍 Canvas ${WEEK}" -message "$LABEL" -open "$OPEN_URL" -sound Pop
+    notify -title "📍 Canvas ${WEEK}" -message "$LABEL" -open "$OPEN_URL" -sound Pop
   else
-    terminal-notifier -title "📍 Canvas ${WEEK}" -message "Added to visual log" -open "$OPEN_URL" -sound Pop
+    notify -title "📍 Canvas ${WEEK}" -message "Added to visual log" -open "$OPEN_URL" -sound Pop
   fi
 
   echo "→ $OPEN_URL"
 
 elif echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
   ERR=$(echo "$RESPONSE" | jq -r '.error')
-  terminal-notifier -title "Canvas ✗" -message "$ERR" -sound Basso
+  notify -title "Canvas ✗" -message "$ERR" -sound Basso
   echo "✗ $ERR" >&2
   exit 1
 else
-  terminal-notifier -title "Canvas ✗" -message "Check your connection" -sound Basso
+  notify -title "Canvas ✗" -message "Check your connection" -sound Basso
   echo "✗ Unknown error" >&2
   exit 1
 fi

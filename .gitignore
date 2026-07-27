@@ -95,7 +95,8 @@ claude.json
 .heroku/
 
 # Chat/communication
-.irssi/config  # May contain server passwords
+# .irssi/config may contain server passwords (inline # comments are NOT valid in gitignore)
+.irssi/config
 .weechat/sec.conf
 
 # Git credentials (managed by credential helper, not dotfiles)
