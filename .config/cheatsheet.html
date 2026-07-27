@@ -37,9 +37,10 @@
     padding: 4px 6px;
     line-height: 1.25;
   }
-  /* fluid columns: as many as fit at >=150px each (max 6) — the count drops
-     instead of the columns overflowing, so no horizontal scrollbar at any width */
-  .grid { columns: 6 150px; column-gap: 5px; }
+  /* fluid columns: as many ~215px columns as fit the FULL window width (no count
+     cap, so wide screens fill edge-to-edge and balance instead of leaving the
+     right half empty). column-width only => auto count => no horizontal scrollbar. */
+  .grid { column-width: 215px; column-gap: 8px; }
 
   header {
     display: flex; justify-content: space-between; align-items: center;
@@ -121,9 +122,10 @@
   }
   .d {
     color: var(--fg40); text-align: right; flex: 1; padding-left: 6px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: normal; overflow-wrap: anywhere;   /* wrap instead of clipping to "…" */
     font-size: 10px;
   }
+  .r { align-items: baseline; }   /* keep kbd aligned to first line of a wrapped desc */
   .r:hover .d { color: var(--fg60); }
 
   .div { height: 1px; background: var(--fg10); margin: 3px 0; }
