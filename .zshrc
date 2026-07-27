@@ -16,9 +16,6 @@ function '??' {
 # `stream-motd` alias still forces a fresh run anywhere.
 [ -f ~/.startup.sh ] && [ -z "$TMUX" ] && ~/.startup.sh
 
-# Apply Claude Code theme customizations (if configured)
-[ -f ~/.dotfiles/.tweakcc-apply.sh ] && ~/.dotfiles/.tweakcc-apply.sh
-
 # OLD caching mechanism (backup reference):
 # The new script handles caching internally and displays instantly
 # No need for external caching wrapper anymore
