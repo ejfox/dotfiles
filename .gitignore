@@ -156,3 +156,6 @@ vulpes-reddish2-current-tmux.tmux.conf
 .config/karabiner/automatic_backups/
 .config/karabiner/karabiner.json.pre-*
 .config/fzf/current.sh
+
+# Generated from docs/tips.txt by bin/cheatsheets (not source)
+.config/cheatsheet-tips.js

@@ -4,10 +4,28 @@
 #   cheatsheets          → master (both combined)
 #   cheatsheets nvim     → nvim only
 #   cheatsheets lazygit  → lazygit only
+#
+# Before opening the master sheet, regenerate cheatsheet-tips.js from
+# docs/tips.txt so the rotating "tip of the moment" banner is always current.
+# (A <script src> file is used instead of fetch() because Safari blocks
+# fetch() of local files under file://.)
 
 MASTER="$HOME/.dotfiles/.config/cheatsheet.html"
 NVIM_SHEET="$HOME/.dotfiles/.config/nvim/cheatsheet.html"
 LG_SHEET="$HOME/.dotfiles/.config/lazygit/cheatsheet.html"
+TIPS_SRC="$HOME/.dotfiles/docs/tips.txt"
+TIPS_JS="$HOME/.dotfiles/.config/cheatsheet-tips.js"
+
+# Regenerate the tips array (skip blanks and section-marker lines ending in ↓↓↓)
+if [ -f "$TIPS_SRC" ]; then
+  python3 - "$TIPS_SRC" "$TIPS_JS" <<'PY' 2>/dev/null
+import json, sys
+src, out = sys.argv[1], sys.argv[2]
+lines = [l.rstrip("\n") for l in open(src)
+         if l.strip() and not l.rstrip().endswith("↓↓↓")]
+open(out, "w").write("window.TIPS=" + json.dumps(lines, ensure_ascii=False) + ";\n")
+PY
+fi
 
 case "${1:-all}" in
   nvim)    open -a "Safari" "$NVIM_SHEET" ;;

@@ -173,6 +173,14 @@
 </header>
 <input type="text" id="search" placeholder="/ search keybindings...">
 
+<div id="tipbar" onclick="nextTip()" title="click for another — auto-rotates every 15m"
+  style="display:flex;gap:10px;align-items:baseline;margin:6px 0 2px;padding:6px 10px;
+  border:1px solid var(--base15);border-left:2px solid var(--base);border-radius:4px;
+  background:var(--base08);cursor:pointer;user-select:none;">
+  <span style="color:var(--base);text-transform:uppercase;letter-spacing:.1em;font-size:9px;">tip</span>
+  <span id="tiptext" style="color:var(--fg80);">loading…</span>
+</div>
+
 <div class="grid" id="grid">
 
 <!-- ═══════════════════════════════════════════ -->
@@ -604,6 +612,8 @@
 
 </div>
 
+<!-- tips array, regenerated from docs/tips.txt each time `cheatsheet` opens -->
+<script src="cheatsheet-tips.js"></script>
 <script>
 function toggleAll(open) {
   document.querySelectorAll('details:not(.hidden)').forEach(d => d.open = open);
@@ -684,6 +694,20 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === '-') zoomBy(-0.1);
   else if (e.key === '0') { cheatZoom = 1; localStorage.setItem('cheatZoom', 1); applyZoom(); }
 });
+
+// Rotating "tip of the moment" — sourced from docs/tips.txt via cheatsheet-tips.js.
+// Click the bar to advance; auto-rotates every 15 minutes for ambient/always-open use.
+(function(){
+  const tips = (window.TIPS || []).filter(Boolean);
+  const el = document.getElementById('tiptext');
+  if (!el) return;
+  if (!tips.length) { el.textContent = 'run `cheatsheet` in a shell to load tips'; return; }
+  let i = Math.floor(Math.random() * tips.length);
+  const show = () => { el.textContent = tips[i % tips.length]; };
+  window.nextTip = () => { i = (i + 1) % tips.length; show(); };
+  show();
+  setInterval(window.nextTip, 15 * 60 * 1000);
+})();
 </script>
 </body>
 </html>
