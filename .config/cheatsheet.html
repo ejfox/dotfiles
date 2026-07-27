@@ -708,6 +708,49 @@ document.addEventListener('keydown', (e) => {
   show();
   setInterval(window.nextTip, 15 * 60 * 1000);
 })();
+
+// Full index — render EVERY tip from tips.txt (window.TIPS), grouped by its
+// (category) prefix, so the sheet always matches the source of truth. The 27
+// curated cards above stay first; this appends the complete 400+ set below,
+// collapsed by default, fully searchable/filterable via the existing handlers.
+(function(){
+  const tips = (window.TIPS || []).filter(Boolean);
+  const grid = document.getElementById('grid');
+  if (!tips.length || !grid) return;
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const groups = {}, order = [];
+  for (const line of tips) {
+    const m = line.match(/^\(([^)]+)\)\s*(.*)$/);
+    const cat = m ? m[1] : 'misc';
+    const rest = m ? m[2] : line;
+    (groups[cat] || (order.push(cat), groups[cat] = [])).push(rest);
+  }
+  const soft = new Set(['reading','vibe','wisdom','workflow']);   // prose → bottom
+  order.sort((a,b) => (soft.has(a) - soft.has(b)) || (groups[b].length - groups[a].length));
+  const toolFor = c => c.startsWith('nvim') ? 'nvim' : (c === 'lazygit' ? 'lazygit' : 'both');
+
+  const frag = document.createDocumentFragment();
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'column-span:all;margin:16px 0 4px;color:var(--base);font-size:10px;' +
+    'text-transform:uppercase;letter-spacing:.12em;border-top:1px solid var(--base15);padding-top:8px;';
+  hdr.textContent = '▾ full index — all ' + tips.length + ' tips (auto-generated from tips.txt)';
+  frag.appendChild(hdr);
+
+  for (const cat of order) {
+    const d = document.createElement('details');
+    d.dataset.tool = toolFor(cat);
+    const rows = groups[cat].map(r => {
+      const i = r.indexOf(' - ');
+      return i === -1
+        ? '<div class="r"><span class="d">' + esc(r) + '</span></div>'
+        : '<div class="r"><kbd>' + esc(r.slice(0, i)) + '</kbd><span class="d">' + esc(r.slice(i + 3)) + '</span></div>';
+    }).join('');
+    d.innerHTML = '<summary>' + esc(cat) + ' <span style="color:var(--fg40)">' +
+      groups[cat].length + '</span></summary><div class="c">' + rows + '</div>';
+    frag.appendChild(d);
+  }
+  grid.appendChild(frag);
+})();
 </script>
 </body>
 </html>
