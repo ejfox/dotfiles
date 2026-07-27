@@ -412,3 +412,4 @@ export PATH="$FLYCTL_INSTALL/bin:$PATH"
 
 # Shell leg of usage logging (tmux/nvim/hammerspoon/talon legs live elsewhere)
 [ -f ~/.dotfiles/lib/shell-usage-logging.zsh ] && source ~/.dotfiles/lib/shell-usage-logging.zsh
+alias gba="open -a mGBA"
