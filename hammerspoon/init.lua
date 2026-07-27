@@ -425,6 +425,11 @@ function cheatsheetToggle() -- global on purpose: reachable via `hs -c`
     cheatsheetView:hide()
     return
   end
+  -- refresh window.TIPS from docs/tips.txt so the banner + full index are always
+  -- current (the panel loads the HTML file directly, which the Safari path used
+  -- to be the only thing regenerating). Reused generator = single source of truth.
+  hs.execute(os.getenv("HOME") .. "/.dotfiles/bin/cheatsheets gen")
+  local existed = cheatsheetView ~= nil
   if not cheatsheetView then
     local uc = hs.webview.usercontent.new("cheat")
     uc:injectScript({
@@ -457,6 +462,8 @@ function cheatsheetToggle() -- global on purpose: reachable via `hs -c`
       end
     end)
   end
+  -- if the panel already existed, reload so edits to the HTML / fresh tips appear
+  if existed then pcall(function() cheatsheetView:reload() end) end
   cheatsheetView:show():bringToFront()
 end
 
