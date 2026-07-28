@@ -1289,12 +1289,19 @@ cmd_tp7_memos() {
 }
 
 cmd_tp7_clean() {
-  # SAFE device eraser. Never deletes anything that isn't already backed up in
-  # BOTH ~/tp7 (verified by size) AND R2. Always shows a plan and requires an
-  # explicit typed 'yes'. Never runs automatically.
+  # SAFE device eraser. Deletes from the TP-7 ONLY files that are already backed
+  # up in BOTH ~/tp7 (local pull) AND R2. Always shows a plan; --go additionally
+  # types 'yes'. Never automatic.
   #
-  #   music tp7 clean            plan only (dry-run) — shows what WOULD delete
-  #   music tp7 clean --go       actually delete the verified-safe files
+  # HARDWARE REALITY: each libmtp op captures the TP-7's USB interface until it
+  # is re-enumerated (replug / power-cycle into MTP mode). So this touches the
+  # device AT MOST ONCE — the plan is computed offline from local ∩ R2, and --go
+  # deletes everything in a single `mtp-delfile -f name…` call. Dry-run never
+  # touches the device (so it doesn't burn the one claim).
+  #
+  #   music tp7 clean                 plan only (offline) — what WOULD delete
+  #   music tp7 clean --go            delete the verified-safe files (one device op)
+  #   music tp7 clean --go --limit n  delete at most n (cautious first runs)
   local do_go=0 limit=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -1304,94 +1311,68 @@ cmd_tp7_clean() {
     shift
   done
 
-  if ! tp7_is_connected; then die "TP-7 not connected"; fi
-  if ! tp7_is_mtp_mode; then die "TP-7 not in MTP mode (power off, hold STOP + power on)"; fi
-
   local helper="$SHARE_DIR/tp7-root-mtp.sh"
   [[ -x "$helper" ]] || die "device helper missing: $helper (run: music setup)"
 
-  print "${BOLD}listing TP-7…${RST} ${MUTED}(detaching driver, needs sudo)${RST}"
-  local listing
-  listing=$(sudo -n "$helper" list 2>/dev/null) || die "can't list device — run 'music setup' to authorize the delete helper, then retry"
+  local src="${TP7_STAGING}/latest/recordings"
+  [[ -d "$src" ]] || die "no local pull dir ($src) — nothing verified to clean; pull first"
 
-  # parse libmtp 'mtp-files' output: "File ID: N", "   Filename: X", "   File size N (0xNN) bytes"
-  # build parallel arrays id / name / size
-  local -a ids names sizes
-  local cid="" cname="" csize=""
-  local line
-  while IFS= read -r line; do
-    case "$line" in
-      "File ID:"*)   cid="${line##*: }" ;;
-      *"Filename:"*) cname="${line##*: }" ;;
-      *"File size"*) csize="${${line##*File size }%% *}"
-                     if [[ -n "$cid" && -n "$cname" ]]; then
-                       ids+=("$cid"); names+=("$cname"); sizes+=("${csize:-0}")
-                       cid=""; cname=""; csize=""
-                     fi ;;
-    esac
-  done <<< "$listing"
-
-  local total=${#ids}
-  [[ "$total" -eq 0 ]] && { print "${MUTED}no files on device (or nothing parsed)${RST}"; return 0; }
-
-  # cache R2 keys once (name -> present). we look for the raw wav name anywhere.
+  # cache R2 names once (bare filename → present); we accept the wav OR its mp3 sibling
   print "${MUTED}checking R2 backups…${RST}"
   local -A r2names
   local k
   while IFS=$'\t' read -r k _; do r2names[${k##*/}]=1; done < <(r2_list 2>/dev/null)
 
-  local local_root="${TP7_STAGING}"
-  local -a safe_ids safe_names notbak
-  local i
-  for (( i=1; i<=total; i++ )); do
-    local nm="${names[$i]}" sz="${sizes[$i]}"
-    # local copy present with matching size?
-    local lp=$(find "$local_root" -type f -name "$nm" 2>/dev/null | head -1)
-    local lsz=0; [[ -n "$lp" ]] && lsz=$(stat -f%z "$lp" 2>/dev/null || echo 0)
-    local has_local=0; [[ -n "$lp" && "$lsz" == "$sz" ]] && has_local=1
-    # R2 present? (wav name or its mp3 sibling)
+  # build the safe set from local ∩ R2 — NO device access. A file we pulled is a
+  # file that was on the device; if it's also in R2 it's safe to remove there.
+  local -a safe kept
+  local f
+  for f in "$src"/*.wav(N) "$src"/*.WAV(N); do
+    [[ -f "$f" ]] || continue
+    local nm="${f##*/}"
     local mp3="${nm%.*}.mp3"
-    local has_r2=0; [[ -n "${r2names[$nm]:-}" || -n "${r2names[$mp3]:-}" ]] && has_r2=1
-    if [[ "$has_local" -eq 1 && "$has_r2" -eq 1 ]]; then
-      safe_ids+=("${ids[$i]}"); safe_names+=("$nm")
+    if [[ -n "${r2names[$nm]:-}" || -n "${r2names[$mp3]:-}" ]]; then
+      safe+=("$nm")
     else
-      local why=""; [[ "$has_local" -eq 0 ]] && why="no local"; [[ "$has_r2" -eq 0 ]] && why="${why:+$why, }no R2"
-      notbak+=("$nm — ${why}")
+      kept+=("$nm")
     fi
   done
 
-  # optional cap for cautious incremental cleaning (e.g. --limit 1 for a first test)
-  if [[ "$limit" -gt 0 && ${#safe_ids} -gt "$limit" ]]; then
-    safe_ids=(${safe_ids[1,$limit]}); safe_names=(${safe_names[1,$limit]})
-    print "${MUTED}(--limit ${limit}: capping to the first ${limit} verified file(s))${RST}"
+  print ""
+  print "${BOLD}plan${RST} ${MUTED}(from local ∩ R2 — device not scanned)${RST}"
+  print "  ${TEAL}${#safe} safe to delete from TP-7${RST} (verified local + R2)"
+  print "  ${PINK}${#kept} local file(s) NOT in R2${RST} ${MUTED}— will NOT delete${RST}"
+
+  # optional cap for cautious incremental cleaning (e.g. --limit 1 for a first run)
+  if [[ "$limit" -gt 0 && ${#safe} -gt "$limit" ]]; then
+    safe=(${safe[1,$limit]})
+    print "  ${MUTED}(--limit ${limit}: capping to ${limit})${RST}"
   fi
+  [[ ${#safe} -eq 0 ]] && { print "\n${MUTED}nothing safe to delete yet (get files into R2 first).${RST}"; return 0; }
 
   print ""
-  print "${BOLD}plan:${RST} ${total} file(s) on device"
-  print "  ${TEAL}${#safe_ids} safe to delete${RST} (verified local + R2):"
-  local s; for s in "${safe_names[@]}"; do print "    ${MUTED}✓ ${s}${RST}"; done
-  if [[ ${#notbak} -gt 0 ]]; then
-    print "  ${PINK}${#notbak} KEPT${RST} (not fully backed up — will NOT touch):"
-    local nb; for nb in "${notbak[@]}"; do print "    ${PINK}✗ ${nb}${RST}"; done
-  fi
-
-  [[ ${#safe_ids} -eq 0 ]] && { print "\n${MUTED}nothing is safe to delete yet.${RST}"; return 0; }
+  local s; for s in "${safe[@]}"; do print "    ${MUTED}✓ ${s}${RST}"; done
 
   if [[ "$do_go" -eq 0 ]]; then
-    print "\n${MUTED}dry-run. re-run with ${BOLD}music tp7 clean --go${RST}${MUTED} to delete the ${#safe_ids} verified file(s).${RST}"
+    print "\n${MUTED}dry-run. replug the TP-7 into MTP mode, then: ${BOLD}music tp7 clean --go${RST}"
     return 0
   fi
 
+  # --go: the ONE device op. needs a fresh claim.
+  if ! tp7_is_connected || ! tp7_is_mtp_mode; then
+    die "TP-7 not in MTP mode. Power off, hold STOP + power on, then re-run. (Each pull/clean captures the device — a fresh plug is needed per op.)"
+  fi
+
   print ""
-  print -n "${PINK}delete ${#safe_ids} file(s) from the TP-7? this is irreversible on-device (copies are safe). type 'yes': ${RST}"
+  print -n "${PINK}delete ${#safe} file(s) from the TP-7? irreversible on-device — copies verified in ~/tp7 + R2. type 'yes': ${RST}"
   local ans; read ans
   [[ "$ans" == "yes" ]] || { print "${MUTED}aborted.${RST}"; return 0; }
 
-  print "${MUTED}deleting…${RST}"
-  if sudo -n "$helper" del "${safe_ids[@]}" 2>/dev/null; then
-    print "${TEAL}deleted ${#safe_ids} file(s) from TP-7.${RST}"
+  print "${MUTED}deleting in one device session…${RST}"
+  if sudo -n "$helper" del "${safe[@]}"; then
+    print "${TEAL}deleted ${#safe} file(s) from the TP-7.${RST} ${MUTED}local + R2 copies untouched.${RST}"
   else
-    print "${PINK}delete helper failed — nothing guaranteed removed. files remain safe locally.${RST}"
+    print "${PINK}delete helper reported an error — replug and re-run dry-run to see what remains.${RST}"
     return 1
   fi
 }

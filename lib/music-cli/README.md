@@ -125,12 +125,15 @@ in BOTH `~/tp7` (verified by byte size) AND R2.** Always prints a plan; the
     music tp7 clean --go          # delete the verified-safe files (confirms first)
     music tp7 clean --go --limit 1  # delete at most N (cautious incremental cleaning)
 
-Mechanics: lists the device via `sudo -n tp7-root-mtp.sh list` (`mtp-files`,
-same root detach + ptpcamerad-suppression wrapper as the pull), parses File
-ID/name/size, checks each against local + R2, then deletes the safe set by ID
-via `mtp-delfile -n`. Files that are local-only (e.g. jams >250MiB never pushed
-to R2) are **KEPT** — the gate refuses to leave anything in one place. Finish the
-R2 write token (see Post-pull pass) to make big files deletable.
+**Hardware reality**: each libmtp op *captures* the TP-7's USB interface until
+it's re-enumerated (replug / power-cycle into MTP mode). So `clean` touches the
+device **at most once**: the plan is computed offline from `~/tp7/latest/recordings`
+∩ R2 (a pulled file was on the device; if it's also in R2 it's safe to remove
+there), and `--go` deletes the whole safe set in a **single**
+`sudo -n tp7-root-mtp.sh del name…` → `mtp-delfile -f name…` call. The dry-run
+never touches the device, so it doesn't burn the one claim. Local-only files
+(e.g. jams >250MiB never pushed to R2) are **KEPT**. Finish the R2 write token
+(see Post-pull pass) to make big files deletable.
 
 `music setup` installs the third NOPASSWD sudoers line for `tp7-root-mtp.sh`;
 without it `clean` refuses with "run: music setup".

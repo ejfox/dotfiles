@@ -27,14 +27,13 @@ case "${1:-}" in
     ;;
   del)
     shift
-    rc=0
-    for id in "$@"; do
-      mtp-delfile -n "$id" || rc=1
-    done
-    exit $rc
+    # delete ALL given filenames in ONE libmtp process — the device only
+    # tolerates a single claim per plug-in, so we must not loop separate ops.
+    mtp-delfile -f "$@"
+    exit $?
     ;;
   *)
-    echo "usage: tp7-root-mtp.sh list | del <fileid>..." >&2
+    echo "usage: tp7-root-mtp.sh list | del <filename>..." >&2
     exit 2
     ;;
 esac
