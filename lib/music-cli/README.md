@@ -89,6 +89,52 @@ Locking: `tp7-import.sh` owns `/tmp/.music-tp7-pulling` (PID-stamped
 single-flight; stale locks from crashed runs are detected via dead PID). The
 watcher only clears it when the owner is dead. Manual + auto runs can't race.
 
+## Voice memos → Obsidian (`music tp7 memos`, added 2026-07-28)
+
+Transcribes voice memos out of the pulled pile into notes in the **main Obsidian
+vault** (`…/Documents/ejfox/voicememos/`). Runs on already-pulled files — no
+device needed.
+
+    music tp7 memos [src-dir]        # default src: ~/tp7/latest/recordings
+    music tp7 memos --redo <file>    # force re-transcribe one file
+
+How it decides what's a memo: `tp7_analyze_audio` runs whisper (`ggml-base.en`)
+on the first 30s — real words ⇒ memo, instrumental/silence ⇒ skipped as a jam.
+Memos get a **full** transcript (whole file, 16k mono) and one note each:
+frontmatter (`title/date/duration/audio/type: voicememo`) + a callout + the
+transcript body. The `audio:` field links the wav; it is not embedded.
+
+- **Idempotent ledger**: `~/.local/share/music-cli/memos-ledger.tsv`
+  (`basename <TAB> speech|instrumental <TAB> notepath`). Every file is recorded
+  once, so reruns are cheap and notes are never clobbered (colliding names get a
+  `-2` suffix). Delete a line (or the file) to force reprocessing.
+- **Known limits**: the 30s classifier window can miss a memo that starts with
+  long silence, or false-positive a music track with an early vocal. Eyeball the
+  notes; fix one with `--redo`.
+- **zsh gotcha fixed 2026-07-28**: `tp7_analyze_audio` used bash `${var,,}`
+  lowercasing, which is a hard error under this zsh script — it had been silently
+  breaking whisper auto-naming in `music tp7 pull` too. Now `${(L)var}`.
+
+## Device cleanup (`music tp7 clean`, added 2026-07-28)
+
+Safe eraser for the TP-7 itself. **Never deletes anything not already backed up
+in BOTH `~/tp7` (verified by byte size) AND R2.** Always prints a plan; the
+`--go` path additionally requires typing `yes`.
+
+    music tp7 clean               # dry-run: shows safe-to-delete vs KEPT (not backed up)
+    music tp7 clean --go          # delete the verified-safe files (confirms first)
+    music tp7 clean --go --limit 1  # delete at most N (cautious incremental cleaning)
+
+Mechanics: lists the device via `sudo -n tp7-root-mtp.sh list` (`mtp-files`,
+same root detach + ptpcamerad-suppression wrapper as the pull), parses File
+ID/name/size, checks each against local + R2, then deletes the safe set by ID
+via `mtp-delfile -n`. Files that are local-only (e.g. jams >250MiB never pushed
+to R2) are **KEPT** — the gate refuses to leave anything in one place. Finish the
+R2 write token (see Post-pull pass) to make big files deletable.
+
+`music setup` installs the third NOPASSWD sudoers line for `tp7-root-mtp.sh`;
+without it `clean` refuses with "run: music setup".
+
 ## Debugging
 
 - Human logs: `~/.local/share/music-cli/{watcher,import}.log` (auto-truncated at 1MB)
@@ -98,3 +144,9 @@ watcher only clears it when the owner is dead. Manual + auto runs can't race.
   `sudo -n` (reinstall via `music setup`)
 - MTP mode = power off, hold STOP while powering on
 - Field Kit holds the USB interface — scripts quit it before pulling
+- **`LIBMTP PANIC: Unable to find interface & endpoints` / `NODEV`**: the first
+  pull *captures* the USB interface (libusb whole-device capture on macOS); a
+  second claim fails until the TP-7 is re-enumerated. Fix = unplug + power-cycle
+  back into MTP mode before another `pull`/`ls`/`clean`.
+- `sudo -n -l` should now list THREE NOPASSWD entries (detach-driver,
+  root-pull.sh, root-mtp.sh). Missing the third ⇒ `clean` can't run; `music setup`.
