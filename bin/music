@@ -950,8 +950,9 @@ cmd_tp7() {
     ls|list)     cmd_tp7_ls ;;
     status)      cmd_tp7_status ;;
     memos|memo)  shift 2>/dev/null; cmd_tp7_memos "$@" ;;
+    rename-memos) shift 2>/dev/null; cmd_tp7_rename_memos "$@" ;;
     clean)       shift 2>/dev/null; cmd_tp7_clean "$@" ;;
-    *)           die "unknown tp7 command: $subcmd (try: pull, ls, status, memos, clean)" ;;
+    *)           die "unknown tp7 command: $subcmd (try: pull, ls, status, memos, rename-memos, clean)" ;;
   esac
 }
 
@@ -1185,6 +1186,128 @@ cmd_tp7_pull() {
   print "\n${TEAL}done — ${summary}${RST}"
 }
 
+# --- native tp7 CLI (github.com/totocaster/tp7) helpers -------------------
+# The libmtp path can't delete (PTP Invalid Object Handle) and captures the USB
+# interface. The `tp7` CLI uses direct USB enumeration, supports rm + rename,
+# and addresses real folders. Requires: brew install totocaster/tap/tp7.
+
+# emit every file on the device as: <remote-path><TAB><name>. Discovers the
+# layout at runtime (no hardcoded /recordings vs /memo). One device op.
+tp7cli_files() {
+  command -v tp7 >/dev/null 2>&1 || return 1
+  tp7 -a tree -j 2>/dev/null | python3 -c '
+import sys, json
+def name_of(e): return e.get("name") or e.get("filename") or e.get("basename") or ""
+def kids(e):    return e.get("entries") or e.get("children") or e.get("files") or []
+def is_dir(e):
+    t=(e.get("type") or e.get("kind") or "").lower()
+    return t in ("folder","dir","directory") or bool(kids(e)) and not (e.get("size") and not kids(e))
+def walk(node, prefix=""):
+    if isinstance(node, dict) and ("entries" in node) and ("path" in node) and "name" not in node:
+        base=node.get("path","").rstrip("/")
+        for e in node.get("entries") or []: walk(e, base)
+        return
+    if isinstance(node, list):
+        for e in node: walk(e, prefix); return
+    if isinstance(node, dict):
+        nm=name_of(node); path=(prefix.rstrip("/")+"/"+nm) if nm else prefix
+        ch=kids(node)
+        if ch:
+            for c in ch: walk(c, path)
+        elif nm:
+            print(path+"\t"+nm)
+try: walk(json.load(sys.stdin))
+except Exception: pass
+'
+}
+
+cmd_tp7_rename_memos() {
+  # Retro-actively rename voice-memo files ON THE DEVICE to readable names
+  # derived from their whisper transcripts, so the TP-7 screen shows e.g.
+  # "2023-12-24 dont-stay-without-a-gun.wav" instead of "20231224T055521.wav".
+  # Names come from the memos ledger (offline); the device is touched only on --go.
+  #
+  #   music tp7 rename-memos            dry-run — show planned renames
+  #   music tp7 rename-memos --go       apply on device (+ keep local/ledger in sync)
+  local do_go=0
+  for a in "$@"; do [[ "$a" == "--go" ]] && do_go=1; done
+
+  local ledger="$SHARE_DIR/memos-ledger.tsv"
+  [[ -f "$ledger" ]] || die "no memos ledger yet — run: music tp7 memos"
+  command -v tp7 >/dev/null 2>&1 || die "tp7 CLI missing — brew install totocaster/tap/tp7"
+
+  # build origname -> newname from the ledger's speech rows (note = <date>-<slug>.md)
+  local -A newname
+  local base verdict note
+  while IFS=$'\t' read -r base verdict note; do
+    [[ "$verdict" == "speech" && -n "$note" ]] || continue
+    local nb="${note##*/}"; nb="${nb%.md}"
+    local date="${nb[1,10]}"     # YYYY-MM-DD prefix
+    local slug="${nb[12,-1]}"    # rest after 'YYYY-MM-DD-'
+    [[ "$date" == ????-??-?? && -n "$slug" ]] || continue
+    local ext="${base##*.}"
+    local nn="${date} ${slug}.${ext}"
+    newname[$base]="$nn"
+  done < "$ledger"
+
+  local nmemos=${#newname}
+  [[ "$nmemos" -eq 0 ]] && { print "${MUTED}no transcribed memos in the ledger to rename${RST}"; return 0; }
+  print "${BOLD}${nmemos} transcribed memo(s)${RST} eligible for readable names."
+
+  # need the device to map names -> remote paths (and to only rename what's there)
+  if ! tp7 -a status >/dev/null 2>&1; then
+    die "TP-7 not reachable in MTP mode (power off, hold STOP + power on). Names are ready; re-run when connected."
+  fi
+  print "${MUTED}reading device layout…${RST}"
+  local -A remote
+  local p n
+  while IFS=$'\t' read -r p n; do remote[$n]="$p"; done < <(tp7cli_files)
+  [[ ${#remote} -eq 0 ]] && die "couldn't read device file list (tp7 tree returned nothing)"
+
+  # plan: memos that are on the device and not already renamed
+  local -a plan_old plan_path plan_new
+  local base2
+  for base2 in "${(@k)newname}"; do
+    local rp="${remote[$base2]:-}"
+    [[ -n "$rp" ]] || continue                 # not on device (already renamed / removed)
+    plan_old+=("$base2"); plan_path+=("$rp"); plan_new+=("${newname[$base2]}")
+  done
+
+  local np=${#plan_old}
+  [[ "$np" -eq 0 ]] && { print "${TEAL}nothing to rename — device memos already have readable names (or aren't present).${RST}"; return 0; }
+
+  print ""
+  print "${BOLD}plan:${RST} ${np} rename(s)"
+  local i
+  for (( i=1; i<=np; i++ )); do
+    print "  ${MUTED}${plan_old[$i]}${RST}  ${TEAL}->${RST}  ${plan_new[$i]}"
+  done
+
+  if [[ "$do_go" -eq 0 ]]; then
+    print "\n${MUTED}dry-run. re-run with ${BOLD}music tp7 rename-memos --go${RST}${MUTED} to apply on the device.${RST}"
+    return 0
+  fi
+
+  print ""
+  print -n "${PINK}rename ${np} file(s) on the TP-7? type 'yes': ${RST}"
+  local ans; read ans
+  [[ "$ans" == "yes" ]] || { print "${MUTED}aborted.${RST}"; return 0; }
+
+  local ok=0 fail=0
+  local src="${TP7_STAGING}/latest/recordings"
+  for (( i=1; i<=np; i++ )); do
+    if tp7 -a rename "${plan_path[$i]}" "${plan_new[$i]}" >/dev/null 2>&1; then
+      ok=$((ok+1))
+      # keep the local dedupe-ledger name in sync so the pull doesn't re-fetch it
+      [[ -f "$src/${plan_old[$i]}" ]] && mv -n "$src/${plan_old[$i]}" "$src/${plan_new[$i]}" 2>/dev/null
+      print "  ${TEAL}✓${RST} ${plan_new[$i]}"
+    else
+      fail=$((fail+1)); print "  ${PINK}✗ ${plan_old[$i]}${RST}"
+    fi
+  done
+  print "\n${BOLD}done.${RST} ${TEAL}${ok} renamed${RST}${fail:+, ${PINK}${fail} failed${RST}}"
+}
+
 cmd_tp7_memos() {
   # transcribe voice memos -> Obsidian notes in the main vault.
   # whisper auto-detects speech vs instrumental; jams/instrumentals are skipped.
@@ -1311,8 +1434,7 @@ cmd_tp7_clean() {
     shift
   done
 
-  local helper="$SHARE_DIR/tp7-root-mtp.sh"
-  [[ -x "$helper" ]] || die "device helper missing: $helper (run: music setup)"
+  command -v tp7 >/dev/null 2>&1 || die "tp7 CLI missing — brew install totocaster/tap/tp7"
 
   local src="${TP7_STAGING}/latest/recordings"
   [[ -d "$src" ]] || die "no local pull dir ($src) — nothing verified to clean; pull first"
@@ -1358,23 +1480,37 @@ cmd_tp7_clean() {
     return 0
   fi
 
-  # --go: the ONE device op. needs a fresh claim.
-  if ! tp7_is_connected || ! tp7_is_mtp_mode; then
-    die "TP-7 not in MTP mode. Power off, hold STOP + power on, then re-run. (Each pull/clean captures the device — a fresh plug is needed per op.)"
+  # --go: resolve each safe name to its remote path, then delete via the tp7 CLI.
+  if ! tp7 -a status >/dev/null 2>&1; then
+    die "TP-7 not reachable in MTP mode (power off, hold STOP + power on), then re-run --go."
   fi
+  print "${MUTED}reading device layout…${RST}"
+  local -A remote
+  local p n
+  while IFS=$'\t' read -r p n; do remote[$n]="$p"; done < <(tp7cli_files)
+
+  # only delete safe files that are actually present on the device
+  local -a del_paths del_names
+  local s2
+  for s2 in "${safe[@]}"; do
+    [[ -n "${remote[$s2]:-}" ]] && { del_paths+=("${remote[$s2]}"); del_names+=("$s2"); }
+  done
+  [[ ${#del_paths} -eq 0 ]] && { print "${MUTED}none of the safe files are currently on the device.${RST}"; return 0; }
 
   print ""
-  print -n "${PINK}delete ${#safe} file(s) from the TP-7? irreversible on-device — copies verified in ~/tp7 + R2. type 'yes': ${RST}"
+  print -n "${PINK}delete ${#del_paths} file(s) from the TP-7? irreversible on-device — copies verified in ~/tp7 + R2. type 'yes': ${RST}"
   local ans; read ans
   [[ "$ans" == "yes" ]] || { print "${MUTED}aborted.${RST}"; return 0; }
 
-  print "${MUTED}deleting in one device session…${RST}"
-  if sudo -n "$helper" del "${safe[@]}"; then
-    print "${TEAL}deleted ${#safe} file(s) from the TP-7.${RST} ${MUTED}local + R2 copies untouched.${RST}"
-  else
-    print "${PINK}delete helper reported an error — replug and re-run dry-run to see what remains.${RST}"
-    return 1
-  fi
+  local ok=0 fail=0 i
+  for (( i=1; i<=${#del_paths}; i++ )); do
+    if tp7 -a rm "${del_paths[$i]}" >/dev/null 2>&1; then
+      ok=$((ok+1)); print "  ${TEAL}✓${RST} ${del_names[$i]}"
+    else
+      fail=$((fail+1)); print "  ${PINK}✗ ${del_names[$i]}${RST}"
+    fi
+  done
+  print "\n${BOLD}done.${RST} ${TEAL}${ok} deleted from TP-7${RST}${fail:+, ${PINK}${fail} failed${RST}} ${MUTED}— local + R2 copies untouched.${RST}"
 }
 
 cmd_recent() {
@@ -1437,6 +1573,7 @@ ${BOLD}tp-7${RST}  ${MUTED}(hold STOP + power on to enter MTP mode)${RST}
   ${TEAL}music tp7 status${RST}              check TP-7 connection status
   ${TEAL}music tp7 memos${RST} [dir]         transcribe voice memos → Obsidian notes (whisper)
   ${TEAL}music tp7 memos --redo${RST} <f>    re-transcribe one file (overrides the ledger)
+  ${TEAL}music tp7 rename-memos${RST} [--go]  rename memos on-device to readable names (tp7 CLI)
   ${TEAL}music tp7 clean${RST}               plan a safe device wipe (dry-run; verified local+R2 only)
   ${TEAL}music tp7 clean --go${RST}          actually delete the verified-safe files (types 'yes')
   ${TEAL}music tp7 clean --go --limit${RST} n  delete at most n (cautious incremental cleaning)
