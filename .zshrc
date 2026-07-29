@@ -12,9 +12,16 @@ function '??' {
 # fi
 
 # Startup script (execute as subprocess to avoid job control noise)
-# Skipped inside tmux — splits/panes shouldn't pay ~300ms + banner reprint.
+# Outside tmux: full MOTD (~0.6s warm, already ends with a random tip).
+# Inside tmux: skip the heavy banner (splits/panes shouldn't pay ~300ms), but
+# still print ONE instant (~5ms) random tip so every pane loads with a hint.
 # `stream-motd` alias still forces a fresh run anywhere.
-[ -f ~/.startup.sh ] && [ -z "$TMUX" ] && ~/.startup.sh
+if [ -z "$TMUX" ]; then
+  [ -f ~/.startup.sh ] && ~/.startup.sh
+else
+  [ -f ~/.dotfiles/docs/tips.txt ] && \
+    print -r -- "$(printf '\033[38;5;240m TIP: %s\033[0m' "$(shuf -n 1 ~/.dotfiles/docs/tips.txt)")"
+fi
 
 # OLD caching mechanism (backup reference):
 # The new script handles caching internally and displays instantly
@@ -294,7 +301,13 @@ export PATH="$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 # Load environment variables from ~/.env (not committed to git)
 [ -f ~/.env ] && source ~/.env
 
-# Load local customizations (1Password helpers, etc)
+# Machine-specific config, versioned per-host in the repo (hosts/<shorthost>.zsh).
+# Auto-loads by hostname — a new machine just adds its own hosts/<name>.zsh file,
+# no symlink to wire up and nothing to dangle. Secrets stay in ~/.env, not here.
+_hostcfg="$HOME/.dotfiles/hosts/${HOST%%.*}.zsh"
+[ -r "$_hostcfg" ] && source "$_hostcfg"; unset _hostcfg
+
+# Optional un-synced local override (rare escape hatch; secrets belong in ~/.env)
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
 # Initialize zoxide (smarter cd command) - lazy loaded
