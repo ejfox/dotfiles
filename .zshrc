@@ -308,6 +308,9 @@ _hostcfg="$HOME/.dotfiles/hosts/${HOST%%.*}.zsh"
 [ -r "$_hostcfg" ] && source "$_hostcfg"; unset _hostcfg
 
 # Optional un-synced local override (rare escape hatch; secrets belong in ~/.env)
+# dotfiles sync guard (see bin/dfsync) — silent unless out of sync
+[ -z "$DFSYNC_QUIET" ] && command -v dfsync >/dev/null && dfsync
+
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
 # Initialize zoxide (smarter cd command) - lazy loaded

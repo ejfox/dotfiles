@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# dfsync — dotfiles sync guard. Warns when ~/.dotfiles is out of sync with origin.
+# Run bare for a check; runs automatically at shell start (see .zshrc).
+set -euo pipefail
+D=~/.dotfiles
+cd "$D" || exit 0
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+
+# Fetch quietly at most once per 6h to keep ahead/behind meaningful without slowing shells.
+stamp="$D/.git/.dfsync-fetch"
+now=$(date +%s)
+last=$( [ -f "$stamp" ] && cat "$stamp" 2>/dev/null || echo 0 )
+if [ $((now - last)) -gt 21600 ]; then
+  git fetch -q origin 2>/dev/null && echo "$now" >"$stamp" || true
+fi
+
+up=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo '')
+[ -z "$up" ] && exit 0
+ahead=$(git rev-list --count "$up"..HEAD 2>/dev/null || echo 0)
+behind=$(git rev-list --count HEAD.."$up" 2>/dev/null || echo 0)
+dirty=$(git status --porcelain 2>/dev/null | grep -v 'lazy-lock.json' | grep -cv '^$' || true)
+
+msg=""
+[ "$ahead"  -gt 0 ] && msg="$msg ↑$ahead unpushed"
+[ "$behind" -gt 0 ] && msg="$msg ↓$behind unpulled"
+[ "$dirty"  -gt 0 ] && msg="$msg ●$dirty uncommitted"
+[ -n "$msg" ] && printf '\033[33m⚠ dotfiles:%s\033[0m  (cd ~/.dotfiles)\n' "$msg" >&2
+exit 0
