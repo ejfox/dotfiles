@@ -10,29 +10,31 @@
     --bg2: #0a0608;
     --bg3: #150d10;
     --fg: #f2cfdf;
-    --fg80: rgba(242,207,223,0.9);
-    --fg60: rgba(242,207,223,0.78);
-    --fg40: rgba(242,207,223,0.68);
-    --fg20: rgba(242,207,223,0.42);
-    --fg10: rgba(242,207,223,0.14);
-    --base: #e60067;
-    --base80: rgba(230,0,103,0.8);
-    --base50: rgba(230,0,103,0.5);
-    --base30: rgba(230,0,103,0.3);
-    --base15: rgba(230,0,103,0.15);
-    --base08: rgba(230,0,103,0.08);
-    --teal: #6eedf7;
-    --teal70: rgba(110,237,247,0.7);
-    --teal40: rgba(110,237,247,0.4);
-    --gold: #f7c86e;
-    --gold70: rgba(247,200,110,0.7);
-    --gold40: rgba(247,200,110,0.4);
+    --fg80: rgba(245,225,235,1.0);
+    --fg60: rgba(245,225,235,0.92);
+    --fg40: rgba(245,225,235,0.85);
+    --fg20: rgba(245,225,235,0.6);
+    --fg10: rgba(245,225,235,0.18);
+    /* brighter pink: #e60067 was too dark to read as text/keys on black.
+       (255,61,132) is far more legible while staying vulpes-pink. */
+    --base: #ff4d8d;
+    --base80: rgba(255,77,141,0.92);
+    --base50: rgba(255,77,141,0.72);
+    --base30: rgba(255,77,141,0.42);
+    --base15: rgba(255,77,141,0.22);
+    --base08: rgba(255,77,141,0.1);
+    --teal: #7bf0f9;
+    --teal70: rgba(123,240,249,0.85);
+    --teal40: rgba(123,240,249,0.5);
+    --gold: #ffd489;
+    --gold70: rgba(255,212,137,0.9);
+    --gold40: rgba(255,212,137,0.5);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Monaspace Krypton', 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 11px;
-    font-weight: 300;                     /* lighter strokes, easier on the eyes */
+    font-weight: 350;                     /* lighter strokes, but still readable */
     -webkit-font-smoothing: antialiased;  /* keep thin weight crisp on retina */
     background: var(--bg);
     color: var(--fg80);
@@ -186,8 +188,8 @@
 
   details.accent { border-left-color: rgba(110,237,247,0.2); }
   details.accent[open] { border-left-color: rgba(110,237,247,0.5); }
-  details.accent[open] summary { color: var(--teal70); }
-  details.accent kbd { color: var(--teal70); }
+  details.accent[open] summary { color: var(--teal); }
+  details.accent kbd { color: var(--teal); }
 
   /* lazygit gold accent */
   details.gold { border-left-color: rgba(247,200,110,0.2); }
@@ -196,8 +198,9 @@
 
   /* colored keys per domain so the auto-index reads like the curated cards:
      nvim=teal (above), git/lazygit=gold, tmux=pink, prose=dim italic */
-  details.gold kbd { color: var(--gold70); }
+  details.gold kbd { color: var(--gold); }
   details.primary kbd { color: var(--base80); }
+  details.primary[open] summary { color: var(--fg); }
   details.prose { border-left-color: var(--fg10); }
   details.prose[open] summary { color: var(--fg40); }
   details.prose .d { text-align: left; font-style: italic; padding-left: 0; }
