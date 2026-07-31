@@ -103,8 +103,6 @@
 (nvim/treesitter) vaa/via - select around/inside argument
 (nvim/treesitter) ]f / [f - jump to next/prev function
 (nvim/treesitter) ]c / [c - jump to next/prev class
-(nvim/treesitter) C-space is semantic zoom - not lines, not chars, MEANING
-(nvim/treesitter) C-space understands your CODE, not just your text
 (wisdom) C-space: the most underrated vim motion you're not using
 (nvim/flash) s + 2 chars - labels appear on ALL matches, hit label to teleport
 (nvim/flash) S - treesitter mode, labels entire NODES (funcs, blocks)
@@ -134,7 +132,6 @@
 (git) git worktree add ../name branch - multiple branches
 (git) git worktree list - see all active worktrees
 (git) git worktree remove ../feature-name - remove worktree
-(git) worktrees: PR in one pane, develop in another
 (zsh) cl - claude --dangerously-skip-permissions
 (zsh) cln - claude --no-approval (maximum velocity)
 (zsh) clc - claude commit (AI writes your git messages)
@@ -225,21 +222,6 @@
 (nvim) gx - open URL or filepath under cursor in browser
 (nvim) C-w o - close ALL windows except current (instant focus mode)
 (nvim/treesitter) i = inside (just the filling 🫘), a = around (filling + tortilla 🌯)
-(nvim/treesitter) vaf - visual around function (whole thing, signature + body)
-(nvim/treesitter) vif - visual inside function (just the body/guts)
-(nvim/treesitter) daf - delete around function (nuke the whole thing)
-(nvim/treesitter) yif - yank inside function (copy guts to paste elsewhere)
-(nvim/treesitter) caf - change around function (replace entire function)
-(nvim/treesitter) vaa - visual around argument (arg + comma, clean moves)
-(nvim/treesitter) via - visual inside argument (just the value, no comma)
-(nvim/treesitter) daa - delete around argument (removes arg + handles comma!)
-(nvim/treesitter) cia - change inside argument (replace just the value)
-(nvim/treesitter) vat - visual around tag (<div>...</div> whole sandwich)
-(nvim/treesitter) vit - visual inside tag (just the contents between tags)
-(nvim/treesitter) dat - delete around tag (nuke the whole element)
-(nvim/treesitter) dit - delete inside tag (empty the element, keep wrapper)
-(nvim/treesitter) cit - change inside tag (replace contents, keep wrapper)
-(nvim/treesitter) cat - change around tag (replace entire element)
 (nvim) space b d - close buffer
 (nvim) space b o - close other buffers
 (nvim) ]b / [b - next/prev buffer
@@ -250,10 +232,11 @@
 (nvim) n / N - next/prev match
 (nvim) space / - grep project
 (nvim) ]h / [h - next/prev git hunk
-(nvim) space g s - stage hunk
-(nvim) space g r - reset hunk
-(nvim) space g p - preview hunk
-(nvim) space g b - git blame line
+(nvim) space g h s - stage hunk
+(nvim) space g h r - reset hunk
+(nvim) space g h p - preview hunk
+(nvim) space g h b - git blame line
+(nvim) space g p - diff vs PR base (custom: auto-detects base via gh cli)
 (nvim/copilot) Tab - accept ghost text suggestion
 (nvim/copilot) ]s - next AI suggestion
 (nvim/copilot) [s - prev AI suggestion
@@ -317,7 +300,6 @@
 (vibe) if it works, ship it
 (vibe) future you will thank present you for that comment
 (vibe) the bug is always where you're not looking
-(vibe) cmd+shift+r to reload ghostty shaders
 (vibe) have you pushed your work lately?
 (vibe) drink water
 (vibe) the best code is the code you delete
@@ -399,7 +381,6 @@
 (zsh) scraps "query" - search Supabase scraps table
 (zsh) summarize_commits - AI summary of recent git history
 (lazygit) a - AI commit message (fzf + Claude)
-(nvim) files auto-reload when Claude Code edits them externally
 (nvim) git diff view auto-refreshes on file changes
 (git) git cs "message" - signed commit (GPG key from Keybase)
 (git) unsigned commits - Claude wrote it; signed - you wrote it
