@@ -122,40 +122,52 @@
   summary .badge.lazygit { background: rgba(247,200,110,0.12); color: var(--gold40); }
 
   .c { padding: 0 6px; }
-  .r { display: flex; flex-wrap: wrap; justify-content: space-between; padding: 1px 0; row-gap: 0; }
-  .r:hover { background: var(--base08); border-radius: 2px; }
+  /* Two-column TABLE: keys in a stable left column, descriptions left-aligned so
+     they wrap ragged-RIGHT (calm) instead of ragged-both — no more orphaned words
+     or variable eye-jumps. minmax lets a rare long key expand without wrapping,
+     while short keys share one left edge and every description starts at the same x. */
+  .r {
+    display: grid; grid-template-columns: minmax(4.6em, auto) 1fr;
+    column-gap: 10px; align-items: baseline;
+    padding: 1.5px 4px; margin: 0 -4px; border-radius: 2px;
+  }
+  /* Tufte-subtle zebra: smallest effective difference — just enough to rail the
+     eye from key to meaning across the row. Skip the special/matched rows. */
+  .r:nth-child(even):not(.dd):not(.highlight) { background: rgba(245,225,235,0.035); }
+  .r:hover { background: var(--base08); }
   .r.highlight { background: var(--base15); }
 
   .r.dd {
-    padding: 1.5px 4px; margin: 2px -4px; border-radius: 2px;
-    background: rgba(110,237,247,0.03);
-    border-left: 2px solid rgba(110,237,247,0.35);
+    background: rgba(123,240,249,0.06);
+    border-left: 2px solid rgba(123,240,249,0.4);
+    padding-left: 4px;
   }
   .r.dd kbd { color: var(--teal); }
-  .r.dd .d { color: rgba(110,237,247,0.4); }
-  .r.dd:hover { background: rgba(110,237,247,0.06); }
-  .r.dd:hover .d { color: rgba(110,237,247,0.6); }
+  .r.dd .d { color: rgba(123,240,249,0.62); }
+  .r.dd:hover { background: rgba(123,240,249,0.1); }
 
   kbd {
     font-family: inherit; font-size: 10px; color: var(--fg80);
-    white-space: normal; overflow-wrap: break-word; flex: 0 0 auto;
+    white-space: normal; overflow-wrap: break-word;
   }
   .d {
-    /* min-width guarantees the description never gets crushed into a 1-char-per-line
-       sliver — if it can't sit beside a long kbd, the row wraps and it drops below */
-    color: var(--fg40); text-align: right; flex: 1 1 7em; min-width: 7em; padding-left: 8px;
+    color: var(--fg40); text-align: right;
     white-space: normal; overflow-wrap: break-word;
     font-size: 10px;
   }
-  .r { align-items: baseline; }   /* keep kbd aligned to first line of a wrapped desc */
+  /* a keyless row (description only) spans both columns instead of squeezing
+     itself into the narrow key track */
+  .r > .d:only-child { grid-column: 1 / -1; }
   .r:hover .d { color: var(--fg60); }
 
   .div { height: 1px; background: var(--fg10); margin: 3px 0; }
 
-  .n { font-size: 8.5px; color: var(--fg20); font-style: italic; padding: 2px 0 1px;
-    line-height: 1.4;
+  /* prose notes: roman, not italic — small italic monospace is the least legible
+     thing on the page. Keep it dim; let <em> lift the key terms in teal. */
+  .n { font-size: 9px; color: var(--fg40); font-style: normal; padding: 2px 0 3px;
+    line-height: 1.45;
   }
-  .n em { color: var(--teal40); font-style: normal; }
+  .n em { color: var(--teal); font-style: normal; }
 
   .o { font-size: 8.5px; color: var(--fg40); padding: 1px 0; letter-spacing: 0.3px; }
   .o::before { content: "\21B3 "; color: var(--base30); }
