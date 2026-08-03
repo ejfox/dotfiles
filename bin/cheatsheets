@@ -6,7 +6,7 @@
 #   cheatsheets app          borderless standalone window (Chrome/Brave --app mode)
 #   cheatsheets nvim         nvim-only sheet in Safari
 #   cheatsheets lazygit      lazygit-only sheet in Safari
-#   cheatsheets gen          just regenerate the tips array (used by the panel)
+#   cheatsheets gen          regenerate the panel HTML (from cheatsheet.toml) + tips array
 #   cheatsheets -h|help      this help
 #
 # The default toggles the Hammerspoon overlay (falls back to Safari if hs isn't
@@ -33,7 +33,16 @@ open(out, "w").write("window.TIPS=" + json.dumps(lines, ensure_ascii=False) + ";
 PY
 }
 
+gen_html() {            # rebuild the panel HTML from cheatsheet.toml (single source)
+  # absolute fallback: Hammerspoon's hs.execute runs with a minimal PATH that
+  # lacks ~/.local/bin, so command -v alone would silently skip regeneration.
+  local bin
+  bin=$(command -v cheat 2>/dev/null) || bin="$HOME/.local/bin/cheat"
+  [ -x "$bin" ] && "$bin" gen >/dev/null 2>&1
+}
+
 open_panel() {          # the Hammerspoon floating overlay; Safari if hs is absent
+  gen_html
   gen_tips
   if command -v hs >/dev/null; then
     hs -c "cheatsheetToggle()"
@@ -59,9 +68,9 @@ usage() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
 
 case "${1:-panel}" in
   -h|--help|help)      usage ;;
-  gen|--gen)           gen_tips ;;
-  web|safari|browser)  gen_tips; open -a Safari "$MASTER" ;;
-  app|window)          gen_tips; open_borderless ;;
+  gen|--gen)           gen_html; gen_tips ;;
+  web|safari|browser)  gen_html; gen_tips; open -a Safari "$MASTER" ;;
+  app|window)          gen_html; gen_tips; open_borderless ;;
   nvim)                gen_tips; open -a Safari "$NVIM_SHEET" ;;
   lazygit)             gen_tips; open -a Safari "$LG_SHEET" ;;
   panel|float|hs|all|*) open_panel ;;

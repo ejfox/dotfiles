@@ -1,0 +1,546 @@
+# ejfox cheatsheet — THE ONE SOURCE OF TRUTH
+#
+# Edit this file. `cheat` (the TUI) reads it directly; `cheat gen` rebuilds
+# ~/.dotfiles/.config/cheatsheet.html (the Hammerspoon floating panel) from it.
+# The Hammerspoon panel regenerates on every open, so a save here is enough.
+#
+# ── inline markup (in n / o / strat steps) ─────────────────────────────
+#   `x`   → a key (kbd)          *x*   → emphasis (teal)
+#   **x** → bold                 \`    → a literal backtick
+#   literal unicode is fine:  →  ⎵ (leader/space)  ⏎ (return)  — (dash)
+#
+# ── section fields ─────────────────────────────────────────────────────
+#   tone  = "accent" | "primary" | "gold" | "prose" | ""   (border/kbd color)
+#   tool  = "nvim" | "lazygit" | "both"                     (filter buttons)
+#   badge = "nvim" | "lazygit" | ""                         (label in title)
+#   open  = true|false                                      (expanded on load)
+#
+# ── body items (order preserved) ───────────────────────────────────────
+#   { k = "za", d = "toggle" }          a binding row
+#   { k = "za", d = "toggle", hl = true }   highlighted (teal daily-driver)
+#   { div = true }                      a divider line
+#   { lbl = "at the cursor" }           sub-group label
+#   { n = "prose note" }                narrative line
+#   { o = "footnote" }                  ↳ footnote line
+#   { strat = "header", steps = [...] } strategy callout
+
+[meta]
+title = "ejfox cheatsheet"
+
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "ejfox Workflow"
+open = true
+body = [
+  { k = "C-a g", d = "tmux: lazygit popup", hl = true },
+  { k = "Space → a", d = "lazygit: stage, AI commit", hl = true },
+  { k = "⎵gg", d = "nvim: open lazygit", hl = true },
+  { k = "Enter → v → Space", d = "lazygit: partial hunk staging" },
+  { k = "⎵gm → ]h", d = "nvim: diff main, walk hunks" },
+  { div = true },
+  { o = "C-a g = float lazygit over your panes, dismiss when done" },
+  { o = "stage with space, AI commit with a, push with P" },
+  { o = "z to undo anything (reflog-powered safety net)" },
+]
+
+[[section]]
+tone = "primary"
+tool = "nvim"
+badge = "nvim"
+title = "Folds"
+open = true
+body = [
+  { n = 'folds follow real code structure (treesitter / LSP, not indent guesses). *foldlevel* is a depth dial: *0* = everything shut, *99* = everything open. LazyVim starts at 99, so you close what you want rather than dig out.' },
+  { lbl = "this fold — at the cursor" },
+  { k = "za", d = "toggle (the everyday key)", hl = true },
+  { k = "zo / zc", d = "open / close, just this one" },
+  { k = "zA / zO / zC", d = "same, but recursive (nested)" },
+  { k = "zK", d = "peek inside without opening (ufo)" },
+  { k = "zv", d = "open just enough to see cursor" },
+  { lbl = "whole file — slide the level dial" },
+  { k = "zM / zR", d = "slam shut / fling open", hl = true },
+  { k = "zm / zr", d = "one level tighter / looser" },
+  { k = "zi", d = "folding on/off entirely" },
+  { lbl = "move between folds" },
+  { k = "zj / zk", d = "next / prev fold" },
+  { k = "[z / ]z", d = "start / end of current fold" },
+  { o = 'mnemonics: **m** = more folding, **r** = reduce it; caps go all the way (**M**ax / **R**eset). z = folded paper.' },
+  { strat = "strategy · collapse to navigate", steps = [
+    '`zM`  shut everything → read the file as an outline of names',
+    '`zj` `zk`  jump to the block, `za` cracks just that one',
+    '`zR`  fling it all open again — zoom-out / zoom-in for code',
+    '`zm` `zr`  peel structure one layer at a time when all-or-nothing is too blunt',
+    '`zK`  glance inside a fold mid-scroll without losing your place',
+    'on a *closed* fold, `yy` / `dd` hit every line in it — grab or move a whole block in one keystroke',
+  ] },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Move in File"
+open = true
+body = [
+  { k = "{ / }", d = "prev / next paragraph", hl = true },
+  { k = "C-d / C-u", d = "half page down / up" },
+  { k = "gg / G", d = "top / bottom of file" },
+  { k = "%", d = "matching bracket" },
+  { div = true },
+  { k = "C-o / C-i", d = "jumplist back / forward" },
+  { k = "gi", d = "go to last insert spot" },
+  { k = "* / #", d = "search word forward / back" },
+  { k = ".", d = "repeat last change" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Navigate"
+open = true
+body = [
+  { k = "⎵ff", d = "find file", hl = true },
+  { k = "⎵sg", d = "live grep" },
+  { k = "⎵/", d = "grep from root" },
+  { k = "⎵fb", d = "buffers" },
+  { k = "⎵fr", d = "recent files" },
+  { div = true },
+  { k = "s", d = "flash jump" },
+  { k = "S", d = "flash treesitter select" },
+  { div = true },
+  { k = "H / L", d = "prev / next buffer" },
+  { k = "⎵bd", d = "close buffer" },
+  { k = "⎵| / ⎵-", d = "vsplit / hsplit" },
+  { k = "C-h/j/k/l", d = "move between splits" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Oil — Files as Buffers"
+open = true
+body = [
+  { k = "-", d = "open parent dir", hl = true },
+  { k = "⏎", d = "open file" },
+  { k = "_", d = "open cwd" },
+  { k = "C-p", d = "preview" },
+  { k = "g.", d = "toggle dotfiles" },
+  { k = "gs", d = "change sort" },
+  { k = "`", d = ":cd here" },
+  { k = "gx", d = "open with system app" },
+  { k = "g\\", d = "toggle trash" },
+  { n = "edit filename = rename, delete line = delete file" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Understand & Fix"
+open = true
+body = [
+  { k = "gd", d = "go to definition", hl = true },
+  { k = "gr", d = "references" },
+  { k = "gI", d = "implementation" },
+  { k = "gy", d = "type definition" },
+  { k = "K", d = "hover docs" },
+  { div = true },
+  { k = "gai / gao", d = "incoming / outgoing calls" },
+  { k = "⎵ss / ⎵sS", d = "file / workspace symbols" },
+  { div = true },
+  { k = "⎵ca", d = "code action" },
+  { k = "⎵cr", d = "rename symbol" },
+  { k = "⎵cd", d = "line diagnostics" },
+  { k = "⎵co", d = "organize imports" },
+  { k = "]d / [d", d = "next / prev diagnostic" },
+  { o = "native LSP, not telescope — instant jumps" },
+]
+
+[[section]]
+tone = "primary"
+tool = "nvim"
+badge = "nvim"
+title = "Review Changes"
+open = true
+body = [
+  { k = "⎵gm → ]h", d = "diff main, walk hunks", hl = true },
+  { k = "⎵gp", d = "gutter → diff vs PR base" },
+  { k = "⎵gH", d = "gutter → reset to HEAD" },
+  { k = "⎵gM", d = "split diff vs main" },
+  { div = true },
+  { k = "]h / [h", d = "next / prev hunk" },
+  { k = "]H / [H", d = "last / first hunk" },
+  { div = true },
+  { k = "⎵gj", d = "all hunks → quickfix" },
+  { k = "]q / [q", d = "jump across files" },
+  { n = '*⎵gj* then *]q* = walk ALL changed files' },
+]
+
+[[section]]
+tone = "primary"
+tool = "nvim"
+badge = "nvim"
+title = "Git Actions"
+open = true
+body = [
+  { k = "⎵gg", d = "lazygit", hl = true },
+  { k = "⎵gs", d = "stage hunk" },
+  { k = "⎵gr", d = "reset hunk" },
+  { k = "⎵gS / ⎵gR", d = "stage / reset buffer" },
+  { k = "⎵gu", d = "undo stage" },
+  { k = "⎵gb", d = "blame line" },
+  { div = true },
+  { k = "⎵gf", d = "file history" },
+  { k = "⎵gl / ⎵gL", d = "git log (root / cwd)" },
+  { k = "⎵gB", d = "open in browser" },
+  { k = "⎵gY", d = "copy repo URL" },
+  { div = true },
+  { k = "co / ct", d = "conflict: ours / theirs" },
+  { k = "cb / c0", d = "conflict: both / none" },
+  { k = "]x / [x", d = "next / prev conflict" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Claude Code Workflow"
+open = false
+body = [
+  { k = "⎵yr", d = "copy + relative path", hl = true },
+  { k = "⎵ya", d = "copy + absolute path" },
+  { n = '*visual mode* — gives *file:10-15 \`\`\`code\`\`\`*' },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Your Overrides"
+open = false
+body = [
+  { o = "native LSP not telescope — instant, no fuzzy" },
+  { o = "oil not neo-tree — dirs are buffers" },
+  { o = "inline copilot not cmp — ghost text not menu" },
+  { o = "pbcopy not OSC52 — avoids clipboard spam" },
+  { o = "cmdheight=0 — statusline shows everything" },
+  { o = "virtualedit=all — cursor anywhere, past EOL" },
+  { o = "C-h/l/s disabled in oil — split nav priority" },
+  { o = "vscode-js-debug disabled — janky" },
+]
+
+[[section]]
+tone = "accent"
+tool = "nvim"
+badge = "nvim"
+title = "The ] / [ Pattern"
+open = true
+body = [
+  { k = "]h / [h", d = "git hunk" },
+  { k = "]H / [H", d = "first / last hunk" },
+  { k = "]d / [d", d = "diagnostic" },
+  { k = "]x / [x", d = "merge conflict" },
+  { k = "]s / [s", d = "copilot suggestion" },
+  { k = "]q / [q", d = "quickfix" },
+  { n = '*]* forward   *[* back   always' },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Surround"
+open = false
+body = [
+  { k = "cs{c}{n}", d = "change surround", hl = true },
+  { k = "ys{m}{c}", d = "add surround" },
+  { k = "yss{c}", d = "surround line" },
+  { k = "ds{c}", d = "delete surround" },
+  { k = "S{c}", d = "visual surround" },
+  { n = '*a*→<> *b*→() *B*→{} *r*→[] *q*→quotes' },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Copilot — Ghost Text"
+open = true
+body = [
+  { k = "Tab", d = "accept suggestion", hl = true },
+  { k = "C-→", d = "accept word" },
+  { k = "C-l", d = "accept line" },
+  { k = "C-]", d = "dismiss" },
+  { k = "]s / [s", d = "cycle suggestions" },
+  { div = true },
+  { k = "M-⏎", d = "open panel" },
+  { k = "]] / [[", d = "panel: next / prev" },
+  { n = ":Copilot disable / enable / status" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Completion (Blink)"
+open = false
+body = [
+  { k = "C-Space", d = "trigger completion", hl = true },
+  { k = "C-n / C-p", d = "next / prev item" },
+  { k = "⏎", d = "accept" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Focus & Writing"
+open = false
+body = [
+  { k = "⎵Z", d = "zen mode (100ch)", hl = true },
+  { k = "⎵up", d = "prose mode (38ch)" },
+  { k = "⎵uw", d = "toggle wrap" },
+  { k = "⎵ut", d = "toggle twilight" },
+  { k = "⎵un", d = "dismiss notifications" },
+]
+
+[[section]]
+tone = ""
+tool = "nvim"
+badge = "nvim"
+title = "Debug — DAP"
+open = false
+body = [
+  { k = "⎵db", d = "breakpoint", hl = true },
+  { k = "⎵dc", d = "continue / start" },
+  { k = "⎵di / ⎵do", d = "step into / over" },
+  { k = "⎵dO", d = "step out" },
+  { k = "⎵dt", d = "terminate" },
+  { k = "⎵du", d = "toggle UI" },
+  { k = "⎵de", d = "eval" },
+  { n = "UI auto-opens on start, closes on terminate" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Files (Panel 2)"
+open = true
+body = [
+  { k = "Space", d = "stage / unstage file", hl = true },
+  { k = "a", d = "AI commit (fzf + Claude)", hl = true },
+  { k = "c", d = "commit (opens editor)" },
+  { k = "A", d = "amend last commit" },
+  { k = "C", d = "commit with editor" },
+  { k = "w", d = "commit w/ pre-commit hook skip" },
+  { div = true },
+  { k = "Enter", d = "focus file / view staged", hl = true },
+  { k = "d", d = "discard changes" },
+  { k = "D", d = "discard options menu" },
+  { k = "e", d = "open in editor" },
+  { k = "o", d = "open in default app" },
+  { div = true },
+  { k = "S", d = "stash all changes" },
+  { k = "f", d = "fetch" },
+  { k = "r", d = "refresh files" },
+  { k = "i", d = "add to .gitignore" },
+  { n = '*a* = custom AI commit via ai-commit + fzf' },
+  { o = "space to stage, then a for AI commit = daily flow" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Staging (Inside File)"
+open = true
+body = [
+  { k = "Space", d = "stage / unstage hunk", hl = true },
+  { k = "v", d = "select range (visual mode)", hl = true },
+  { k = "a", d = "stage / unstage all hunks" },
+  { k = "Tab", d = "toggle staged / unstaged view" },
+  { k = "d", d = "discard hunk" },
+  { k = "e", d = "edit hunk in editor" },
+  { k = "Esc / q", d = "back to files list" },
+  { n = '*v* then *j/k* to select lines, *Space* to stage selection' },
+  { o = "partial staging = clean commits without git add -p" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Panel Navigation"
+open = true
+body = [
+  { k = "Tab / Shift-Tab", d = "next / prev panel", hl = true },
+  { k = "1-5", d = "jump to panel by number", hl = true },
+  { k = "[ / ]", d = "prev / next tab within panel" },
+  { k = "h / l", d = "scroll left / right (diff)" },
+  { div = true },
+  { k = "? / x", d = "keybinding menu / context menu" },
+  { k = "+", d = "open/close command log" },
+  { k = "q / Esc", d = "quit / cancel" },
+  { n = '*1* Status *2* Files *3* Branches *4* Commits *5* Stash' },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Push / Pull / Sync"
+open = true
+body = [
+  { k = "P", d = "push (global)", hl = true },
+  { k = "p", d = "pull (global)", hl = true },
+  { k = "f", d = "fetch (global)" },
+  { k = "Shift-P", d = "push with options menu" },
+  { div = true },
+  { k = "z", d = "undo (via reflog)" },
+  { k = "Z", d = "redo (via reflog)" },
+  { n = '*z* undo is magic — reverts almost any git operation' },
+  { o = "P/p are global — work from any panel" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Commits (Panel 4)"
+open = false
+body = [
+  { k = "Enter", d = "view commit files", hl = true },
+  { k = "Space", d = "checkout commit" },
+  { k = "s", d = "squash down" },
+  { k = "f", d = "fixup (squash, discard msg)" },
+  { k = "r", d = "reword commit message" },
+  { k = "d", d = "drop commit" },
+  { k = "e", d = "edit commit (rebase)" },
+  { div = true },
+  { k = "p", d = "pick (during rebase)" },
+  { k = "C-j / C-k", d = "move commit down / up" },
+  { k = "g", d = "reset to commit (soft/mixed/hard)" },
+  { k = "t", d = "create tag at commit" },
+  { k = "T", d = "tag menu" },
+  { div = true },
+  { k = "c", d = "copy commit hash" },
+  { k = "C", d = "cherry-pick copy" },
+  { k = "V", d = "paste (cherry-pick apply)" },
+  { k = "y", d = "copy commit attribute" },
+  { n = '*s* squash keeps both msgs, *f* fixup discards' },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Branches (Panel 3)"
+open = false
+body = [
+  { k = "Space", d = "checkout branch", hl = true },
+  { k = "n", d = "new branch", hl = true },
+  { k = "d", d = "delete branch" },
+  { k = "r", d = "rebase onto branch" },
+  { k = "M", d = "merge into current" },
+  { k = "R", d = "rename branch" },
+  { k = "f", d = "fast-forward" },
+  { div = true },
+  { k = "c", d = "checkout by name" },
+  { k = "u", d = "set upstream" },
+  { k = "P", d = "push" },
+  { k = "p", d = "pull" },
+  { div = true },
+  { k = "[ / ]", d = "tabs: Local / Remote / Tags" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Merge Conflicts"
+open = false
+body = [
+  { k = "Space", d = "pick hunk", hl = true },
+  { k = "b", d = "pick both hunks" },
+  { k = "arrow up/down", d = "navigate conflicts" },
+  { k = "z", d = "undo pick" },
+  { k = "e", d = "edit in editor" },
+  { k = "M", d = "open merge tool" },
+  { n = "resolve all, stage file, then continue rebase/merge" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Diff & Search"
+open = false
+body = [
+  { k = "Enter", d = "expand file to see diff", hl = true },
+  { k = "W", d = "toggle whitespace in diff" },
+  { k = "C-e / C-y", d = "scroll diff down / up" },
+  { k = "j / k", d = "navigate diff lines" },
+  { div = true },
+  { k = "/", d = "start search in panel", hl = true },
+  { k = "n / N", d = "next / prev search result" },
+  { k = "C-s", d = "filter mode (commits/files)" },
+  { k = "} / {", d = "increase / decrease diff context" },
+  { n = '*C-s* filters the list, */* just highlights' },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Stash (Panel 5)"
+open = false
+body = [
+  { k = "Space", d = "apply stash", hl = true },
+  { k = "g", d = "pop stash (apply + drop)" },
+  { k = "d", d = "drop stash" },
+  { k = "n", d = "new branch from stash" },
+  { k = "r", d = "rename stash" },
+  { k = "Enter", d = "view stash contents" },
+  { n = '*Space* = apply (keep stash), *g* = pop (remove stash)' },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Interactive Rebase"
+open = false
+body = [
+  { k = "e", d = "start editing commit", hl = true },
+  { k = "p", d = "pick" },
+  { k = "s", d = "squash" },
+  { k = "f", d = "fixup" },
+  { k = "d", d = "drop" },
+  { k = "r", d = "reword" },
+  { div = true },
+  { k = "C-j / C-k", d = "move commit down / up" },
+  { k = "m", d = "continue rebase" },
+  { k = "M", d = "abort rebase" },
+  { n = "select multiple commits with *v*, then *s* to squash all" },
+]
+
+[[section]]
+tone = "gold"
+tool = "lazygit"
+badge = "lazygit"
+title = "Global Shortcuts"
+open = false
+body = [
+  { k = "@ (status)", d = "open recent repos" },
+  { k = ":", d = "run custom command" },
+  { k = "R", d = "refresh" },
+  { k = "W", d = "diff options menu" },
+  { k = "C-w", d = "toggle whitespace" },
+]

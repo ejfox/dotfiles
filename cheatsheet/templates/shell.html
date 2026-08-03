@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ejfox cheatsheet</title>
+<style>
+  :root {
+    --bg: #000;
+    --bg2: #0a0608;
+    --bg3: #150d10;
+    --fg: #f2cfdf;
+    --fg80: rgba(245,225,235,1.0);
+    --fg60: rgba(245,225,235,0.92);
+    --fg40: rgba(245,225,235,0.85);
+    --fg20: rgba(245,225,235,0.6);
+    --fg10: rgba(245,225,235,0.18);
+    /* brighter pink: #e60067 was too dark to read as text/keys on black.
+       (255,61,132) is far more legible while staying vulpes-pink. */
+    --base: #ff4d8d;
+    --base80: rgba(255,77,141,0.92);
+    --base50: rgba(255,77,141,0.72);
+    --base30: rgba(255,77,141,0.42);
+    --base15: rgba(255,77,141,0.22);
+    --base08: rgba(255,77,141,0.1);
+    --teal: #7bf0f9;
+    --teal70: rgba(123,240,249,0.85);
+    --teal40: rgba(123,240,249,0.5);
+    --gold: #ffd489;
+    --gold70: rgba(255,212,137,0.9);
+    --gold40: rgba(255,212,137,0.5);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Monaspace Krypton', 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 350;                     /* lighter strokes, but still readable */
+    -webkit-font-smoothing: antialiased;  /* keep thin weight crisp on retina */
+    background: var(--bg);
+    color: var(--fg80);
+    padding: 4px 6px;
+    line-height: 1.25;
+  }
+  /* fluid columns: as many ~215px columns as fit the FULL window width (no count
+     cap, so wide screens fill edge-to-edge and balance instead of leaving the
+     right half empty). column-width only => auto count => no horizontal scrollbar. */
+  .grid { column-width: 235px; column-gap: 10px; }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 2px 10px;
+    padding-bottom: 3px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--base15);
+    font-size: 10px; color: var(--fg40);
+  }
+  header .title { color: var(--base); letter-spacing: 1px; font-size: 11px; white-space: nowrap; }
+  header .tag { white-space: nowrap; }
+  header .controls { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+  /* narrow panel: shed the decorative tagline so title + buttons stay on one line */
+  @media (max-width: 400px) { header .tag { display: none; } }
+  header button {
+    background: var(--base08); color: var(--fg40); border: 1px solid var(--base15);
+    padding: 1px 6px; border-radius: 2px; font-family: inherit;
+    font-size: 9px; cursor: pointer;
+  }
+  header button:hover { color: var(--fg80); border-color: var(--base30); }
+  header button.active { color: var(--base); border-color: var(--base50); }
+
+  /* Floating search: hidden until you press "/". Fixed to the panel viewport so
+     it works no matter how far you've scrolled. Disappears on Escape or on blur
+     when empty — minimalist, out of the way until needed. */
+  #search {
+    position: fixed; top: 8px; left: 50%; z-index: 50;
+    width: min(280px, 72%);
+    background: var(--bg3); border: 1px solid var(--base50);
+    color: var(--fg); font-family: inherit; font-size: 11px;
+    padding: 5px 10px; border-radius: 5px; outline: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    opacity: 0; pointer-events: none;
+    transform: translateX(-50%) translateY(-10px);
+    transition: opacity .12s ease, transform .12s ease;
+  }
+  #search.on {
+    opacity: 1; pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  #search::placeholder { color: var(--fg20); }
+
+  details {
+    break-inside: avoid;
+    margin-bottom: 5px;
+    background: var(--bg2);
+    border-radius: 3px;
+    border-left: 2px solid var(--base15);
+    transition: border-color 0.15s;
+  }
+  details[open] { padding-bottom: 3px; border-left-color: var(--base30); }
+  summary {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+    padding: 4px 6px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+    user-select: none; color: var(--fg40);
+    transition: color 0.15s;
+  }
+  details[open] summary { color: var(--fg80); }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "\25B8"; font-size: 7px; color: var(--fg20); transition: transform 0.15s; }
+  details[open] summary::after { transform: rotate(90deg); color: var(--base50); }
+  summary:hover { color: var(--fg80); }
+
+  summary .ct {
+    font-size: 8px; color: var(--fg20); font-variant-numeric: tabular-nums;
+    letter-spacing: 0; text-transform: none; margin-left: auto; margin-right: 6px;
+  }
+
+  /* tool badge in summary */
+  summary .badge {
+    font-size: 7px; letter-spacing: 0.5px; padding: 0 4px; border-radius: 2px;
+    margin-right: 6px; text-transform: none;
+  }
+  summary .badge.nvim { background: rgba(230,0,103,0.15); color: var(--base50); }
+  summary .badge.lazygit { background: rgba(247,200,110,0.12); color: var(--gold40); }
+
+  .c { padding: 0 6px; }
+  /* Two-column TABLE: keys in a stable left column, descriptions left-aligned so
+     they wrap ragged-RIGHT (calm) instead of ragged-both — no more orphaned words
+     or variable eye-jumps. minmax lets a rare long key expand without wrapping,
+     while short keys share one left edge and every description starts at the same x. */
+  .r {
+    display: grid; grid-template-columns: minmax(4.6em, auto) 1fr;
+    column-gap: 10px; align-items: baseline;
+    padding: 1.5px 4px; margin: 0 -4px; border-radius: 2px;
+  }
+  /* Tufte-subtle zebra: smallest effective difference — just enough to rail the
+     eye from key to meaning across the row. Skip the special/matched rows. */
+  .r:nth-child(even):not(.dd):not(.highlight) { background: rgba(245,225,235,0.035); }
+  .r:hover { background: var(--base08); }
+  .r.highlight { background: var(--base15); }
+
+  .r.dd {
+    background: rgba(123,240,249,0.06);
+    border-left: 2px solid rgba(123,240,249,0.4);
+    padding-left: 4px;
+  }
+  .r.dd kbd { color: var(--teal); }
+  .r.dd .d { color: rgba(123,240,249,0.62); }
+  .r.dd:hover { background: rgba(123,240,249,0.1); }
+
+  kbd {
+    font-family: inherit; font-size: 10px; color: var(--fg80);
+    white-space: normal; overflow-wrap: break-word;
+  }
+  .d {
+    color: var(--fg40); text-align: right;
+    white-space: normal; overflow-wrap: break-word;
+    font-size: 10px;
+  }
+  /* a keyless row (description only) spans both columns instead of squeezing
+     itself into the narrow key track */
+  .r > .d:only-child { grid-column: 1 / -1; }
+  .r:hover .d { color: var(--fg60); }
+
+  .div { height: 1px; background: var(--fg10); margin: 3px 0; }
+
+  /* prose notes: roman, not italic — small italic monospace is the least legible
+     thing on the page. Keep it dim; let <em> lift the key terms in teal. */
+  .n { font-size: 9px; color: var(--fg40); font-style: normal; padding: 2px 0 3px;
+    line-height: 1.45;
+  }
+  .n em { color: var(--teal); font-style: normal; }
+
+  .o { font-size: 8.5px; color: var(--fg40); padding: 1px 0; letter-spacing: 0.3px; }
+  .o::before { content: "\21B3 "; color: var(--base30); }
+
+  /* sub-group label inside a card — splits a long card into teachable chunks */
+  .lbl {
+    font-size: 7.5px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--base50); margin: 5px 0 1px; padding-top: 3px;
+    border-top: 1px solid var(--base08);
+  }
+  .lbl:first-child { border-top: 0; padding-top: 0; }
+
+  /* strategy callout — a small stepped block for "how to actually use this",
+     not just what the keys are. Teal-accented like the daily-driver rows. */
+  .strat {
+    margin: 5px -2px 2px; padding: 5px 8px; border-radius: 3px;
+    background: rgba(110,237,247,0.04); border-left: 2px solid var(--teal40);
+    font-size: 8.5px; color: var(--fg60); line-height: 1.5;
+  }
+  .strat .h {
+    display: block; text-transform: uppercase; letter-spacing: 0.6px;
+    font-size: 8px; color: var(--teal70); margin-bottom: 2px;
+  }
+  .strat .step { display: block; padding: 0.5px 0; }
+  .strat kbd { font-size: 9.5px; color: var(--teal); }
+
+  details.primary { border-left-color: var(--base30); }
+  details.primary[open] { border-left-color: var(--base); }
+  details.primary[open] summary { color: var(--fg); }
+
+  details.accent { border-left-color: rgba(110,237,247,0.2); }
+  details.accent[open] { border-left-color: rgba(110,237,247,0.5); }
+  details.accent[open] summary { color: var(--teal); }
+  details.accent kbd { color: var(--teal); }
+
+  /* lazygit gold accent */
+  details.gold { border-left-color: rgba(247,200,110,0.2); }
+  details.gold[open] { border-left-color: rgba(247,200,110,0.5); }
+  details.gold[open] summary { color: var(--gold70); }
+
+  /* colored keys per domain so the auto-index reads like the curated cards:
+     nvim=teal (above), git/lazygit=gold, tmux=pink, prose=dim italic */
+  details.gold kbd { color: var(--gold); }
+  details.primary kbd { color: var(--base80); }
+  details.primary[open] summary { color: var(--fg); }
+  details.prose { border-left-color: var(--fg10); }
+  details.prose[open] summary { color: var(--fg40); }
+  details.prose .d { text-align: left; font-style: italic; padding-left: 0; }
+
+  details.hidden { display: none; }
+  .r.hidden { display: none; }
+
+  html, body { overflow-x: hidden; } /* belt-and-suspenders: never a horizontal bar */
+</style>
+</head>
+<body>
+
+<header>
+  <span class="title">ejfox cheatsheet</span>
+  <span class="tag"><span style="color:var(--base50)">nvim</span> + <span style="color:var(--gold40)">lazygit</span> &nbsp; <span style="color:var(--teal40)">teal</span> = daily driver</span>
+  <span class="controls">
+    <button onclick="filterTool('all')" class="active" id="btn-all">all</button>
+    <button onclick="filterTool('nvim')" id="btn-nvim">nvim</button>
+    <button onclick="filterTool('lazygit')" id="btn-lazygit">lazygit</button>
+    <button onclick="toggleAll(true)">open all</button>
+    <button onclick="toggleAll(false)">collapse</button>
+      <button onclick="zoomBy(-0.1)" title="text smaller (-)">A&#8722;</button>
+    <button onclick="zoomBy(0.1)" title="text bigger (+)">A+</button>
+  </span>
+</header>
+<input type="text" id="search" placeholder="search keybindings…  (esc to close)">
+
+<div id="tipbar" onclick="nextTip()" title="click for another — auto-rotates every 15m"
+  style="display:flex;gap:10px;align-items:baseline;margin:6px 0 2px;padding:6px 10px;
+  border:1px solid var(--base15);border-left:2px solid var(--base);border-radius:4px;
+  background:var(--base08);cursor:pointer;user-select:none;">
+  <span style="color:var(--base);text-transform:uppercase;letter-spacing:.1em;font-size:9px;">tip</span>
+  <span id="tiptext" style="color:var(--fg80);">loading…</span>
+</div>
+
+<div class="grid" id="grid">
+
+<!-- ═══════════════════════════════════════════ -->
+<!--                 NVIM                        -->
+<!-- ═══════════════════════════════════════════ -->
+
+{{CARDS}}
+</div>
+
+<!-- tips array, regenerated from docs/tips.txt each time `cheatsheet` opens -->
+<script src="cheatsheet-tips.js"></script>
+<script>
+function toggleAll(open) {
+  document.querySelectorAll('details:not(.hidden)').forEach(d => d.open = open);
+}
+
+function filterTool(tool) {
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + tool).classList.add('active');
+  document.querySelectorAll('details').forEach(section => {
+    const t = section.dataset.tool;
+    if (tool === 'all' || t === tool || t === 'both') {
+      section.classList.remove('hidden');
+    } else {
+      section.classList.add('hidden');
+    }
+  });
+}
+
+const search = document.getElementById('search');
+search.addEventListener('input', () => {
+  const q = search.value.toLowerCase().trim();
+  document.querySelectorAll('details').forEach(section => {
+    if (!q) {
+      section.classList.remove('hidden');
+      section.querySelectorAll('.r').forEach(r => r.classList.remove('hidden', 'highlight'));
+      return;
+    }
+    let hasMatch = false;
+    const title = section.querySelector('summary').textContent.toLowerCase();
+    if (title.includes(q)) hasMatch = true;
+    section.querySelectorAll('.r').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(q)) {
+        row.classList.remove('hidden');
+        row.classList.add('highlight');
+        hasMatch = true;
+      } else {
+        row.classList.add('hidden');
+        row.classList.remove('highlight');
+      }
+    });
+    section.querySelectorAll('.n, .o').forEach(el => {
+      if (el.textContent.toLowerCase().includes(q)) hasMatch = true;
+    });
+    if (hasMatch) {
+      section.classList.remove('hidden');
+      section.open = true;
+    } else {
+      section.classList.add('hidden');
+    }
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== search) {
+    e.preventDefault();
+    search.classList.add('on');   // reveal the floating pill…
+    search.focus();               // …and drop the cursor in it
+  }
+  if (e.key === 'Escape') {
+    search.value = '';
+    search.dispatchEvent(new Event('input')); // reset the filter
+    search.blur();
+    search.classList.remove('on'); // and tuck it away again
+  }
+});
+
+// Disappear when not needed: clicking away with an empty box hides it. If a
+// filter is still active (box has text), leave it up so you can keep editing.
+search.addEventListener('blur', () => {
+  if (!search.value.trim()) search.classList.remove('on');
+});
+
+// text zoom — A−/A+ buttons or bare +/- keys (0 = reset); persists via localStorage
+let cheatZoom = parseFloat(localStorage.getItem('cheatZoom')) || 1;
+function applyZoom() { document.body.style.zoom = cheatZoom; }
+function zoomBy(d) {
+  cheatZoom = Math.round(Math.min(2, Math.max(0.5, cheatZoom + d)) * 100) / 100;
+  localStorage.setItem('cheatZoom', cheatZoom);
+  applyZoom();
+}
+applyZoom();
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=') zoomBy(0.1);
+  else if (e.key === '-') zoomBy(-0.1);
+  else if (e.key === '0') { cheatZoom = 1; localStorage.setItem('cheatZoom', 1); applyZoom(); }
+});
+
+// Rotating "tip of the moment" — sourced from docs/tips.txt via cheatsheet-tips.js.
+// Click the bar to advance; auto-rotates every 15 minutes for ambient/always-open use.
+(function(){
+  const tips = (window.TIPS || []).filter(Boolean);
+  const el = document.getElementById('tiptext');
+  if (!el) return;
+  if (!tips.length) { el.textContent = 'run `cheatsheet` in a shell to load tips'; return; }
+  let i = Math.floor(Math.random() * tips.length);
+  const show = () => { el.textContent = tips[i % tips.length]; };
+  window.nextTip = () => { i = (i + 1) % tips.length; show(); };
+  show();
+  setInterval(window.nextTip, 15 * 60 * 1000);
+})();
+
+// Full index — render EVERY tip from tips.txt (window.TIPS), grouped by its
+// (category) prefix, so the sheet always matches the source of truth. The 27
+// curated cards above stay first; this appends the complete 400+ set below,
+// collapsed by default, fully searchable/filterable via the existing handlers.
+(function(){
+  const tips = (window.TIPS || []).filter(Boolean);
+  const grid = document.getElementById('grid');
+  if (!tips.length || !grid) return;
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const groups = {}, order = [];
+  for (const line of tips) {
+    const m = line.match(/^\(([^)]+)\)\s*(.*)$/);
+    const cat = m ? m[1] : 'misc';
+    const rest = m ? m[2] : line;
+    (groups[cat] || (order.push(cat), groups[cat] = [])).push(rest);
+  }
+  const soft = new Set(['reading','vibe','wisdom','workflow']);   // prose → bottom
+  order.sort((a,b) => (soft.has(a) - soft.has(b)) || (groups[b].length - groups[a].length));
+  const toolFor = c => c.startsWith('nvim') ? 'nvim' : (c === 'lazygit' ? 'lazygit' : 'both');
+  // color tone by domain, mirroring the curated cards: nvim=teal, git=gold,
+  // tmux=pink, prose (reading/vibe/wisdom)=dim italic, everything else=neutral
+  const tone = c => c.startsWith('nvim') ? 'accent'
+    : (c === 'lazygit' || c === 'git' || c === 'gist') ? 'gold'
+    : (c.startsWith('tmux')) ? 'primary'
+    : soft.has(c) ? 'prose' : '';
+
+  const frag = document.createDocumentFragment();
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'column-span:all;margin:16px 0 4px;color:var(--base);font-size:10px;' +
+    'text-transform:uppercase;letter-spacing:.12em;border-top:1px solid var(--base15);padding-top:8px;';
+  hdr.textContent = '▾ full index — all ' + tips.length + ' tips (auto-generated from tips.txt)';
+  frag.appendChild(hdr);
+
+  for (const cat of order) {
+    const d = document.createElement('details');
+    d.dataset.tool = toolFor(cat);
+    const t = tone(cat); if (t) d.className = t;
+    const rows = groups[cat].map(r => {
+      const i = r.indexOf(' - ');
+      if (i === -1) return '<div class="r"><span class="d">' + esc(r) + '</span></div>';
+      let kbd = r.slice(0, i), desc = r.slice(i + 3);
+      // key that ends in a literal dash (e.g. "space -", "C-a -"): the split on
+      // the FIRST " - " landed a separator early, so desc comes back starting
+      // with "- ". Re-glue the dash onto the key so it renders correctly.
+      if (desc.startsWith('- ')) { kbd += ' -'; desc = desc.slice(2); }
+      return '<div class="r"><kbd>' + esc(kbd) + '</kbd><span class="d">' + esc(desc) + '</span></div>';
+    }).join('');
+    d.innerHTML = '<summary>' + esc(cat) + ' <span style="color:var(--fg40)">' +
+      groups[cat].length + '</span></summary><div class="c">' + rows + '</div>';
+    frag.appendChild(d);
+  }
+  grid.appendChild(frag);
+})();
+</script>
+</body>
+</html>
