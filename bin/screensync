@@ -1,0 +1,50 @@
+#!/bin/bash
+# screensync — mirror the iMac's screen colors onto the Hue lights.
+#   screensync on      start the sampler (daemon must be up; auto-switches it to screen mode)
+#   screensync off     stop the sampler, ease lights back to dark ambient
+#   screensync status  what's running
+# Sibling of `hue-keys`. Sampler: hue-stream/screen-sync.py → UDP 9999 → daemon.
+set -euo pipefail
+
+SAMPLER="$HOME/.dotfiles/hue-stream/screen-sync.py"
+NODE_DIR="$HOME/.dotfiles/hue-stream/node"
+
+sampler_pid() { pgrep -f "screen-sync.py" 2>/dev/null | head -1; }
+daemon_pid()  { pgrep -f "hue-stream.js daemon" 2>/dev/null | head -1; }
+
+case "${1:-status}" in
+  on)
+    if [ -z "$(daemon_pid)" ]; then
+      (cd "$NODE_DIR" && nohup node hue-stream.js daemon screen >/tmp/hue-stream.log 2>&1 &)
+      sleep 2
+    else
+      # daemon already up — just flip its ambient to screen mode
+      python3 - <<'EOF'
+import socket, json
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.sendto(json.dumps({"type": "ambient", "name": "screen"}).encode(), ("127.0.0.1", 9999))
+EOF
+    fi
+    if [ -z "$(sampler_pid)" ]; then
+      nohup python3 "$SAMPLER" >/tmp/screen-sync.log 2>&1 &
+      echo "screensync on (sampler pid $!)"
+    else
+      echo "screensync already on"
+    fi
+    ;;
+  off)
+    pid=$(sampler_pid)
+    [ -n "$pid" ] && kill "$pid" && echo "sampler stopped" || echo "sampler wasn't running"
+    python3 - <<'EOF'
+import socket, json
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.sendto(json.dumps({"type": "ambient", "name": "dark"}).encode(), ("127.0.0.1", 9999))
+EOF
+    ;;
+  status)
+    [ -n "$(daemon_pid)" ] && echo "daemon:  running ($(daemon_pid))" || echo "daemon:  not running"
+    [ -n "$(sampler_pid)" ] && echo "sampler: running ($(sampler_pid))" || echo "sampler: not running"
+    ;;
+  *)
+    sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
