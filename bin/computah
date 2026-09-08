@@ -1,0 +1,129 @@
+#!/bin/bash
+# computah — one command for the Windows gaming PC (9800X3D / RX 9070 XT).
+# Picks LAN when home, Tailscale when away. Quiet by design.
+#
+#   computah                 ssh in
+#   computah wake            wake it up (WoL magic packet, works from off)
+#   computah status          reachable? load? disk?
+#   computah render <file>   encode a video on the PC, result lands back beside it
+#   computah blender <blend> render a .blend on the PC, frames come back
+#   computah mount           mount the renders share in Finder
+#   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
+#   computah sleep           put it to sleep
+#   computah run "<cmd>"     run any remote command
+set -euo pipefail
+
+LAN_IP=10.0.0.169
+TS_IP=100.106.221.70
+MAC_ADDR=30:c5:99:60:02:40
+REMOTE_USER=ejfox
+RENDERS_WIN='C:\Users\ejfox\renders'
+
+host() {
+  if nc -z -G 1 "$LAN_IP" 22 2>/dev/null; then echo "$LAN_IP"; else echo "$TS_IP"; fi
+}
+
+rssh() {
+  ssh -o ConnectTimeout=8 "$REMOTE_USER@$(host)" "$@"
+}
+
+wake() {
+  # Magic packet: 6x FF + 16x MAC, to LAN broadcast. No deps beyond python3.
+  python3 - "$MAC_ADDR" <<'EOF'
+import socket, sys
+mac = bytes.fromhex(sys.argv[1].replace(':', ''))
+pkt = b'\xff' * 6 + mac * 16
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+s.sendto(pkt, ('10.0.0.255', 9))
+EOF
+  echo "magic packet sent to $MAC_ADDR"
+  for i in $(seq 1 30); do
+    if nc -z -G 1 "$LAN_IP" 22 2>/dev/null; then echo "computah is up (${i}s)"; return; fi
+    sleep 1
+  done
+  echo "no response after 30s — it may still be booting"
+}
+
+case "${1:-ssh}" in
+  ssh)
+    exec ssh "$REMOTE_USER@$(host)"
+    ;;
+
+  wake)
+    wake
+    ;;
+
+  sleep)
+    rssh 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0' || true
+    echo "sleep requested"
+    ;;
+
+  status)
+    h=$(host)
+    if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "computah: unreachable (try: computah wake)"; exit 1; fi
+    [ "$h" = "$LAN_IP" ] && echo "computah: up via LAN ($h)" || echo "computah: up via Tailscale ($h)"
+    rssh "powershell -NoProfile -Command \"'uptime  ' + ((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).ToString('d\\d\\ h\\h\\ m\\m'); 'cpu     ' + (Get-CimInstance Win32_Processor).LoadPercentage + '%'; 'disk C  ' + [math]::Round((Get-PSDrive C).Free/1GB) + ' GB free'\""
+    ;;
+
+  mount)
+    open "smb://$REMOTE_USER@$(host)/renders"
+    echo "opening renders share in Finder (password saved to Keychain after first connect)"
+    ;;
+
+  render)
+    src="${2:?usage: computah render <video> [ffmpeg output args...]}"
+    [ -f "$src" ] || { echo "no such file: $src"; exit 1; }
+    shift 2
+    base=$(basename "$src")
+    out="${base%.*}-computah.mp4"
+    h=$(host)
+    echo "→ shipping $base to computah"
+    scp -q "$src" "$REMOTE_USER@$h:renders/"
+    echo "→ encoding on the 9800X3D (x265 crf 18)"
+    # Default: HEVC archival/upload quality. Extra args after the file override nothing; they append.
+    # Resolve the real versioned ffmpeg dir: the admin SSH session refuses to
+    # traverse scoop's user-created 'current' junction (and the shim can't spawn).
+    rssh "powershell -NoProfile -Command \"\$f = (Get-ChildItem \$env:USERPROFILE\\scoop\\apps\\ffmpeg -Directory | Where-Object Name -ne current | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\bin\\ffmpeg.exe'; Set-Location \$env:USERPROFILE\\renders; & \$f -y -hide_banner -loglevel warning -i '$base' -c:v libx265 -crf 18 -preset medium -tag:v hvc1 -c:a aac -b:a 320k $* '$out'\""
+    echo "→ retrieving result"
+    scp -q "$REMOTE_USER@$h:renders/$out" "$(dirname "$src")/"
+    rssh "del /q \"$RENDERS_WIN\\$base\" \"$RENDERS_WIN\\$out\"" 2>/dev/null || true
+    echo "done: $(dirname "$src")/$out"
+    ;;
+
+  blender)
+    blend="${2:?usage: computah blender <file.blend> [extra blender args, default: -a]}"
+    [ -f "$blend" ] || { echo "no such file: $blend"; exit 1; }
+    shift 2
+    args="${*:--a}"
+    base=$(basename "$blend")
+    job="${base%.blend}"
+    h=$(host)
+    echo "→ shipping $base to computah"
+    rssh "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$RENDERS_WIN\\blender\\$job\\out' | Out-Null\""
+    scp -q "$blend" "$REMOTE_USER@$h:renders/blender/$job/"
+    echo "→ rendering on the RX 9070 XT"
+    rssh "powershell -NoProfile -Command \"\$b = (Get-ChildItem 'C:\\Program Files\\Blender Foundation' -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\blender.exe'; & \$b -b '$RENDERS_WIN\\blender\\$job\\$base' -o '$RENDERS_WIN\\blender\\$job\\out\\frame_####' $args -- --cycles-device HIP\""
+    echo "→ retrieving frames"
+    dest="$(dirname "$blend")/${job}-frames"
+    mkdir -p "$dest"
+    scp -q -r "$REMOTE_USER@$h:renders/blender/$job/out/*" "$dest/"
+    echo "done: $dest/"
+    ;;
+
+  stream)
+    # Full desktop (or pass an app name: computah stream "Steam Big Picture")
+    nohup /Applications/Moonlight.app/Contents/MacOS/Moonlight stream "$(host)" "${2:-Desktop}" >/dev/null 2>&1 &
+    echo "streaming ${2:-Desktop} — quit Moonlight to disconnect"
+    ;;
+
+  run)
+    shift
+    rssh "$@"
+    ;;
+
+  *)
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+    ;;
+esac
