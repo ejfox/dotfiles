@@ -8,6 +8,7 @@
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
+#   computah rgb [on|off]    PC case RGB (OpenRGB) breathes with the iMac screen
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
 #   computah sleep           put it to sleep
 #   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
@@ -149,6 +150,43 @@ case "${1:-ssh}" in
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
       off) rssh "powershell -NoProfile -Command \"Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; 'stopped'\"" ;;
+    esac
+    ;;
+
+  rgb)
+    # PC case RGB (OpenRGB) follows the iMac screen — same spirit as `screensync` for Hue
+    SYNC="$HOME/.dotfiles/hue-stream/pc-rgb-sync.py"
+    VENV="$HOME/.local/share/rgb-venv/bin/python"
+    case "${2:-on}" in
+      on)
+        pgrep -f pc-rgb-sync.py >/dev/null && { echo "pc rgb sync already on"; exit 0; }
+        nohup "$VENV" "$SYNC" >/tmp/pc-rgb-sync.log 2>&1 &
+        echo "pc rgb sync on (pid $!) — PC case now breathes with the iMac screen"
+        ;;
+      off)
+        pkill -f pc-rgb-sync.py 2>/dev/null || true
+        # true blackout: stop the sampler, then set every LED to black
+        "$VENV" - <<'PYEOF'
+from openrgb import OpenRGBClient
+from openrgb.utils import RGBColor
+import time
+try:
+    c = OpenRGBClient('10.0.0.169', 6742, 'imacpro-off'); time.sleep(0.8)
+    for d in c.devices:
+        try: d.set_mode('Direct')
+        except: pass
+        time.sleep(0.15)
+        try: d.set_color(RGBColor(0,0,0))
+        except: pass
+    c.disconnect()
+except Exception as e:
+    print('blackout skipped (OpenRGB unreachable):', e)
+PYEOF
+        echo "pc rgb off — sampler stopped, all LEDs black"
+        ;;
+      status)
+        pgrep -f pc-rgb-sync.py >/dev/null && echo "pc rgb sync: running" || echo "pc rgb sync: off"
+        ;;
     esac
     ;;
 
