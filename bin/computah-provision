@@ -21,7 +21,7 @@ if PS "if (Get-Process FortniteClient* -ErrorAction SilentlyContinue) {'GAME'} e
 fi
 
 echo "═══ 1. power hygiene (the 2am incident) ═══"
-PS "'last wake source:'; powercfg /lastwake; Set-NetAdapterAdvancedProperty -Name Ethernet -DisplayName 'Wake on pattern match' -DisplayValue 'Disabled'; 'pattern-match wake: disabled (magic packet still on)'; powercfg /setacvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setdcvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setactive scheme_current; 'wake timers: disabled'"
+PS "'last wake source:'; powercfg /lastwake; Set-NetAdapterAdvancedProperty -Name Ethernet -DisplayName 'Wake on pattern match' -DisplayValue 'Disabled'; 'pattern-match wake: disabled (magic packet still on)'; powercfg /setacvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setdcvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setactive scheme_current; 'wake timers: disabled'; Set-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power' -Name HiberbootEnabled -Value 0; 'fast startup: disabled (real shutdowns now arm wake-on-LAN)'"
 
 echo "═══ 2. whisper.cpp + model ═══"
 PS "New-Item -ItemType Directory -Force -Path C:\\Users\\ejfox\\models\\whisper,C:\\Users\\ejfox\\farm | Out-Null; scoop install whisper-cpp 2>&1 | Select-String -Pattern 'installed|already|Couldn'"
