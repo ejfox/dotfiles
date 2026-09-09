@@ -1,0 +1,43 @@
+#!/bin/bash
+# playtest-subway — build Subway Builder for Windows, deploy to computah, launch it.
+#   playtest-subway            build (dist:win, unpacked) → ship → launch on the PC
+#   playtest-subway --steam    use the IS_STEAM build instead
+#   playtest-subway --ship     skip the build, just ship + launch what's in dist/
+# Watch it via Deskflow (glance right) or `computah stream` from anywhere.
+set -euo pipefail
+
+REPO="$HOME/code/metro-maker4/next-app-2"
+REMOTE=ejfox@10.0.0.169
+DEST_WIN='C:\Users\ejfox\games\subway-playtest'
+
+build=dist:win ship_only=false
+for a in "$@"; do
+  case "$a" in
+    --steam) build=build:steam ;;
+    --ship)  ship_only=true ;;
+  esac
+done
+
+if ! nc -z -G 2 10.0.0.169 22 2>/dev/null; then
+  echo "computah unreachable — computah wake (or power button) first"; exit 1
+fi
+
+if [ "$ship_only" = false ]; then
+  echo "→ building ($build)"
+  (cd "$REPO" && npm run "$build")
+fi
+
+unpacked=$(find "$REPO/dist" -maxdepth 1 -type d -name '*win-unpacked*' | head -1)
+[ -n "$unpacked" ] || { echo "no win-unpacked dir under $REPO/dist — build failed?"; exit 1; }
+echo "→ shipping $(basename "$unpacked") ($(du -sh "$unpacked" | cut -f1))"
+
+ssh "$REMOTE" "powershell -NoProfile -Command \"Stop-Process -Name game -Force -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force '$DEST_WIN' -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force -Path '$DEST_WIN' | Out-Null\""
+# tar over ssh: Windows ships bsdtar, and this beats scp for thousands of small files
+(cd "$unpacked" && tar czf - .) | ssh "$REMOTE" "tar xzf - -C $DEST_WIN"
+
+# GUI apps launched from SSH land in invisible session 0 — bounce through a
+# scheduled task so game.exe appears in the logged-in desktop session.
+echo "→ launching on the PC desktop"
+ssh "$REMOTE" "schtasks /Create /F /TN subway-playtest /TR \"$DEST_WIN\\game.exe\" /SC ONCE /ST 00:00 /IT >nul & schtasks /Run /TN subway-playtest >nul & echo launched"
+
+echo "done — it's on the PC screen now (or: computah stream)"

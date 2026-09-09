@@ -1,0 +1,36 @@
+#!/bin/bash
+# mac-backup — restic snapshots of the iMac's irreplaceable stuff → computah's big disk.
+#   mac-backup            run a backup now (skips silently if the PC is off)
+#   mac-backup init       one-time: create the repo on the PC
+#   mac-backup snapshots  list what's stored
+#   mac-backup restore <snapshot> <target-dir>
+# Runs daily at 16:00 via com.ejfox.mac-backup. NEVER wakes the PC — if it's
+# off/asleep it just logs and exits (see the 2am incident of 2026-09-09).
+set -uo pipefail
+
+export RESTIC_REPOSITORY="sftp:ejfox@10.0.0.169:/C:/Users/ejfox/backups/imacpro"
+export RESTIC_PASSWORD_FILE="$HOME/.config/restic/password"
+PATHS=("$HOME/Desktop" "$HOME/Documents" "$HOME/Music/ACAPELLAS")
+LOG="$HOME/.local/state/mac-backup.log"
+mkdir -p "$(dirname "$LOG")"
+
+case "${1:-run}" in
+  init)
+    ssh ejfox@10.0.0.169 "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path C:\\Users\\ejfox\\backups\\imacpro | Out-Null\""
+    restic init
+    ;;
+  snapshots) restic snapshots ;;
+  restore)   restic restore "${2:?snapshot id}" --target "${3:?target dir}" ;;
+  run)
+    if ! nc -z -G 3 10.0.0.169 22 2>/dev/null; then
+      echo "$(date '+%F %T') skipped — computah unreachable" >> "$LOG"; exit 0
+    fi
+    echo "$(date '+%F %T') starting" >> "$LOG"
+    restic backup "${PATHS[@]}" \
+      --exclude '**/.Trash' --exclude '**/node_modules' --exclude '**/.git' \
+      >> "$LOG" 2>&1
+    restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune >> "$LOG" 2>&1
+    echo "$(date '+%F %T') done" >> "$LOG"
+    ;;
+  *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

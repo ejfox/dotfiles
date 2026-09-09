@@ -10,6 +10,9 @@
 #   computah mount           mount the renders share in Finder
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
 #   computah sleep           put it to sleep
+#   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
+#   computah demucs <file>   split stems on the PC → ~/Music/ACAPELLAS/<name>/
+#   computah llm [on|off]    OpenAI-compatible LLM server on the PC (:8085)
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 
@@ -109,6 +112,44 @@ case "${1:-ssh}" in
     mkdir -p "$dest"
     scp -q -r "$REMOTE_USER@$h:renders/blender/$job/out/*" "$dest/"
     echo "done: $dest/"
+    ;;
+
+  whisper)
+    src="${2:?usage: computah whisper <audio/video file>}"
+    [ -f "$src" ] || { echo "no such file: $src"; exit 1; }
+    base=$(basename "$src")
+    h=$(host)
+    echo "→ shipping $base"
+    scp -q "$src" "$REMOTE_USER@$h:farm/"
+    echo "→ transcribing (whisper large-v3-turbo)"
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"\$w = (Get-ChildItem \$env:USERPROFILE\\scoop\\apps\\whisper-cpp -Directory | Where-Object Name -ne current | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\whisper-cli.exe'; & \$w -m \$env:USERPROFILE\\models\\whisper\\ggml-large-v3-turbo.bin -f \$env:USERPROFILE\\farm\\$base -osrt -otxt -of \$env:USERPROFILE\\farm\\${base%.*} 2>\$null | Out-Null; 'transcribed'\""
+    scp -q "$REMOTE_USER@$h:farm/${base%.*}.srt" "$REMOTE_USER@$h:farm/${base%.*}.txt" "$(dirname "$src")/"
+    echo "done: $(dirname "$src")/${base%.*}.{srt,txt}"
+    ;;
+
+  demucs)
+    src="${2:?usage: computah demucs <audio file>}"
+    [ -f "$src" ] || { echo "no such file: $src"; exit 1; }
+    base=$(basename "$src")
+    h=$(host)
+    echo "→ shipping $base"
+    scp -q "$src" "$REMOTE_USER@$h:farm/"
+    echo "→ separating stems on the 9800X3D"
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"python -m demucs -o \$env:USERPROFILE\\farm\\stems \$env:USERPROFILE\\farm\\$base\""
+    dest="$HOME/Music/ACAPELLAS/${base%.*}"
+    mkdir -p "$dest"
+    scp -q -r "$REMOTE_USER@$h:farm/stems/htdemucs/${base%.*}/*" "$dest/"
+    echo "done: $dest/ (vocals, drums, bass, other)"
+    ;;
+
+  llm)
+    case "${2:-on}" in
+      on)
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (Get-Process llama-server -ErrorAction SilentlyContinue) {'already running'} else { \$l = (Get-ChildItem \$env:USERPROFILE\\scoop\\apps\\llama.cpp -Directory | Where-Object Name -ne current | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\llama-server.exe'; Start-Process -WindowStyle Hidden \$l -ArgumentList '-m',(\$env:USERPROFILE + '\\models\\llm\\Qwen3-14B-Q4_K_M.gguf'),'--host','0.0.0.0','--port','8085','-ngl','99'; 'llama-server starting on :8085' }\""
+        echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
+        ;;
+      off) rssh "powershell -NoProfile -Command \"Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; 'stopped'\"" ;;
+    esac
     ;;
 
   stream)

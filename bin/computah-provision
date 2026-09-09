@@ -1,0 +1,45 @@
+#!/bin/bash
+# computah-provision — one-shot mise en place for the PC side of the farm.
+# Idempotent; run it whenever, it skips what's done. Refuses to run mid-Fortnite.
+#
+# What it does:
+#   0. safety check (Fortnite)
+#   1. fix the 2am self-wake: report lastwake, disable pattern-match wake + wake timers
+#   2. whisper.cpp + large-v3-turbo model  → transcription farm
+#   3. python + demucs                     → stem separation farm
+#   4. llama.cpp + Qwen model + firewall   → LLM server on the tailnet
+#   5. OBS + NDI runtime                   → streaming rig (plugin config is GUI, later)
+#   6. game playtest dir
+set -uo pipefail
+
+R="ejfox@10.0.0.169"
+PS() { ssh -o BatchMode=yes -o ConnectTimeout=8 "$R" "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$1\""; }
+
+nc -z -G 3 10.0.0.169 22 2>/dev/null || { echo "computah unreachable"; exit 1; }
+if PS "if (Get-Process FortniteClient* -ErrorAction SilentlyContinue) {'GAME'} else {'clear'}" | grep -q GAME; then
+  echo "Fortnite is running — provisioning refused. Try later."; exit 1
+fi
+
+echo "═══ 1. power hygiene (the 2am incident) ═══"
+PS "'last wake source:'; powercfg /lastwake; Set-NetAdapterAdvancedProperty -Name Ethernet -DisplayName 'Wake on pattern match' -DisplayValue 'Disabled'; 'pattern-match wake: disabled (magic packet still on)'; powercfg /setacvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setdcvalueindex scheme_current sub_sleep bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0; powercfg /setactive scheme_current; 'wake timers: disabled'"
+
+echo "═══ 2. whisper.cpp + model ═══"
+PS "New-Item -ItemType Directory -Force -Path C:\\Users\\ejfox\\models\\whisper,C:\\Users\\ejfox\\farm | Out-Null; scoop install whisper-cpp 2>&1 | Select-String -Pattern 'installed|already|Couldn'"
+PS "if (-not (Test-Path C:\\Users\\ejfox\\models\\whisper\\ggml-large-v3-turbo.bin)) { 'downloading whisper model (1.5GB)...'; curl.exe -sL -o C:\\Users\\ejfox\\models\\whisper\\ggml-large-v3-turbo.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin; 'model done' } else { 'model already present' }"
+
+echo "═══ 3. demucs ═══"
+PS "scoop install python 2>&1 | Select-String -Pattern 'installed|already|Couldn'; pip install --quiet demucs soundfile 2>&1 | Select-Object -Last 1; 'demucs: ' + (& python -c 'import demucs; print(\\\"ok\\\")' 2>&1)"
+
+echo "═══ 4. llama.cpp (Vulkan) + firewall ═══"
+PS "scoop bucket add versions 2>&1 | Out-Null; scoop install llama.cpp 2>&1 | Select-String -Pattern 'installed|already|Couldn'"
+PS "New-NetFirewallRule -DisplayName 'llama-server (LAN)' -Direction Inbound -Protocol TCP -LocalPort 8085 -Profile Private -Action Allow -ErrorAction SilentlyContinue | Out-Null; 'firewall 8085 open'"
+PS "if (-not (Test-Path C:\\Users\\ejfox\\models\\llm\\Qwen3-14B-Q4_K_M.gguf)) { New-Item -ItemType Directory -Force -Path C:\\Users\\ejfox\\models\\llm | Out-Null; 'downloading Qwen3-14B Q4 (~9GB, be patient)...'; curl.exe -sL -o C:\\Users\\ejfox\\models\\llm\\Qwen3-14B-Q4_K_M.gguf https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf; 'model done' } else { 'LLM model already present' }"
+
+echo "═══ 5. OBS + NDI runtime ═══"
+PS "winget install --id OBSProject.OBSStudio --silent --accept-package-agreements --accept-source-agreements 2>&1 | Select-String -Pattern 'installed|already|No package'"
+PS "winget install --id DistroAV.DistroAV --silent --accept-package-agreements --accept-source-agreements 2>&1 | Select-String -Pattern 'installed|already|No package'"
+
+echo "═══ 6. playtest dir ═══"
+PS "New-Item -ItemType Directory -Force -Path C:\\Users\\ejfox\\games\\subway-playtest | Out-Null; 'ready'"
+
+echo "═══ provision complete ═══"
