@@ -135,7 +135,7 @@ case "${1:-ssh}" in
     echo "→ shipping $base"
     scp -q "$src" "$REMOTE_USER@$h:farm/"
     echo "→ separating stems on the 9800X3D"
-    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\.local\\bin\\demucs.exe -o \$env:USERPROFILE\\farm\\stems \$env:USERPROFILE\\farm\\$base\""
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\scoop\\persist\\uv\\tools\\shims\\demucs.exe -o \$env:USERPROFILE\\farm\\stems \$env:USERPROFILE\\farm\\$base\""
     dest="$HOME/Music/ACAPELLAS/${base%.*}"
     mkdir -p "$dest"
     scp -q -r "$REMOTE_USER@$h:farm/stems/htdemucs/${base%.*}/*" "$dest/"
