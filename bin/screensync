@@ -15,7 +15,9 @@ daemon_pid()  { pgrep -f "hue-stream.js daemon" 2>/dev/null | head -1; }
 case "${1:-status}" in
   on)
     if [ -z "$(daemon_pid)" ]; then
-      (cd "$NODE_DIR" && nohup node hue-stream.js daemon screen >/tmp/hue-stream.log 2>&1 &)
+      # Desk-area lights only — keep the rest of the house out of the entertainment group
+      (cd "$NODE_DIR" && HUE_STREAM_EXCLUDE_ROOMS="Living room,Bedroom,Kitchen,Bathroom,Backyard" \
+        nohup node hue-stream.js daemon screen >/tmp/hue-stream.log 2>&1 &)
       sleep 2
     else
       # daemon already up — just flip its ambient to screen mode
