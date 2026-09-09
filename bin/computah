@@ -8,7 +8,7 @@
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
-#   computah rgb [on|off]    PC case RGB (OpenRGB) breathes with the iMac screen
+#   computah rgb [wave|breathe|pulse|screen|off]  PC case+DualSense RGB (vulpes effects or screen-sync)
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
 #   computah sleep           put it to sleep
 #   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
@@ -154,18 +154,26 @@ case "${1:-ssh}" in
     ;;
 
   rgb)
-    # PC case RGB (OpenRGB) follows the iMac screen — same spirit as `screensync` for Hue
+    # PC case + DualSense RGB via OpenRGB. Effects (wave/breathe/pulse) or screen-sync.
     SYNC="$HOME/.dotfiles/hue-stream/pc-rgb-sync.py"
+    EFFECT="$HOME/.dotfiles/hue-stream/pc-rgb-effect.py"
     VENV="$HOME/.local/share/rgb-venv/bin/python"
+    _stop_all() { pkill -f pc-rgb-sync.py 2>/dev/null || true; pkill -f pc-rgb-effect.py 2>/dev/null || true; sleep 1; }
     case "${2:-on}" in
-      on)
-        pgrep -f pc-rgb-sync.py >/dev/null && { echo "pc rgb sync already on"; exit 0; }
+      on|wave|breathe|pulse)
+        eff="${2:-wave}"; [ "$eff" = "on" ] && eff=wave
+        _stop_all
+        nohup "$VENV" "$EFFECT" "$eff" >/tmp/pc-rgb-effect.log 2>&1 &
+        echo "pc rgb: $eff effect on (pid $!) — vulpes pink↔teal"
+        ;;
+      screen)
+        _stop_all
         nohup "$VENV" "$SYNC" >/tmp/pc-rgb-sync.log 2>&1 &
-        echo "pc rgb sync on (pid $!) — PC case now breathes with the iMac screen"
+        echo "pc rgb: screen-sync on (pid $!) — case follows the iMac screen"
         ;;
       off)
-        pkill -f pc-rgb-sync.py 2>/dev/null || true
-        # true blackout: stop the sampler, then set every LED to black
+        _stop_all
+        # true blackout: stop any effect/sampler, then set every LED to black
         "$VENV" - <<'PYEOF'
 from openrgb import OpenRGBClient
 from openrgb.utils import RGBColor
@@ -182,10 +190,12 @@ try:
 except Exception as e:
     print('blackout skipped (OpenRGB unreachable):', e)
 PYEOF
-        echo "pc rgb off — sampler stopped, all LEDs black"
+        echo "pc rgb off — effects stopped, all LEDs black"
         ;;
       status)
-        pgrep -f pc-rgb-sync.py >/dev/null && echo "pc rgb sync: running" || echo "pc rgb sync: off"
+        if pgrep -f pc-rgb-effect.py >/dev/null; then echo "pc rgb: effect running";
+        elif pgrep -f pc-rgb-sync.py >/dev/null; then echo "pc rgb: screen-sync running";
+        else echo "pc rgb: off"; fi
         ;;
     esac
     ;;

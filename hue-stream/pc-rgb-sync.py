@@ -109,6 +109,11 @@ def main():
                         try: mobo.set_mode("Direct")
                         except Exception: pass
                         strip = mobo.zones[2] if len(mobo.zones) > 2 else mobo.zones[-1]
+                        # OpenRGB forgets zone sizes on restart — re-assert so we always have LEDs to drive
+                        if len(strip.leds) < 10:
+                            try: strip.resize(60)
+                            except Exception: pass
+                            time.sleep(0.4)
                         strip_n = len(strip.leds)
                     print(f"[pc-rgb-sync] connected: strip={strip_n} leds, dualsense={'yes' if ds else 'no'}", flush=True)
                     eased = None
