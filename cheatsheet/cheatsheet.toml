@@ -643,8 +643,9 @@ body = [
   { div = true },
   { lbl = "watch every agent (~/code/robots, homegrown)" },
   { k = "robots", d = "live TUI of ALL claude agents on the box", hl = true },
+  { k = "robots -a", d = "ambient grid — every agent's live output tiled" },
   { k = "robots -t", d = "counts for tmux status bar: ◇1 ◆2 ●7" },
-  { n = "in TUI: *j/k* move · *enter* jump to pane · *s* sort · *q* quit" },
+  { n = "in TUI: *j/k* move · *enter* jump to pane · *a* ambient · *s* sort · *q* quit" },
   { o = "◇ needs you · ◆ working · ● idle — no hooks, works retroactively" },
   { div = true },
   { lbl = "worktree agents (workmux)" },
@@ -677,5 +678,40 @@ body = [
   { k = "rgb-flash", d = "teal pulse then settle pink", hl = true },
   { k = "rgb-flash <color|hex>", d = "pulse any color (teal/white/red/RRGGBB)" },
   { k = "rgb-flash rest", d = "just set the pink resting state" },
-  { o = "auto-fires on tmux bell/activity + when claude finishes a turn (2s debounce)" },
+  { k = "C-a u / C-a O", d = "tmux: flip scene / agent-fleet overview", hl = true },
+  { div = true },
+  { lbl = "desk events (lights ping, glass captions)" },
+  { k = "desk-event <kind> [detail]", d = "RGB pulse + caption strip on canvas", hl = true },
+  { k = "cmd; ding", d = "desk reacts to the exit code: teal ok / red + code", hl = true },
+  { n = "color code: *hotpink* = claude needs you · *teal* = FYI (bell/activity/done) · *red* = error" },
+  { o = "auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Computah + Hue Lights"
+open = false
+body = [
+  { lbl = "computah (the Windows PC — LAN or Tailscale)" },
+  { k = "computah wake / sleep / status", d = "power + health, works from off", hl = true },
+  { k = "computah run \"cmd\"", d = "run anything on the PC over SSH" },
+  { k = "computah render / blender / whisper / demucs", d = "heavy jobs there, results land here" },
+  { k = "computah stream [app]", d = "Moonlight-stream the PC to this Mac" },
+  { n = "**never** touch it mid-Fortnite — check `computah run \"powershell Get-Process FortniteClient*\"` first" },
+  { div = true },
+  { lbl = "rgb (PC case + DualSense + Hue desk lights, synced)" },
+  { k = "computah rgb wave|breathe|pulse", d = "vulpes effects; hue desk lights wave along", hl = true },
+  { k = "computah rgb screen", d = "PC case follows the iMac screen" },
+  { k = "computah rgb off / status", d = "blackout + stop; status shows PC + hue daemon" },
+  { o = "one color engine: pc-rgb-effect publishes zones -> hue-stream daemon renders them on the strip" },
+  { div = true },
+  { lbl = "hue (rooms + scenes from the shell)" },
+  { k = "hue list / on / off / dim <0-100> <room>", d = "room control", hl = true },
+  { k = "hue scene <name>", d = "Coding, Concentrate, Dim Redded, Nightlight..." },
+  { k = "screensync on/off", d = "iMac screen colors -> desk lights" },
+  { k = "hue-flash [r g b]", d = "flash entertainment lights, then return" },
+  { k = "hue-keys on/off", d = "typing -> light bursts (default OFF, deliberately)" },
+  { o = "DTLS handshake timeouts = bridge wedged -> unplug bridge 10s, then *computah rgb wave* relaunches the chain" },
 ]

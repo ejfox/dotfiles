@@ -771,8 +771,9 @@
     <div class="div"></div>
     <div class="lbl">watch every agent (~/code/robots, homegrown)</div>
     <div class="r dd"><kbd>robots</kbd><span class="d">live TUI of ALL claude agents on the box</span></div>
+    <div class="r"><kbd>robots -a</kbd><span class="d">ambient grid — every agent's live output tiled</span></div>
     <div class="r"><kbd>robots -t</kbd><span class="d">counts for tmux status bar: ◇1 ◆2 ●7</span></div>
-    <div class="n">in TUI: <em>j/k</em> move · <em>enter</em> jump to pane · <em>s</em> sort · <em>q</em> quit</div>
+    <div class="n">in TUI: <em>j/k</em> move · <em>enter</em> jump to pane · <em>a</em> ambient · <em>s</em> sort · <em>q</em> quit</div>
     <div class="o">◇ needs you · ◆ working · ● idle — no hooks, works retroactively</div>
     <div class="div"></div>
     <div class="lbl">worktree agents (workmux)</div>
@@ -802,7 +803,39 @@
     <div class="r dd"><kbd>rgb-flash</kbd><span class="d">teal pulse then settle pink</span></div>
     <div class="r"><kbd>rgb-flash &lt;color|hex&gt;</kbd><span class="d">pulse any color (teal/white/red/RRGGBB)</span></div>
     <div class="r"><kbd>rgb-flash rest</kbd><span class="d">just set the pink resting state</span></div>
-    <div class="o">auto-fires on tmux bell/activity + when claude finishes a turn (2s debounce)</div>
+    <div class="r dd"><kbd>C-a u / C-a O</kbd><span class="d">tmux: flip scene / agent-fleet overview</span></div>
+    <div class="div"></div>
+    <div class="lbl">desk events (lights ping, glass captions)</div>
+    <div class="r dd"><kbd>desk-event &lt;kind&gt; [detail]</kbd><span class="d">RGB pulse + caption strip on canvas</span></div>
+    <div class="r dd"><kbd>cmd; ding</kbd><span class="d">desk reacts to the exit code: teal ok / red + code</span></div>
+    <div class="n">color code: <em>hotpink</em> = claude needs you · <em>teal</em> = FYI (bell/activity/done) · <em>red</em> = error</div>
+    <div class="o">auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene</div>
+  </div>
+</details>
+
+<details class="accent" data-tool="both">
+  <summary>Computah + Hue Lights</summary>
+  <div class="c">
+    <div class="lbl">computah (the Windows PC — LAN or Tailscale)</div>
+    <div class="r dd"><kbd>computah wake / sleep / status</kbd><span class="d">power + health, works from off</span></div>
+    <div class="r"><kbd>computah run "cmd"</kbd><span class="d">run anything on the PC over SSH</span></div>
+    <div class="r"><kbd>computah render / blender / whisper / demucs</kbd><span class="d">heavy jobs there, results land here</span></div>
+    <div class="r"><kbd>computah stream [app]</kbd><span class="d">Moonlight-stream the PC to this Mac</span></div>
+    <div class="n"><b>never</b> touch it mid-Fortnite — check <kbd>computah run "powershell Get-Process FortniteClient*"</kbd> first</div>
+    <div class="div"></div>
+    <div class="lbl">rgb (PC case + DualSense + Hue desk lights, synced)</div>
+    <div class="r dd"><kbd>computah rgb wave|breathe|pulse</kbd><span class="d">vulpes effects; hue desk lights wave along</span></div>
+    <div class="r"><kbd>computah rgb screen</kbd><span class="d">PC case follows the iMac screen</span></div>
+    <div class="r"><kbd>computah rgb off / status</kbd><span class="d">blackout + stop; status shows PC + hue daemon</span></div>
+    <div class="o">one color engine: pc-rgb-effect publishes zones -&gt; hue-stream daemon renders them on the strip</div>
+    <div class="div"></div>
+    <div class="lbl">hue (rooms + scenes from the shell)</div>
+    <div class="r dd"><kbd>hue list / on / off / dim &lt;0-100&gt; &lt;room&gt;</kbd><span class="d">room control</span></div>
+    <div class="r"><kbd>hue scene &lt;name&gt;</kbd><span class="d">Coding, Concentrate, Dim Redded, Nightlight...</span></div>
+    <div class="r"><kbd>screensync on/off</kbd><span class="d">iMac screen colors -&gt; desk lights</span></div>
+    <div class="r"><kbd>hue-flash [r g b]</kbd><span class="d">flash entertainment lights, then return</span></div>
+    <div class="r"><kbd>hue-keys on/off</kbd><span class="d">typing -&gt; light bursts (default OFF, deliberately)</span></div>
+    <div class="o">DTLS handshake timeouts = bridge wedged -&gt; unplug bridge 10s, then <em>computah rgb wave</em> relaunches the chain</div>
   </div>
 </details>
 
