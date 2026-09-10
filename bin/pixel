@@ -142,8 +142,13 @@ case "$cmd" in
   random|"")
     pixel_ping || exit 0
     [ -d "$SCENES_DIR" ] || exit 0
-    # Weighted lottery: every scene gets one ticket, plus bonus tickets from
-    # .favorites (one per line, repeats allowed) so useful screens come up more.
+    # Context-weighted pick: pixel-pick.py scores scenes by the moment (time of
+    # day, an agent needing you, emails sent today, music playing, .favorites)
+    # and never repeats the last one. Falls back to a flat shuffle if it fails.
+    name=$(python3 "$HOME/.dotfiles/lib/pixel-pick.py" "$SCENES_DIR" 2>/dev/null)
+    if [ -n "$name" ] && [ -x "$SCENES_DIR/$name" ]; then
+      exec "$SCENES_DIR/$name"
+    fi
     scene=$( {
       find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*'
       [ -f "$SCENES_DIR/.favorites" ] && grep -Ev '^#|^[[:space:]]*$' "$SCENES_DIR/.favorites" \
