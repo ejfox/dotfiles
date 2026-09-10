@@ -1,64 +1,42 @@
-#!/usr/bin/env bash
-# bloom — phyllotaxis day-clock. One seed per 2 minutes elapsed today,
-# placed at the golden angle (137.508°), r = c·√n. The spiral fills as the
-# day does: teal seeds from the morning shade to pink by evening, and the
-# newest few seeds glow white — the growth tip is NOW. Sunflower math as
-# progress bar.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-command -v python3 >/dev/null || exit 0
-
-python3 - "$PIXEL_BASE" <<'EOF'
+#!/usr/bin/env python3
+"""bloom — phyllotaxis day-clock. One seed per 2 minutes elapsed today,
+golden-angle spiral: teal dawn shades to pink dusk, white tip = now."""
 import math, os, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import Canvas
+from pixelkit import Canvas, VULPES, connect, mix
 
-BASE = sys.argv[1]
-cv = Canvas(BASE)
-get, batch = cv.get, cv.batch
-
-TEAL = (0x6e, 0xed, 0xf7)
-PINK = (0xe6, 0x00, 0x67)
-WHITE = (0xf5, 0xf5, 0xf5)
-
-def mix(a, b, t):
-    t = max(0.0, min(1.0, t))
-    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+cv = connect()
+TEAL, PINK, WHITE = VULPES["teal"], VULPES["pink"], VULPES["white"]
+GOLDEN = math.radians(137.50776405)
+CX, CY, C = 160, 122, 4.05
 
 lt = time.localtime()
 minutes = lt.tm_hour * 60 + lt.tm_min
-n_seeds = max(1, minutes // 2)            # up to 720 by midnight
-GOLDEN = math.radians(137.50776405)
-CX, CY, C = 160, 122, 4.05                # r_max ≈ √720·4.05 ≈ 109 px
+n_seeds = max(1, minutes // 2)
 
-get("clear")
-
+cv.clear()
 dots, chunks = [], []
 for n in range(n_seeds):
     r = C * math.sqrt(n)
     a = n * GOLDEN
-    x = int(CX + r * math.cos(a))
-    y = int(CY + r * math.sin(a))
+    x, y = int(CX + r * math.cos(a)), int(CY + r * math.sin(a))
     if not (0 <= x < 318 and 12 <= y < 236):
         continue
-    f = n / 720.0                          # position in the full day
-    col = mix(TEAL, PINK, f ** 0.8)
-    tip = n_seeds - n                      # 1 = newest seed
-    if tip <= 6:                           # growth tip glows white-hot
+    col = mix(TEAL, PINK, (n / 720.0) ** 0.8)
+    tip = n_seeds - n
+    if tip <= 6:
         col = mix(col, WHITE, (7 - tip) / 7.0)
-    s = 3 if tip <= 40 else 2              # recent seeds slightly larger
+    s = 3 if tip <= 40 else 2
     dots.append({"x": x - s // 2, "y": y - s // 2, "s": s,
                  "r": col[0], "g": col[1], "b": col[2]})
     if len(dots) >= 80:
         chunks.append(dots); dots = []
 if dots:
     chunks.append(dots)
+for c in chunks:
+    cv.batch(c)
 
-for c in chunks:                           # spiral grows outward as it paints
-    batch(c)
-
-pct = int(minutes / 1440 * 100)
 cv.text("today", 10, 15, color="mauve")
-cv.text(f"{lt.tm_hour:02d}:{lt.tm_min:02d}  {pct}%", 10, 222, color="dustrose")
-EOF
+cv.text(f"{lt.tm_hour:02d}:{lt.tm_min:02d}  {int(minutes / 1440 * 100)}%",
+        10, 222, color="dustrose")

@@ -1,77 +1,42 @@
-#!/usr/bin/env bash
-# commits — today's work as a phyllotaxis bloom. One seed per commit shipped
-# today across every repo in ~/code, in chronological order along the golden
-# spiral; each repo gets its own hue, and the newest commit glows white.
-# Empty morning = bare center; a shipping day = a full flower.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-command -v git >/dev/null || exit 0
-
-python3 - "$PIXEL_BASE" <<'EOF'
-import math, os, subprocess, sys, time
+#!/usr/bin/env python3
+"""commits — today's git work as a phyllotaxis bloom. Seed per commit
+across ~/code in chronological spiral order, stable hue per repo,
+white tip = latest. Empty morning = bare center; shipping day = flower."""
+import math, os, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import Canvas, W
+from pixelkit import VULPES, connect, hue_for, mix, sh
 
-BASE = sys.argv[1]
+cv = connect()
 CODE = os.path.expanduser("~/code")
-cv = Canvas(BASE)
-
-# repo hues — assigned by name hash so a repo keeps its color day to day
-HUES = [(0xe6, 0x00, 0x67), (0x6e, 0xed, 0xf7), (0xff, 0x1a, 0xca),
-        (0xff, 0xaa, 0x00), (0xb4, 0xd4, 0x55), (0xa0, 0xf7, 0xfc),
-        (0xff, 0x33, 0xc5), (0xa8, 0x7b, 0xb5), (0x5e, 0xc4, 0xc4),
-        (0xc4, 0x45, 0x69)]
-WHITE = (0xf5, 0xf5, 0xf5)
-
-def mix(a, b, t):
-    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
-
-def hue(repo):
-    return HUES[hash(repo) % len(HUES)]
+WHITE = VULPES["white"]
+GOLDEN = math.radians(137.50776405)
+CX, CY = 160, 122
 
 midnight = time.strftime("%Y-%m-%d 00:00")
 commits = []  # (epoch, repo)
-try:
-    entries = sorted(os.listdir(CODE))
-except OSError:
-    entries = []
-for d in entries:
-    repo = os.path.join(CODE, d)
-    if not os.path.isdir(os.path.join(repo, ".git")):
+for d in sorted(os.listdir(CODE) if os.path.isdir(CODE) else []):
+    if not os.path.isdir(os.path.join(CODE, d, ".git")):
         continue
-    try:
-        out = subprocess.run(
-            ["git", "-C", repo, "log", "--all", f"--since={midnight}", "--format=%ct"],
-            capture_output=True, text=True, timeout=5)
-        for l in out.stdout.split():
-            commits.append((int(l), d))
-    except Exception:
-        continue
-
+    for l in sh(["git", "-C", os.path.join(CODE, d), "log", "--all",
+                 f"--since={midnight}", "--format=%ct"]).split():
+        commits.append((int(l), d))
 commits.sort()
-repos = []
-for _, d in commits:
-    if d not in repos:
-        repos.append(d)
+repos = list(dict.fromkeys(d for _, d in commits))
+n = len(commits)
+C = 4.2 if n < 500 else 3.4
 
 cv.clear()
 cv.text("shipped today", 10, 15, color="mauve")
-
-GOLDEN = math.radians(137.50776405)
-CX, CY = 160, 122
-n = len(commits)
-C = 4.2 if n < 500 else 3.4  # keep big days on-canvas
 
 dots, chunks = [], []
 for i, (ts, repo) in enumerate(commits):
     r = C * math.sqrt(i)
     a = i * GOLDEN
-    x = int(CX + r * math.cos(a))
-    y = int(CY + r * math.sin(a))
+    x, y = int(CX + r * math.cos(a)), int(CY + r * math.sin(a))
     if not (0 <= x < 317 and 12 <= y < 234):
         continue
-    col = hue(repo)
+    col = hue_for(repo)
     tip = n - i
     if tip <= 3:
         col = mix(col, WHITE, (4 - tip) / 4.0)
@@ -83,20 +48,17 @@ for i, (ts, repo) in enumerate(commits):
 if dots:
     chunks.append(dots)
 for c in chunks:
-    batch = cv.batch(c)
+    cv.batch(c)
 
 if n == 0:
     cv.text("nothing shipped yet", y=118, color="dustrose", align="center")
 else:
-    # legend: top repos by commit count, in their hue (fitted, never clipped)
     counts = {}
     for _, d in commits:
         counts[d] = counts.get(d, 0) + 1
-    top = sorted(counts, key=counts.get, reverse=True)[:3]
     ly = 195
-    for d in top:
-        cv.rect(10, ly, 6, 6, rgb=hue(d))
+    for d in sorted(counts, key=counts.get, reverse=True)[:3]:
+        cv.rect(10, ly, 6, 6, rgb=hue_for(d))
         cv.text(f"{d} {counts[d]}", 22, ly, color="body", max_w=130)
         ly += 12
 cv.text(f"{n} commits {len(repos)} repos", y=225, color="dustrose", align="right")
-EOF

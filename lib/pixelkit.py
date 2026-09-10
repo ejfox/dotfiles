@@ -110,3 +110,52 @@ class Canvas:
     def line(self, x1, y1, x2, y2, color):
         c = lambda v, hi: max(0, min(int(v), hi - 1))
         self.get(f"line?x1={c(x1,W)}&y1={c(y1,H)}&x2={c(x2,W)}&y2={c(y2,H)}&color={color}")
+
+
+# ── scene conveniences ──────────────────────────────────────────────────
+GOLDEN = 2.39996322972865332  # golden angle, radians
+
+VULPES = {"pink": (0xe6, 0x00, 0x67), "teal": (0x6e, 0xed, 0xf7),
+          "hotpink": (0xff, 0x1a, 0xca), "red": (0xff, 0x10, 0x43),
+          "orange": (0xff, 0xaa, 0x00), "green": (0xb4, 0xd4, 0x55),
+          "cyan": (0xa0, 0xf7, 0xfc), "magenta": (0xff, 0x33, 0xc5),
+          "ansiblue": (0xa8, 0x7b, 0xb5), "ansicyan": (0x5e, 0xc4, 0xc4),
+          "dustrose": (0xc4, 0x45, 0x69), "white": (0xf5, 0xf5, 0xf5)}
+
+
+def mix(a, b, t):
+    t = max(0.0, min(1.0, t))
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def hue_for(name):
+    """Stable color for a string (repo, session...) day to day.
+    (hashlib, not hash() — python salts hash() per process.)"""
+    import hashlib
+    keys = sorted(VULPES)
+    n = int(hashlib.md5(name.encode()).hexdigest(), 16)
+    return VULPES[keys[n % len(keys)]]
+
+
+def connect():
+    """Canvas for a scene: PIXEL_BASE env (set by the pixel wrapper) or the
+    cached host, so pure-python scenes also run standalone."""
+    import os
+    base = os.environ.get("PIXEL_BASE")
+    if not base:
+        try:
+            host = open(os.path.expanduser("~/.config/pixel-canvas-host")).read().strip()
+        except OSError:
+            host = "10.0.0.103"
+        base = f"http://{host}"
+    return Canvas(base)
+
+
+def sh(cmd, timeout=5):
+    """Run a command, return stdout ('' on any failure)."""
+    import subprocess
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout).stdout
+    except Exception:
+        return ""

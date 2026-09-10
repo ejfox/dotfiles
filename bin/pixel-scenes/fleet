@@ -1,65 +1,45 @@
-#!/usr/bin/env bash
-# Agent fleet: how many claude agents need you / are working / idle,
-# plus which tmux windows they live in. Counts come from `robots -t`.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-command -v tmux >/dev/null || exit 0
-
-COUNTS=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null) || exit 0
-[ -z "$COUNTS" ] && exit 0
-
-python3 - "$PIXEL_BASE" "$COUNTS" <<'EOF'
-import os, re, subprocess, sys
+#!/usr/bin/env python3
+"""fleet — claude agents: needs-you / working / idle counts (robots -t)
+plus which tmux windows they live in."""
+import os, re, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import Canvas, text_w
+from pixelkit import connect, sh
 
-BASE, COUNTS = sys.argv[1], sys.argv[2]
-cv = Canvas(BASE)
+counts = sh([os.path.expanduser("~/.dotfiles/bin/robots"), "-t"]).strip()
+if not counts:
+    sys.exit(0)
+cv = connect()
 
 def grab(sym):
-    m = re.search(sym + r"(\d+)", COUNTS)
+    m = re.search(sym + r"(\d+)", counts)
     return int(m.group(1)) if m else 0
 
 needs, working, idle = grab("◇"), grab("◆"), grab("●")
 
 cv.clear()
 cv.text("agent fleet", 10, 15, color="mauve")
-
-# Three columns, each number centered on its column axis regardless of
-# digit count (size 5 = 30px/char — three digits would clip if hardcoded).
-cols = [
-    (58,  needs,   "needs you", "hotpink" if needs > 0 else "dustrose"),
-    (160, working, "working",   "pink"),
-    (262, idle,    "idle",      "teal"),
-]
-for cx, val, label, color in cols:
+for cx, val, label, color in [
+    (58, needs, "needs you", "hotpink" if needs else "dustrose"),
+    (160, working, "working", "pink"),
+    (262, idle, "idle", "teal"),
+]:
     cv.text(str(val), x=cx, y=50, size=5, color=color, align="center")
-    cv.text(label, x=cx, y=95, size=1, color=color if val and label == "needs you" else "mauve",
+    cv.text(label, x=cx, y=95, color=color if val and label == "needs you" else "mauve",
             align="center")
-
 cv.rect(10, 115, 300, 1, color="dustrose")
 
-# Where the agents live: tmux windows running claude, with repo names
-try:
-    out = subprocess.run(
-        ["tmux", "list-panes", "-a", "-F",
-         "#{session_name}:#{window_index} #{pane_current_command} #{pane_current_path}"],
-        capture_output=True, text=True, timeout=5).stdout
-except Exception:
-    out = ""
-y = 130
-rows = 0
-for l in out.splitlines():
-    parts = l.split()
-    if len(parts) < 3 or "claude" not in parts[1]:
+y, rows = 130, 0
+for l in sh(["tmux", "list-panes", "-a", "-F",
+             "#{session_name}:#{window_index} #{pane_current_command} #{pane_current_path}"]
+            ).splitlines():
+    p = l.split()
+    if len(p) < 3 or "claude" not in p[1]:
         continue
-    cv.text(f"{parts[0]} {os.path.basename(parts[2])}", 15, y, color="body")
+    cv.text(f"{p[0]} {os.path.basename(p[2])}", 15, y, color="body")
     y += 14
     rows += 1
     if rows >= 6:
         break
 
-import time
 cv.text(time.strftime("%H:%M"), y=225, color="dustrose", align="right")
-EOF

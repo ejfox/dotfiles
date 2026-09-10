@@ -1,74 +1,56 @@
-#!/usr/bin/env bash
-# constellation — the tmux universe as a star chart. Each session is an arc
-# of stars: one star per window, radius = pane count, connected by faint
-# lines. Pink = the active window, hotpink = a claude agent lives there,
-# teal = everything else. Glance up and see the whole terminal cosmos.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-command -v tmux >/dev/null || exit 0
-
-python3 - "$PIXEL_BASE" <<'EOF'
-import os, subprocess, sys
+#!/usr/bin/env python3
+"""constellation — the tmux universe as a star chart. Sessions are arcs,
+windows are stars sized by pane count, faint lines connect them.
+Pink = active window, hotpink = a claude agent lives there."""
+import os, sys
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import Canvas, W, text_w
+from pixelkit import W, connect, sh
 
-BASE = sys.argv[1]
-cv = Canvas(BASE)
+cv = connect()
 
-def tmux(fmt, what):
-    try:
-        out = subprocess.run(["tmux", what, "-a", "-F", fmt],
-                             capture_output=True, text=True, timeout=5)
-        return [l for l in out.stdout.splitlines() if l.strip()]
-    except Exception:
-        return []
-
-wins = tmux("#{session_name}\t#{window_index}\t#{window_active}\t#{window_panes}\t#{window_name}",
-            "list-windows")
+wins = [l for l in sh(["tmux", "list-windows", "-a", "-F",
+        "#{session_name}\t#{window_index}\t#{window_active}\t#{window_panes}\t#{window_name}"]
+        ).splitlines() if l.strip()]
 claude_wins = set()
-for l in tmux("#{session_name}:#{window_index}\t#{pane_current_command}", "list-panes"):
+for l in sh(["tmux", "list-panes", "-a", "-F",
+             "#{session_name}:#{window_index}\t#{pane_current_command}"]).splitlines():
     loc, cmd = (l.split("\t") + [""])[:2]
     if "claude" in cmd:
         claude_wins.add(loc)
-
 if not wins:
     sys.exit(0)
 
 sessions = {}
 for l in wins:
     p = l.split("\t")
-    if len(p) < 5:
-        continue
-    sessions.setdefault(p[0], []).append((int(p[1]), p[2] == "1", int(p[3]), p[4]))
+    if len(p) >= 5:
+        sessions.setdefault(p[0], []).append((int(p[1]), p[2] == "1", int(p[3]), p[4]))
 
 cv.clear()
 cv.text("tmux", 10, 15, color="mauve")
 
 names = sorted(sessions)[:6]
 row_h = 196 // max(1, len(names))
-STAR_X0 = 84                      # stars start here; labels own the left gutter
+STAR_X0, MAX_R = 84, 8
 y = 34
 for name in names:
     ws = sorted(sessions[name])
     cv.text(name, 10, y, color="teal", max_w=STAR_X0 - 16)
     sy = y + 16
-    # procedural spacing: fit however many windows exist into the star field
-    max_r = 8
-    field = W - STAR_X0 - max_r - 4
+    field = W - STAR_X0 - MAX_R - 4
     step = min(28, max(14, field // max(1, len(ws) - 1))) if len(ws) > 1 else 0
     shown = ws if step == 0 or (len(ws) - 1) * step <= field else ws[: field // max(step, 1) + 1]
     prev = None
     for i, (idx, active, panes, wname) in enumerate(shown):
         x = STAR_X0 + i * step
-        loc = f"{name}:{idx}"
-        rad = min(3 + panes, max_r)
-        color = "hotpink" if loc in claude_wins else ("pink" if active else "teal")
-        if prev is not None:
+        rad = min(3 + panes, MAX_R)
+        color = ("hotpink" if f"{name}:{idx}" in claude_wins
+                 else "pink" if active else "teal")
+        if prev:
             cv.line(prev[0] + prev[1], sy, x - rad, sy, "dustrose")
         cv.circle(x, sy, rad, color)
         if active:
-            # center the name under its star; kit clamps it inside the canvas
             cv.text(wname, x=x, y=sy + 12, color="body", align="center",
                     max_w=min(2 * step if step else 80, 84))
         prev = (x, rad)
@@ -80,4 +62,3 @@ foot = f"{len(wins)} windows"
 if claude_wins:
     foot += f"  {len(claude_wins)} claude"
 cv.text(foot, 10, 225, color="dustrose")
-EOF
