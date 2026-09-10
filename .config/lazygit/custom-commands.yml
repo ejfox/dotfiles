@@ -1,0 +1,47 @@
+# Custom commands — kept OUT of config.yml so vulpes-theme-lab regens
+# can't wipe them (which happened once already). Loaded via LG_CONFIG_FILE
+# in .zshrc: config.yml,custom-commands.yml
+
+customCommands:
+  # AI commit, fzf flow — the original: big diff preview, fuzzy search
+  - key: a
+    context: files
+    description: "◆ AI commit (fzf + Claude)"
+    command: 'MSG=$(ai-commit) && git commit -m "$MSG"'
+    output: terminal
+
+  # AI commit, native lazygit menu — no terminal takeover, picks inline
+  - key: <c-a>
+    context: files
+    description: "◆ AI commit (inline menu)"
+    loadingText: "asking claude…"
+    prompts:
+      - type: menuFromCommand
+        title: "AI commit message"
+        key: Msg
+        command: ai-commit --suggest
+        filter: '(?P<msg>.+)'
+        valueFormat: '{{ .msg }}'
+        labelFormat: '{{ .msg }}'
+    command: git commit -m {{.Form.Msg | quote}}
+    output: log
+
+  # Same, but edit the message before committing
+  - key: <c-b>
+    context: files
+    description: "◆ AI commit (edit first)"
+    loadingText: "asking claude…"
+    prompts:
+      - type: menuFromCommand
+        title: "AI commit message (you'll edit next)"
+        key: Msg
+        command: ai-commit --suggest
+        filter: '(?P<msg>.+)'
+        valueFormat: '{{ .msg }}'
+        labelFormat: '{{ .msg }}'
+      - type: input
+        title: "Edit commit message"
+        key: Final
+        initialValue: '{{.Form.Msg}}'
+    command: git commit -m {{.Form.Final | quote}}
+    output: log

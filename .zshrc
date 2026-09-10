@@ -183,6 +183,10 @@ else
 fi
 [ -f ~/.config/fzf/current.sh ] && source ~/.config/fzf/current.sh
 
+# lazygit: theme (config.yml, theme-lab-generated) + custom commands kept in a
+# separate file so theme regens can't wipe the AI-commit bindings again
+export LG_CONFIG_FILE="$HOME/.config/lazygit/config.yml,$HOME/.config/lazygit/custom-commands.yml"
+
 # Muscle-memory shims for the retired vulpes-* switcher functions
 alias vulpes-dark='theme-dark'
 alias vulpes-light='theme-light'
@@ -347,8 +351,20 @@ ask() { pbpaste | llm "$*"; }
 # Explain last command output
 explain() { fc -e - | llm "explain this terminal output concisely"; }
 
-# Notify when long command finishes (use: sleep 10; ding)
-ding() { osascript -e "display notification \"Done\" with title \"Terminal\" sound name \"Glass\""; }
+# Notify when long command finishes (use: sleep 10; ding) — and the desk
+# reacts: success = teal ripple + "DING ok" on the pixel canvas, failure =
+# red + the exit code. Exit-status-aware because rc is captured first.
+ding() {
+  local rc=$?
+  if [ $rc -eq 0 ]; then
+    osascript -e "display notification \"Done\" with title \"Terminal\" sound name \"Glass\"" &
+    (~/.dotfiles/bin/desk-event ding "ok" >/dev/null 2>&1 &)
+  else
+    osascript -e "display notification \"Failed (exit $rc)\" with title \"Terminal\" sound name \"Basso\"" &
+    (~/.dotfiles/bin/desk-event error "exit $rc" >/dev/null 2>&1 &)
+  fi
+  return $rc
+}
 
 # Quick gist from clipboard
 gist() { pbpaste | gh gist create -f "${1:-snippet.txt}" -d "${2:-}" && echo "gisted"; }
