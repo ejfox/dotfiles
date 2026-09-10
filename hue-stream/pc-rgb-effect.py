@@ -13,9 +13,12 @@ local hue-stream daemon (UDP 127.0.0.1:9999) as {type:'screen', zones:[...]}
 — if the daemon is up in `screen` ambient, the Hue desk lights render the
 same wave. Skipped while screen-sync.py runs (the iMac screen wins).
 
-Event flashes: rgb-flash signals via /tmp/pc-rgb-flash ("R G B", mtime =
-trigger); the engine overrides all LEDs with that color for ~0.45s so
-desk-event pulses stay visible while an effect is running.
+Event flashes: rgb-flash signals via /tmp/pc-rgb-flash ("R G B [pattern]",
+mtime = trigger); the engine renders that pattern's brightness envelope over
+all LEDs so desk-event pulses stay visible while an effect is running.
+Patterns are a decodable grammar — pulse count = urgency, color = category:
+  fyi   1 soft blip       done   1 slow swell
+  needs 2 pulses          error  3 sharp strobes
 """
 import argparse, json, math, os, socket, subprocess, sys, time
 from openrgb import OpenRGBClient
@@ -25,8 +28,30 @@ PINK = (255, 0, 60)
 TEAL = (0, 230, 245)
 DAEMON = ("127.0.0.1", 9999)
 FLASH_FILE = "/tmp/pc-rgb-flash"
-FLASH_HOLD = 0.45
 ZONES = 5
+
+# Flash patterns: (peak brightness, [(seconds, lit?), ...]).
+# Each lit segment renders as a half-sine bump to peak; gaps go dark, so
+# pulses stay countable from across the room.
+FLASH_PATTERNS = {
+    "flat":  (1.0,  [(0.45, True)]),                                  # legacy
+    "fyi":   (0.55, [(0.35, True)]),
+    "done":  (1.0,  [(0.90, True)]),
+    "needs": (1.0,  [(0.22, True), (0.14, False), (0.22, True)]),
+    "error": (1.0,  [(0.12, True), (0.10, False), (0.12, True),
+                     (0.10, False), (0.12, True)]),
+}
+
+
+def flash_env(name, elapsed):
+    """Envelope brightness 0..1 at `elapsed`, or None once the pattern ends."""
+    peak, segs = FLASH_PATTERNS.get(name, FLASH_PATTERNS["flat"])
+    t = elapsed
+    for dur, lit in segs:
+        if t < dur:
+            return peak * math.sin(math.pi * (t / dur)) if lit else 0.0
+        t -= dur
+    return None
 
 
 def mix(a, b, t):
@@ -56,16 +81,22 @@ def connect(host, port):
 
 
 def flash_override():
-    """Return (r,g,b) if a recent rgb-flash signal should override, else None."""
+    """Return (r,g,b) for this frame of a live rgb-flash pattern, else None."""
     try:
         st = os.stat(FLASH_FILE)
-        if time.time() - st.st_mtime < FLASH_HOLD:
-            with open(FLASH_FILE) as f:
-                r, g, b = (int(v) for v in f.read().split()[:3])
-            return (r, g, b)
+        elapsed = time.time() - st.st_mtime
+        if elapsed > 3.0:
+            return None
+        with open(FLASH_FILE) as f:
+            parts = f.read().split()
+        r, g, b = (int(v) for v in parts[:3])
+        name = parts[3] if len(parts) > 3 else "flat"
+        env = flash_env(name, elapsed)
+        if env is None:
+            return None
+        return (int(r * env), int(g * env), int(b * env))
     except Exception:
-        pass
-    return None
+        return None
 
 
 def screensync_running():
