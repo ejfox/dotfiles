@@ -469,3 +469,4 @@
 (desk) pixel-live - 1s ticker on the canvas top-right: clock + "N need you" in hotpink (launchd KeepAlive daemon)
 (desk) two cadences: scenes rotate every 5 min (gallery pace, doodles survive a bit), ticker updates every second
 (desk) pixel find - re-discover the canvas after a DHCP shuffle (auto-runs if the ticker sees it dark ~2 min)
+(desk) pixel bloom - phyllotaxis day-clock: one golden-angle seed per 2 min, teal dawn -> pink dusk, white tip = now

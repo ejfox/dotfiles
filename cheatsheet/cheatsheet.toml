@@ -681,6 +681,7 @@ body = [
   { k = "rgb-flash <color|hex>", d = "manual single pulse (teal/white/RRGGBB)" },
   { k = "rgb-flash rest", d = "just set the pink resting state" },
   { k = "C-a u / C-a O", d = "tmux: flip scene / agent-fleet overview", hl = true },
+  { k = "pixel bloom", d = "phyllotaxis day-clock: seeds fill as the day does, white tip = now" },
   { div = true },
   { lbl = "desk events (lights ping, glass captions)" },
   { k = "desk-event <kind> [detail]", d = "RGB pulse + caption strip on canvas", hl = true },
