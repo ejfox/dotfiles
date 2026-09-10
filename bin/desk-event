@@ -65,7 +65,7 @@ px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev
 curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" \
   "${BASE}/info" 2>/dev/null | grep -q "^200$" || exit 0
 
-enc() { printf '%s' "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
+enc() { printf '%s' "$1" | sed 's/%/%25/g; s/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
 
 msg="$DETAIL"
 [ ${#msg} -gt 30 ] && msg="${msg:0:29}~"

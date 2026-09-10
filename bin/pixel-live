@@ -56,6 +56,12 @@ while true; do
     fx=$(( cx - 12 - fw ))
     px "rect?x=$((fx - 4))&y=0&w=$((fw + 8))&h=11&r=0&g=0&b=0"
     px "text?msg=$(printf '%s' "$fleet_txt" | sed 's/ /%20/g')&x=${fx}&y=2&size=1&color=hotpink"
+    last_fw=$fw
+  elif [ "${last_fw:-0}" -gt 0 ]; then
+    # count dropped to zero — erase the stale flag instead of leaving it lit
+    fx=$(( cx - 12 - last_fw ))
+    px "rect?x=$((fx - 4))&y=0&w=$((last_fw + 8))&h=11&r=0&g=0&b=0"
+    last_fw=0
   fi
 
   tick=$((tick + 1))

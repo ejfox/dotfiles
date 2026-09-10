@@ -48,10 +48,10 @@ class Canvas:
         self.failed = 0
         self.dead = False
         if preflight:  # fail fast when the device is dark (one 0.8s probe)
-            import socket, urllib.parse as _p
-            host = _p.urlparse(self.base).hostname
+            import socket
+            u = urllib.parse.urlparse(self.base)
             try:
-                socket.create_connection((host, 80), timeout=0.8).close()
+                socket.create_connection((u.hostname, u.port or 80), timeout=0.8).close()
             except OSError:
                 self.dead = True
 
