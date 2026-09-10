@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""email — how many emails you've sent this morning. Big number, hotter color
+the more you crank. Reads a cache refreshed by a Claude session with Gmail
+access (~/.local/state/pixel/email.json); the scene itself never touches the
+network. Stale/empty cache -> shows 0 quietly."""
+import os, sys, json, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect
+
+CACHE = os.path.expanduser("~/.local/state/pixel/email.json")
+
+count, updated = 0, ""
+try:
+    with open(CACHE) as f:
+        d = json.load(f)
+    # only count it if the cache is from today; a new morning resets to 0
+    if d.get("date") == time.strftime("%Y-%m-%d"):
+        count = int(d.get("count", 0))
+        updated = d.get("updated", "")
+except Exception:
+    pass
+
+# color + flavor scale with the grind
+if count == 0:
+    color, flavor = "dustrose", "inbox zero energy"
+elif count <= 2:
+    color, flavor = "teal", "warming up"
+elif count <= 5:
+    color, flavor = "pink", "cracked"
+elif count <= 9:
+    color, flavor = "hotpink", "on a tear"
+else:
+    color, flavor = "hotpink", "unhinged"
+
+cv = connect()
+cv.clear()
+cv.text("sent this morning", 10, 16, color="mauve")
+
+# the number, as big as it'll go
+cv.text(str(count), y=52, size=8, color=color, align="center")
+cv.text(flavor, y=150, color=color, align="center")
+
+# a row of ticks, one per email (cap the row so it never overflows)
+if count:
+    shown = min(count, 12)
+    step = 300 // max(shown, 1)
+    x0 = (320 - step * (shown - 1)) // 2 if shown > 1 else 160
+    for i in range(shown):
+        cv.rect(x0 + i * step - 3, 178, 6, 6, color=color)
+
+cv.rect(10, 200, 300, 1, color="dustrose")
+if updated:
+    cv.text(f"as of {updated}", 10, 210, color="dustrose")
+cv.text(time.strftime("%H:%M"), y=210, color="dustrose", align="right")
+
+sys.exit(0 if cv.ok else 1)

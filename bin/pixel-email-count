@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# pixel-email-count <N> — set the "sent this morning" count the email pixel
+# scene reads. Stamps today's date + current time so the scene knows it's
+# fresh (a new morning auto-resets to 0 because the date won't match).
+#
+# The scene can't query Gmail itself (no local gmail cli; runs headless under
+# launchd). So something with Gmail access refreshes it via this command —
+# e.g. a Claude session counting `in:sent after:<today>`, or a future poller.
+#
+#   pixel-email-count 5      # set today's count to 5 and redraw
+#   pixel-email-count 5 --quiet   # set without redrawing
+set -u
+N="${1:?usage: pixel-email-count <N> [--quiet]}"
+CACHE="$HOME/.local/state/pixel/email.json"
+mkdir -p "$(dirname "$CACHE")"
+printf '{"count": %d, "date": "%s", "updated": "%s"}\n' \
+  "$N" "$(date +%F)" "$(date +%H:%M)" > "$CACHE"
+[ "${2:-}" = "--quiet" ] || "$HOME/.dotfiles/bin/pixel" email >/dev/null 2>&1 || true
+echo "email count = $N (as of $(date +%H:%M))"
