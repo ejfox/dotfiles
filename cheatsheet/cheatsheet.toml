@@ -672,7 +672,7 @@ body = [
   { k = "pixel say \"msg\"", d = "push ad-hoc text to the glass", hl = true },
   { k = "pixel list / clear / ping", d = "scenes / blank it / reachable?" },
   { k = "pixel raw \"text?msg=hi&x=10&y=10\"", d = "raw draw API call" },
-  { n = "rotates a scene every 15 min via launchd · silent no-op when offline" },
+  { n = "rotates a scene every 5 min via launchd (doodles get absorbed) · silent no-op when offline" },
   { div = true },
   { lbl = "computah RGB (OpenRGB, resting vulpes pink)" },
   { k = "rgb-flash", d = "teal pulse then settle pink", hl = true },
