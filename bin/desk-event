@@ -33,12 +33,14 @@ esac
 # decodable code — color = category, pulse count = urgency:
 #   fyi 1 soft blip · done 1 slow swell · needs 2 pulses · error 3 strobes
 case "$KIND" in
-  needs)  COLOR="hotpink"; LABEL="NEEDS YOU"; EVENT="needs" ;;
-  error)  COLOR="red";     LABEL="ERROR";     EVENT="error" ;;
-  claude) COLOR="teal";    LABEL="CLAUDE";    EVENT="done" ;;
-  *)      COLOR="teal";    EVENT="fyi"
+  needs)  LABEL="NEEDS YOU"; EVENT="needs" ;;
+  error)  LABEL="ERROR";     EVENT="error" ;;
+  claude) LABEL="CLAUDE";    EVENT="done" ;;
+  *)      EVENT="fyi"
           LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
 esac
+# Caption accent comes from the shared grammar table (same color the lights use)
+COLOR=$(jq -r ".events.\"$EVENT\".color // \"teal\"" "$HOME/.dotfiles/lib/desk-flash-patterns.json" 2>/dev/null || echo teal)
 
 # 1) Lights — rgb-flash has its own debounce (needs/error punch through)
 "$HOME/.dotfiles/bin/rgb-flash" "$EVENT" >/dev/null 2>&1 &
@@ -53,7 +55,8 @@ if [ "$KIND" != "needs" ] && [ -f "$STAMP" ]; then
 fi
 touch "$STAMP"
 
-DEVICE="${PIXEL_CANVAS_HOST:-$(cat "$HOME/.config/pixel-canvas-host" 2>/dev/null || echo 10.0.0.103)}"
+. "$HOME/.dotfiles/lib/pixel-host.sh"
+DEVICE=$(pixel_host)
 BASE="http://${DEVICE}"
 
 px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }

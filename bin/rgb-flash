@@ -56,24 +56,22 @@ import json, os, socket, subprocess, sys, time
 
 host, port, arg = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 
-NAMED = {
-    "pink":    (0xe6, 0x00, 0x67),  # vulpes resting state
-    "teal":    (0x6e, 0xed, 0xf7),
-    "hotpink": (0xff, 0x1a, 0xca),
-    "red":     (0xff, 0x10, 0x43),
-    "white":   (0xf5, 0xf5, 0xf5),
-    "off":     (0x00, 0x00, 0x00),
-}
-
-# Event grammar: color = category, pulse count = urgency.
-# name: (color, pattern, pulse timings [(secs, lit)], peak 0-1)
-EVENTS = {
-    "fyi":   ("teal",    "fyi",   [(0.35, True)], 0.55),
-    "done":  ("teal",    "done",  [(0.90, True)], 1.0),
-    "needs": ("hotpink", "needs", [(0.22, True), (0.14, False), (0.22, True)], 1.0),
-    "error": ("red",     "error", [(0.12, True), (0.10, False), (0.12, True),
-                                   (0.10, False), (0.12, True)], 1.0),
-}
+# Colors + event grammar come from the shared table (one source of truth,
+# also read by pc-rgb-effect.py and desk-event).
+GRAMMAR_FILE = os.path.expanduser("~/.dotfiles/lib/desk-flash-patterns.json")
+try:
+    with open(GRAMMAR_FILE) as f:
+        _g = json.load(f)
+    NAMED = {k: tuple(v) for k, v in _g["palette"].items()}
+    REST_NAME = _g.get("rest", "pink")
+    EVENTS = {name: (ev["color"], name,
+                     [(float(d), bool(lit)) for d, lit in ev["segs"]],
+                     float(ev.get("peak", 1.0)))
+              for name, ev in _g["events"].items()}
+except Exception:
+    NAMED = {"pink": (0xe6, 0x00, 0x67), "teal": (0x6e, 0xed, 0xf7), "off": (0, 0, 0)}
+    REST_NAME = "pink"
+    EVENTS = {}
 
 def parse(c):
     if c in NAMED:
@@ -86,7 +84,7 @@ def parse(c):
             pass
     return NAMED["teal"]
 
-REST = NAMED["pink"]
+REST = NAMED[REST_NAME]
 if arg in EVENTS:
     cname, pattern, segs, peak = EVENTS[arg]
     rgb = NAMED[cname]

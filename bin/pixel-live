@@ -10,8 +10,8 @@
 
 set -u
 
-resolve() { echo "${PIXEL_CANVAS_HOST:-$(cat "$HOME/.config/pixel-canvas-host" 2>/dev/null || echo 10.0.0.103)}"; }
-DEVICE=$(resolve)
+. "$HOME/.dotfiles/lib/pixel-host.sh"
+DEVICE=$(pixel_host)
 BASE="http://${DEVICE}"
 
 px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }
@@ -29,7 +29,7 @@ while true; do
     # ~2 min dark -> assume DHCP shuffled the IP; rediscover and re-resolve
     if [ $((down % 4)) -eq 0 ]; then
       "$HOME/.dotfiles/bin/pixel" find >/dev/null 2>&1 || true
-      DEVICE=$(resolve); BASE="http://${DEVICE}"
+      DEVICE=$(pixel_host); BASE="http://${DEVICE}"
     fi
     sleep 30; continue
   fi

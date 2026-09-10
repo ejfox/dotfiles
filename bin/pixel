@@ -15,8 +15,9 @@ set -u
 
 # Host resolution: env override > cached discovery > last-known default.
 # `pixel find` re-discovers after a DHCP shuffle and updates the cache.
-HOST_CACHE="$HOME/.config/pixel-canvas-host"
-DEVICE="${PIXEL_CANVAS_HOST:-$(cat "$HOST_CACHE" 2>/dev/null || echo 10.0.0.103)}"
+. "$HOME/.dotfiles/lib/pixel-host.sh"
+HOST_CACHE="$PIXEL_HOST_CACHE"
+DEVICE=$(pixel_host)
 BASE="http://${DEVICE}"
 SCENES_DIR="${PIXEL_SCENES_DIR:-$HOME/.dotfiles/bin/pixel-scenes}"
 

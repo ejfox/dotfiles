@@ -32,15 +32,17 @@ ZONES = 5
 
 # Flash patterns: (peak brightness, [(seconds, lit?), ...]).
 # Each lit segment renders as a half-sine bump to peak; gaps go dark, so
-# pulses stay countable from across the room.
-FLASH_PATTERNS = {
-    "flat":  (1.0,  [(0.45, True)]),                                  # legacy
-    "fyi":   (0.55, [(0.35, True)]),
-    "done":  (1.0,  [(0.90, True)]),
-    "needs": (1.0,  [(0.22, True), (0.14, False), (0.22, True)]),
-    "error": (1.0,  [(0.12, True), (0.10, False), (0.12, True),
-                     (0.10, False), (0.12, True)]),
-}
+# pulses stay countable from across the room. Loaded from the shared
+# grammar table (also read by rgb-flash + desk-event); "flat" is the
+# built-in legacy fallback.
+FLASH_PATTERNS = {"flat": (1.0, [(0.45, True)])}
+try:
+    with open(os.path.expanduser("~/.dotfiles/lib/desk-flash-patterns.json")) as _f:
+        for _name, _ev in json.load(_f)["events"].items():
+            FLASH_PATTERNS[_name] = (float(_ev.get("peak", 1.0)),
+                                     [(float(d), bool(lit)) for d, lit in _ev["segs"]])
+except Exception:
+    pass
 
 
 def flash_env(name, elapsed):

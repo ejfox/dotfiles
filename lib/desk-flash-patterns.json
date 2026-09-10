@@ -1,0 +1,18 @@
+{
+  "_comment": "Single source of truth for the desk light grammar. Consumed by bin/rgb-flash (colors + patterns), hue-stream/pc-rgb-effect.py (patterns), and bin/desk-event (caption colors via jq). color = category, pulse count = urgency.",
+  "palette": {
+    "pink":    [230, 0, 103],
+    "teal":    [110, 237, 247],
+    "hotpink": [255, 26, 202],
+    "red":     [255, 16, 67],
+    "white":   [245, 245, 245],
+    "off":     [0, 0, 0]
+  },
+  "rest": "pink",
+  "events": {
+    "fyi":   { "color": "teal",    "peak": 0.55, "segs": [[0.35, true]] },
+    "done":  { "color": "teal",    "peak": 1.0,  "segs": [[0.90, true]] },
+    "needs": { "color": "hotpink", "peak": 1.0,  "segs": [[0.22, true], [0.14, false], [0.22, true]] },
+    "error": { "color": "red",     "peak": 1.0,  "segs": [[0.12, true], [0.10, false], [0.12, true], [0.10, false], [0.12, true]] }
+  }
+}
