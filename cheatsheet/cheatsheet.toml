@@ -28,6 +28,90 @@
 title = "ejfox cheatsheet"
 
 # ═══════════════════════════════════════════════════════════════════════
+# TALON VOICE — verified against ~/.talon/user/community + talon-overrides
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Talon — Deleting"
+open = true
+body = [
+  { n = 'the delete word is **clear** — say *clear* + any target. the one you keep forgetting: **clear all**.' },
+  { k = "clear all", d = "delete EVERYTHING (whole doc)", hl = true },
+  { k = "clear line", d = "delete current line", hl = true },
+  { k = "clear word", d = "delete word at cursor" },
+  { k = "clear paragraph", d = "delete paragraph" },
+  { k = "clear way left / way right", d = "delete to line start / end" },
+  { k = "clear left 3 words", d = "delete back N words (dictation)" },
+  { k = "wipe / delete", d = "backspace, one keypress" },
+  { div = true },
+  { k = "scratch that / nope that", d = "undo last utterance", hl = true },
+  { k = "undo that / redo that", d = "app undo / redo" },
+  { lbl = "in the terminal (ghostty)" },
+  { k = "wipe", d = "kill whole line (C-u)", hl = true },
+  { k = "wipe word / wipe back", d = "kill word behind (C-w)" },
+  { k = "wipe ahead", d = "kill to end of line (C-k)" },
+  { k = "chomp", d = "kill 10 words back" },
+  { o = "grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Talon — Say & Modes"
+open = true
+body = [
+  { k = "talk", d = "→ dictation mode", hl = true },
+  { k = "command mode", d = "→ command mode", hl = true },
+  { k = "talon sleep / talon wake", d = "mic off / on" },
+  { div = true },
+  { k = "phrase hello world", d = "type words (command mode)" },
+  { k = "say … / sentence …", d = "prose / Capitalized prose" },
+  { k = "title …", d = "Capitalize All Words" },
+  { k = "camel / snake / kebab …", d = "identifier formatters" },
+  { k = "smash / all cap …", d = "nospaces / ALLCAPS" },
+  { k = "camel that", d = "reformat selection (any formatter)" },
+  { div = true },
+  { k = "select all / line / word", d = "same targets as clear" },
+  { k = "copy that / cut that", d = "clipboard out" },
+  { k = "paste that / paste match", d = "clipboard in / match style" },
+  { k = "go way up / way down", d = "top / bottom of file" },
+  { k = "head / tail", d = "line start / end" },
+  { k = "press cmd shift alpha", d = "any chord, NATO letters" },
+  { n = 'letters are **NATO**: alpha bravo charlie delta… (your override)' },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Talon — Apps, Windows, Tmux"
+open = true
+body = [
+  { k = "slap / go ahead / send it", d = "press enter", hl = true },
+  { k = "cancel / bail", d = "ctrl-c" },
+  { k = "dismiss", d = "escape" },
+  { k = "confirm / deny", d = "y / n" },
+  { div = true },
+  { k = "open ghostty / chrome / slack…", d = "focus app" },
+  { k = "window left / right", d = "snap half (divvy)" },
+  { k = "snap full / window expand", d = "fullscreen" },
+  { k = "send to screen two", d = "move + maximize" },
+  { k = "desk left / desk right", d = "switch spaces" },
+  { k = "hide this / quit this", d = "cmd-h / cmd-q" },
+  { div = true },
+  { k = "mux 2 / mux next / mux last", d = "tmux windows" },
+  { k = "mux left / right / up / down", d = "tmux panes" },
+  { k = "mux new / mux close", d = "window create / kill" },
+  { div = true },
+  { k = "last command / run again", d = "↑ / ↑ + enter" },
+  { k = "search history", d = "ctrl-r (fzf)" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
 
 [[section]]
 tone = "accent"
@@ -543,4 +627,55 @@ body = [
   { k = "R", d = "refresh" },
   { k = "W", d = "diff options menu" },
   { k = "C-w", d = "toggle whitespace" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "AI Commits + Agent Fleet"
+open = false
+body = [
+  { lbl = "lazygit (files panel)" },
+  { k = "a", d = "AI commit — fzf picker with diff preview", hl = true },
+  { k = "C-a", d = "AI commit — inline lazygit menu" },
+  { k = "C-b", d = "AI commit — edit message before commit" },
+  { div = true },
+  { lbl = "watch every agent (~/code/robots, homegrown)" },
+  { k = "robots", d = "live TUI of ALL claude agents on the box", hl = true },
+  { k = "robots -t", d = "counts for tmux status bar: ◇1 ◆2 ●7" },
+  { n = "in TUI: *j/k* move · *enter* jump to pane · *s* sort · *q* quit" },
+  { o = "◇ needs you · ◆ working · ● idle — no hooks, works retroactively" },
+  { div = true },
+  { lbl = "worktree agents (workmux)" },
+  { k = "workmux add <name>", d = "worktree + tmux window for an agent" },
+  { k = "workmux merge", d = "merge branch, tear down window/worktree" },
+  { k = "workmux dashboard", d = "TUI — only workmux-spawned worktrees" },
+  { div = true },
+  { lbl = "research visibility" },
+  { k = "fleet-watch", d = "3×3 live panes of workflow subagents" },
+  { k = "chrome-grid <urls>", d = "one Chrome window per URL, auto-tiled" },
+  { k = "chrome-grid --tile", d = "re-tile all existing Chrome windows" },
+  { o = "AI-commit custom cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Desk Hardware — Pixel Canvas + RGB"
+open = false
+body = [
+  { lbl = "pixel canvas (ESP32 desk display, 10.0.0.103)" },
+  { k = "pixel", d = "draw a random scene now", hl = true },
+  { k = "pixel say \"msg\"", d = "push ad-hoc text to the glass", hl = true },
+  { k = "pixel list / clear / ping", d = "scenes / blank it / reachable?" },
+  { k = "pixel raw \"text?msg=hi&x=10&y=10\"", d = "raw draw API call" },
+  { n = "rotates a scene every 15 min via launchd · silent no-op when offline" },
+  { div = true },
+  { lbl = "computah RGB (OpenRGB, resting vulpes pink)" },
+  { k = "rgb-flash", d = "teal pulse then settle pink", hl = true },
+  { k = "rgb-flash <color|hex>", d = "pulse any color (teal/white/red/RRGGBB)" },
+  { k = "rgb-flash rest", d = "just set the pink resting state" },
+  { o = "auto-fires on tmux bell/activity + when claude finishes a turn (2s debounce)" },
 ]

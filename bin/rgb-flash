@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# rgb-flash — pulse computah's RGBs a color, then settle back to vulpes pink.
+#
+# Usage:
+#   rgb-flash              # teal pulse -> pink rest
+#   rgb-flash <color>      # named color or RRGGBB hex pulse -> pink rest
+#   rgb-flash rest         # no pulse, just set the pink resting state
+#
+# Silent + instant no-op if computah/OpenRGB is unreachable (safe for hooks).
+# Debounced: overlapping calls within 2s collapse into one flash.
+
+set -u
+
+HOST="${OPENRGB_HOST:-10.0.0.169}"
+PORT="${OPENRGB_PORT:-6742}"
+VENV_PY="$HOME/.local/share/rgb-venv/bin/python3"
+STAMP="/tmp/rgb-flash.last"
+
+COLOR="${1:-teal}"
+
+# Debounce (skip if a flash ran <2s ago; 'rest' always allowed)
+if [ "$COLOR" != "rest" ] && [ -f "$STAMP" ]; then
+  now=$(date +%s); last=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
+  [ $((now - last)) -lt 2 ] && exit 0
+fi
+touch "$STAMP"
+
+exec "$VENV_PY" - "$HOST" "$PORT" "$COLOR" <<'EOF' >/dev/null 2>&1
+import socket, sys, time
+
+host, port, color = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+
+# Fast reachability gate so hooks never hang
+try:
+    socket.create_connection((host, port), timeout=0.5).close()
+except OSError:
+    sys.exit(0)
+
+from openrgb import OpenRGBClient
+from openrgb.utils import RGBColor
+
+NAMED = {
+    "pink":    (0xe6, 0x00, 0x67),  # vulpes resting state
+    "teal":    (0x6e, 0xed, 0xf7),
+    "hotpink": (0xff, 0x1a, 0xca),
+    "red":     (0xff, 0x10, 0x43),
+    "white":   (0xf5, 0xf5, 0xf5),
+    "off":     (0x00, 0x00, 0x00),
+}
+
+def parse(c):
+    if c in NAMED:
+        return RGBColor(*NAMED[c])
+    c = c.lstrip("#")
+    if len(c) == 6:
+        try:
+            return RGBColor(int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
+        except ValueError:
+            pass
+    return RGBColor(*NAMED["teal"])
+
+REST = RGBColor(*NAMED["pink"])
+
+client = OpenRGBClient(host, port, "rgb-flash")
+
+def paint(col):
+    for d in client.devices:
+        try:
+            d.set_color(col)
+        except Exception:
+            pass
+
+for d in client.devices:
+    try:
+        d.set_mode("Direct")
+    except Exception:
+        pass
+
+if color == "rest":
+    paint(REST)
+else:
+    paint(parse(color))
+    time.sleep(0.4)
+    paint(REST)
+
+client.disconnect()
+EOF

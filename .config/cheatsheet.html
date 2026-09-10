@@ -255,6 +255,77 @@
 <!-- ═══════════════════════════════════════════ -->
 
 <details class="accent" open data-tool="both">
+  <summary>Talon — Deleting</summary>
+  <div class="c">
+    <div class="n">the delete word is <b>clear</b> — say <em>clear</em> + any target. the one you keep forgetting: <b>clear all</b>.</div>
+    <div class="r dd"><kbd>clear all</kbd><span class="d">delete EVERYTHING (whole doc)</span></div>
+    <div class="r dd"><kbd>clear line</kbd><span class="d">delete current line</span></div>
+    <div class="r"><kbd>clear word</kbd><span class="d">delete word at cursor</span></div>
+    <div class="r"><kbd>clear paragraph</kbd><span class="d">delete paragraph</span></div>
+    <div class="r"><kbd>clear way left / way right</kbd><span class="d">delete to line start / end</span></div>
+    <div class="r"><kbd>clear left 3 words</kbd><span class="d">delete back N words (dictation)</span></div>
+    <div class="r"><kbd>wipe / delete</kbd><span class="d">backspace, one keypress</span></div>
+    <div class="div"></div>
+    <div class="r dd"><kbd>scratch that / nope that</kbd><span class="d">undo last utterance</span></div>
+    <div class="r"><kbd>undo that / redo that</kbd><span class="d">app undo / redo</span></div>
+    <div class="lbl">in the terminal (ghostty)</div>
+    <div class="r dd"><kbd>wipe</kbd><span class="d">kill whole line (C-u)</span></div>
+    <div class="r"><kbd>wipe word / wipe back</kbd><span class="d">kill word behind (C-w)</span></div>
+    <div class="r"><kbd>wipe ahead</kbd><span class="d">kill to end of line (C-k)</span></div>
+    <div class="r"><kbd>chomp</kbd><span class="d">kill 10 words back</span></div>
+    <div class="o">grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…</div>
+  </div>
+</details>
+
+<details class="accent" open data-tool="both">
+  <summary>Talon — Say &amp; Modes</summary>
+  <div class="c">
+    <div class="r dd"><kbd>talk</kbd><span class="d">→ dictation mode</span></div>
+    <div class="r dd"><kbd>command mode</kbd><span class="d">→ command mode</span></div>
+    <div class="r"><kbd>talon sleep / talon wake</kbd><span class="d">mic off / on</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>phrase hello world</kbd><span class="d">type words (command mode)</span></div>
+    <div class="r"><kbd>say … / sentence …</kbd><span class="d">prose / Capitalized prose</span></div>
+    <div class="r"><kbd>title …</kbd><span class="d">Capitalize All Words</span></div>
+    <div class="r"><kbd>camel / snake / kebab …</kbd><span class="d">identifier formatters</span></div>
+    <div class="r"><kbd>smash / all cap …</kbd><span class="d">nospaces / ALLCAPS</span></div>
+    <div class="r"><kbd>camel that</kbd><span class="d">reformat selection (any formatter)</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>select all / line / word</kbd><span class="d">same targets as clear</span></div>
+    <div class="r"><kbd>copy that / cut that</kbd><span class="d">clipboard out</span></div>
+    <div class="r"><kbd>paste that / paste match</kbd><span class="d">clipboard in / match style</span></div>
+    <div class="r"><kbd>go way up / way down</kbd><span class="d">top / bottom of file</span></div>
+    <div class="r"><kbd>head / tail</kbd><span class="d">line start / end</span></div>
+    <div class="r"><kbd>press cmd shift alpha</kbd><span class="d">any chord, NATO letters</span></div>
+    <div class="n">letters are <b>NATO</b>: alpha bravo charlie delta… (your override)</div>
+  </div>
+</details>
+
+<details class="accent" open data-tool="both">
+  <summary>Talon — Apps, Windows, Tmux</summary>
+  <div class="c">
+    <div class="r dd"><kbd>slap / go ahead / send it</kbd><span class="d">press enter</span></div>
+    <div class="r"><kbd>cancel / bail</kbd><span class="d">ctrl-c</span></div>
+    <div class="r"><kbd>dismiss</kbd><span class="d">escape</span></div>
+    <div class="r"><kbd>confirm / deny</kbd><span class="d">y / n</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>open ghostty / chrome / slack…</kbd><span class="d">focus app</span></div>
+    <div class="r"><kbd>window left / right</kbd><span class="d">snap half (divvy)</span></div>
+    <div class="r"><kbd>snap full / window expand</kbd><span class="d">fullscreen</span></div>
+    <div class="r"><kbd>send to screen two</kbd><span class="d">move + maximize</span></div>
+    <div class="r"><kbd>desk left / desk right</kbd><span class="d">switch spaces</span></div>
+    <div class="r"><kbd>hide this / quit this</kbd><span class="d">cmd-h / cmd-q</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>mux 2 / mux next / mux last</kbd><span class="d">tmux windows</span></div>
+    <div class="r"><kbd>mux left / right / up / down</kbd><span class="d">tmux panes</span></div>
+    <div class="r"><kbd>mux new / mux close</kbd><span class="d">window create / kill</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>last command / run again</kbd><span class="d">↑ / ↑ + enter</span></div>
+    <div class="r"><kbd>search history</kbd><span class="d">ctrl-r (fzf)</span></div>
+  </div>
+</details>
+
+<details class="accent" open data-tool="both">
   <summary>ejfox Workflow</summary>
   <div class="c">
     <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: lazygit popup</span></div>
@@ -687,6 +758,51 @@
     <div class="r"><kbd>R</kbd><span class="d">refresh</span></div>
     <div class="r"><kbd>W</kbd><span class="d">diff options menu</span></div>
     <div class="r"><kbd>C-w</kbd><span class="d">toggle whitespace</span></div>
+  </div>
+</details>
+
+<details class="accent" data-tool="both">
+  <summary>AI Commits + Agent Fleet</summary>
+  <div class="c">
+    <div class="lbl">lazygit (files panel)</div>
+    <div class="r dd"><kbd>a</kbd><span class="d">AI commit — fzf picker with diff preview</span></div>
+    <div class="r"><kbd>C-a</kbd><span class="d">AI commit — inline lazygit menu</span></div>
+    <div class="r"><kbd>C-b</kbd><span class="d">AI commit — edit message before commit</span></div>
+    <div class="div"></div>
+    <div class="lbl">watch every agent (~/code/robots, homegrown)</div>
+    <div class="r dd"><kbd>robots</kbd><span class="d">live TUI of ALL claude agents on the box</span></div>
+    <div class="r"><kbd>robots -t</kbd><span class="d">counts for tmux status bar: ◇1 ◆2 ●7</span></div>
+    <div class="n">in TUI: <em>j/k</em> move · <em>enter</em> jump to pane · <em>s</em> sort · <em>q</em> quit</div>
+    <div class="o">◇ needs you · ◆ working · ● idle — no hooks, works retroactively</div>
+    <div class="div"></div>
+    <div class="lbl">worktree agents (workmux)</div>
+    <div class="r"><kbd>workmux add &lt;name&gt;</kbd><span class="d">worktree + tmux window for an agent</span></div>
+    <div class="r"><kbd>workmux merge</kbd><span class="d">merge branch, tear down window/worktree</span></div>
+    <div class="r"><kbd>workmux dashboard</kbd><span class="d">TUI — only workmux-spawned worktrees</span></div>
+    <div class="div"></div>
+    <div class="lbl">research visibility</div>
+    <div class="r"><kbd>fleet-watch</kbd><span class="d">3×3 live panes of workflow subagents</span></div>
+    <div class="r"><kbd>chrome-grid &lt;urls&gt;</kbd><span class="d">one Chrome window per URL, auto-tiled</span></div>
+    <div class="r"><kbd>chrome-grid --tile</kbd><span class="d">re-tile all existing Chrome windows</span></div>
+    <div class="o">AI-commit custom cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)</div>
+  </div>
+</details>
+
+<details class="accent" data-tool="both">
+  <summary>Desk Hardware — Pixel Canvas + RGB</summary>
+  <div class="c">
+    <div class="lbl">pixel canvas (ESP32 desk display, 10.0.0.103)</div>
+    <div class="r dd"><kbd>pixel</kbd><span class="d">draw a random scene now</span></div>
+    <div class="r dd"><kbd>pixel say "msg"</kbd><span class="d">push ad-hoc text to the glass</span></div>
+    <div class="r"><kbd>pixel list / clear / ping</kbd><span class="d">scenes / blank it / reachable?</span></div>
+    <div class="r"><kbd>pixel raw "text?msg=hi&amp;x=10&amp;y=10"</kbd><span class="d">raw draw API call</span></div>
+    <div class="n">rotates a scene every 15 min via launchd · silent no-op when offline</div>
+    <div class="div"></div>
+    <div class="lbl">computah RGB (OpenRGB, resting vulpes pink)</div>
+    <div class="r dd"><kbd>rgb-flash</kbd><span class="d">teal pulse then settle pink</span></div>
+    <div class="r"><kbd>rgb-flash &lt;color|hex&gt;</kbd><span class="d">pulse any color (teal/white/red/RRGGBB)</span></div>
+    <div class="r"><kbd>rgb-flash rest</kbd><span class="d">just set the pink resting state</span></div>
+    <div class="o">auto-fires on tmux bell/activity + when claude finishes a turn (2s debounce)</div>
   </div>
 </details>
 
