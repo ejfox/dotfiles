@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# pixel-live — the canvas's second-to-second layer. A persistent loop that
+# paints a tiny ticker in the top-right corner: HH:MM:SS clock every second,
+# agent-fleet counts every 5s (hotpink when someone needs you).
+#
+# Scenes repaint the whole screen on rotation; the ticker just redraws itself
+# a beat later. Local data only (clock + robots -t) — nothing external.
+# Backs off to 30s polling while the device is offline. Run via launchd
+# (com.ejfox.pixel-live, KeepAlive).
+
+set -u
+
+DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
+BASE="http://${DEVICE}"
+
+px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }
+alive() {
+  curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" \
+    "${BASE}/info" 2>/dev/null | grep -q "^200$"
+}
+
+tick=0
+fleet=""
+while true; do
+  if ! alive; then sleep 30; continue; fi
+
+  # fleet counts every 5th tick ("◇1 ◆2 ●11" -> needs/working)
+  if [ $((tick % 5)) -eq 0 ]; then
+    counts=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null || true)
+    needs=$(printf '%s' "$counts" | sed -En 's/.*◇([0-9]+).*/\1/p'); needs=${needs:-0}
+    work=$(printf '%s' "$counts"  | sed -En 's/.*◆([0-9]+).*/\1/p'); work=${work:-0}
+    fleet=""
+    [ "$needs" -gt 0 ] && fleet="${needs}%20need%20you"
+  fi
+
+  # top-right ticker: black backing bar, clock, fleet flag
+  now=$(date +%H%%3A%M%%3A%S)
+  px "rect?x=250&y=0&w=70&h=11&r=0&g=0&b=0"
+  px "text?msg=${now}&x=254&y=2&size=1&color=teal"
+  if [ -n "$fleet" ]; then
+    px "rect?x=160&y=0&w=90&h=11&r=0&g=0&b=0"
+    px "text?msg=${fleet}&x=170&y=2&size=1&color=hotpink"
+  fi
+
+  tick=$((tick + 1))
+  sleep 1
+done

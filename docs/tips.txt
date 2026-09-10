@@ -466,3 +466,5 @@
 (desk) color grammar: hotpink = claude needs you, teal = FYI, red = error - same on PC, hue, canvas
 (desk) rgb-flash <color|hex|rest> - bare lights primitive (PC + hue flash, no caption)
 (desk) pixel / pixel say "msg" / pixel fleet - desk display; C-a u = flip scene, C-a O = agent fleet
+(desk) pixel-live - 1s ticker on the canvas top-right: clock + "N need you" in hotpink (launchd KeepAlive daemon)
+(desk) two cadences: scenes rotate every 5 min (gallery pace, doodles survive a bit), ticker updates every second
