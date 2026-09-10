@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# claude-log-ship — ship local Claude fleet events to the VPS Loki so they
+# sit in Grafana next to Coach Artie / OSINT logs.
+#
+#   claude-log-ship            ship any new lines since last run
+#   claude-log-ship --status   show what's shipped vs pending
+#
+# Source: ~/.local/share/usage-logs/claude/YYYY-MM-DD.jsonl (the log-event.py
+# hook's output). Ships ONLY new bytes since the last run (offset tracked in
+# ~/.local/state/claude-log-ship/), so it's cheap to run often and never
+# double-sends. Pushes straight to Loki's HTTP API over SSH — deliberately
+# does NOT touch promtail (its config mount on the VPS is fragile).
+#
+# Labels kept low-cardinality: job=claude_fleet, host=<this machine>. The
+# event type, session, cwd, command, etc. stay in the JSON line, queryable
+# in Grafana with:  {job="claude_fleet"} | json | event="PostToolUseFailure"
+#
+# Offline-safe: if the VPS is unreachable the offset is NOT advanced, so the
+# lines ship on the next successful run. Silent no-op, safe for cron/launchd.
+
+set -u
+
+LOG_DIR="$HOME/.local/share/usage-logs/claude"
+STATE_DIR="$HOME/.local/state/claude-log-ship"
+VPS="${CLAUDE_LOG_VPS:-vps}"
+HOSTLABEL="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
+mkdir -p "$STATE_DIR"
+
+today="$(date +%F)"
+FILE="$LOG_DIR/$today.jsonl"
+
+if [ "${1:-}" = "--status" ]; then
+  for f in "$LOG_DIR"/*.jsonl; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    size=$(stat -f %z "$f" 2>/dev/null || echo 0)
+    off=$(cat "$STATE_DIR/$base.offset" 2>/dev/null || echo 0)
+    printf "%s  shipped %s / %s bytes  (%s pending)\n" \
+      "$base" "$off" "$size" "$((size - off))"
+  done
+  exit 0
+fi
+
+[ -f "$FILE" ] || exit 0
+
+base=$(basename "$FILE")
+OFFSET_FILE="$STATE_DIR/$base.offset"
+offset=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
+size=$(stat -f %z "$FILE" 2>/dev/null || echo 0)
+
+# Log rotated/truncated under us (new day, edited) -> reship from start.
+[ "$offset" -gt "$size" ] && offset=0
+[ "$offset" -eq "$size" ] && exit 0
+
+# Build the Loki push payload from just the new tail, then send. python does
+# the ISO->nanos conversion and JSON assembly; nothing ships if there are no
+# valid lines.
+payload=$(tail -c +"$((offset + 1))" "$FILE" | HOSTLABEL="$HOSTLABEL" python3 -c '
+import sys, os, json, datetime
+host = os.environ["HOSTLABEL"]
+values = []
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        obj = json.loads(line)
+        dt = datetime.datetime.fromisoformat(obj["ts"])
+        ns = str(int(dt.timestamp() * 1_000_000_000))
+    except Exception:
+        ns = str(int(datetime.datetime.now().timestamp() * 1_000_000_000))
+    values.append([ns, line])
+if not values:
+    sys.exit(3)
+# Loki wants ascending timestamps within a stream.
+values.sort(key=lambda v: v[0])
+json.dump({"streams": [{"stream": {"job": "claude_fleet", "host": host},
+                        "values": values}]}, sys.stdout)
+')
+rc=$?
+[ $rc -eq 3 ] && { printf '%s' "$size" > "$OFFSET_FILE"; exit 0; }  # only blanks
+[ $rc -ne 0 ] || [ -z "$payload" ] && exit 0
+
+# Push via SSH -> localhost Loki. Advance the offset ONLY on HTTP 204.
+code=$(printf '%s' "$payload" | ssh -o ConnectTimeout=8 "$VPS" \
+  'curl -s -o /dev/null -w "%{http_code}" -XPOST http://localhost:3100/loki/api/v1/push \
+     -H "Content-Type: application/json" --data-binary @-' 2>/dev/null)
+
+if [ "$code" = "204" ]; then
+  printf '%s' "$size" > "$OFFSET_FILE"
+fi
+exit 0
