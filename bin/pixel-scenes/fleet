@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Agent fleet: how many claude agents need you / are working / idle,
+# plus which tmux windows they live in. Counts come from `robots -t`.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+
+px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${PIXEL_BASE}/$1" 2>/dev/null || true; }
+command -v tmux >/dev/null || exit 0
+
+COUNTS=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null) || exit 0
+[ -z "$COUNTS" ] && exit 0
+
+# "◇1 ◆2 ●7" -> 1 / 2 / 7
+NEEDS=$(printf '%s' "$COUNTS"   | sed -En 's/.*◇([0-9]+).*/\1/p'); NEEDS=${NEEDS:-0}
+WORKING=$(printf '%s' "$COUNTS" | sed -En 's/.*◆([0-9]+).*/\1/p'); WORKING=${WORKING:-0}
+IDLE=$(printf '%s' "$COUNTS"    | sed -En 's/.*●([0-9]+).*/\1/p'); IDLE=${IDLE:-0}
+
+enc() { printf '%s' "$1" | sed 's/ /%20/g; s/:/%3A/g'; }
+
+px "clear"
+px "text?msg=$(enc "agent fleet")&x=10&y=15&color=mauve&size=1"
+
+# Three columns of counts — needs-you glows hotpink when nonzero
+NCOLOR="dustrose"; [ "$NEEDS" -gt 0 ] && NCOLOR="hotpink"
+px "text?msg=${NEEDS}&x=35&y=50&color=${NCOLOR}&size=5"
+px "text?msg=$(enc "needs you")&x=25&y=95&color=${NCOLOR}&size=1"
+
+px "text?msg=${WORKING}&x=145&y=50&color=pink&size=5"
+px "text?msg=working&x=135&y=95&color=mauve&size=1"
+
+px "text?msg=${IDLE}&x=250&y=50&color=teal&size=5"
+px "text?msg=idle&x=252&y=95&color=mauve&size=1"
+
+px "rect?x=10&y=115&w=300&h=1&color=dustrose"
+
+# Where the agents live: tmux windows running claude, with repo names
+Y=130
+tmux list-panes -a -F '#{session_name}:#{window_index} #{pane_current_command} #{pane_current_path}' 2>/dev/null \
+  | awk '$2 ~ /claude/ {print $1, $3}' | head -6 \
+  | while read -r win path; do
+      row="${win} $(basename "$path")"
+      [ ${#row} -gt 34 ] && row="${row:0:33}~"
+      px "text?msg=$(enc "$row")&x=15&y=${Y}&color=body&size=1"
+      Y=$((Y + 14))
+    done
+
+px "text?msg=$(date +%H%%3A%M)&x=284&y=225&size=1&color=dustrose"

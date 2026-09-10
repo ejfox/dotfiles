@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# desk-event — one entry point for "something interesting happened":
+# pulses computah's RGBs (rgb-flash) AND paints a caption strip on the
+# pixel canvas saying what it was. Lights are the ping, glass is the caption.
+#
+# Usage:
+#   desk-event bell "main:3 nvim"      # tmux bell, with window context
+#   desk-event activity "metro:1"      # tmux activity
+#   desk-event claude                  # Claude Code Stop hook (reads cwd from stdin JSON)
+#   desk-event needs                   # Claude Code Notification hook (needs input/permission)
+#   desk-event error "something"       # red-coded event
+#   desk-event <kind> [detail...]      # anything else
+#
+# Color code: hotpink = needs you · red = error · teal = FYI.
+# Silent no-op per-device when unreachable. Caption debounced 5s.
+# Washaway after ~75s: claude/needs events repaint the fleet scene
+# (context follows the event), everything else repaints a random scene.
+
+set -u
+
+KIND="${1:-event}"; shift 2>/dev/null || true
+DETAIL="${*:-}"
+
+# Claude Code hooks pipe JSON with the session cwd — turn it into a repo name
+case "$KIND" in claude|needs)
+  if [ -z "$DETAIL" ] && [ ! -t 0 ]; then
+    DETAIL=$(jq -r '.cwd // empty' 2>/dev/null | { read -r d || true; [ -n "${d:-}" ] && basename "$d"; } ) || DETAIL=""
+  fi ;;
+esac
+
+# Event color: shared by the light pulse and the caption accent
+case "$KIND" in
+  needs) COLOR="hotpink"; LABEL="NEEDS YOU" ;;
+  error) COLOR="red";     LABEL="ERROR" ;;
+  *)     COLOR="teal";    LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
+esac
+
+# 1) Lights — rgb-flash has its own 2s debounce + offline gate
+"$HOME/.dotfiles/bin/rgb-flash" "$COLOR" >/dev/null 2>&1 &
+
+# 2) Caption — debounce 5s so activity storms don't spam draws
+#    ("needs you" events skip the debounce: never swallow those)
+STAMP="/tmp/desk-event.last"
+now=$(date +%s)
+if [ "$KIND" != "needs" ] && [ -f "$STAMP" ]; then
+  last=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
+  [ $((now - last)) -lt 5 ] && exit 0
+fi
+touch "$STAMP"
+
+DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
+BASE="http://${DEVICE}"
+
+px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }
+
+# Reachability gate (mirrors `pixel ping`)
+curl -s --connect-timeout 1 --max-time 2 -o /dev/null -w "%{http_code}" \
+  "${BASE}/info" 2>/dev/null | grep -q "^200$" || exit 0
+
+enc() { printf '%s' "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
+
+msg="$DETAIL"
+[ ${#msg} -gt 30 ] && msg="${msg:0:29}~"
+ts=$(date +%H:%M)
+
+# Caption strip: colored hairline + black bar over the bottom of the scene
+px "rect?x=0&y=212&w=320&h=1&color=${COLOR}"
+px "rect?x=0&y=213&w=320&h=27&r=0&g=0&b=0"
+px "text?msg=$(enc "$LABEL")&x=8&y=222&size=1&color=${COLOR}"
+x=$(( 8 + (${#LABEL} + 1) * 6 ))
+[ -n "$msg" ] && px "text?msg=$(enc "$msg")&x=${x}&y=222&size=1&color=body"
+px "text?msg=$(enc "$ts")&x=284&y=222&size=1&color=dustrose"
+
+# Washaway: repaint later unless a newer caption superseded us.
+# Claude events wash into the fleet scene so the glass keeps showing
+# agent context; everything else goes back to ambient rotation.
+case "$KIND" in
+  claude|needs) WASH="fleet" ;;
+  *)            WASH="random" ;;
+esac
+(
+  sleep 75
+  cur=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
+  [ "$cur" -le "$now" ] && "$HOME/.dotfiles/bin/pixel" "$WASH" >/dev/null 2>&1
+) &
+disown 2>/dev/null || true
+exit 0
