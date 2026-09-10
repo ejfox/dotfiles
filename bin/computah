@@ -8,12 +8,13 @@
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
-#   computah rgb [wave|breathe|pulse|screen|off]  PC case+DualSense RGB (vulpes effects or screen-sync)
+#   computah rgb [wave|breathe|pulse|screen|hue|off]  PC case+DualSense RGB (hue = opt-in desk mirror)
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
 #   computah sleep           put it to sleep
 #   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
 #   computah demucs <file>   split stems on the PC → ~/Music/ACAPELLAS/<name>/
 #   computah llm [on|off]    OpenAI-compatible LLM server on the PC (:8085)
+#   computah imagine "<prompt>" [WxH]  FLUX image gen on the PC GPU, PNG lands in cwd
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 
@@ -123,7 +124,7 @@ case "${1:-ssh}" in
     echo "→ shipping $base"
     scp -q "$src" "$REMOTE_USER@$h:farm/"
     echo "→ transcribing (whisper large-v3-turbo)"
-    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\farm\\whisper\\main.exe -m \$env:USERPROFILE\\models\\whisper\\ggml-large-v3-turbo.bin -f \$env:USERPROFILE\\farm\\$base -osrt -otxt -of \$env:USERPROFILE\\farm\\${base%.*} 2>\$null | Out-Null; 'transcribed'\""
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\farm\\whisper\\Release\\whisper-cli.exe -m \$env:USERPROFILE\\models\\whisper\\ggml-large-v3-turbo.bin -f \$env:USERPROFILE\\farm\\$base -osrt -otxt -of \$env:USERPROFILE\\farm\\${base%.*} 2>\$null | Out-Null; 'transcribed'\""
     scp -q "$REMOTE_USER@$h:farm/${base%.*}.srt" "$REMOTE_USER@$h:farm/${base%.*}.txt" "$(dirname "$src")/"
     echo "done: $(dirname "$src")/${base%.*}.{srt,txt}"
     ;;
@@ -146,11 +147,33 @@ case "${1:-ssh}" in
   llm)
     case "${2:-on}" in
       on)
-        rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (Get-Process llama-server -ErrorAction SilentlyContinue) {'already running'} else { Start-Process -WindowStyle Hidden \$env:USERPROFILE\\farm\\llama\\llama-server.exe -ArgumentList '-m',(\$env:USERPROFILE + '\\models\\llm\\Qwen3-14B-Q4_K_M.gguf'),'--host','0.0.0.0','--port','8085','-ngl','99'; 'llama-server starting on :8085' }\""
+        # Start-Process dies when the SSH session ends (Windows kills the
+        # process tree on disconnect) — a scheduled task survives. The task
+        # is a one-shot dated in the past: never auto-fires, /run-able forever.
+        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\Users\$REMOTE_USER\farm\llama && llama-server.exe -m C:\Users\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\Users\$REMOTE_USER\farm\llama-server.log 2>&1\""
+        rssh "tasklist | findstr /i llama-server.exe >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
       off) rssh "powershell -NoProfile -Command \"Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; 'stopped'\"" ;;
     esac
+    ;;
+
+  imagine)
+    prompt="${2:?usage: computah imagine \"<prompt>\" [WxH]}"
+    size="${3:-1024x1024}"
+    W="${size%x*}"; H="${size#*x}"
+    h=$(host)
+    M="C:\Users\$REMOTE_USER\models\image"
+    out="imagine-$(date +%H%M%S).png"
+    echo "→ rendering on the 9070 XT (FLUX.1-schnell, ${W}x${H}, 4 steps)"
+    rssh "del C:\Users\$REMOTE_USER\farm\imagine.png >nul 2>&1 & C:\Users\$REMOTE_USER\farm\sd\sd-cli.exe --diffusion-model $M\flux1-schnell-Q4_K_S.gguf --vae $M\ae.safetensors --clip_l $M\clip_l.safetensors --t5xxl $M\t5xxl_fp8_e4m3fn.safetensors -p \"$prompt\" --cfg-scale 1.0 --steps 4 --sampling-method euler -W $W -H $H --diffusion-fa -o C:\Users\$REMOTE_USER\farm\imagine.png > C:\Users\$REMOTE_USER\farm\sd\last-run.log 2>&1"
+    if ! scp -q "$REMOTE_USER@$h:farm/imagine.png" "./$out" 2>/dev/null; then
+      echo "render failed — last log lines:"
+      rssh "powershell -NoProfile -Command \"Get-Content C:\Users\$REMOTE_USER\farm\sd\last-run.log -Tail 8\""
+      exit 1
+    fi
+    echo "done: ./$out"
+    command -v open >/dev/null && open "./$out"
     ;;
 
   rgb)
@@ -161,12 +184,16 @@ case "${1:-ssh}" in
     NODE_DIR="$HOME/.dotfiles/hue-stream/node"
     _stop_all() { pkill -f pc-rgb-sync.py 2>/dev/null || true; pkill -f pc-rgb-effect.py 2>/dev/null || true; sleep 1; }
     _hue_daemon_pid() { pgrep -f "hue-stream.js daemon" 2>/dev/null | head -1; }
-    # Bring the Hue desk lights along: daemon in `screen` ambient renders the
-    # zones that pc-rgb-effect publishes, so the desk waves with the PC.
+    # NOTE (2026-09-10): NO auto-start of the Hue daemon here anymore. A
+    # standing daemon holds the DTLS entertainment session, which silently
+    # blocks the bridge's own scenes (EJ's sun-synced wake-up got replaced
+    # by the wave overnight). Desk-mirror is now opt-in: `computah rgb hue`
+    # starts it, `computah rgb off` (or trigger quit) stops it. Event
+    # flashes don't need it — rgb-flash opens one-shot sessions on demand.
     _hue_up() {
       if [ -z "$(_hue_daemon_pid)" ]; then
         (cd "$NODE_DIR" && nohup node hue-stream.js daemon screen >/tmp/hue-stream.log 2>&1 &)
-        echo "hue: daemon up (screen ambient) — desk lights synced"
+        echo "hue: daemon up (screen ambient) — desk lights mirror the PC until 'computah rgb off'"
       else
         (cd "$NODE_DIR" && node hue-stream.js trigger ambient screen >/dev/null 2>&1)
         echo "hue: daemon already up — switched to screen ambient (synced)"
@@ -186,7 +213,10 @@ case "${1:-ssh}" in
         _stop_all
         rm -f "$HOME/.config/pc-rgb-off"
         nohup "$VENV" "$EFFECT" "$eff" >/tmp/pc-rgb-effect.log 2>&1 &
-        echo "pc rgb: $eff effect on (pid $!) — vulpes pink↔teal"
+        echo "pc rgb: $eff effect on (pid $!) — vulpes pink↔teal (PC only; 'computah rgb hue' to mirror on desk)"
+        ;;
+      hue)
+        # opt-in desk mirror: Hue lights render whatever the PC effect waves
         _hue_up
         ;;
       screen)

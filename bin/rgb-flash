@@ -102,17 +102,55 @@ def engine_running():
     except Exception:
         return False
 
-# --- Hue desk lights: same rhythm, count = pulses (fire & forget)
-if arg != "rest":
+def hue_daemon_running():
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.sendto(json.dumps({
-            "type": "flash",
-            "color": [round(v / 255, 3) for v in scaled],
-            "count": pulses,
-        }).encode(), ("127.0.0.1", 9999))
+        return subprocess.run(["pgrep", "-f", "hue-stream.js daemon"],
+                              capture_output=True).returncode == 0
+    except Exception:
+        return False
+
+def env_with_hue():
+    """Hook contexts don't source ~/.env — pull the HUE_* vars ourselves."""
+    env = dict(os.environ)
+    try:
+        with open(os.path.expanduser("~/.env")) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("export "):
+                    line = line[7:]
+                if line.startswith("HUE_") and "=" in line:
+                    k, v = line.split("=", 1)
+                    env.setdefault(k, v.strip().strip('"').strip("'"))
     except OSError:
         pass
+    return env
+
+# --- Hue desk lights: daemon renders the rhythm if one is up; otherwise a
+# one-shot entertainment session plays the envelope and closes, so the
+# bridge's own scene (wake-up etc.) is restored untouched.
+if arg != "rest":
+    if hue_daemon_running():
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.sendto(json.dumps({
+                "type": "flash",
+                "color": [round(v / 255, 3) for v in scaled],
+                "count": pulses,
+            }).encode(), ("127.0.0.1", 9999))
+        except OSError:
+            pass
+    elif arg in EVENTS:
+        node = next((p for p in (
+            os.path.expanduser("~/.nvm/versions/node/v22.22.2/bin/node"),
+            "/usr/local/bin/node", "/opt/homebrew/bin/node",
+        ) if os.path.exists(p)), "node")
+        js = os.path.expanduser("~/.dotfiles/hue-stream/node/hue-stream.js")
+        try:
+            subprocess.Popen([node, js, "flash", arg], cwd=os.path.dirname(js),
+                             env=env_with_hue(), stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+        except Exception:
+            pass
 
 # --- PC: muted entirely while the off flag is set (computah rgb off)
 if os.path.exists(os.path.expanduser("~/.config/pc-rgb-off")):

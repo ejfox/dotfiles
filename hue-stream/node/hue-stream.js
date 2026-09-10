@@ -397,6 +397,61 @@ async function cmdStop() {
   }
 }
 
+// ─── One-shot event flash ──────────────────────────────────────────────────
+// Opens a short entertainment session, plays one grammar envelope, closes.
+// The bridge restores the lights' prior state on deactivate — so scenes
+// (sun-synced wake-up etc.) survive; no standing daemon required.
+
+const GRAMMAR_FILE = path.join(os.homedir(), '.dotfiles/lib/desk-flash-patterns.json');
+
+async function cmdFlash(eventName = 'done') {
+  // never fight a running daemon for the session — it renders flashes itself
+  // (checked again here in case the caller didn't)
+  let g = null;
+  try { g = JSON.parse(fs.readFileSync(GRAMMAR_FILE, 'utf8')); } catch {}
+  const ev = g?.events?.[eventName];
+  const rgb255 = g?.palette?.[ev?.color] || [110, 237, 247];
+  const rgb = rgb255.map(v => v / 255);
+  const peak = ev?.peak ?? 1.0;
+  const segs = ev?.segs || [[0.4, true]];
+
+  // DTLS wedge guard: min 8s between one-shot sessions, one at a time
+  const stamp = '/tmp/hue-flash-once.last';
+  try {
+    if ((Date.now() - fs.statSync(stamp).mtimeMs) / 1000 < 8) return;
+  } catch {}
+  fs.writeFileSync(stamp, String(process.pid));
+
+  const env = (t) => {
+    for (const [d, lit] of segs) {
+      if (t < d) return lit ? peak * Math.sin(Math.PI * (t / d)) : 0;
+      t -= d;
+    }
+    return null; // pattern over
+  };
+
+  const { cfg } = await ensureConfig();
+  // deactivate in finally no matter where we die — a failed DTLS handshake
+  // must never leave the config active (that blocks bridge scenes, the very
+  // thing one-shot sessions exist to avoid)
+  try {
+    await activate(cfg.id);
+    const socket = await openSocket();
+    const start = Date.now();
+    let seq = 0;
+    await new Promise((resolve) => {
+      const cleanup = () => { clearInterval(tick); try { socket.close(); } catch {} resolve(); };
+      process.once('SIGINT', cleanup);
+      const tick = setInterval(() => {
+        const e = env((Date.now() - start) / 1000);
+        if (e === null) return cleanup();
+        const colors = cfg.channels.map((_, i) => [i, rgb[0] * e, rgb[1] * e, rgb[2] * e]);
+        try { socket.send(buildFrame(cfg.id, seq++, colors)); } catch { cleanup(); }
+      }, 20);
+    });
+  } finally { await deactivate(cfg.id); }
+}
+
 // ─── Daemon ────────────────────────────────────────────────────────────────
 
 async function cmdDaemon(initialAmbient = 'dark', skipActivate = false) {
@@ -674,6 +729,7 @@ async function main() {
     case 'rainbow':  return cmdRun('rainbow', dur);
     case 'matrix':   return cmdRun('matrix', dur);
     case 'stop':     return cmdStop();
+    case 'flash':    return cmdFlash(rest[0]);
     case 'daemon': {
       const noActivate = rest.includes('--no-activate');
       const ambient = rest.find(a => a !== '--no-activate') || 'dark';
@@ -690,6 +746,8 @@ async function main() {
   trigger flash [r g b count dur] flash all lights then return to prior state
   trigger quit                   shut down daemon
   stop                           force-deactivate any active stream
+  flash [fyi|done|needs|error]   one-shot grammar flash: short session,
+                                 play envelope, close — bridge state restored
   `);
   }
 }
