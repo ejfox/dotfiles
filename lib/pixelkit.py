@@ -37,24 +37,50 @@ def fit(msg, max_w, size=1):
 
 
 class Canvas:
-    def __init__(self, base, timeout=3):
+    """Draw calls never raise (scenes must be hook-safe), but they are
+    counted: .sent / .failed, and .ok is False when nothing landed —
+    scenes can `sys.exit(0 if cv.ok else 1)` to make failures visible."""
+
+    def __init__(self, base, timeout=3, preflight=True):
         self.base = base.rstrip("/")
         self.timeout = timeout
+        self.sent = 0
+        self.failed = 0
+        self.dead = False
+        if preflight:  # fail fast when the device is dark (one 0.8s probe)
+            import socket, urllib.parse as _p
+            host = _p.urlparse(self.base).hostname
+            try:
+                socket.create_connection((host, 80), timeout=0.8).close()
+            except OSError:
+                self.dead = True
+
+    @property
+    def ok(self):
+        return self.sent > 0 and self.failed < self.sent
 
     def get(self, path):
+        if self.dead:
+            self.failed += 1
+            return
         try:
             urllib.request.urlopen(f"{self.base}/{path}", timeout=self.timeout).read()
+            self.sent += 1
         except Exception:
-            pass
+            self.failed += 1
 
     def batch(self, dots):
+        if self.dead:
+            self.failed += 1
+            return
         try:
             req = urllib.request.Request(
                 f"{self.base}/batch", data=json.dumps(dots).encode(),
                 headers={"Content-Type": "application/json"})
             urllib.request.urlopen(req, timeout=self.timeout + 1).read()
+            self.sent += 1
         except Exception:
-            pass
+            self.failed += 1
 
     def clear(self, color=None):
         self.get(f"clear?color={color}" if color else "clear")
@@ -143,10 +169,12 @@ def connect():
     import os
     base = os.environ.get("PIXEL_BASE")
     if not base:
-        try:
-            host = open(os.path.expanduser("~/.config/pixel-canvas-host")).read().strip()
-        except OSError:
-            host = "10.0.0.103"
+        host = os.environ.get("PIXEL_CANVAS_HOST")
+        if not host:
+            try:
+                host = open(os.path.expanduser("~/.config/pixel-canvas-host")).read().strip()
+            except OSError:
+                host = "10.0.0.103"
         base = f"http://{host}"
     return Canvas(base)
 

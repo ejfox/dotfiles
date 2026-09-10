@@ -62,3 +62,5 @@ else:
         cv.text(f"{d} {counts[d]}", 22, ly, color="body", max_w=130)
         ly += 12
 cv.text(f"{n} commits {len(repos)} repos", y=225, color="dustrose", align="right")
+
+sys.exit(0 if cv.ok else 1)

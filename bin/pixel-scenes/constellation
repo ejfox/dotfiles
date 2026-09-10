@@ -62,3 +62,5 @@ foot = f"{len(wins)} windows"
 if claude_wins:
     foot += f"  {len(claude_wins)} claude"
 cv.text(foot, 10, 225, color="dustrose")
+
+sys.exit(0 if cv.ok else 1)

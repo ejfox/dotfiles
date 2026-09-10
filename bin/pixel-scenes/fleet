@@ -43,3 +43,5 @@ for l in sh(["tmux", "list-panes", "-a", "-F",
         break
 
 cv.text(time.strftime("%H:%M"), y=225, color="dustrose", align="right")
+
+sys.exit(0 if cv.ok else 1)

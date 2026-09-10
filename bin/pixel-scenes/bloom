@@ -40,3 +40,5 @@ for c in chunks:
 cv.text("today", 10, 15, color="mauve")
 cv.text(f"{lt.tm_hour:02d}:{lt.tm_min:02d}  {int(minutes / 1440 * 100)}%",
         10, 222, color="dustrose")
+
+sys.exit(0 if cv.ok else 1)
