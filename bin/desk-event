@@ -12,7 +12,7 @@
 #   desk-event <kind> [detail...]      # anything else
 #
 # Light grammar: color = category (hotpink needs-you · teal claude · red error),
-# pulse count = urgency (1 soft blip FYI · 1 slow swell done · 2 needs · 3 error).
+# pulse count = urgency (1 soft blip FYI · 1 slow swell done · 2 needs · 1 deep red error).
 # Silent no-op per-device when unreachable. Caption debounced 5s.
 # Washaway after ~75s: claude/needs events repaint the fleet scene
 # (context follows the event), everything else repaints a random scene.
@@ -31,7 +31,7 @@ esac
 
 # Event color (caption accent) + light grammar event. The lights speak a
 # decodable code — color = category, pulse count = urgency:
-#   fyi 1 soft blip · done 1 slow swell · needs 2 pulses · error 3 strobes
+#   fyi 1 soft blip · done 1 slow swell · needs 2 pulses · error 1 deep red swell
 case "$KIND" in
   needs)  LABEL="NEEDS YOU"; EVENT="needs" ;;
   error)  LABEL="ERROR";     EVENT="error" ;;

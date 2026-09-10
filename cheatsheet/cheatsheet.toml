@@ -677,7 +677,7 @@ body = [
   { div = true },
   { lbl = "computah RGB (OpenRGB, resting vulpes pink)" },
   { k = "rgb-flash fyi|done|needs|error", d = "grammar flash: count = urgency", hl = true },
-  { n = "decode: *1 soft blip* fyi · *1 slow swell* claude done · *2 pink pulses* needs YOU · *3 red strobes* error" },
+  { n = "decode: *1 soft blip* fyi · *1 slow swell* claude done · *2 pink pulses* needs YOU · *1 deep red swell* error" },
   { k = "rgb-flash <color|hex>", d = "manual single pulse (teal/white/RRGGBB)" },
   { k = "rgb-flash rest", d = "just set the pink resting state" },
   { k = "C-a u / C-a O", d = "tmux: flip scene / agent-fleet overview", hl = true },

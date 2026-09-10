@@ -18,7 +18,7 @@ mtime = trigger); the engine renders that pattern's brightness envelope over
 all LEDs so desk-event pulses stay visible while an effect is running.
 Patterns are a decodable grammar — pulse count = urgency, color = category:
   fyi   1 soft blip       done   1 slow swell
-  needs 2 pulses          error  3 sharp strobes
+  needs 2 pulses          error  1 deep red swell
 """
 import argparse, json, math, os, socket, subprocess, sys, time
 from openrgb import OpenRGBClient

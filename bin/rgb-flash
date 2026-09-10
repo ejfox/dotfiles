@@ -5,7 +5,7 @@
 #   rgb-flash fyi          # 1 soft teal blip        (tmux bell/activity)
 #   rgb-flash done         # 1 slow teal swell       (Claude finished)
 #   rgb-flash needs        # 2 hotpink pulses        (Claude waiting on YOU)
-#   rgb-flash error        # 3 sharp red strobes     (something broke)
+#   rgb-flash error        # 1 deep red swell        (something broke)
 #
 # Legacy / manual:
 #   rgb-flash              # teal pulse -> pink rest
