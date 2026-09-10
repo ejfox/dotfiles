@@ -31,8 +31,9 @@ HOST="${OPENRGB_HOST:-10.0.0.169}"
 PORT="${OPENRGB_PORT:-6742}"
 VENV_PY="$HOME/.local/share/rgb-venv/bin/python3"
 STAMP="/tmp/rgb-flash.last"
+[ -x "$VENV_PY" ] || exit 0   # venv gone -> silent no-op (hook-safe)
 
-COLOR="${1:-teal}"
+ARG="${1:-teal}"   # event name, color name, hex, or "rest"
 
 # `computah rgb off` mutes the PC lights entirely — no event flashes either.
 # (Hue + canvas captions still carry the signal; delete the flag or run any
@@ -41,7 +42,7 @@ PC_OFF_FLAG="$HOME/.config/pc-rgb-off"
 
 # Debounce (skip if a flash ran <2s ago). 'rest' always allowed; needs/error
 # always punch through — they are the events worth interrupting for.
-case "$COLOR" in
+case "$ARG" in
   rest|needs|error) ;;
   *)
     if [ -f "$STAMP" ]; then
@@ -51,7 +52,7 @@ case "$COLOR" in
 esac
 touch "$STAMP"
 
-exec "$VENV_PY" - "$HOST" "$PORT" "$COLOR" <<'EOF' >/dev/null 2>&1
+exec "$VENV_PY" - "$HOST" "$PORT" "$ARG" <<'EOF' >/dev/null 2>&1
 import json, os, socket, subprocess, sys, time
 
 host, port, arg = sys.argv[1], int(sys.argv[2]), sys.argv[3]

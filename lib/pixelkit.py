@@ -13,7 +13,11 @@ can anchor left/center/right. Import from scene scripts:
     cv.text("42 commits", y=225, color="dustrose", align="right")
     cv.text("centered", y=118, color="body", align="center")
 """
+import hashlib
 import json
+import os
+import socket
+import subprocess
 import urllib.parse
 import urllib.request
 
@@ -48,7 +52,6 @@ class Canvas:
         self.failed = 0
         self.dead = False
         if preflight:  # fail fast when the device is dark (one 0.8s probe)
-            import socket
             u = urllib.parse.urlparse(self.base)
             try:
                 socket.create_connection((u.hostname, u.port or 80), timeout=0.8).close()
@@ -157,7 +160,6 @@ def mix(a, b, t):
 def hue_for(name):
     """Stable color for a string (repo, session...) day to day.
     (hashlib, not hash() — python salts hash() per process.)"""
-    import hashlib
     keys = sorted(VULPES)
     n = int(hashlib.md5(name.encode()).hexdigest(), 16)
     return VULPES[keys[n % len(keys)]]
@@ -166,7 +168,7 @@ def hue_for(name):
 def connect():
     """Canvas for a scene: PIXEL_BASE env (set by the pixel wrapper) or the
     cached host, so pure-python scenes also run standalone."""
-    import os
+    # default host duplicated in lib/pixel-host.sh — change BOTH
     base = os.environ.get("PIXEL_BASE")
     if not base:
         host = os.environ.get("PIXEL_CANVAS_HOST")
@@ -181,7 +183,6 @@ def connect():
 
 def sh(cmd, timeout=5):
     """Run a command, return stdout ('' on any failure)."""
-    import subprocess
     try:
         return subprocess.run(cmd, capture_output=True, text=True,
                               timeout=timeout).stdout

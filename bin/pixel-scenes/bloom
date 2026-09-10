@@ -4,7 +4,7 @@ golden-angle spiral: teal dawn shades to pink dusk, white tip = now."""
 import math, os, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import Canvas, VULPES, connect, mix
+from pixelkit import VULPES, connect, mix
 
 cv = connect()
 TEAL, PINK, WHITE = VULPES["teal"], VULPES["pink"], VULPES["white"]

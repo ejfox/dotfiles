@@ -39,7 +39,6 @@ while true; do
   if [ $((tick % 5)) -eq 0 ]; then
     counts=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null || true)
     needs=$(printf '%s' "$counts" | sed -En 's/.*◇([0-9]+).*/\1/p'); needs=${needs:-0}
-    work=$(printf '%s' "$counts"  | sed -En 's/.*◆([0-9]+).*/\1/p'); work=${work:-0}
     fleet_txt=""
     [ "$needs" -gt 0 ] && fleet_txt="${needs} need you"
   fi
