@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# commits — today's work as a phyllotaxis bloom. One seed per commit shipped
+# today across every repo in ~/code, in chronological order along the golden
+# spiral; each repo gets its own hue, and the newest commit glows white.
+# Empty morning = bare center; a shipping day = a full flower.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+command -v git >/dev/null || exit 0
+
+python3 - "$PIXEL_BASE" <<'EOF'
+import json, math, os, subprocess, sys, time, urllib.request
+
+BASE = sys.argv[1]
+CODE = os.path.expanduser("~/code")
+
+def get(path):
+    try:
+        urllib.request.urlopen(f"{BASE}/{path}", timeout=3).read()
+    except Exception:
+        pass
+
+def batch(dots):
+    try:
+        req = urllib.request.Request(f"{BASE}/batch", data=json.dumps(dots).encode(),
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=4).read()
+    except Exception:
+        pass
+
+# repo hues — assigned by name hash so a repo keeps its color day to day
+HUES = [(0xe6, 0x00, 0x67), (0x6e, 0xed, 0xf7), (0xff, 0x1a, 0xca),
+        (0xff, 0xaa, 0x00), (0xb4, 0xd4, 0x55), (0xa0, 0xf7, 0xfc),
+        (0xff, 0x33, 0xc5), (0xa8, 0x7b, 0xb5), (0x5e, 0xc4, 0xc4),
+        (0xc4, 0x45, 0x69)]
+WHITE = (0xf5, 0xf5, 0xf5)
+
+def mix(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+midnight = time.strftime("%Y-%m-%d 00:00")
+commits = []  # (epoch, repo)
+try:
+    entries = sorted(os.listdir(CODE))
+except OSError:
+    entries = []
+for d in entries:
+    repo = os.path.join(CODE, d)
+    if not os.path.isdir(os.path.join(repo, ".git")):
+        continue
+    try:
+        out = subprocess.run(
+            ["git", "-C", repo, "log", "--all", f"--since={midnight}", "--format=%ct"],
+            capture_output=True, text=True, timeout=5)
+        for l in out.stdout.split():
+            commits.append((int(l), d))
+    except Exception:
+        continue
+
+commits.sort()
+repos = []
+for _, d in commits:
+    if d not in repos:
+        repos.append(d)
+
+get("clear")
+get("text?msg=shipped%20today&x=10&y=15&color=mauve&size=1")
+
+GOLDEN = math.radians(137.50776405)
+CX, CY = 160, 122
+n = len(commits)
+C = 4.2 if n < 500 else 3.4  # keep big days on-canvas
+
+dots, chunks = [], []
+for i, (ts, repo) in enumerate(commits):
+    r = C * math.sqrt(i)
+    a = i * GOLDEN
+    x = int(CX + r * math.cos(a))
+    y = int(CY + r * math.sin(a))
+    if not (0 <= x < 317 and 12 <= y < 234):
+        continue
+    col = HUES[hash(repo) % len(HUES)]
+    tip = n - i
+    if tip <= 3:
+        col = mix(col, WHITE, (4 - tip) / 4.0)
+    s = 4 if tip <= 10 else 3
+    dots.append({"x": x - s // 2, "y": y - s // 2, "s": s,
+                 "r": col[0], "g": col[1], "b": col[2]})
+    if len(dots) >= 80:
+        chunks.append(dots); dots = []
+if dots:
+    chunks.append(dots)
+for c in chunks:
+    batch(c)
+
+if n == 0:
+    get("text?msg=nothing%20shipped%20yet&x=95&y=118&color=dustrose&size=1")
+else:
+    # legend: top repos by commit count, in their hue
+    counts = {}
+    for _, d in commits:
+        counts[d] = counts.get(d, 0) + 1
+    top = sorted(counts, key=counts.get, reverse=True)[:3]
+    ly = 195
+    for d in top:
+        col = HUES[hash(d) % len(HUES)]
+        get(f"rect?x=10&y={ly}&w=6&h=6&r={col[0]}&g={col[1]}&b={col[2]}")
+        get(f"text?msg={d[:16]}%20{counts[d]}&x=22&y={ly}&color=body&size=1")
+        ly += 12
+get(f"text?msg={n}%20commits%20{len(repos)}%20repos&x=200&y=225&color=dustrose&size=1")
+EOF

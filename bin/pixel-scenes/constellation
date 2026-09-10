@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# constellation — the tmux universe as a star chart. Each session is an arc
+# of stars: one star per window, radius = pane count, connected by faint
+# lines. Pink = the active window, hotpink = a claude agent lives there,
+# teal = everything else. Glance up and see the whole terminal cosmos.
+set -u
+: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+command -v tmux >/dev/null || exit 0
+
+python3 - "$PIXEL_BASE" <<'EOF'
+import json, subprocess, sys, urllib.request
+
+BASE = sys.argv[1]
+
+def get(path):
+    try:
+        urllib.request.urlopen(f"{BASE}/{path}", timeout=3).read()
+    except Exception:
+        pass
+
+def tmux(fmt, what):
+    try:
+        out = subprocess.run(["tmux", what, "-a", "-F", fmt],
+                             capture_output=True, text=True, timeout=5)
+        return [l for l in out.stdout.splitlines() if l.strip()]
+    except Exception:
+        return []
+
+wins = tmux("#{session_name}\t#{window_index}\t#{window_active}\t#{window_panes}\t#{window_name}",
+            "list-windows")
+claude_wins = set()
+for l in tmux("#{session_name}:#{window_index}\t#{pane_current_command}", "list-panes"):
+    loc, cmd = (l.split("\t") + [""])[:2]
+    if "claude" in cmd:
+        claude_wins.add(loc)
+
+if not wins:
+    sys.exit(0)
+
+sessions = {}
+for l in wins:
+    p = l.split("\t")
+    if len(p) < 5:
+        continue
+    sessions.setdefault(p[0], []).append((int(p[1]), p[2] == "1", int(p[3]), p[4]))
+
+get("clear")
+get("text?msg=tmux&x=10&y=15&color=mauve&size=1")
+
+names = sorted(sessions)[:6]
+row_h = 200 // max(1, len(names))
+y = 34
+for name in names:
+    ws = sorted(sessions[name])[:9]
+    label = name[:10]
+    get(f"text?msg={label}&x=10&y={y}&color=teal&size=1")
+    sy = y + 16
+    xs = []
+    for i, (idx, active, panes, wname) in enumerate(ws):
+        x = 82 + i * 26
+        xs.append(x)
+        loc = f"{name}:{idx}"
+        rad = min(3 + panes, 8)
+        if loc in claude_wins:
+            color = "hotpink"
+        elif active:
+            color = "pink"
+        else:
+            color = "teal"
+        # faint constellation line to the previous star
+        if i > 0:
+            get(f"line?x1={xs[i-1]+rad}&y1={sy}&x2={x-rad}&y2={sy}&color=dustrose")
+        get(f"circle?x={x}&y={sy}&radius={rad}&color={color}")
+        if active:
+            wl = wname[:8].replace(" ", "%20")
+            get(f"text?msg={wl}&x={max(10, x-20)}&y={sy+12}&color=body&size=1")
+    y += row_h
+
+n_claude = len(claude_wins)
+foot = f"{len(wins)}%20windows"
+if n_claude:
+    foot += f"%20%20{n_claude}%20claude"
+get(f"text?msg={foot}&x=10&y=225&color=dustrose&size=1")
+EOF

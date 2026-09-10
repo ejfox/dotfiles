@@ -470,3 +470,6 @@
 (desk) two cadences: scenes rotate every 5 min (gallery pace, doodles survive a bit), ticker updates every second
 (desk) pixel find - re-discover the canvas after a DHCP shuffle (auto-runs if the ticker sees it dark ~2 min)
 (desk) pixel bloom - phyllotaxis day-clock: one golden-angle seed per 2 min, teal dawn -> pink dusk, white tip = now
+(desk) pixel constellation - tmux star chart: sessions as arcs, windows as stars (size = panes), hotpink = claude lives there
+(desk) pixel commits - today's git work as a phyllotaxis bloom, hue per repo, white tip = latest commit
+(desk) pixel-scenes/.favorites - bonus lottery tickets so useful scenes rotate up more often (edit to re-weight)

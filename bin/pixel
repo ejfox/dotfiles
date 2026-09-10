@@ -140,7 +140,13 @@ case "$cmd" in
   random|"")
     pixel_ping || exit 0
     [ -d "$SCENES_DIR" ] || exit 0
-    scene=$(find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*' | shuf -n 1)
+    # Weighted lottery: every scene gets one ticket, plus bonus tickets from
+    # .favorites (one per line, repeats allowed) so useful screens come up more.
+    scene=$( {
+      find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*'
+      [ -f "$SCENES_DIR/.favorites" ] && grep -v '^#' "$SCENES_DIR/.favorites" \
+        | while IFS= read -r f; do [ -x "$SCENES_DIR/$f" ] && echo "$SCENES_DIR/$f"; done
+    } | shuf -n 1 )
     [ -n "$scene" ] && exec "$scene"
     ;;
   *)
