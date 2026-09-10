@@ -8,7 +8,7 @@
 (zsh) yy - re-run last command and copy its output
 (zsh) ask <question> - ask LLM about clipboard contents
 (zsh) explain - re-run last command, pipe to LLM
-(zsh) ding - macOS notification + sound (use: long_command; ding)
+(zsh) ding - notification + sound + the desk reacts: teal ripple on success, red + exit code on failure (use: long_command; ding)
 (zsh) gist <file> "desc" - create GitHub gist from clipboard
 (nvim/oil) delete a line to delete a file, edit a line to rename it
 (nvim/oil) visual select multiple files, :d to delete them all
@@ -447,3 +447,22 @@
 (alfred) foxpods / speakers - switch audio output
 (alfred) td <task> - new Things 3 to-do (today)
 (alfred) ask <q> - ask an LLM about your clipboard
+(computah) computah wake / sleep / status - the Windows PC, LAN or Tailscale, works from off
+(computah) computah run "<cmd>" - run anything on the PC over SSH
+(computah) computah render / blender / whisper / demucs <file> - heavy jobs on the PC, results land back here
+(computah) computah stream [app] - Moonlight-stream the PC desktop to this Mac
+(computah) computah rgb wave|breathe|pulse - vulpes pink<->teal effects on case+DualSense, Hue desk lights sync along
+(computah) computah rgb screen - PC case follows the iMac screen colors
+(computah) computah rgb off / status - blackout + stop everything; status shows PC effect + hue daemon
+(computah) NEVER touch computah mid-Fortnite - check first: computah run "powershell Get-Process FortniteClient*"
+(hue) hue list / on / off / toggle / dim <0-100> <room> - room control from the shell
+(hue) hue scene <name> - recall any scene (Coding, Concentrate, Dim Redded, Nightlight...)
+(hue) screensync on/off/status - iMac screen colors -> Hue desk lights (DTLS daemon + sampler)
+(hue) hue-keys on/off - typing -> spatial light bursts (default OFF, deliberately)
+(hue) hue-flash [r g b] [count] - flash entertainment lights then return to prior state (daemon must be up)
+(hue) hue-stream daemon [dark|warm|rainbow|matrix|screen] - hold DTLS, listen for UDP triggers on :9999
+(hue) DTLS handshake timeouts = bridge wedged -> unplug bridge 10s, then computah rgb wave to relaunch the chain
+(desk) desk-event <kind> [detail] - whole-desk event: RGB pulse everywhere + caption strip on the pixel canvas
+(desk) color grammar: hotpink = claude needs you, teal = FYI, red = error - same on PC, hue, canvas
+(desk) rgb-flash <color|hex|rest> - bare lights primitive (PC + hue flash, no caption)
+(desk) pixel / pixel say "msg" / pixel fleet - desk display; C-a u = flip scene, C-a O = agent fleet
