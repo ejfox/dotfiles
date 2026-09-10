@@ -1,0 +1,35 @@
+#!/bin/bash
+# security-scan-cron — weekly leak sweep, launched by com.ejfox.security-scan.
+#
+# Runs secret-scan (git history, local repos) and leak-scan (gists, npm,
+# github-wide, pwned-passwords, wayback, pastes). In the first week of each
+# month, secret-scan also does the full --github public-repo sweep.
+# Findings alert through VPS alert.sh -> anomalywatch; if SSH is unavailable
+# (laptop off-network), falls back to a macOS notification + log line.
+set -u
+export PATH="/usr/local/bin:/usr/bin:/bin:$HOME/.dotfiles/bin"
+LOG="$HOME/.local/share/secret-scan/cron.log"
+mkdir -p "$(dirname "$LOG")"
+
+alert() { # level message
+  if ! ssh -o BatchMode=yes -o ConnectTimeout=10 vps "~/scripts/alert.sh security-scan $1 \"$2\"" >> "$LOG" 2>&1; then
+    osascript -e "display notification \"$2\" with title \"security-scan ($1)\"" 2>/dev/null
+    echo "$(date -u '+%FT%TZ') ALERT-FALLBACK $1 $2" >> "$LOG"
+  fi
+}
+
+echo "$(date -u '+%FT%TZ') run start" >> "$LOG"
+
+ARGS=""
+[ "$(date +%d)" -le 07 ] && ARGS="--github"   # monthly full public sweep
+
+if ! secret-scan --quiet $ARGS >> "$LOG" 2>&1; then
+  N=$(grep -c "rule=" "$(ls -t "$HOME/.local/share/secret-scan"/report-*.md | head -1)" 2>/dev/null || echo "?")
+  alert critical "secret-scan found $N candidate leak(s) in git history — see ~/.local/share/secret-scan/"
+fi
+
+if ! leak-scan --quiet >> "$LOG" 2>&1; then
+  alert critical "leak-scan found CRITICAL finding(s) — see ~/.local/share/secret-scan/"
+fi
+
+echo "$(date -u '+%FT%TZ') run done" >> "$LOG"

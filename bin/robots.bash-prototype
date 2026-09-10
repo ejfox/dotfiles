@@ -1,0 +1,138 @@
+#!/bin/bash
+# robots — every Claude agent on this machine, wherever it lives
+#
+#   robots        table: status, tmux pane, dir, cpu for every claude process
+#   robots -j     fzf-jump to a robot's pane (live pane preview)
+#   robots -t     terse counts for tmux status bar, e.g. "◇1 ◆2 ●7"
+#   robots -w     watch mode (refresh every 2s)
+#
+# Zero instrumentation: discovers claude processes from ps, walks parent
+# pids to find the owning tmux pane, and classifies state by sniffing pane
+# content. ◆ working · ◇ needs you · ● idle. Works on any session no
+# matter how it was launched — unlike workmux/claude-squad which only see
+# agents they spawned.
+#
+# Fragility note: state detection greps the Claude Code TUI for its spinner
+# line ("… (Ns · ↓ Nk tokens" / "esc to interrupt") and menu marker ("❯ 1.").
+# A Claude Code UI redesign may need these patterns refreshed.
+
+PINK=$'\033[38;2;255;77;141m'; TEAL=$'\033[38;2;123;240;249m'
+WHT=$'\033[38;2;245;240;242m'; DIM=$'\033[2m'; RST=$'\033[0m'; BOLD=$'\033[1m'
+
+MODE=list
+case "$1" in
+  -j) MODE=jump ;;
+  -t) MODE=terse ;;
+  -w) MODE=watch ;;
+esac
+
+snapshot() {
+  # one ps pass, one tmux pass; everything else derives from these
+  PS_TABLE=$(ps -axo pid=,ppid=,pcpu=,command=)
+  PANES=$(tmux list-panes -a -F '#{pane_id}|#{session_name}:#{window_index}.#{pane_index}|#{pane_pid}|#{pane_current_path}' 2>/dev/null)
+  CLAUDES=$(echo "$PS_TABLE" | grep -E '[/ ]claude( |$)' | grep -vE 'grep|robots')
+}
+
+pane_for_pid() {
+  local pid=$1 hop=0 hit
+  while [ "$hop" -lt 20 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+    hit=$(echo "$PANES" | awk -F'|' -v p="$pid" '$3==p {print; exit}')
+    [ -n "$hit" ] && { echo "$hit"; return; }
+    pid=$(echo "$PS_TABLE" | awk -v p="$pid" '$1==p {print $2; exit}')
+    hop=$((hop+1))
+  done
+}
+
+classify() {
+  # args: pane_id cpu → prints "glyph|label|rank"
+  local pane=$1 cpu=$2 tail
+  if [ -n "$pane" ]; then
+    tail=$(tmux capture-pane -p -t "$pane" 2>/dev/null | tail -15)
+    if echo "$tail" | grep -qE '↓ [0-9.,]+k? tokens|esc to interrupt'; then
+      echo "◆|working|1"; return
+    fi
+    if echo "$tail" | grep -qE '❯ 1\.|Do you want'; then
+      echo "◇|NEEDS YOU|0"; return
+    fi
+  fi
+  # headless / no marker: busy cpu still counts as working
+  if [ "${cpu%.*}" -ge 30 ] 2>/dev/null; then echo "◆|working|1"; return; fi
+  echo "●|idle|2"
+}
+
+gather() {
+  # emits sortable rows: rank|glyph|label|target|pane_id|dir|cpu|pid
+  local pid cpu paneline target pane_id dir cls
+  while read -r line; do
+    [ -z "$line" ] && continue
+    pid=$(echo "$line" | awk '{print $1}')
+    cpu=$(echo "$line" | awk '{print $3}')
+    paneline=$(pane_for_pid "$pid")
+    if [ -n "$paneline" ]; then
+      pane_id=$(echo "$paneline" | cut -d'|' -f1)
+      target=$(echo "$paneline" | cut -d'|' -f2)
+      dir=$(echo "$paneline" | cut -d'|' -f4)
+    else
+      pane_id=""; target="-"
+      dir=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')
+    fi
+    dir=${dir/#$HOME/\~}
+    cls=$(classify "$pane_id" "$cpu")
+    echo "${cls##*|}|${cls%%|*}|$(echo "$cls" | cut -d'|' -f2)|$target|$pane_id|$dir|$cpu|$pid"
+  done <<< "$CLAUDES" | sort -t'|' -k1,1 -k7,7nr
+}
+
+render_table() {
+  local rows=$1 n
+  n=$(echo "$rows" | grep -c '^[0-9]')
+  printf "%s%s◆ ROBOTS%s %s%s claude process(es) · %s%s\n\n" "$BOLD" "$PINK" "$RST" "$DIM" "$n" "$(date '+%H:%M:%S')" "$RST"
+  printf "%s%-2s %-10s %-12s %-34s %6s %7s%s\n" "$DIM" "" "STATE" "PANE" "DIR" "CPU%" "PID" "$RST"
+  echo "$rows" | while IFS='|' read -r rank glyph label target pane_id dir cpu pid; do
+    [ -z "$glyph" ] && continue
+    local c=$WHT
+    case "$rank" in 0) c=$PINK ;; 1) c=$TEAL ;; 2) c=$DIM ;; esac
+    printf "%s%-2s %-10s %-12s %-34.34s %6s %7s%s\n" "$c" "$glyph" "$label" "$target" "$dir" "$cpu" "$pid" "$RST"
+  done
+}
+
+snapshot
+case "$MODE" in
+  list)
+    render_table "$(gather)"
+    ;;
+  watch)
+    while true; do
+      clear; render_table "$(gather)"
+      sleep 2; snapshot
+    done
+    ;;
+  terse)
+    rows=$(gather)
+    needs=$(printf '%s\n' "$rows" | grep -c '^0|')
+    work=$(printf '%s\n' "$rows" | grep -c '^1|')
+    idle=$(printf '%s\n' "$rows" | grep -c '^2|')
+    parts=()
+    [ "$needs" -gt 0 ] && parts+=("◇$needs")
+    [ "$work" -gt 0 ] && parts+=("◆$work")
+    [ "$idle" -gt 0 ] && parts+=("●$idle")
+    printf '%s\n' "${parts[*]}"
+    ;;
+  jump)
+    sel=$(gather | awk -F'|' '$5 != "" {printf "%s %-10s %-12s %s\t%s\n", $2, $3, $4, $6, $5}' | \
+      fzf --height=60% --reverse --border --prompt="jump to robot > " \
+          --header="◆ working · ◇ needs you · ● idle" \
+          --delimiter='\t' --with-nth=1 \
+          --preview='tmux capture-pane -p -t {2} | tail -45' --preview-window=right:65%:wrap \
+          --color="fg:#f5d0dc,bg:-1,hl:#ff4d8d,fg+:#ffffff,bg+:#2d1a22,hl+:#ff4d8d,prompt:#ff4d8d,pointer:#ff4d8d,header:#7bf0f9")
+    [ -z "$sel" ] && exit 0
+    pane=$(echo "$sel" | awk -F'\t' '{print $2}')
+    target=$(echo "$sel" | awk '{print $3}')
+    if [ -n "$TMUX" ]; then
+      tmux switch-client -t "${target%%:*}" 2>/dev/null
+      tmux select-window -t "${target%.*}" 2>/dev/null
+      tmux select-pane -t "$pane" 2>/dev/null
+    else
+      tmux attach -t "${target%%:*}" \; select-window -t "${target%.*}" \; select-pane -t "$pane"
+    fi
+    ;;
+esac

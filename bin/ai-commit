@@ -1,8 +1,13 @@
 #!/bin/bash
 # AI-powered commit message generator using Claude Code CLI
 # Enhanced with: fzf selection, recent commits context, branch name context
+# --suggest: print raw suggestions (one per line) and skip fzf — for
+#            lazygit's menuFromCommand, which does its own picking
 
 set -e
+
+SUGGEST_ONLY=false
+[ "$1" = "--suggest" ] && SUGGEST_ONLY=true
 
 # Color output
 RED='\033[0;31m'
@@ -25,10 +30,10 @@ RECENT_COMMITS=$(git log --oneline --no-decorate -5 2>/dev/null || echo "No comm
 # Count staged files for context
 STAGED_FILES=$(git diff --cached --name-only | wc -l | xargs)
 
-echo -e "${YELLOW}🤖 Analyzing ${STAGED_FILES} staged file(s) on branch '${BRANCH}'...${NC}" >&2
+echo -e "${YELLOW}◆ Analyzing ${STAGED_FILES} staged file(s) on branch '${BRANCH}'...${NC}" >&2
 
 # Generate commit messages using Claude
-MESSAGES=$(claude --output-format text <<EOF
+MESSAGES=$(claude -p --output-format text <<EOF
 You are a commit message generator. Analyze the context below and generate exactly 3 conventional commit messages.
 
 BRANCH: ${BRANCH}
@@ -72,6 +77,12 @@ if [ $? -ne 0 ] || [ -z "$MESSAGES" ]; then
     exit 1
 fi
 
+# --suggest mode: emit raw lines for lazygit's menuFromCommand and stop here
+if [ "$SUGGEST_ONLY" = true ]; then
+    echo "$MESSAGES" | grep -v '^\s*$'
+    exit 0
+fi
+
 # Save diff to temp file for fzf preview
 DIFF_FILE=$(mktemp)
 echo "$DIFF" > "$DIFF_FILE"
@@ -82,9 +93,9 @@ SELECTED=$(echo "$MESSAGES" | fzf \
     --reverse \
     --border \
     --prompt="Select commit message > " \
-    --preview="echo '📝 COMMIT MESSAGE:\n'; echo {}; echo '\n📊 STAGED DIFF:\n'; cat $DIFF_FILE" \
+    --preview="echo '◆ COMMIT MESSAGE:\n'; echo {}; echo '\n◇ STAGED DIFF:\n'; cat $DIFF_FILE" \
     --preview-window=right:60%:wrap \
-    --header="🤖 AI-Generated Commit Messages (Ctrl-C to cancel)" \
+    --header="◆ AI-GENERATED COMMIT MESSAGES (Ctrl-C to cancel)" \
     --color="fg:#f5d0dc,bg:#0d0d0d,hl:#ff0055,fg+:#ffffff,bg+:#2d1a22,hl+:#ff3344,info:#ff0077,prompt:#ff0055,pointer:#ff0055,marker:#ff0055,spinner:#ff0077,header:#ff6688")
 
 # Clean up temp file

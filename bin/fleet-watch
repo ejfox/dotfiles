@@ -1,0 +1,75 @@
+#!/bin/bash
+# fleet-watch — live tmux grid of Claude Code workflow subagents
+#
+#   fleet-watch              watch the most recent workflow run (any project)
+#   fleet-watch <dir>        watch a specific workflow transcript dir
+#   fleet-watch --pane N DIR internal: render one pane (0 = fleet summary)
+#
+# Creates window "agents" in the current tmux session: a summary pane plus
+# 8 slot panes, each locked to the Nth most-recently-active subagent
+# transcript. Slots re-rank every 2s so the grid follows the live agents.
+
+set -e
+
+PINK=$'\033[38;2;255;77;141m'; TEAL=$'\033[38;2;123;240;249m'
+DIM=$'\033[2m'; RST=$'\033[0m'; BOLD=$'\033[1m'
+
+newest_dir() {
+  # shellcheck disable=SC2012
+  ls -td "$HOME"/.claude/projects/*/subagents/workflows/*/ 2>/dev/null | head -1
+}
+
+if [ "$1" = "--pane" ]; then
+  SLOT=$2; DIR=$3
+  if [ "$SLOT" = "0" ]; then
+    while true; do
+      clear
+      total=$(ls "$DIR"/agent-*.jsonl 2>/dev/null | wc -l | tr -d ' ')
+      active=$(find "$DIR" -name 'agent-*.jsonl' -newermt '-45 seconds' 2>/dev/null | wc -l | tr -d ' ')
+      printf "%s%s◆ RESEARCH FLEET%s  %s transcripts · %s%s%s active last 45s\n" "$BOLD" "$PINK" "$RST" "$total" "$TEAL" "$active" "$RST"
+      printf "%s%s · %s%s\n\n" "$DIM" "$(date '+%H:%M:%S')" "$(basename "$DIR")" "$RST"
+      for f in $(ls -t "$DIR"/agent-*.jsonl 2>/dev/null | head -12); do
+        id=$(basename "$f" .jsonl | cut -c7-14)
+        line=$(tail -6 "$f" | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="text") | .text' 2>/dev/null | tr '\n' ' ' | tail -c 200)
+        [ -n "$line" ] && printf "%s%s%s %s\n" "$PINK" "$id" "$RST" "$line"
+      done
+      sleep 3
+    done
+  fi
+  while true; do
+    FILE=$(ls -t "$DIR"/agent-*.jsonl 2>/dev/null | sed -n "${SLOT}p")
+    clear
+    if [ -z "$FILE" ]; then
+      printf "%sslot %s · waiting for agents…%s\n" "$DIM" "$SLOT" "$RST"
+      sleep 3; continue
+    fi
+    ID=$(basename "$FILE" .jsonl | cut -c7-14)
+    AGE=$(( $(date +%s) - $(stat -f %m "$FILE") ))
+    printf "%s%s● agent %s%s  %s%ss ago · slot %s%s\n" "$BOLD" "$PINK" "$ID" "$RST" "$DIM" "$AGE" "$SLOT" "$RST"
+    tail -25 "$FILE" | jq -r --arg teal "$TEAL" --arg dim "$DIM" --arg rst "$RST" '
+      .message.content? // empty | if type=="array" then .[] else empty end |
+      if .type=="text" then $teal + ((.text // "")|gsub("\n";" ")|.[0:300]) + $rst
+      elif .type=="tool_use" then "[33m⚡ " + .name + $rst + " " + $dim + ((.input|tostring)[0:180]) + $rst
+      elif .type=="tool_result" then $dim + "↩ result" + $rst
+      else empty end' 2>/dev/null | tail -16
+    sleep 2
+  done
+fi
+
+DIR=${1:-$(newest_dir)}
+if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
+  echo "fleet-watch: no workflow transcript dirs found" >&2
+  exit 1
+fi
+DIR=${DIR%/}
+
+[ -n "$TMUX" ] || { echo "fleet-watch: run inside tmux" >&2; exit 1; }
+SESSION=$(tmux display-message -p '#S')
+
+tmux kill-window -t "$SESSION:agents" 2>/dev/null || true
+tmux new-window -t "$SESSION" -n agents -d "$0 --pane 0 $DIR"
+for i in 1 2 3 4 5 6 7 8; do
+  tmux split-window -t "$SESSION:agents" -d "$0 --pane $i $DIR"
+  tmux select-layout -t "$SESSION:agents" tiled
+done
+echo "fleet-watch: window 'agents' watching $(basename "$DIR") — switch with: tmux select-window -t $SESSION:agents"

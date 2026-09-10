@@ -1,0 +1,56 @@
+#!/bin/bash
+# chrome-grid — open URLs as individual Chrome windows tiled in a grid
+#
+#   chrome-grid URL [URL...]   one window per URL, auto-tiled on main screen
+#   chrome-grid --tile         re-tile all existing Chrome windows, open none
+#
+# For watchable research: instead of one window with buried tabs, every page
+# gets its own visible window. Grid is ceil(sqrt(n)) columns.
+# NOTE: autoplace-windows (Hammerspoon) snaps NEW Chrome windows to mined
+# slots; we tile AFTER opening so chrome-grid wins the argument.
+
+set -e
+
+TILE_ONLY=false
+if [ "$1" = "--tile" ]; then TILE_ONLY=true; shift; fi
+
+if [ "$TILE_ONLY" = false ] && [ $# -eq 0 ]; then
+  echo "usage: chrome-grid URL [URL...]   |   chrome-grid --tile" >&2
+  exit 1
+fi
+
+if [ "$TILE_ONLY" = false ]; then
+  for url in "$@"; do
+    case "$url" in http://*|https://*) ;; *) url="https://$url" ;; esac
+    osascript -e "tell application \"Google Chrome\"
+      activate
+      set w to make new window
+      set URL of active tab of w to \"$url\"
+    end tell" >/dev/null
+  done
+  sleep 1.5  # let windows land (and autoplace fire) before we tile over it
+fi
+
+osascript <<'EOF'
+tell application "Finder" to set desktopBounds to bounds of window of desktop
+set screenW to item 3 of desktopBounds
+set screenH to item 4 of desktopBounds
+set menubarH to 25
+
+tell application "Google Chrome"
+  set n to count of windows
+  if n is 0 then return
+  set cols to (round ((n ^ 0.5)) rounding up)
+  set rows to (round ((n / cols)) rounding up)
+  set cellW to screenW div cols
+  set cellH to (screenH - menubarH) div rows
+  repeat with i from 1 to n
+    set col to (i - 1) mod cols
+    set rowN to (i - 1) div cols
+    set x1 to col * cellW
+    set y1 to menubarH + (rowN * cellH)
+    set bounds of window i to {x1, y1, x1 + cellW, y1 + cellH}
+  end repeat
+  activate
+end tell
+EOF
