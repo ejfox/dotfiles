@@ -13,7 +13,7 @@
 
 set -u
 
-DEVICE="${PIXEL_CANVAS_HOST:-192.168.1.173}"
+DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
 BASE="http://${DEVICE}"
 SCENES_DIR="${PIXEL_SCENES_DIR:-$HOME/.dotfiles/bin/pixel-scenes}"
 
