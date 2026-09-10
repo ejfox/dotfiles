@@ -10,7 +10,8 @@
 
 set -u
 
-DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
+resolve() { echo "${PIXEL_CANVAS_HOST:-$(cat "$HOME/.config/pixel-canvas-host" 2>/dev/null || echo 10.0.0.103)}"; }
+DEVICE=$(resolve)
 BASE="http://${DEVICE}"
 
 px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }
@@ -21,8 +22,18 @@ alive() {
 
 tick=0
 fleet=""
+down=0
 while true; do
-  if ! alive; then sleep 30; continue; fi
+  if ! alive; then
+    down=$((down + 1))
+    # ~2 min dark -> assume DHCP shuffled the IP; rediscover and re-resolve
+    if [ $((down % 4)) -eq 0 ]; then
+      "$HOME/.dotfiles/bin/pixel" find >/dev/null 2>&1 || true
+      DEVICE=$(resolve); BASE="http://${DEVICE}"
+    fi
+    sleep 30; continue
+  fi
+  down=0
 
   # fleet counts every 5th tick ("◇1 ◆2 ●11" -> needs/working)
   if [ $((tick % 5)) -eq 0 ]; then

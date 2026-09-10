@@ -13,9 +13,30 @@
 
 set -u
 
-DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
+# Host resolution: env override > cached discovery > last-known default.
+# `pixel find` re-discovers after a DHCP shuffle and updates the cache.
+HOST_CACHE="$HOME/.config/pixel-canvas-host"
+DEVICE="${PIXEL_CANVAS_HOST:-$(cat "$HOST_CACHE" 2>/dev/null || echo 10.0.0.103)}"
 BASE="http://${DEVICE}"
 SCENES_DIR="${PIXEL_SCENES_DIR:-$HOME/.dotfiles/bin/pixel-scenes}"
+
+# Sweep the local /24 for a /info that identifies as pixelcanvas; cache the IP.
+pixel_find() {
+  local subnet
+  subnet=$(ifconfig 2>/dev/null | awk '/inet /&&!/127.0.0.1/{print $2; exit}' | cut -d. -f1-3)
+  [ -z "$subnet" ] && return 1
+  local found=""
+  for i in $(seq 1 254); do
+    ( r=$(curl -s --connect-timeout 1 --max-time 2 "http://${subnet}.${i}/info" 2>/dev/null)
+      case "$r" in *'"hostname":"pixelcanvas"'*) echo "${subnet}.${i}" >> /tmp/pixel-find.$$ ;; esac ) &
+    [ $((i % 40)) -eq 0 ] && wait
+  done
+  wait
+  found=$(head -1 /tmp/pixel-find.$$ 2>/dev/null); rm -f /tmp/pixel-find.$$
+  [ -z "$found" ] && return 1
+  mkdir -p "$(dirname "$HOST_CACHE")" && echo "$found" > "$HOST_CACHE"
+  echo "$found"
+}
 
 # --- reachability check ---------------------------------------------------
 # Fast: 1s connect timeout, 2s total. Anything else = device offline.
@@ -46,6 +67,11 @@ cmd="${1:-random}"
 case "$cmd" in
   ping)
     pixel_ping && exit 0 || exit 1
+    ;;
+  find)
+    # re-discover after a DHCP shuffle; prints + caches the IP
+    if ip=$(pixel_find); then echo "pixel canvas found at $ip (cached)"; exit 0
+    else echo "pixel: no canvas found on the local /24" >&2; exit 1; fi
     ;;
   clear)
     pixel_ping || exit 0

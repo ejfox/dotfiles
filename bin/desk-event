@@ -11,7 +11,8 @@
 #   desk-event error "something"       # red-coded event
 #   desk-event <kind> [detail...]      # anything else
 #
-# Color code: hotpink = needs you · red = error · teal = FYI.
+# Light grammar: color = category (hotpink needs-you · teal claude · red error),
+# pulse count = urgency (1 soft blip FYI · 1 slow swell done · 2 needs · 3 error).
 # Silent no-op per-device when unreachable. Caption debounced 5s.
 # Washaway after ~75s: claude/needs events repaint the fleet scene
 # (context follows the event), everything else repaints a random scene.
@@ -28,15 +29,19 @@ case "$KIND" in claude|needs)
   fi ;;
 esac
 
-# Event color: shared by the light pulse and the caption accent
+# Event color (caption accent) + light grammar event. The lights speak a
+# decodable code — color = category, pulse count = urgency:
+#   fyi 1 soft blip · done 1 slow swell · needs 2 pulses · error 3 strobes
 case "$KIND" in
-  needs) COLOR="hotpink"; LABEL="NEEDS YOU" ;;
-  error) COLOR="red";     LABEL="ERROR" ;;
-  *)     COLOR="teal";    LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
+  needs)  COLOR="hotpink"; LABEL="NEEDS YOU"; EVENT="needs" ;;
+  error)  COLOR="red";     LABEL="ERROR";     EVENT="error" ;;
+  claude) COLOR="teal";    LABEL="CLAUDE";    EVENT="done" ;;
+  *)      COLOR="teal";    EVENT="fyi"
+          LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
 esac
 
-# 1) Lights — rgb-flash has its own 2s debounce + offline gate
-"$HOME/.dotfiles/bin/rgb-flash" "$COLOR" >/dev/null 2>&1 &
+# 1) Lights — rgb-flash has its own debounce (needs/error punch through)
+"$HOME/.dotfiles/bin/rgb-flash" "$EVENT" >/dev/null 2>&1 &
 
 # 2) Caption — debounce 5s so activity storms don't spam draws
 #    ("needs you" events skip the debounce: never swallow those)
@@ -48,7 +53,7 @@ if [ "$KIND" != "needs" ] && [ -f "$STAMP" ]; then
 fi
 touch "$STAMP"
 
-DEVICE="${PIXEL_CANVAS_HOST:-10.0.0.103}"
+DEVICE="${PIXEL_CANVAS_HOST:-$(cat "$HOME/.config/pixel-canvas-host" 2>/dev/null || echo 10.0.0.103)}"
 BASE="http://${DEVICE}"
 
 px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${BASE}/$1" 2>/dev/null || true; }
