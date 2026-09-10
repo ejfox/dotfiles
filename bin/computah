@@ -158,16 +158,40 @@ case "${1:-ssh}" in
     SYNC="$HOME/.dotfiles/hue-stream/pc-rgb-sync.py"
     EFFECT="$HOME/.dotfiles/hue-stream/pc-rgb-effect.py"
     VENV="$HOME/.local/share/rgb-venv/bin/python"
+    NODE_DIR="$HOME/.dotfiles/hue-stream/node"
     _stop_all() { pkill -f pc-rgb-sync.py 2>/dev/null || true; pkill -f pc-rgb-effect.py 2>/dev/null || true; sleep 1; }
+    _hue_daemon_pid() { pgrep -f "hue-stream.js daemon" 2>/dev/null | head -1; }
+    # Bring the Hue desk lights along: daemon in `screen` ambient renders the
+    # zones that pc-rgb-effect publishes, so the desk waves with the PC.
+    _hue_up() {
+      if [ -z "$(_hue_daemon_pid)" ]; then
+        (cd "$NODE_DIR" && nohup node hue-stream.js daemon screen >/tmp/hue-stream.log 2>&1 &)
+        echo "hue: daemon up (screen ambient) — desk lights synced"
+      else
+        (cd "$NODE_DIR" && node hue-stream.js trigger ambient screen >/dev/null 2>&1)
+        echo "hue: daemon already up — switched to screen ambient (synced)"
+      fi
+    }
+    # Only quit the daemon if the iMac screensync sampler doesn't need it.
+    _hue_down() {
+      [ -n "$(pgrep -f screen-sync.py)" ] && return 0
+      if [ -n "$(_hue_daemon_pid)" ]; then
+        (cd "$NODE_DIR" && node hue-stream.js trigger quit >/dev/null 2>&1)
+        echo "hue: daemon quit — desk lights back to normal control"
+      fi
+    }
     case "${2:-on}" in
       on|wave|breathe|pulse)
         eff="${2:-wave}"; [ "$eff" = "on" ] && eff=wave
         _stop_all
+        rm -f "$HOME/.config/pc-rgb-off"
         nohup "$VENV" "$EFFECT" "$eff" >/tmp/pc-rgb-effect.log 2>&1 &
         echo "pc rgb: $eff effect on (pid $!) — vulpes pink↔teal"
+        _hue_up
         ;;
       screen)
         _stop_all
+        rm -f "$HOME/.config/pc-rgb-off"
         nohup "$VENV" "$SYNC" >/tmp/pc-rgb-sync.log 2>&1 &
         echo "pc rgb: screen-sync on (pid $!) — case follows the iMac screen"
         ;;
@@ -190,12 +214,17 @@ try:
 except Exception as e:
     print('blackout skipped (OpenRGB unreachable):', e)
 PYEOF
-        echo "pc rgb off — effects stopped, all LEDs black"
+        # rgb-flash honors this: no event flashes on the PC while lights are off
+        touch "$HOME/.config/pc-rgb-off"
+        echo "pc rgb off — effects stopped, all LEDs black (event flashes muted on PC)"
+        _hue_down
         ;;
       status)
         if pgrep -f pc-rgb-effect.py >/dev/null; then echo "pc rgb: effect running";
         elif pgrep -f pc-rgb-sync.py >/dev/null; then echo "pc rgb: screen-sync running";
         else echo "pc rgb: off"; fi
+        [ -f "$HOME/.config/pc-rgb-off" ] && echo "pc rgb: event flashes muted (~/.config/pc-rgb-off)"
+        [ -n "$(_hue_daemon_pid)" ] && echo "hue: daemon running (desk lights streaming)" || echo "hue: daemon off"
         ;;
     esac
     ;;

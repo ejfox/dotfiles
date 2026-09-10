@@ -1,0 +1,29 @@
+#!/bin/bash
+# hue-screen — drive the Office/desk lights from the iMac Pro screen in realtime.
+#   hue-screen [sampler args: --zones N --fps F --sat S --gamma G --floor F]
+# Ctrl-C stops sampling and returns lights to normal.
+set -e
+DIR="$HOME/.dotfiles/hue-stream"
+# Scope the entertainment group to Office only (desk lights live there).
+export HUE_STREAM_EXCLUDE_ROOMS="${HUE_STREAM_EXCLUDE_ROOMS:-Living room,Bedroom,Kitchen,Bathroom,Backyard}"
+
+started=0
+if ! lsof -nP -iUDP:9999 >/dev/null 2>&1; then
+  echo "[hue-screen] starting daemon in screen mode..."
+  hue-stream daemon screen &
+  started=1
+  for i in $(seq 1 40); do lsof -nP -iUDP:9999 >/dev/null 2>&1 && break; sleep 0.25; done
+  sleep 1
+else
+  echo "[hue-screen] daemon already running — switching to screen ambient"
+  hue-stream trigger ambient screen
+fi
+
+cleanup() {
+  if [ "$started" = 1 ]; then hue-stream trigger quit 2>/dev/null || true
+  else hue-stream trigger ambient warm 2>/dev/null || true; fi
+}
+trap cleanup EXIT INT TERM
+
+echo "[hue-screen] sampling — Ctrl-C to stop"
+python3 "$DIR/screen-sync.py" "$@"

@@ -268,7 +268,82 @@ function warm() {
   return () => [r, g, b];
 }
 
-const AMBIENT_FNS = { rainbow, matrix, dark, warm };
+// ─── HCL (CIELAB LCh) color blending ────────────────────────────────────────
+// Perceptual easing lives here: we interpolate in LCh so a red→blue fade sweeps
+// through vivid hues instead of muddy gray (which is what naive RGB lerp gives).
+
+function srgbToLin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function linToSrgb(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+
+function rgbToLch([r, g, b]) {
+  const R = srgbToLin(r), G = srgbToLin(g), B = srgbToLin(b);
+  const x = R * 0.4124564 + G * 0.3575761 + B * 0.1804375;
+  const y = R * 0.2126729 + G * 0.7151522 + B * 0.0721750;
+  const z = R * 0.0193339 + G * 0.1191920 + B * 0.9503041;
+  const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const fx = f(x / 0.95047), fy = f(y / 1.0), fz = f(z / 1.08883);
+  const L = 116 * fy - 16, a = 500 * (fx - fy), bb = 200 * (fy - fz);
+  const C = Math.hypot(a, bb);
+  const H = Math.atan2(bb, a); // radians
+  return [L, C, H];
+}
+
+function lchToRgb([L, C, H]) {
+  const a = C * Math.cos(H), bb = C * Math.sin(H);
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - bb / 200;
+  const fi = t => { const t3 = t * t * t; return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787; };
+  const x = fi(fx) * 0.95047, y = fi(fy) * 1.0, z = fi(fz) * 1.08883;
+  const R = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
+  const G = x * -0.9692660 + y * 1.8760108 + z * 0.0415560;
+  const B = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
+  const clamp = v => Math.min(1, Math.max(0, linToSrgb(v)));
+  return [clamp(R), clamp(G), clamp(B)];
+}
+
+// Exponential ease from `cur` toward `target` by fraction `a`, blended in LCh.
+// Hue takes the shortest angular path; a chroma-less endpoint borrows the
+// other's hue so fades to/from black or gray don't spin through random hues.
+function easeLch(cur, target, a) {
+  const c1 = rgbToLch(cur), c2 = rgbToLch(target);
+  let [L1, C1, H1] = c1, [L2, C2, H2] = c2;
+  if (C1 < 1e-3) H1 = H2;
+  if (C2 < 1e-3) H2 = H1;
+  let dH = H2 - H1;
+  while (dH > Math.PI) dH -= 2 * Math.PI;
+  while (dH < -Math.PI) dH += 2 * Math.PI;
+  const L = L1 + (L2 - L1) * a;
+  const C = C1 + (C2 - C1) * a;
+  const H = H1 + dH * a;
+  return lchToRgb([L, C, H]);
+}
+
+// Screen-sync ambient: an external sampler pushes `state.screen.zones`
+// (left→right color bands from the primary display) via {type:'screen'}.
+// Each channel maps its x-position to a band and eases toward it in HCL at
+// 50Hz — so sampling can be slow while the lights stay silky.
+function screen(channels, state) {
+  const alpha = (() => { const v = parseFloat(process.env.HUE_SCREEN_EASE); return v > 0 && v <= 1 ? v : 0.16; })();
+  return (i, t, ch) => {
+    const sc = state.screen || {};
+    const zones = (sc.zones && sc.zones.length) ? sc.zones : null;
+    let target;
+    if (!zones) {
+      target = [0, 0, 0];
+    } else {
+      const x = (ch && ch.position) ? ch.position.x : 0;
+      const nz = zones.length;
+      let zi = Math.floor(((x + 1) / 2) * nz);
+      if (zi < 0) zi = 0; if (zi >= nz) zi = nz - 1;
+      target = zones[zi] || [0, 0, 0];
+    }
+    const cur = sc.current[i] || [0, 0, 0];
+    const next = easeLch(cur, target, alpha);
+    sc.current[i] = next;
+    return next;
+  };
+}
+
+const AMBIENT_FNS = { rainbow, matrix, dark, warm, screen };
 
 // ─── One-shot commands ────────────────────────────────────────────────────
 
@@ -358,14 +433,16 @@ async function cmdDaemon(initialAmbient = 'dark', skipActivate = false) {
   console.log('[daemon] DTLS connected, streaming @ 50Hz + immediate-on-pulse');
 
   const state = {
-    ambientFn: (AMBIENT_FNS[initialAmbient] || dark)(cfg.channels),
+    ambientFn: null,  // set below, once state exists (screen ambient needs it)
     bursts: [],
     highlight: null,  // { targetSet: Set<channelIdx>, color: [r,g,b] } — overrides ambient+bursts on match
+    screen: { zones: [], current: {} },  // screen-sync: live color bands + per-channel eased state
     channelNames: streamers.map(s => (s.name || '').toLowerCase()),
     channelRooms: streamers.map(s => (s.room || '').toLowerCase()),
     config: loadConfig(),
     quit: false,
   };
+  state.ambientFn = (AMBIENT_FNS[initialAmbient] || dark)(cfg.channels, state);
 
   // Live-reload config.json
   try {
@@ -393,7 +470,7 @@ async function cmdDaemon(initialAmbient = 'dark', skipActivate = false) {
       handleMessage(msg, state, cfg.channels);
       // Pulse arriving mid-interval: push an extra frame right now so the
       // bulb doesn't wait 0-20ms for the next tick.
-      if (msg.type === 'pulse' || msg.type === 'highlight') pushFrame();
+      if (msg.type === 'pulse' || msg.type === 'highlight' || msg.type === 'flash') pushFrame();
     } catch (e) { console.error('[daemon] bad message:', e.message); }
   });
   udp.bind(DAEMON_PORT, '127.0.0.1', () => console.log('[daemon] listening on UDP 127.0.0.1:' + DAEMON_PORT));
@@ -421,8 +498,36 @@ async function cmdDaemon(initialAmbient = 'dark', skipActivate = false) {
 function handleMessage(msg, state, channels) {
   switch (msg.type) {
     case 'ambient':
-      if (AMBIENT_FNS[msg.name]) state.ambientFn = AMBIENT_FNS[msg.name](channels);
+      if (AMBIENT_FNS[msg.name]) state.ambientFn = AMBIENT_FNS[msg.name](channels, state);
       break;
+    case 'screen':
+      // External sampler pushes left→right color bands from the primary display.
+      if (Array.isArray(msg.zones)) state.screen.zones = msg.zones;
+      break;
+    case 'flash': {
+      // Transient additive flash that auto-returns to whatever was playing
+      // (screen-sync, warm, rainbow…). Great for "MAJOR event" dings.
+      const color = msg.color || [1, 1, 1];
+      const count = Math.max(1, Math.min(10, msg.count || 1));
+      const dur = msg.duration || 0.18;
+      const gap = msg.gap != null ? msg.gap : 0.12;
+      const targets = Array.isArray(msg.target) && msg.target.length ? msg.target : null;
+      const targetSet = targets ? resolveTargets(targets, state) : null;
+      const now = Date.now() / 1000;
+      for (let k = 0; k < count; k++) {
+        state.bursts.push({
+          pos: [0, 0, 0],
+          color,
+          startT: now + k * (dur + gap),
+          duration: dur,
+          radius: 999,
+          targetSet,
+          uniform: true,  // hit all matched lights equally, ignore spatial falloff
+        });
+      }
+      if (state.bursts.length > 200) state.bursts = state.bursts.slice(-200);
+      break;
+    }
     case 'pulse': {
       const kc = state.config || {};
       const mode = kc.mode || 'uniform';
@@ -544,6 +649,9 @@ function cmdTrigger(args) {
   } else if (kind === 'pulse') {
     const [x, y, z, r = 1, g = 1, b = 1, dur = 0.35, radius = 0.6] = rest.map(parseFloat);
     msg = { type: 'pulse', position: [x, y, z], color: [r, g, b], duration: dur, radius };
+  } else if (kind === 'flash') {
+    const [r = 1, g = 1, b = 1, count = 2, dur = 0.18] = rest.map(parseFloat);
+    msg = { type: 'flash', color: [r, g, b], count, duration: dur };
   } else if (kind === 'clear') {
     msg = { type: 'clear' };
   } else if (kind === 'quit') {
@@ -576,9 +684,10 @@ async function main() {
       console.log(`commands:
   setup                          create/verify entertainment config
   rainbow|matrix [s]             one-shot animations
-  daemon [dark|rainbow|matrix]   long-running: holds DTLS, listens for UDP events (default dark)
-  trigger ambient <name>         switch daemon's ambient animation
+  daemon [dark|rainbow|matrix|warm|screen]  long-running: holds DTLS, listens for UDP events (default dark)
+  trigger ambient <name>         switch daemon's ambient (rainbow|matrix|dark|warm|screen)
   trigger pulse x y z [r g b dur] fire a spatial burst
+  trigger flash [r g b count dur] flash all lights then return to prior state
   trigger quit                   shut down daemon
   stop                           force-deactivate any active stream
   `);

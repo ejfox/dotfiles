@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
-# rgb-flash — pulse computah's RGBs a color, then settle back to vulpes pink.
+# rgb-flash — pulse the desk a color, then settle back to rest.
 #
 # Usage:
 #   rgb-flash              # teal pulse -> pink rest
 #   rgb-flash <color>      # named color or RRGGBB hex pulse -> pink rest
 #   rgb-flash rest         # no pulse, just set the pink resting state
 #
-# Silent + instant no-op if computah/OpenRGB is unreachable (safe for hooks).
+# Reaches every RGB surface it can find:
+#   - PC (OpenRGB @ 10.0.0.169:6742): direct set — unless pc-rgb-effect.py is
+#     running, in which case the flash is signalled via /tmp/pc-rgb-flash and
+#     the engine renders it (a direct set would be overwritten next frame).
+#   - Hue desk lights: {type:'flash'} UDP to the hue-stream daemon (:9999),
+#     which flashes then returns to whatever ambient was playing. Silently
+#     dropped if the daemon isn't up.
+#
+# Silent + instant no-op per-surface when unreachable (safe for hooks).
 # Debounced: overlapping calls within 2s collapse into one flash.
 
 set -u
@@ -18,6 +26,11 @@ STAMP="/tmp/rgb-flash.last"
 
 COLOR="${1:-teal}"
 
+# `computah rgb off` mutes the PC lights entirely — no event flashes either.
+# (Hue + canvas captions still carry the signal; delete the flag or run any
+# `computah rgb <effect>` to restore.)
+PC_OFF_FLAG="$HOME/.config/pc-rgb-off"
+
 # Debounce (skip if a flash ran <2s ago; 'rest' always allowed)
 if [ "$COLOR" != "rest" ] && [ -f "$STAMP" ]; then
   now=$(date +%s); last=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
@@ -26,18 +39,9 @@ fi
 touch "$STAMP"
 
 exec "$VENV_PY" - "$HOST" "$PORT" "$COLOR" <<'EOF' >/dev/null 2>&1
-import socket, sys, time
+import json, socket, subprocess, sys, time
 
 host, port, color = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-
-# Fast reachability gate so hooks never hang
-try:
-    socket.create_connection((host, port), timeout=0.5).close()
-except OSError:
-    sys.exit(0)
-
-from openrgb import OpenRGBClient
-from openrgb.utils import RGBColor
 
 NAMED = {
     "pink":    (0xe6, 0x00, 0x67),  # vulpes resting state
@@ -50,16 +54,59 @@ NAMED = {
 
 def parse(c):
     if c in NAMED:
-        return RGBColor(*NAMED[c])
+        return NAMED[c]
     c = c.lstrip("#")
     if len(c) == 6:
         try:
-            return RGBColor(int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
+            return (int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16))
         except ValueError:
             pass
-    return RGBColor(*NAMED["teal"])
+    return NAMED["teal"]
 
-REST = RGBColor(*NAMED["pink"])
+REST = NAMED["pink"]
+rgb = REST if color == "rest" else parse(color)
+
+def engine_running():
+    try:
+        return subprocess.run(["pgrep", "-f", "pc-rgb-effect.py"],
+                              capture_output=True).returncode == 0
+    except Exception:
+        return False
+
+# --- Hue desk lights: flash message to the hue-stream daemon (fire & forget)
+if color != "rest":
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.sendto(json.dumps({
+            "type": "flash",
+            "color": [round(v / 255, 3) for v in rgb],
+            "count": 1,
+        }).encode(), ("127.0.0.1", 9999))
+    except OSError:
+        pass
+
+# --- PC: muted entirely while the off flag is set (computah rgb off)
+import os
+if os.path.exists(os.path.expanduser("~/.config/pc-rgb-off")):
+    sys.exit(0)
+
+# --- PC: signal the effect engine if it's running, else drive OpenRGB direct
+if engine_running():
+    if color != "rest":
+        try:
+            with open("/tmp/pc-rgb-flash", "w") as f:
+                f.write("%d %d %d" % rgb)
+        except OSError:
+            pass
+    sys.exit(0)  # engine owns the LEDs (and 'rest' is its ambient anyway)
+
+try:
+    socket.create_connection((host, port), timeout=0.5).close()
+except OSError:
+    sys.exit(0)
+
+from openrgb import OpenRGBClient
+from openrgb.utils import RGBColor
 
 client = OpenRGBClient(host, port, "rgb-flash")
 
@@ -77,11 +124,11 @@ for d in client.devices:
         pass
 
 if color == "rest":
-    paint(REST)
+    paint(RGBColor(*REST))
 else:
-    paint(parse(color))
+    paint(RGBColor(*rgb))
     time.sleep(0.4)
-    paint(REST)
+    paint(RGBColor(*REST))
 
 client.disconnect()
 EOF

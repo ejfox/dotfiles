@@ -1,0 +1,7 @@
+#!/bin/bash
+f=~/.config/hue-key/disabled
+case "$1" in
+  on) rm -f "$f"; echo "keyboard lights ON";;
+  off) touch "$f"; echo "keyboard lights OFF";;
+  *) [ -e "$f" ] && { rm -f "$f"; echo "keyboard lights ON"; } || { touch "$f"; echo "keyboard lights OFF"; };;
+esac

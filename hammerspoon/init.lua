@@ -102,6 +102,7 @@ if hueKeyTap then
   hueKeyTap = nil
 end
 hueKeyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
+  if hs.fs.attributes(os.getenv("HOME") .. "/.config/hue-key/disabled") then return false end  -- `hue-keys off`
   local kc = event:getKeyCode()
   local pos = keyPos[kc]
   if not pos then return false end

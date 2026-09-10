@@ -1,0 +1,5 @@
+#!/bin/bash
+# hue-flash [r g b] [count] [dur] — flash the entertainment lights then return
+# to whatever was playing (screen-sync, warm, rainbow...). For MAJOR dings.
+# Defaults: white, 2 blinks. Requires the hue-stream daemon to be running.
+exec hue-stream trigger flash "$@"
