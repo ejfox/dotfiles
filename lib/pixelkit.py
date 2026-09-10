@@ -1,0 +1,112 @@
+"""pixelkit — placement-aware drawing helpers for the pixel canvas.
+
+The GFX classic font is 5x7 on a 6x8 cell, scaled integerly: a char is
+6*size px wide, 8*size tall. Nothing here draws blind: text measures
+itself, clamps to the canvas, truncates with a ~ when it can't fit, and
+can anchor left/center/right. Import from scene scripts:
+
+    import sys, os
+    sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+    from pixelkit import Canvas
+    cv = Canvas(BASE)
+    cv.text("shipped today", 10, 15, color="mauve")
+    cv.text("42 commits", y=225, color="dustrose", align="right")
+    cv.text("centered", y=118, color="body", align="center")
+"""
+import json
+import urllib.parse
+import urllib.request
+
+W, H = 320, 240
+CHAR_W, CHAR_H = 6, 8
+MARGIN = 3
+
+
+def text_w(msg, size=1):
+    return len(msg) * CHAR_W * size
+
+
+def fit(msg, max_w, size=1):
+    """Truncate msg to max_w px, marking the cut with a trailing ~."""
+    max_chars = max(0, int(max_w) // (CHAR_W * size))
+    if len(msg) <= max_chars:
+        return msg
+    if max_chars < 2:
+        return msg[:max_chars]
+    return msg[: max_chars - 1] + "~"
+
+
+class Canvas:
+    def __init__(self, base, timeout=3):
+        self.base = base.rstrip("/")
+        self.timeout = timeout
+
+    def get(self, path):
+        try:
+            urllib.request.urlopen(f"{self.base}/{path}", timeout=self.timeout).read()
+        except Exception:
+            pass
+
+    def batch(self, dots):
+        try:
+            req = urllib.request.Request(
+                f"{self.base}/batch", data=json.dumps(dots).encode(),
+                headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=self.timeout + 1).read()
+        except Exception:
+            pass
+
+    def clear(self, color=None):
+        self.get(f"clear?color={color}" if color else "clear")
+
+    def text(self, msg, x=None, y=0, size=1, color="body", align="left", max_w=None):
+        """Placement-aware text.
+
+        align=left:   x is the left edge (default MARGIN)
+        align=right:  x is the RIGHT edge to end at (default W - MARGIN)
+        align=center: x is the center (default W/2)
+        Truncates to max_w if given, and always to the canvas edge.
+        """
+        if align == "right":
+            edge = W - MARGIN if x is None else x
+            avail = edge - MARGIN if max_w is None else min(max_w, edge - MARGIN)
+            msg = fit(msg, avail, size)
+            x = edge - text_w(msg, size)
+        elif align == "center":
+            cx = W // 2 if x is None else x
+            avail = 2 * min(cx - MARGIN, W - MARGIN - cx) if max_w is None else max_w
+            msg = fit(msg, avail, size)
+            x = cx - text_w(msg, size) // 2
+        else:
+            if x is None:
+                x = MARGIN
+            avail = (W - MARGIN - x) if max_w is None else min(max_w, W - MARGIN - x)
+            msg = fit(msg, avail, size)
+        if not msg:
+            return None
+        x = max(0, min(int(x), W - 1))
+        y = max(0, min(int(y), H - CHAR_H * size))
+        q = urllib.parse.quote(msg, safe="")
+        self.get(f"text?msg={q}&x={x}&y={y}&size={size}&color={color}")
+        return x  # so callers can place accents relative to real position
+
+    def rect(self, x, y, w, h, color=None, rgb=None):
+        x, y = max(0, int(x)), max(0, int(y))
+        w = min(int(w), W - x)
+        h = min(int(h), H - y)
+        if w <= 0 or h <= 0:
+            return
+        if rgb:
+            self.get(f"rect?x={x}&y={y}&w={w}&h={h}&r={rgb[0]}&g={rgb[1]}&b={rgb[2]}")
+        else:
+            self.get(f"rect?x={x}&y={y}&w={w}&h={h}&color={color}")
+
+    def circle(self, x, y, radius, color):
+        r = int(radius)
+        x = max(r, min(int(x), W - 1 - r))
+        y = max(r, min(int(y), H - 1 - r))
+        self.get(f"circle?x={x}&y={y}&radius={r}&color={color}")
+
+    def line(self, x1, y1, x2, y2, color):
+        c = lambda v, hi: max(0, min(int(v), hi - 1))
+        self.get(f"line?x1={c(x1,W)}&y1={c(y1,H)}&x2={c(x2,W)}&y2={c(y2,H)}&color={color}")

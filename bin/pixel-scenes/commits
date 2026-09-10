@@ -8,24 +8,14 @@ set -u
 command -v git >/dev/null || exit 0
 
 python3 - "$PIXEL_BASE" <<'EOF'
-import json, math, os, subprocess, sys, time, urllib.request
+import math, os, subprocess, sys, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import Canvas, W
 
 BASE = sys.argv[1]
 CODE = os.path.expanduser("~/code")
-
-def get(path):
-    try:
-        urllib.request.urlopen(f"{BASE}/{path}", timeout=3).read()
-    except Exception:
-        pass
-
-def batch(dots):
-    try:
-        req = urllib.request.Request(f"{BASE}/batch", data=json.dumps(dots).encode(),
-                                     headers={"Content-Type": "application/json"})
-        urllib.request.urlopen(req, timeout=4).read()
-    except Exception:
-        pass
+cv = Canvas(BASE)
 
 # repo hues — assigned by name hash so a repo keeps its color day to day
 HUES = [(0xe6, 0x00, 0x67), (0x6e, 0xed, 0xf7), (0xff, 0x1a, 0xca),
@@ -36,6 +26,9 @@ WHITE = (0xf5, 0xf5, 0xf5)
 
 def mix(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+def hue(repo):
+    return HUES[hash(repo) % len(HUES)]
 
 midnight = time.strftime("%Y-%m-%d 00:00")
 commits = []  # (epoch, repo)
@@ -62,8 +55,8 @@ for _, d in commits:
     if d not in repos:
         repos.append(d)
 
-get("clear")
-get("text?msg=shipped%20today&x=10&y=15&color=mauve&size=1")
+cv.clear()
+cv.text("shipped today", 10, 15, color="mauve")
 
 GOLDEN = math.radians(137.50776405)
 CX, CY = 160, 122
@@ -78,7 +71,7 @@ for i, (ts, repo) in enumerate(commits):
     y = int(CY + r * math.sin(a))
     if not (0 <= x < 317 and 12 <= y < 234):
         continue
-    col = HUES[hash(repo) % len(HUES)]
+    col = hue(repo)
     tip = n - i
     if tip <= 3:
         col = mix(col, WHITE, (4 - tip) / 4.0)
@@ -90,21 +83,20 @@ for i, (ts, repo) in enumerate(commits):
 if dots:
     chunks.append(dots)
 for c in chunks:
-    batch(c)
+    batch = cv.batch(c)
 
 if n == 0:
-    get("text?msg=nothing%20shipped%20yet&x=95&y=118&color=dustrose&size=1")
+    cv.text("nothing shipped yet", y=118, color="dustrose", align="center")
 else:
-    # legend: top repos by commit count, in their hue
+    # legend: top repos by commit count, in their hue (fitted, never clipped)
     counts = {}
     for _, d in commits:
         counts[d] = counts.get(d, 0) + 1
     top = sorted(counts, key=counts.get, reverse=True)[:3]
     ly = 195
     for d in top:
-        col = HUES[hash(d) % len(HUES)]
-        get(f"rect?x=10&y={ly}&w=6&h=6&r={col[0]}&g={col[1]}&b={col[2]}")
-        get(f"text?msg={d[:16]}%20{counts[d]}&x=22&y={ly}&color=body&size=1")
+        cv.rect(10, ly, 6, 6, rgb=hue(d))
+        cv.text(f"{d} {counts[d]}", 22, ly, color="body", max_w=130)
         ly += 12
-get(f"text?msg={n}%20commits%20{len(repos)}%20repos&x=200&y=225&color=dustrose&size=1")
+cv.text(f"{n} commits {len(repos)} repos", y=225, color="dustrose", align="right")
 EOF

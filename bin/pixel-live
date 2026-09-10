@@ -21,7 +21,7 @@ alive() {
 }
 
 tick=0
-fleet=""
+fleet_txt=""
 down=0
 while true; do
   if ! alive; then
@@ -40,17 +40,22 @@ while true; do
     counts=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null || true)
     needs=$(printf '%s' "$counts" | sed -En 's/.*◇([0-9]+).*/\1/p'); needs=${needs:-0}
     work=$(printf '%s' "$counts"  | sed -En 's/.*◆([0-9]+).*/\1/p'); work=${work:-0}
-    fleet=""
-    [ "$needs" -gt 0 ] && fleet="${needs}%20need%20you"
+    fleet_txt=""
+    [ "$needs" -gt 0 ] && fleet_txt="${needs} need you"
   fi
 
-  # top-right ticker: black backing bar, clock, fleet flag
-  now=$(date +%H%%3A%M%%3A%S)
-  px "rect?x=250&y=0&w=70&h=11&r=0&g=0&b=0"
-  px "text?msg=${now}&x=254&y=2&size=1&color=teal"
-  if [ -n "$fleet" ]; then
-    px "rect?x=160&y=0&w=90&h=11&r=0&g=0&b=0"
-    px "text?msg=${fleet}&x=170&y=2&size=1&color=hotpink"
+  # top-right ticker: placement-aware — widths computed from string length
+  # (6px/char at size 1), right-aligned against the 320px edge.
+  clock=$(date +%H:%M:%S)
+  cw=$(( ${#clock} * 6 ))
+  cx=$(( 318 - cw ))
+  px "rect?x=$((cx - 4))&y=0&w=$((cw + 6))&h=11&r=0&g=0&b=0"
+  px "text?msg=$(printf '%s' "$clock" | sed 's/:/%3A/g')&x=${cx}&y=2&size=1&color=teal"
+  if [ -n "$fleet_txt" ]; then
+    fw=$(( ${#fleet_txt} * 6 ))
+    fx=$(( cx - 12 - fw ))
+    px "rect?x=$((fx - 4))&y=0&w=$((fw + 8))&h=11&r=0&g=0&b=0"
+    px "text?msg=$(printf '%s' "$fleet_txt" | sed 's/ /%20/g')&x=${fx}&y=2&size=1&color=hotpink"
   fi
 
   tick=$((tick + 1))

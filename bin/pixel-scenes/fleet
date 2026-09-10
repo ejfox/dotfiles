@@ -3,45 +3,63 @@
 # plus which tmux windows they live in. Counts come from `robots -t`.
 set -u
 : "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-
-px() { curl -s --connect-timeout 1 --max-time 2 -o /dev/null "${PIXEL_BASE}/$1" 2>/dev/null || true; }
 command -v tmux >/dev/null || exit 0
 
 COUNTS=$("$HOME/.dotfiles/bin/robots" -t 2>/dev/null) || exit 0
 [ -z "$COUNTS" ] && exit 0
 
-# "◇1 ◆2 ●7" -> 1 / 2 / 7
-NEEDS=$(printf '%s' "$COUNTS"   | sed -En 's/.*◇([0-9]+).*/\1/p'); NEEDS=${NEEDS:-0}
-WORKING=$(printf '%s' "$COUNTS" | sed -En 's/.*◆([0-9]+).*/\1/p'); WORKING=${WORKING:-0}
-IDLE=$(printf '%s' "$COUNTS"    | sed -En 's/.*●([0-9]+).*/\1/p'); IDLE=${IDLE:-0}
+python3 - "$PIXEL_BASE" "$COUNTS" <<'EOF'
+import os, re, subprocess, sys
 
-enc() { printf '%s' "$1" | sed 's/ /%20/g; s/:/%3A/g'; }
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import Canvas, text_w
 
-px "clear"
-px "text?msg=$(enc "agent fleet")&x=10&y=15&color=mauve&size=1"
+BASE, COUNTS = sys.argv[1], sys.argv[2]
+cv = Canvas(BASE)
 
-# Three columns of counts — needs-you glows hotpink when nonzero
-NCOLOR="dustrose"; [ "$NEEDS" -gt 0 ] && NCOLOR="hotpink"
-px "text?msg=${NEEDS}&x=35&y=50&color=${NCOLOR}&size=5"
-px "text?msg=$(enc "needs you")&x=25&y=95&color=${NCOLOR}&size=1"
+def grab(sym):
+    m = re.search(sym + r"(\d+)", COUNTS)
+    return int(m.group(1)) if m else 0
 
-px "text?msg=${WORKING}&x=145&y=50&color=pink&size=5"
-px "text?msg=working&x=135&y=95&color=mauve&size=1"
+needs, working, idle = grab("◇"), grab("◆"), grab("●")
 
-px "text?msg=${IDLE}&x=250&y=50&color=teal&size=5"
-px "text?msg=idle&x=252&y=95&color=mauve&size=1"
+cv.clear()
+cv.text("agent fleet", 10, 15, color="mauve")
 
-px "rect?x=10&y=115&w=300&h=1&color=dustrose"
+# Three columns, each number centered on its column axis regardless of
+# digit count (size 5 = 30px/char — three digits would clip if hardcoded).
+cols = [
+    (58,  needs,   "needs you", "hotpink" if needs > 0 else "dustrose"),
+    (160, working, "working",   "pink"),
+    (262, idle,    "idle",      "teal"),
+]
+for cx, val, label, color in cols:
+    cv.text(str(val), x=cx, y=50, size=5, color=color, align="center")
+    cv.text(label, x=cx, y=95, size=1, color=color if val and label == "needs you" else "mauve",
+            align="center")
+
+cv.rect(10, 115, 300, 1, color="dustrose")
 
 # Where the agents live: tmux windows running claude, with repo names
-Y=130
-tmux list-panes -a -F '#{session_name}:#{window_index} #{pane_current_command} #{pane_current_path}' 2>/dev/null \
-  | awk '$2 ~ /claude/ {print $1, $3}' | head -6 \
-  | while read -r win path; do
-      row="${win} $(basename "$path")"
-      [ ${#row} -gt 34 ] && row="${row:0:33}~"
-      px "text?msg=$(enc "$row")&x=15&y=${Y}&color=body&size=1"
-      Y=$((Y + 14))
-    done
+try:
+    out = subprocess.run(
+        ["tmux", "list-panes", "-a", "-F",
+         "#{session_name}:#{window_index} #{pane_current_command} #{pane_current_path}"],
+        capture_output=True, text=True, timeout=5).stdout
+except Exception:
+    out = ""
+y = 130
+rows = 0
+for l in out.splitlines():
+    parts = l.split()
+    if len(parts) < 3 or "claude" not in parts[1]:
+        continue
+    cv.text(f"{parts[0]} {os.path.basename(parts[2])}", 15, y, color="body")
+    y += 14
+    rows += 1
+    if rows >= 6:
+        break
 
-px "text?msg=$(date +%H%%3A%M)&x=284&y=225&size=1&color=dustrose"
+import time
+cv.text(time.strftime("%H:%M"), y=225, color="dustrose", align="right")
+EOF

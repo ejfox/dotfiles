@@ -8,15 +8,13 @@ set -u
 command -v tmux >/dev/null || exit 0
 
 python3 - "$PIXEL_BASE" <<'EOF'
-import json, subprocess, sys, urllib.request
+import os, subprocess, sys
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import Canvas, W, text_w
 
 BASE = sys.argv[1]
-
-def get(path):
-    try:
-        urllib.request.urlopen(f"{BASE}/{path}", timeout=3).read()
-    except Exception:
-        pass
+cv = Canvas(BASE)
 
 def tmux(fmt, what):
     try:
@@ -44,41 +42,42 @@ for l in wins:
         continue
     sessions.setdefault(p[0], []).append((int(p[1]), p[2] == "1", int(p[3]), p[4]))
 
-get("clear")
-get("text?msg=tmux&x=10&y=15&color=mauve&size=1")
+cv.clear()
+cv.text("tmux", 10, 15, color="mauve")
 
 names = sorted(sessions)[:6]
-row_h = 200 // max(1, len(names))
+row_h = 196 // max(1, len(names))
+STAR_X0 = 84                      # stars start here; labels own the left gutter
 y = 34
 for name in names:
-    ws = sorted(sessions[name])[:9]
-    label = name[:10]
-    get(f"text?msg={label}&x=10&y={y}&color=teal&size=1")
+    ws = sorted(sessions[name])
+    cv.text(name, 10, y, color="teal", max_w=STAR_X0 - 16)
     sy = y + 16
-    xs = []
-    for i, (idx, active, panes, wname) in enumerate(ws):
-        x = 82 + i * 26
-        xs.append(x)
+    # procedural spacing: fit however many windows exist into the star field
+    max_r = 8
+    field = W - STAR_X0 - max_r - 4
+    step = min(28, max(14, field // max(1, len(ws) - 1))) if len(ws) > 1 else 0
+    shown = ws if step == 0 or (len(ws) - 1) * step <= field else ws[: field // max(step, 1) + 1]
+    prev = None
+    for i, (idx, active, panes, wname) in enumerate(shown):
+        x = STAR_X0 + i * step
         loc = f"{name}:{idx}"
-        rad = min(3 + panes, 8)
-        if loc in claude_wins:
-            color = "hotpink"
-        elif active:
-            color = "pink"
-        else:
-            color = "teal"
-        # faint constellation line to the previous star
-        if i > 0:
-            get(f"line?x1={xs[i-1]+rad}&y1={sy}&x2={x-rad}&y2={sy}&color=dustrose")
-        get(f"circle?x={x}&y={sy}&radius={rad}&color={color}")
+        rad = min(3 + panes, max_r)
+        color = "hotpink" if loc in claude_wins else ("pink" if active else "teal")
+        if prev is not None:
+            cv.line(prev[0] + prev[1], sy, x - rad, sy, "dustrose")
+        cv.circle(x, sy, rad, color)
         if active:
-            wl = wname[:8].replace(" ", "%20")
-            get(f"text?msg={wl}&x={max(10, x-20)}&y={sy+12}&color=body&size=1")
+            # center the name under its star; kit clamps it inside the canvas
+            cv.text(wname, x=x, y=sy + 12, color="body", align="center",
+                    max_w=min(2 * step if step else 80, 84))
+        prev = (x, rad)
+    if len(shown) < len(ws):
+        cv.text(f"+{len(ws) - len(shown)}", y=sy - 4, color="dustrose", align="right")
     y += row_h
 
-n_claude = len(claude_wins)
-foot = f"{len(wins)}%20windows"
-if n_claude:
-    foot += f"%20%20{n_claude}%20claude"
-get(f"text?msg={foot}&x=10&y=225&color=dustrose&size=1")
+foot = f"{len(wins)} windows"
+if claude_wins:
+    foot += f"  {len(claude_wins)} claude"
+cv.text(foot, 10, 225, color="dustrose")
 EOF
