@@ -160,3 +160,4 @@ vulpes-reddish2-current-tmux.tmux.conf
 # Generated from docs/tips.txt by bin/cheatsheets (not source)
 .config/cheatsheet-tips.js
 bin/__pycache__/
+lib/__pycache__/
