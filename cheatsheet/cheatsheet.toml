@@ -116,6 +116,27 @@ body = [
 [[section]]
 tone = "accent"
 tool = "both"
+badge = "PC"
+title = "computah — Windows PC"
+open = true
+body = [
+  { k = "computah doctor", d = "health check + auto-heal EVERYTHING (run this first if anything's off)", hl = true },
+  { k = "computah muse-loop", d = "weird art wall from your screen + notes", hl = true },
+  { k = "computah status", d = "reachable? load? disk?" },
+  { k = "computah wake / sleep", d = "power on (WoL) / suspend" },
+  { k = "computah imagine \"…\"", d = "one FLUX image on the PC GPU" },
+  { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
+  { div = true },
+  { o = "◆ anything broken (deskflow, wall, renders)? → computah doctor" },
+  { o = "◆ deskflow cursor won't cross? → deskflow-heal -v (or just re-login)" },
+  { o = "◆ stop the art wall: pkill -f 'computah muse-loop'" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+tone = "accent"
+tool = "both"
 badge = ""
 title = "ejfox Workflow"
 open = true
@@ -691,6 +712,7 @@ body = [
   { k = "cmd; ding", d = "desk reacts to the exit code: teal ok / red + code", hl = true },
   { n = "color code: *hotpink* = claude needs you · *teal* = FYI (bell/activity/done) · *red* = error" },
   { o = "auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene" },
+  { o = "tmux status: a background window that rings the bell glows *teal* + ◆ until you switch to it" },
 ]
 
 [[section]]
