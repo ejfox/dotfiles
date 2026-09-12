@@ -179,6 +179,46 @@ async function deactivate(cfgId) {
   catch (e) { /* best-effort */ }
 }
 
+// Capture the exact live state of the given lights *before* entertainment
+// hijacks them. The bridge's own restore-on-deactivate is unreliable — it
+// tends to snap back to the last scene/default rather than the color that was
+// actually showing — so we snapshot here and re-assert it ourselves after.
+async function snapshotLights(ids) {
+  if (!ids.length) return [];
+  const r = await api('GET', '/resource/light');
+  const byId = new Map((r.data || []).map(l => [l.id, l]));
+  const snap = [];
+  for (const id of ids) {
+    const l = byId.get(id);
+    if (!l) continue;
+    const s = { id, on: l.on?.on ?? true };
+    if (typeof l.dimming?.brightness === 'number') s.brightness = l.dimming.brightness;
+    if (l.color?.xy) s.xy = { x: l.color.xy.x, y: l.color.xy.y };
+    else if (l.color_temperature?.mirek) s.mirek = l.color_temperature.mirek;
+    snap.push(s);
+  }
+  return snap;
+}
+
+// Re-assert a prior snapshot via the regular API after the entertainment
+// session closes. Short transition so it eases back rather than snapping.
+async function restoreLights(snap) {
+  if (!snap || !snap.length) return;
+  await new Promise(r => setTimeout(r, 300));  // let the bridge settle post-deactivate
+  for (const s of snap) {
+    const body = { on: { on: s.on } };
+    if (s.on) {
+      if (typeof s.brightness === 'number') body.dimming = { brightness: s.brightness };
+      if (s.xy) body.color = { xy: s.xy };
+      else if (s.mirek) body.color_temperature = { mirek: s.mirek };
+      body.dynamics = { duration: 250 };
+    }
+    try { await api('PUT', `/resource/light/${s.id}`, body); }
+    catch { /* best-effort per light */ }
+    await new Promise(r => setTimeout(r, 60));  // stay under the bridge PUT rate limit
+  }
+}
+
 function buildFrame(cfgId, seq, channelColors) {
   const header = Buffer.alloc(52);
   header.write('HueStream', 0, 'ascii');
@@ -430,7 +470,11 @@ async function cmdFlash(eventName = 'done') {
     return null; // pattern over
   };
 
-  const { cfg } = await ensureConfig();
+  const { cfg, streamers } = await ensureConfig();
+  // Snapshot the live color of every light this flash will touch, BEFORE the
+  // entertainment session freezes their REST state — so we can restore exactly
+  // what was showing (screen-sync color, scene, manual set) afterward.
+  const snap = await snapshotLights(streamers.map(s => s.lightId).filter(Boolean));
   // deactivate in finally no matter where we die — a failed DTLS handshake
   // must never leave the config active (that blocks bridge scenes, the very
   // thing one-shot sessions exist to avoid)
@@ -449,7 +493,10 @@ async function cmdFlash(eventName = 'done') {
         try { socket.send(buildFrame(cfg.id, seq++, colors)); } catch { cleanup(); }
       }, 20);
     });
-  } finally { await deactivate(cfg.id); }
+  } finally {
+    await deactivate(cfg.id);
+    await restoreLights(snap);  // force the pre-flash color back; bridge restore is unreliable
+  }
 }
 
 // ─── Daemon ────────────────────────────────────────────────────────────────
