@@ -5,6 +5,7 @@
 #   computah                 ssh in
 #   computah wake            wake it up (WoL magic packet, works from off)
 #   computah status          reachable? load? disk?
+#   computah doctor          full health check + auto-heal (models, services, deskflow)
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
@@ -15,6 +16,10 @@
 #   computah demucs <file>   split stems on the PC → ~/Music/ACAPELLAS/<name>/
 #   computah llm [on|off]    OpenAI-compatible LLM server on the PC (:8085)
 #   computah imagine "<prompt>" [WxH]  FLUX image gen on the PC GPU, PNG lands in cwd
+#   computah grid "<prompt>" [N]  NxN grid of alternates resolving live on the PC screen
+#   computah muse [--ambient]  context-aware art: Qwen3 writes the prompt, FLUX paints it
+#   computah muse-loop  never-ending WEIRD gallery wall; alternate cycles run the
+#                       iMac screen through FLUX img2img (WALL_N, MUSE_SCREEN_EVERY)
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 
@@ -57,6 +62,43 @@ case "${1:-ssh}" in
 
   wake)
     wake
+    ;;
+
+  doctor)
+    # One-shot health check + auto-heal of the whole PC integration. Safe to
+    # run anytime; starts the preview server and heals deskflow if needed.
+    ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+    bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
+    h=$(host)
+    echo "◆ computah doctor"
+    if ! nc -z -G 3 "$h" 22 2>/dev/null; then bad "PC unreachable (try: computah wake)"; exit 1; fi
+    [ "$h" = "$LAN_IP" ] && ok "reachable via LAN ($h)" || ok "reachable via Tailscale ($h)"
+    # models
+    miss=$(rssh "powershell -NoProfile -Command \"@('models\image\flux-2-klein-9b-Q5_K_M.gguf','models\image\flux2-vae.safetensors','models\image\qwen3-8b-Q6_K.gguf','models\image\taef2.safetensors','models\vlm\Qwen2.5-VL-7B-Q4_K_M.gguf','models\vlm\mmproj-Qwen2.5-VL-7B.gguf','farm\sd\sd-cli.exe') | Where-Object { -not (Test-Path (Join-Path \$env:USERPROFILE \$_)) }\"" 2>/dev/null | tr -d '\r')
+    [ -z "$miss" ] && ok "all models + sd-cli present" || bad "missing: $miss"
+    # persistent settings
+    dfx=$(rssh "powershell -NoProfile -Command \"((Get-MpPreference).ExclusionPath).Count\"" 2>/dev/null | tr -d '\r')
+    [ "${dfx:-0}" -ge 2 ] && ok "Defender exclusions set (fast model loads)" || bad "Defender exclusions MISSING — loads will crawl"
+    fw=$(rssh "powershell -NoProfile -Command \"[int](([bool](Get-NetFirewallRule -DisplayName 'llama-server 8085' -EA SilentlyContinue)) -and ([bool](Get-NetFirewallRule -DisplayName 'preview-server 7861' -EA SilentlyContinue)))\"" 2>/dev/null | tr -d '\r')
+    [ "$fw" = "1" ] && ok "firewall rules (8085, 7861) present" || bad "firewall rule(s) missing"
+    mon=$(rssh "powershell -NoProfile -Command \"(powercfg /query SCHEME_CURRENT SUB_VIDEO VIDEOIDLE | Select-String 'Current AC') -replace '.*: ',''\"" 2>/dev/null | tr -d '\r')
+    [ "$mon" = "0x00000000" ] && ok "display set to never sleep (AC)" || bad "display will sleep (monitor-timeout not 0)"
+    # preview server — start if down
+    if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ]; then
+      ok "preview server up (:7861)"
+    else
+      rssh "schtasks /run /tn preview-server >nul" 2>/dev/null; sleep 3
+      [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ] && ok "preview server STARTED (:7861)" || bad "preview server won't start"
+    fi
+    # muse loop status
+    pgrep -f "computah muse-loop" >/dev/null && ok "muse-loop running" || echo "  · muse-loop not running (start: computah muse-loop)"
+    # deskflow KVM
+    if command -v deskflow-heal >/dev/null 2>&1; then
+      deskflow-heal >/dev/null 2>&1
+      lsof -nP -iTCP:24800 2>/dev/null | grep -qi established && ok "deskflow KVM connected" \
+        || { lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1 && echo "  · deskflow listening, client not connected yet" || bad "deskflow core not listening"; }
+    fi
+    echo "◆ done"
     ;;
 
   sleep)
@@ -150,7 +192,7 @@ case "${1:-ssh}" in
         # Start-Process dies when the SSH session ends (Windows kills the
         # process tree on disconnect) — a scheduled task survives. The task
         # is a one-shot dated in the past: never auto-fires, /run-able forever.
-        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\Users\$REMOTE_USER\farm\llama && llama-server.exe -m C:\Users\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\Users\$REMOTE_USER\farm\llama-server.log 2>&1\""
+        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\Users\\$REMOTE_USER\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\Users\\$REMOTE_USER\farm\llama-server.log 2>&1\""
         rssh "tasklist | findstr /i llama-server.exe >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
@@ -163,17 +205,429 @@ case "${1:-ssh}" in
     size="${3:-1024x1024}"
     W="${size%x*}"; H="${size#*x}"
     h=$(host)
-    M="C:\Users\$REMOTE_USER\models\image"
+    # NB: bash eats \$ inside double quotes — double the backslash before vars.
+    FARM="C:\Users\\$REMOTE_USER\farm"
+    M="C:\Users\\$REMOTE_USER\models\image"
     out="imagine-$(date +%H%M%S).png"
-    echo "→ rendering on the 9070 XT (FLUX.1-schnell, ${W}x${H}, 4 steps)"
-    rssh "del C:\Users\$REMOTE_USER\farm\imagine.png >nul 2>&1 & C:\Users\$REMOTE_USER\farm\sd\sd-cli.exe --diffusion-model $M\flux1-schnell-Q4_K_S.gguf --vae $M\ae.safetensors --clip_l $M\clip_l.safetensors --t5xxl $M\t5xxl_fp8_e4m3fn.safetensors -p \"$prompt\" --cfg-scale 1.0 --steps 4 --sampling-method euler -W $W -H $H --diffusion-fa -o C:\Users\$REMOTE_USER\farm\imagine.png > C:\Users\$REMOTE_USER\farm\sd\last-run.log 2>&1"
-    if ! scp -q "$REMOTE_USER@$h:farm/imagine.png" "./$out" 2>/dev/null; then
+    steps="${STEPS:-24}"
+    # img2img: IMAGINE_INIT = init-image path on the PC, IMAGINE_STRENGTH = how
+    # far to wander from it (0=identical, 1=ignore it). Used by muse screen mode.
+    init_flags=""
+    [ -n "${IMAGINE_INIT:-}" ] && init_flags="-i ${IMAGINE_INIT} --strength ${IMAGINE_STRENGTH:-0.7}"
+    echo "→ rendering on the 9070 XT (FLUX.2-klein 9B, ${W}x${H}, ${steps} steps${init_flags:+, img2img})"
+    # Clear any stale/hung sd-cli so a zombie render can't wedge the pipeline.
+    rssh "taskkill /im sd-cli.exe /f >nul 2>&1 & del $FARM\imagine.png $FARM\sd\last-run.log $FARM\sd\preview.png >nul 2>&1 & exit 0" >/dev/null 2>&1 || true
+    # Bake this render into a cmd the PC runs headless via schtask (survives
+    # SSH drops). Backend: diffusion+vae on the GPU, text encoder on CPU — the
+    # 9B diffusion (7GB) fits VRAM but +qwen3-8b encoder would overflow 16GB.
+    # (Model loads in ~2s now that models\ + farm\ are Defender-excluded.)
+    tmp=$(mktemp /tmp/imagine-run.XXXXXX)
+    cat > "$tmp" <<CMDEOF
+@echo off
+cd /d $FARM\sd
+sd-cli.exe --diffusion-model $M\flux-2-klein-9b-Q5_K_M.gguf --vae $M\flux2-vae.safetensors --llm $M\qwen3-8b-Q6_K.gguf --backend diffusion=vulkan0,te=cpu,vae=vulkan0 $init_flags -p "$prompt" --cfg-scale 1.0 --steps $steps --sampling-method euler -W $W -H $H --diffusion-fa --taesd $M\taef2.safetensors --taesd-preview-only --preview tae --preview-noisy --preview-interval 1 --preview-path $FARM\sd\preview.png -o $FARM\imagine.png > $FARM\sd\last-run.log 2>&1
+CMDEOF
+    awk '{printf "%s\r\n", $0}' "$tmp" > "$tmp.cmd" && scp -q "$tmp.cmd" "$REMOTE_USER@$h:farm/sd/imagine-run.cmd" && rm -f "$tmp" "$tmp.cmd"
+    # Headless runner via a VBS launcher (window style 0) — truly invisible.
+    # -WindowStyle Hidden still pops a Windows Terminal window when WT is the
+    # default console host, which was covering the wall. wscript+Run(...,0) doesn't.
+    rssh "schtasks /create /f /tn imagine-run /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"wscript $FARM\sd\imagine-hidden.vbs\"" >/dev/null
+    rssh "schtasks /query /tn imagine-show >nul 2>&1 || schtasks /create /f /tn imagine-show /sc once /st 00:00 /sd 01/01/2020 /it /ru $REMOTE_USER /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File $FARM\sd\imagine-show.ps1\"" >/dev/null
+    # IMAGINE_NO_SHOW: caller (muse-loop wall) is providing its own display.
+    if [ -n "${IMAGINE_NO_SHOW:-}" ]; then
+      rssh "schtasks /run /tn imagine-run >nul" || true
+    else
+      rssh "schtasks /run /tn imagine-run >nul & schtasks /run /tn imagine-show >nul" || true
+    fi
+    # Stream the render log into this terminal while we wait.
+    rssh "powershell -NoProfile -Command \"while (-not (Test-Path '$FARM\sd\last-run.log')) { Start-Sleep -m 300 }; Get-Content '$FARM\sd\last-run.log' -Wait -Tail 3\"" 2>/dev/null &
+    tail_pid=$!
+    ok=""
+    for i in $(seq 1 300); do
+      if rssh "if exist $FARM\imagine.png (echo YES)" 2>/dev/null | grep -q YES; then ok=1; break; fi
+      sleep 2
+    done
+    kill "$tail_pid" 2>/dev/null || true
+    if [ -z "$ok" ] || ! scp -q "$REMOTE_USER@$h:farm/imagine.png" "./$out" 2>/dev/null; then
       echo "render failed — last log lines:"
-      rssh "powershell -NoProfile -Command \"Get-Content C:\Users\$REMOTE_USER\farm\sd\last-run.log -Tail 8\""
+      rssh "powershell -NoProfile -Command \"Get-Content '$FARM\sd\last-run.log' -Tail 8\"" || true
       exit 1
     fi
+    # Drop a timestamped copy into the TouchDesigner finals library (a Movie
+    # File In / folder-watch feeds these as live textures). preview.png is
+    # already the live denoising stream TD can watch directly.
+    rssh "copy /y $FARM\imagine.png C:\Users\\$REMOTE_USER\muse-td\finals\td-$(date +%H%M%S).png" >/dev/null 2>&1 || true
+    # If driving a wall (muse-loop), lock this render straight into its cell —
+    # decoupled from any caller exit code so the mosaic always advances.
+    [ -n "${IMAGINE_WALL_SLOT:-}" ] && rssh "copy /y $FARM\imagine.png $FARM\sd\wall_${IMAGINE_WALL_SLOT}.png" >/dev/null 2>&1 || true
     echo "done: ./$out"
-    command -v open >/dev/null && open "./$out"
+    [ -z "${MUSE_NO_OPEN:-}" ] && command -v open >/dev/null && open "./$out"
+    ;;
+
+  grid)
+    prompt="${2:?usage: computah grid \"<prompt>\" [N] (NxN alternates, default 3)}"
+    N="${3:-3}"
+    total=$((N * N))
+    size="${GRID_SIZE:-768x768}"
+    W="${size%x*}"; H="${size#*x}"
+    steps="${STEPS:-16}"
+    h=$(host)
+    FARM="C:\Users\\$REMOTE_USER\farm"
+    M="C:\Users\\$REMOTE_USER\models\image"
+    echo "→ ${N}x${N} = ${total} alternates of: $prompt  (${W}x${H}, ${steps} steps each)"
+    # Clear old cells + tell the grid viewer the dimension, then pop it up.
+    rssh "del $FARM\sd\grid_*.png $FARM\sd\preview.png >nul 2>&1 & echo $N > $FARM\sd\grid-n.txt" >/dev/null 2>&1 || true
+    rssh "schtasks /run /tn grid-show >nul" 2>/dev/null || true
+    # One headless render per cell (fast loads make this practical). Each writes
+    # its own grid_<i>.png; preview.png streams the cell currently resolving.
+    for i in $(seq 1 "$total"); do
+      seed=$(( (i * 7919 + $(date +%s)) % 2000000 ))
+      tmp=$(mktemp /tmp/grid-run.XXXXXX)
+      cat > "$tmp" <<CMDEOF
+@echo off
+cd /d $FARM\sd
+del $FARM\sd\preview.png >nul 2>&1
+sd-cli.exe --diffusion-model $M\flux-2-klein-9b-Q5_K_M.gguf --vae $M\flux2-vae.safetensors --llm $M\qwen3-8b-Q6_K.gguf --backend diffusion=vulkan0,te=cpu,vae=vulkan0 -p "$prompt" --seed $seed --cfg-scale 1.0 --steps $steps --sampling-method euler -W $W -H $H --diffusion-fa --taesd $M\taef2.safetensors --taesd-preview-only --preview tae --preview-noisy --preview-interval 1 --preview-path $FARM\sd\preview.png -o $FARM\sd\grid_$i.png > $FARM\sd\grid-run.log 2>&1
+CMDEOF
+      awk '{printf "%s\r\n", $0}' "$tmp" > "$tmp.cmd" && scp -q "$tmp.cmd" "$REMOTE_USER@$h:farm/sd/grid-run.cmd" && rm -f "$tmp" "$tmp.cmd"
+      rssh "schtasks /query /tn grid-run >nul 2>&1 || schtasks /create /f /tn grid-run /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"powershell -NoProfile -WindowStyle Hidden -Command cmd /c $FARM\sd\grid-run.cmd\"" >/dev/null
+      rssh "schtasks /run /tn grid-run >nul" || true
+      # wait for this cell to finish before starting the next (single GPU)
+      for w in $(seq 1 200); do
+        rssh "if exist $FARM\sd\grid_$i.png (echo YES)" 2>/dev/null | grep -q YES && break
+        sleep 2
+      done
+      echo "  cell $i/$total done"
+    done
+    # Composite the sheet locally and drop it on the Desktop.
+    dest="$HOME/Desktop/grid-$(date +%H%M%S).png"
+    tmpd=$(mktemp -d)
+    scp -q "$REMOTE_USER@$h:farm/sd/grid_*.png" "$tmpd/" 2>/dev/null || true
+    if command -v montage >/dev/null 2>&1; then
+      montage $(for i in $(seq 1 "$total"); do echo "$tmpd/grid_$i.png"; done) -tile ${N}x${N} -geometry +2+2 -background black "$dest" 2>/dev/null && echo "sheet: $dest"
+    else
+      cp "$tmpd/grid_1.png" "$dest" 2>/dev/null; echo "cells in $tmpd/ (install imagemagick for a stitched sheet)"
+    fi
+    rm -rf "$tmpd"
+    command -v open >/dev/null && [ -f "$dest" ] && open "$dest"
+    ;;
+
+  muse)
+    # Ambient art: read what EJ's working on, let the PC's own LLM write one
+    # image prompt, render it, feed the MagicMirror panel + PC preview window.
+    # --ambient (the 30-min LaunchAgent): every guard fails silently, never
+    # wakes the PC, sleeps 22:00-09:00.
+    ambient=""
+    [ "${2:-}" = "--ambient" ] && ambient=1
+    if [ -n "$ambient" ]; then
+      hh=$(date +%H)
+      { [ "$hh" -ge 9 ] && [ "$hh" -lt 22 ]; } || exit 0
+      nc -z -G 1 "$LAN_IP" 22 2>/dev/null || exit 0
+    fi
+    h=$(host)
+    # Don't step on a game (3D engine >60%) or an actual in-flight render.
+    # Check for the real sd-cli.exe process, NOT the schtask status — a hung
+    # render leaves the task stuck "Running" and would wedge the loop forever.
+    busy=$(rssh "powershell -NoProfile -Command \"[int]((((Get-Counter '\GPU Engine(*engtype_3D)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum).Sum))\"" 2>/dev/null | tr -d '\r' || echo 0)
+    rendering=$(rssh "tasklist | findstr /i sd-cli.exe" 2>/dev/null || true)
+    if [ "${busy:-0}" -gt 60 ] || [ -n "$rendering" ]; then
+      [ -n "$ambient" ] && exit 0
+      echo "GPU busy (3D ${busy:-?}%${rendering:+, render in flight}) — not stepping on it"; exit 1
+    fi
+    ctx="time: $(date '+%A %H:%M')"
+    tw=$(tmux list-windows -a -F '#{session_name}:#{window_name}' 2>/dev/null | sort -u | tr '\n' ' ' || true)
+    [ -n "$tw" ] && ctx="$ctx
+tmux: $tw"
+    slog="$HOME/.local/share/usage-logs/shell/$(date +%F).jsonl"
+    if [ -f "$slog" ]; then
+      cmds=$(tail -30 "$slog" | python3 -c 'import sys,json
+seen={}
+for l in sys.stdin:
+    try: c=json.loads(l).get("command","")[:60]
+    except Exception: continue
+    if c: seen[c]=1
+print("; ".join(list(seen)[-12:]))' 2>/dev/null || true)
+      [ -n "$cmds" ] && ctx="$ctx
+recent shell: $cmds"
+    fi
+    nlog="$HOME/.local/share/usage-logs/nvim/$(date +%F).jsonl"
+    if [ -f "$nlog" ]; then
+      files=$(tail -30 "$nlog" | python3 -c 'import sys,json,os
+seen={}
+for l in sys.stdin:
+    try: p=json.loads(l).get("path","")
+    except Exception: continue
+    if p: seen[os.path.basename(p)]=1
+print(" ".join(list(seen)[-10:]))' 2>/dev/null || true)
+      [ -n "$files" ] && ctx="$ctx
+editing: $files"
+    fi
+    echo "→ asking the PC's Qwen3 for a prompt"
+    "$0" llm on >/dev/null 2>&1
+    for i in $(seq 1 30); do
+      [ "$(curl -s -m 2 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && break
+      sleep 3
+    done
+    mprompt=$(CTX="$ctx" HOST="$h" python3 - <<'PYEOF' || true
+import json, os, re, urllib.request
+body = json.dumps({
+    "messages": [
+        {"role": "system", "content": "You write ONE deeply WEIRD image-generation prompt (30-60 words) for an ambient art wall. Be surreal, uncanny, dreamlike, glitchy — bio-mechanical hybrids, impossible physics, melting architecture, eldritch creatures, fever-dream color. Draw a loose oblique connection to what the user is working on. Vary the medium wildly each time: risograph, CRT glitch, wet-plate photo, claymation still, medical illustration, tarot card, blacklight poster, diorama macro. Foxes optional. No words or text in the image. Reply with ONLY the prompt. /no_think"},
+        {"role": "user", "content": os.environ["CTX"]},
+    ],
+    "max_tokens": 400,
+}).encode()
+req = urllib.request.Request(f"http://{os.environ['HOST']}:8085/v1/chat/completions",
+                             body, {"Content-Type": "application/json"})
+r = json.load(urllib.request.urlopen(req, timeout=120))
+p = r["choices"][0]["message"]["content"]
+p = re.sub(r"<think>.*?</think>", "", p, flags=re.S)
+p = re.sub(r'["&<>|`$\\\n\r]', " ", p).strip()
+print(" ".join(p.split()))
+PYEOF
+)
+    "$0" llm off >/dev/null 2>&1
+    [ -n "$mprompt" ] || { [ -n "$ambient" ] && exit 0; echo "no prompt came back"; exit 1; }
+    # MUSE_SCREEN=1: grab the iMac screen and run it THROUGH the prompt as an
+    # img2img init — FLUX hallucinates a weird reinterpretation of what's on the
+    # display right now. All local (screencapture + FLUX on the PC).
+    unset IMAGINE_INIT IMAGINE_STRENGTH
+    if [ -n "${MUSE_SCREEN:-}" ] && command -v screencapture >/dev/null 2>&1; then
+      if screencapture -x -t png -D 1 /tmp/muse-screen.png 2>/dev/null && [ -s /tmp/muse-screen.png ]; then
+        sips -Z 1024 /tmp/muse-screen.png --out /tmp/muse-screen-sm.png >/dev/null 2>&1
+        if scp -q /tmp/muse-screen-sm.png "$REMOTE_USER@$h:farm/sd/macshot.png" 2>/dev/null; then
+          export IMAGINE_INIT="C:\Users\\$REMOTE_USER\farm\sd\macshot.png"
+          export IMAGINE_STRENGTH="${MUSE_SCREEN_STRENGTH:-0.72}"
+          mprompt="a fever-dream reinterpretation of this scene — $mprompt"
+          echo "  (through the iMac screen, strength $IMAGINE_STRENGTH)"
+        fi
+      fi
+    fi
+    echo "→ muse: $mprompt"
+    mkdir -p /tmp/muse && cd /tmp/muse
+    MUSE_NO_OPEN=1 "$0" imagine "$mprompt" || { [ -n "$ambient" ] && exit 0; exit 1; }
+    newest=$(ls -t imagine-*.png 2>/dev/null | head -1)
+    mm="$HOME/code/magic-mirror/modules/MMM-Muse"
+    [ -n "$newest" ] && [ -d "$mm" ] && mv "$newest" "$mm/muse.png" && rm -f imagine-*.png
+    echo "muse delivered to the mirror"
+    ;;
+
+  muse-loop)
+    set +e   # ambient forever-loop: a single failed command must never abort it
+    # Never-ending WEIRD gallery WALL, grounded in YOUR world: prompts are
+    # brainstormed by the PC's Qwen from your most-recent Obsidian notes (vaguely,
+    # obliquely), and alternate cells run the iMac screen through FLUX img2img.
+    # Displays in your Mac browser (PC serves the wall over HTTP) — no Windows
+    # window wrangling. Renders on the PC GPU. Auto-pauses when a game is running.
+    gap="${2:-3}"
+    N="${WALL_N:-4}"
+    total=$((N * N))
+    h=$(host)
+    FARM="C:\Users\\$REMOTE_USER\farm"
+    every="${MUSE_SCREEN_EVERY:-2}"
+    export IMAGINE_NO_SHOW=1
+    echo "◆ muse-loop → ${N}x${N} wall from your Obsidian notes + screen"
+    # Display: WALL_DISPLAY=windows (default) shows it on the PC monitor;
+    # =mac opens it in the Mac browser instead.
+    rssh "echo $N > $FARM\sd\wall-n.txt" >/dev/null 2>&1 || true
+    # Ensure the HTTP preview server is up (its run-once task doesn't survive a
+    # reboot on its own) — start it if nothing is answering on 7861.
+    if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" != "200" ]; then
+      rssh "schtasks /run /tn preview-server >nul" 2>/dev/null || true; sleep 3
+    fi
+    if [ "${WALL_DISPLAY:-windows}" = "mac" ]; then
+      command -v open >/dev/null && open "http://$h:7861/wall.html?n=$N" 2>/dev/null || true
+    else
+      rssh "schtasks /run /tn wall-show >nul" 2>/dev/null || true
+    fi
+
+    _wait_8085() { for i in $(seq 1 40); do [ "$(curl -s -m2 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && return 0; sleep 3; done; return 1; }
+    _vlm_ready() { rssh "if exist C:\Users\\$REMOTE_USER\models\vlm\Qwen2.5-VL-7B-Q4_K_M.gguf (echo Y)" 2>/dev/null | grep -q Y; }
+
+    prompts=(); pidx=0
+    # Re-look at your screen once per full wall by default. The vision model
+    # evicts FLUX from RAM cache, so each re-look costs one slow cold render —
+    # doing it per-wall (not every 8) keeps all but one cell resolving smoothly.
+    bn="${MUSE_BATCH:-$total}"
+    # Fixed look for the whole wall: flat vector illustration in the vulpes palette.
+    # The vision/text models describe only SUBJECTS; this enforces the style.
+    # Style goes straight to the image model — POSITIVE terms only. Never name
+    # things you don't want (saying "no text" primes text; cfg 1.0 ignores negatives).
+    STYLE="${MUSE_STYLE:-minimalist flat vector illustration, bold simple geometric shapes, large flat areas of solid color, thick clean outlines, screenprint poster, limited palette of hot pink and cyan-teal on deep black, high contrast, smooth flat color fields}"
+    # MOTIF is mined ORGANICALLY from your world (Obsidian wikilinks/tags, project
+    # names, recent notes) by muse-ingredients, refreshed each wall. This small
+    # list is only a fallback if mining ever comes up short.
+    MOTIF_FALLBACK=(
+      "a red fox" "a swarm of FPV drones" "a glowing terminal stack" "a mesh-network tower"
+      "a lone hacker silhouette" "a chrome fox skull" "a workshop of half-built gadgets"
+      "a river of flowing code" "a synthesizer grown into an organism" "a sprawling data-city"
+      "a forest of circuit boards" "an e-ink monolith" "a cartographer's cluttered desk"
+      "a neon night market" "a satellite unfurling" "a tangle of cables and moss"
+      "a hand-drawn map coming alive" "a CRT altar" "a drone-bee hive" "an island of servers"
+      "a lighthouse of antennas" "a garden of solar panels" "a cathedral of vacuum tubes"
+      "a whale made of stained glass" "a clockwork heart" "a jellyfish of fiber optics"
+      "a mountain of cassette tapes" "a phoenix of circuit traces" "a spider spinning copper wire"
+      "a lantern-fish anglerfish" "a moth with monitor-wings" "a tortoise carrying a city"
+      "a wolf woven from static" "a crow holding a floppy disk" "a deer with antler antennas"
+      "an octopus at a mixing desk" "a beetle plated in solar cells" "a hummingbird drone"
+      "a fox spirit in a shrine" "a cyberpunk street food cart" "a rain-soaked alley of neon signs"
+      "a rooftop garden over a megacity" "a subway map as a nervous system" "a desert of dead servers"
+      "a coral reef of keyboards" "a library of glowing scrolls" "a greenhouse of bioluminescent plants"
+      "an observatory dome at dusk" "a shipwreck reclaimed by kelp" "a monastery on a floating rock"
+      "a market stall of strange fruit" "a diver in an ocean of ink" "a beekeeper among data-hives"
+      "a lone tree wired with lights" "a paper crane made of maps" "a totem of stacked radios"
+      "a fountain pouring liquid light" "a chandelier of jellyfish" "a train threading through clouds"
+      "a mask carved from driftwood" "a robot tending a bonsai" "a comet with a trailing city"
+      "a mushroom village at night" "a heron standing in a server pond" "a kite festival over ruins"
+      "a vending machine shrine" "a spider-mech in a rice paddy" "a lantern parade of drones"
+      "a snail carrying a satellite dish" "a fox curled around a glowing orb" "a windmill of turbines and prayer flags"
+      "a diver's helmet full of fireflies" "a piano overgrown with vines" "a hot-air balloon of patchwork screens"
+      "a shrine gate in a data-forest" "a manta ray gliding over a city grid" "a campfire of blue flame and cables")
+    LENS=("as an ancient mythological scene" "as a tiny handmade diorama" "as a sweeping epic landscape"
+      "as a single hero object floating in void" "as a swarm or repeating pattern" "as a strange living creature"
+      "as an architectural cutaway" "as a still life" "as a top-down map" "as an intimate portrait"
+      "as a purely abstract composition" "as a half-remembered dream" "as nature reclaiming technology"
+      "as a cosmic event" "as a cozy interior" "as candid street photography")
+    MOD=("colossal" "tiny and intricate" "melting" "blooming with fungus" "fractal" "ancient and weathered"
+      "iridescent" "half-submerged" "winged" "made of stained glass" "overgrown" "shattered and floating"
+      "bioluminescent" "folded like origami" "windswept" "mirrored" "sprouting crystals")
+    refill_prompts() {
+      prompts=()
+      # Mine fresh organic motifs from your world each wall (fast, no model).
+      MOTIF=(); while IFS= read -r _m; do [ -n "$_m" ] && MOTIF+=("$_m"); done < <(muse-ingredients 2>/dev/null)
+      [ "${#MOTIF[@]}" -lt 6 ] && MOTIF=("${MOTIF_FALLBACK[@]}")
+      # Opt-in: MUSE_VLM=1 lets the vision model read your screen (slower, evicts cache).
+      if [ -n "${MUSE_VLM:-}" ] && _vlm_ready && command -v screencapture >/dev/null 2>&1 \
+         && screencapture -x -t png -D 1 /tmp/muse-vlm.png 2>/dev/null && [ -s /tmp/muse-vlm.png ]; then
+        sips -Z 1280 /tmp/muse-vlm.png --out /tmp/muse-vlm-sm.png >/dev/null 2>&1
+        echo "  ◇ vision model reading your screen…"
+        rssh "taskkill /im llama-server.exe /f >nul 2>&1" || true; sleep 1
+        rssh "schtasks /run /tn vlm-server >nul" 2>/dev/null || true
+        _wait_8085 && while IFS= read -r _l; do [ -n "$_l" ] && prompts+=("$_l"); done < <(muse-vision "$bn" /tmp/muse-vlm-sm.png "$h" 2>/dev/null)
+        rssh "taskkill /im llama-server.exe /f >nul 2>&1" || true
+        [ "${#prompts[@]}" -gt 0 ] && batch_source="vision-model read your screen"
+      fi
+      # Default: the LLM INTERPRETS your project READMEs + notes into imagery (once
+      # per wall — one model load, ~1 slow cell, the rest fast). MUSE_NO_LLM=1 skips.
+      if [ "${#prompts[@]}" -eq 0 ] && [ -z "${MUSE_NO_LLM:-}" ]; then
+        echo "  ◇ LLM interpreting your project READMEs + notes…"
+        "$0" llm on >/dev/null 2>&1 || true
+        if _wait_8085; then
+          while IFS= read -r _l; do [ -n "$_l" ] && prompts+=("$_l"); done < <(muse-brainstorm "$bn" "$h" 2>/dev/null)
+          [ "${#prompts[@]}" -gt 0 ] && batch_source="LLM interpreted your project READMEs + notes"
+        fi
+        "$0" llm off >/dev/null 2>&1 || true
+      fi
+      # Instant fallback / top-up with your mined motifs (never let the wall stall).
+      if [ "${#prompts[@]}" -lt "$bn" ]; then
+        while [ "${#prompts[@]}" -lt "$bn" ]; do
+          prompts+=("${MOTIF[$((RANDOM % ${#MOTIF[@]}))]}, ${MOD[$((RANDOM % ${#MOD[@]}))]}, ${LENS[$((RANDOM % ${#LENS[@]}))]}")
+        done
+        [ "$batch_source" = "(pending first batch)" ] && batch_source="local remix (your motifs)"
+      fi
+      pidx=0
+    }
+
+    n=0; slot=0; batch_source="(pending first batch)"
+    while true; do
+      n=$((n + 1)); slot=$(( (slot % total) + 1 ))
+      # Quiet hours: don't keep a bright monitor on overnight (the 2am-incident
+      # rule). Pause 22:00–09:00 so the display sleeps. MUSE_ALLNIGHT=1 overrides.
+      hh=$(date +%H)
+      if [ -z "${MUSE_ALLNIGHT:-}" ] && { [ "$hh" -ge 22 ] || [ "$hh" -lt 9 ]; }; then
+        sleep 300; slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue
+      fi
+      # Keep the monitor awake while generating — Windows' display timeout keys
+      # off keyboard/mouse idle, NOT GPU load. A zero-delta mouse move does NOT
+      # count as input (won't wake/keep-awake); a SHIFT key tap does, with no
+      # cursor movement or side effects (no character typed).
+      rssh "powershell -NoProfile -Command \"Add-Type 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\\\"user32.dll\\\")]public static extern void keybd_event(byte k,byte s,uint f,IntPtr e);}'; [K]::keybd_event(0x10,0,0,[IntPtr]::Zero); [K]::keybd_event(0x10,0,2,[IntPtr]::Zero)\"" >/dev/null 2>&1 || true
+      # game guard — only a real game pegs the 3D engine this hard
+      busy=$(rssh "powershell -NoProfile -Command \"[int]((((Get-Counter '\GPU Engine(*engtype_3D)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum).Sum))\"" 2>/dev/null | tr -d '\r' || echo 0)
+      if [ "${busy:-0}" -gt 60 ]; then echo "  gaming (3D ${busy}%) — pausing"; sleep 30; slot=$((slot-1)); [ "$slot" -lt 0 ] && slot=0; continue; fi
+
+      # refill the batch (fresh notes) whenever we've used them all
+      [ "$pidx" -ge "${#prompts[@]}" ] && refill_prompts
+      prompt="${prompts[$pidx]}"; pidx=$((pidx + 1))
+      prompt_origin="$batch_source"   # for the trace: where this prompt came from
+
+      export IMAGINE_WALL_SLOT=$slot
+      unset IMAGINE_INIT IMAGINE_STRENGTH
+
+      # ─────────────── VARIATION ENGINE (randomize everything per cell) ───────
+      # Controls, dialed light → heavy at random each cell:
+      SIZES=(512x512 576x576 640x640 768x768 768x1024 1024x768 896x896 1024x1024)
+      size=${SIZES[$((RANDOM % ${#SIZES[@]}))]}
+      steps=$((RANDOM % 23 + 8))                                          # 8 light → 30 heavy
+      strength=$(awk -v r=$((RANDOM % 45)) 'BEGIN{printf "0.%02d", 38 + r}')  # 0.38 → 0.82
+
+      # Init source per cell. Weights: screen 24 / crop 8 / arena 25 / feedback 17 /
+      # cloud+fuji 14 / pure 12 (are.na is "pretty often" per request).
+      src="pure"; fb=""; roll=$((RANDOM % 100)); rm -f /tmp/muse-init.png   # fb reset so it can't leak into the trace
+      if [ "$roll" -lt 24 ] && command -v screencapture >/dev/null 2>&1; then
+        screencapture -x -t png -D 1 /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="screen"
+      elif [ "$roll" -lt 32 ] && command -v screencapture >/dev/null 2>&1; then
+        # random rectangular CROP of the desktop (points; screencapture clamps)
+        b=$(osascript -e 'tell application "Finder" to get bounds of window of desktop' 2>/dev/null | tr -d ' ' | tr ',' ' ')
+        sw=$(echo $b | awk '{print $3}'); sh=$(echo $b | awk '{print $4}'); sw=${sw:-2560}; sh=${sh:-1440}
+        cw=$(( RANDOM % (sw/2) + sw/5 )); ch=$(( RANDOM % (sh/2) + sh/5 ))
+        cx=$(( RANDOM % (sw - cw) )); cy=$(( RANDOM % (sh - ch) ))
+        screencapture -x -t png -R${cx},${cy},${cw},${ch} /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="crop"
+      elif [ "$roll" -lt 57 ]; then
+        au=$(muse-arena 2>/dev/null || true)                             # curated visual inspo from are.na
+        [ -n "$au" ] && curl -s -m 20 -o /tmp/muse-init.png "$au" 2>/dev/null && [ -s /tmp/muse-init.png ] && src="arena"
+      elif [ "$roll" -lt 74 ]; then
+        fb=$((RANDOM % total + 1))                                        # feedback: evolve a past cell
+        if scp -q "$REMOTE_USER@$h:farm/sd/wall_$fb.png" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ]; then
+          src="feedback"
+          # ~40% of the time, invert the colors first — for the vibes
+          if [ $((RANDOM % 5)) -lt 2 ] && command -v magick >/dev/null 2>&1; then
+            magick /tmp/muse-init.png -negate /tmp/muse-init.png 2>/dev/null && src="feedback-inv"
+          fi
+        fi
+      elif [ "$roll" -lt 88 ]; then
+        # ~half the Cloudinary rolls pull a FUJIFILM shot (DSCF*) specifically
+        cu=""; lbl="cloud"
+        if [ $((RANDOM % 2)) -eq 0 ]; then cu=$(MUSE_FUJI=1 muse-cloudinary 2>/dev/null || true); [ -n "$cu" ] && lbl="fuji"; fi
+        [ -z "$cu" ] && cu=$(muse-cloudinary 2>/dev/null || true)
+        [ -n "$cu" ] && curl -s -m 20 -o /tmp/muse-init.png "$cu" 2>/dev/null && [ -s /tmp/muse-init.png ] && src="$lbl"
+      fi
+
+      tag=""
+      if [ "$src" != "pure" ] && [ -s /tmp/muse-init.png ]; then
+        sips -Z 640 /tmp/muse-init.png --out /tmp/muse-init-sm.png >/dev/null 2>&1
+        if scp -q /tmp/muse-init-sm.png "$REMOTE_USER@$h:farm/sd/macshot.png" 2>/dev/null; then
+          export IMAGINE_INIT="$FARM\sd\macshot.png"; export IMAGINE_STRENGTH="$strength"
+          tag=" s=$strength"
+        else src="pure"; fi
+      fi
+
+      subject="$prompt"; full="$prompt, $STYLE"   # keep subject separate for the trace
+      echo "── #$n cell $slot/$total [$src ${size} ${steps}st$tag]: ${subject:0:55}"
+      rssh "echo $slot > $FARM\sd\live-slot.txt" >/dev/null 2>&1 || true
+      mkdir -p /tmp/muse && cd /tmp/muse
+      STEPS="$steps" "$0" imagine "$full" "$size" >/dev/null 2>&1 || echo "  (render hiccup)"
+      # ── TRACE: every choice that made this image → JSON sidecar in the gallery,
+      #    named to match the archived PNG. Browse the gallery, each .png has a .json.
+      id="$(date +%Y%m%d-%H%M%S)-c${slot}"
+      TR_N="$n" TR_SLOT="$slot" TR_SRC="$src" TR_FB="${fb:-}" TR_SIZE="$size" \
+      TR_STEPS="$steps" TR_STR="${IMAGINE_STRENGTH:-none}" TR_SUBJ="$subject" TR_FULL="$full" \
+      TR_PSRC="$prompt_origin" TR_BATCH="$batch_source" TR_ID="$id" python3 - > /tmp/muse-trace.json 2>/dev/null <<'PYT'
+import json, os, datetime
+g=lambda k: os.environ.get(k,"")
+rec={"id":g("TR_ID"),"ts":datetime.datetime.now().isoformat(timespec="seconds"),
+ "cell":int(g("TR_SLOT")),"run_render":int(g("TR_N")),
+ "init_source":g("TR_SRC"),"feedback_from_cell":g("TR_FB") or None,
+ "size":g("TR_SIZE"),"steps":int(g("TR_STEPS")),"img2img_strength":g("TR_STR"),
+ "prompt_subject":g("TR_SUBJ"),"prompt_full":g("TR_FULL"),
+ "prompt_from":g("TR_PSRC"),"batch_source":g("TR_BATCH")}
+print(json.dumps(rec,indent=2))
+PYT
+      rssh "copy /y $FARM\imagine.png C:\Users\\$REMOTE_USER\renders\muse-gallery\muse-$id.png" >/dev/null 2>&1 || true
+      scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:renders/muse-gallery/muse-$id.json" 2>/dev/null || true
+      rm -f /tmp/muse/imagine-*.png
+      sleep "$gap"
+    done
     ;;
 
   rgb)

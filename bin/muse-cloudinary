@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Print a random image secure_url from the Cloudinary account in
+CLOUDINARY_URL (cloudinary://KEY:SECRET@CLOUD). Used by muse-loop to
+occasionally feed FLUX img2img from EJ's own image library."""
+import base64, json, os, random, re, ssl, sys, urllib.parse, urllib.request
+
+url = os.environ.get("CLOUDINARY_URL", "")
+m = re.match(r"cloudinary://([^:]+):([^@]+)@(.+)", url)
+if not m:
+    sys.exit(1)
+key, secret, cloud = m.groups()
+auth = base64.b64encode(f"{key}:{secret}".encode()).decode()
+
+# This Mac's system Python has no CA bundle (certifi gotcha) — use certifi if
+# present, else an unverified context (own account, read-only listing).
+try:
+    import certifi
+    CTX = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    CTX = ssl._create_unverified_context()
+
+# Grab a page of images; jump to a random cursor sometimes for deeper variety.
+def page(cursor=None):
+    u = f"https://api.cloudinary.com/v1_1/{cloud}/resources/image?max_results=100"
+    if cursor:
+        u += "&next_cursor=" + urllib.parse.quote(cursor)
+    req = urllib.request.Request(u, headers={"Authorization": "Basic " + auth})
+    return json.load(urllib.request.urlopen(req, timeout=30, context=CTX))
+
+# MUSE_FUJI=1 (or arg "fuji") → only Fujifilm camera shots. Fuji names files
+# DSCF####, so match public_id/filename containing 'dscf'. Scans a few pages.
+fuji = os.environ.get("MUSE_FUJI") or ("fuji" in sys.argv)
+
+def is_fuji(r):
+    pid = (r.get("public_id", "") + " " + r.get("filename", "")).lower()
+    return "dscf" in pid
+
+try:
+    if fuji:
+        pool, cur = [], None
+        for _ in range(6):                       # scan up to ~600 recent images
+            d = page(cur)
+            pool += [r for r in d.get("resources", []) if r.get("secure_url") and is_fuji(r)]
+            cur = d.get("next_cursor")
+            if len(pool) >= 20 or not cur:
+                break
+        if not pool:
+            sys.exit(1)
+        print(random.choice(pool)["secure_url"]); sys.exit(0)
+    data = page()
+    if data.get("next_cursor") and random.random() < 0.5:
+        data = page(data["next_cursor"])
+    res = [r for r in data.get("resources", []) if r.get("secure_url")]
+    if not res:
+        sys.exit(1)
+    print(random.choice(res)["secure_url"])
+except Exception:
+    sys.exit(1)

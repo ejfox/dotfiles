@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Mine organic 'ingredient' motifs from EJ's actual world — no LLM, no network.
+Sources: Obsidian [[wikilinks]] and #tags (his own named concepts), notable terms
+in recent notes, and his project folder names. Prints one motif per line; the
+muse loop remixes these with modifiers + lenses. Refreshes as his notes change."""
+import collections, glob, os, re
+
+HOME = os.path.expanduser("~")
+VAULTS = [
+    f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
+    f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault",
+]
+CODE_DIRS = [f"{HOME}/code", f"{HOME}/dev", f"{HOME}/projects"]
+STOP = {"index","readme","readme.md","untitled","home","daily","inbox","todo","notes",
+        "note","template","templates","www","http","https","com","the","and","folder",
+        # code/common-word junk that isn't a visual subject
+        "include","src","lib","dist","build","test","tests","main","app","apps","bin",
+        "config","setup","utils","util","docs","doc","api","cli","sdk","www","node",
+        "modules","node_modules","public","assets","static","data","tmp","temp","new",
+        "old","wip","draft","misc","stuff","things","untitled-1","readme.txt","package",
+        "output","input","example","examples","demo","scratch","backup","archive"}
+
+items = collections.Counter()
+
+# Obsidian: wikilinks (his named entities/concepts) weigh most, then tags.
+for v in VAULTS:
+    files = [f for f in glob.glob(f"{v}/**/*.md", recursive=True) if os.path.isfile(f)]
+    files.sort(key=os.path.getmtime, reverse=True)
+    for f in files[:50]:
+        try:
+            t = open(f, encoding="utf-8", errors="ignore").read()
+        except Exception:
+            continue
+        for m in re.findall(r"\[\[([^\]|#]+)", t):            # [[wikilinks]]
+            items[m.strip()] += 3
+        for m in re.findall(r"(?<!\w)#([A-Za-z][\w-]{2,})", t): # #tags
+            items[m.replace("-", " ")] += 2
+        # note titles (the filename) of very recent notes
+    for f in files[:15]:
+        title = os.path.splitext(os.path.basename(f))[0]
+        items[title] += 1
+
+# His projects (folder names = things he's actually building).
+for d in CODE_DIRS:
+    if os.path.isdir(d):
+        for n in os.listdir(d):
+            p = os.path.join(d, n)
+            if os.path.isdir(p) and not n.startswith("."):
+                items[n.replace("-", " ").replace("_", " ")] += 1
+
+out = []
+seen = set()
+for term, _ in items.most_common(120):
+    t = " ".join(term.split())
+    low = t.lower()
+    if not (3 <= len(t) <= 42): continue
+    if low in STOP or low in seen: continue
+    if re.search(r"\d{4}-\d\d-\d\d", t): continue          # skip date-named notes
+    if t.count(" ") > 5: continue                          # skip long phrases
+    if re.fullmatch(r"[0-9a-fA-F]{3,8}", t): continue      # skip hex color codes
+    if not re.search(r"[aeiouAEIOU]", t): continue         # skip vowel-less slugs/junk
+    if re.search(r"\.(md|png|txt|js|py|json)$", low): continue
+    seen.add(low); out.append(t)
+
+for o in out[:60]:
+    print(o)

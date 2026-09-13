@@ -1,0 +1,37 @@
+#!/bin/bash
+# Rhizome node: runs on the Mac (LaunchAgent) while it's awake. Pushes the
+# current screen + a digest of recent Obsidian notes to the always-on PC brain
+# so it can ground art in what you're doing. Skips silently if the PC is off.
+# The PC coasts on Cloudinary/Mastodon when these files go stale.
+set +e
+PC=10.0.0.169
+DST="ejfox@$PC:farm/sd"
+nc -z -G 2 "$PC" 22 2>/dev/null || exit 0   # PC off → nothing to push
+
+# 1. screen (downscaled; the PC blurs further before img2img)
+if command -v screencapture >/dev/null 2>&1; then
+  if screencapture -x -t png -D 1 /tmp/muse-push.png 2>/dev/null && [ -s /tmp/muse-push.png ]; then
+    sips -Z 1280 /tmp/muse-push.png --out /tmp/muse-push-sm.png >/dev/null 2>&1
+    scp -q /tmp/muse-push-sm.png "$DST/pushed-screen.png" 2>/dev/null
+  fi
+fi
+
+# 2. recent Obsidian notes digest (both vaults, newest first)
+python3 - <<'PY' > /tmp/muse-push-notes.txt 2>/dev/null
+import glob, os, re
+H=os.path.expanduser("~")
+V=[f"{H}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
+   f"{H}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault"]
+fs=[]
+for v in V: fs+=glob.glob(f"{v}/**/*.md", recursive=True)
+fs=[f for f in fs if os.path.isfile(f)]
+fs.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+for f in fs[:12]:
+    try: t=open(f,encoding="utf-8",errors="ignore").read()
+    except Exception: continue
+    t=re.sub(r"^---.*?---","",t,flags=re.S); t=re.sub(r"[#*`>\[\]]"," ",t)
+    w=" ".join(t.split())[:300]
+    if w: print(f"- {os.path.splitext(os.path.basename(f))[0]}: {w}")
+PY
+[ -s /tmp/muse-push-notes.txt ] && scp -q /tmp/muse-push-notes.txt "$DST/pushed-notes.txt" 2>/dev/null
+exit 0

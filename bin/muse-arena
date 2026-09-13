@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Print a random image-block URL from Are.na as visual inspo for the muse wall.
+
+Are.na's API needs auth to LIST a user's channels, but reads PUBLIC channel
+contents with no token. So, in order of preference:
+  1. ARENA_TOKEN env set  -> auto-discover your channels (users/<MUSE_ARENA_USER>)
+  2. MUSE_ARENA_CHANNELS  -> comma-separated channel slugs (public, no token)
+  3. fallback: a known public channel so it never hard-fails
+"""
+import json, os, random, ssl, sys, urllib.request
+
+USER = os.environ.get("MUSE_ARENA_USER", "ej-fox")
+TOKEN = os.environ.get("ARENA_TOKEN", "")
+SLUGS = [s.strip() for s in os.environ.get("MUSE_ARENA_CHANNELS", "").split(",") if s.strip()]
+try:
+    import certifi; CTX = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    CTX = ssl._create_unverified_context()
+
+def api(path):
+    h = {"User-Agent": "muse/1.0"}
+    if TOKEN: h["Authorization"] = "Bearer " + TOKEN
+    req = urllib.request.Request("https://api.are.na/v2/" + path, headers=h)
+    return json.load(urllib.request.urlopen(req, timeout=25, context=CTX))
+
+def img_url(b):
+    im = b.get("image") or {}
+    for k in ("original", "large", "display"):
+        u = (im.get(k) or {}).get("url")
+        if u: return u
+    return None
+
+try:
+    slugs = list(SLUGS)
+    if TOKEN and not slugs:                       # auto-discover the user's channels
+        chans = api(f"users/{USER}/channels?per=100").get("channels", [])
+        slugs = [c["slug"] for c in chans if c.get("length", 0) > 0 and c.get("slug")]
+    if not slugs:
+        slugs = ["arena-influences"]              # last-resort public fallback
+    random.shuffle(slugs)
+    for slug in slugs[:10]:
+        try:
+            blocks = api(f"channels/{slug}/contents?per=100&direction=desc").get("contents", [])
+        except Exception:
+            continue
+        imgs = [u for b in blocks if (u := img_url(b))]
+        if imgs:
+            print(random.choice(imgs)); sys.exit(0)
+    sys.exit(1)
+except Exception:
+    sys.exit(1)

@@ -1,0 +1,50 @@
+#!/bin/bash
+# Keep the Mac↔computah Deskflow KVM healthy. Idempotent + quiet; safe to run
+# on a timer or at login. Logs actions (only when it DOES something) to
+# ~/.local/share/deskflow-heal.log. See [[deskflow-kvm-setup]].
+LOG="$HOME/.local/share/deskflow-heal.log"
+mkdir -p "$(dirname "$LOG")"
+ts() { date '+%F %T'; }
+say() { echo "$(ts) $*" >> "$LOG"; }
+verbose=""; [ "${1:-}" = "-v" ] && verbose=1
+tell() { [ -n "$verbose" ] && echo "$*"; }
+
+acted=""
+
+# 1. Universal Control respawns at login/wake and steals the Mac's screen edge
+#    before Deskflow — but ONLY enforce the kill if the user has it disabled
+#    (Disable=1). If they ever re-enable UC, we leave it alone.
+if [ "$(defaults read com.apple.universalcontrol Disable 2>/dev/null)" = "1" ]; then
+  ucpid=$(pgrep -f 'UniversalControl.app/Contents/MacOS/UniversalControl' | head -1)
+  if [ -n "$ucpid" ]; then
+    kill -9 "$ucpid" 2>/dev/null && { say "killed respawned UniversalControl ($ucpid)"; acted=1; tell "killed UniversalControl"; }
+  fi
+fi
+
+# 2. NordVPN silently blocks inbound 24800 (even loopback). Don't auto-disconnect
+#    a VPN — just flag it loudly so the cause is obvious.
+if scutil --nc list 2>/dev/null | grep -qiE '^\* \(Connected\).*NordVPN'; then
+  say "WARNING: NordVPN is connected — it blocks Deskflow port 24800. Run: scutil --nc stop <NordVPN-UUID>"
+  tell "⚠ NordVPN connected — blocks Deskflow 24800 (scutil --nc stop it)"
+  acted=1
+fi
+
+# 3. Ensure the Deskflow server core is actually LISTENing on 24800. The GUI can
+#    look healthy while the core has segfaulted; relaunch the app to revive it
+#    (startCoreWithGui=true brings the core back).
+if ! lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1; then
+  # make sure the core is set to start with the GUI
+  conf="$HOME/Library/Deskflow/Deskflow.conf"
+  if [ -f "$conf" ] && grep -q '^startCoreWithGui=false' "$conf"; then
+    sed -i '' 's/^startCoreWithGui=false/startCoreWithGui=true/' "$conf"
+    say "reset startCoreWithGui=true"
+  fi
+  say "core not listening on 24800 — (re)launching Deskflow.app"
+  open -ga Deskflow 2>/dev/null || open -a Deskflow 2>/dev/null
+  acted=1; tell "relaunched Deskflow (core was down)"
+fi
+
+if [ -z "$acted" ]; then
+  tell "deskflow healthy: core listening, UC inert, no VPN block"
+fi
+exit 0

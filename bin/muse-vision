@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Show a local vision model (Qwen2.5-VL via llama-server + mmproj at HOST:8085)
+an image (your screen or a Cloudinary pic) plus recent Obsidian notes, and get
+back N weird image-gen prompts GROUNDED in what it actually sees + reads.
+Usage: muse-vision N /path/to/image.png [HOST]. Prints N prompts."""
+import base64, glob, json, os, re, sys, urllib.request
+
+N = int(sys.argv[1]) if len(sys.argv) > 1 else 8
+IMG = sys.argv[2] if len(sys.argv) > 2 else ""
+HOST = sys.argv[3] if len(sys.argv) > 3 else "10.0.0.169"
+HOME = os.path.expanduser("~")
+VAULTS = [
+    f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
+    f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault",
+]
+
+def recent_notes(limit=8):
+    files = []
+    for v in VAULTS:
+        files += glob.glob(f"{v}/**/*.md", recursive=True)
+    files = [f for f in files if os.path.isfile(f)]
+    files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+    out = []
+    for f in files[:limit]:
+        try:
+            t = open(f, encoding="utf-8", errors="ignore").read()
+        except Exception:
+            continue
+        t = re.sub(r"^---.*?---", "", t, flags=re.S)
+        t = re.sub(r"[#*`>\[\]]", " ", t)
+        w = " ".join(t.split())[:250]
+        if w:
+            out.append(f"- {os.path.splitext(os.path.basename(f))[0]}: {w}")
+    return "\n".join(out)
+
+if not IMG or not os.path.isfile(IMG):
+    sys.exit(1)
+b64 = base64.b64encode(open(IMG, "rb").read()).decode()
+notes = recent_notes()
+
+MOTIFS = os.environ.get("MUSE_MOTIFS",
+    "red foxes, glowing terminals and code, FPV drones, radios and mesh networks, "
+    "data visualizations and maps, synths and music gear, e-ink gadgets, "
+    "cyberpunk-cozy workshops, night cities")
+LENSES = ["as an ancient mythological scene", "as a tiny handmade diorama",
+    "as a sweeping epic landscape", "as a single hero object floating in void",
+    "as a swarm or repeating pattern", "as a strange living creature",
+    "as an architectural cutaway", "as a still life", "as a top-down map or diagram",
+    "as an intimate character portrait", "as a purely abstract composition",
+    "as a half-remembered dream", "as a nature scene reclaiming technology",
+    "as a cosmic / celestial event", "as a cozy interior", "as street photography"]
+lens = random.choice(LENSES)
+# Keep it SHORT — over-instructing homogenizes the model. Enforce the rest in code.
+sys_p = ("Glance at this screen and notes for inspiration. Invent %d short, vivid "
+    "image prompts, each wildly different, %s. Loosely echo any of: %s. "
+    "One sentence each, one per line. /no_think" % (N, lens, MOTIFS))
+
+body = json.dumps({
+    "messages": [
+        {"role": "system", "content": sys_p},
+        {"role": "user", "content": [
+            {"type": "text", "text": "Recent note themes:\n" + notes + "\n\nThe image:"},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+        ]},
+    ],
+    "max_tokens": 1200, "temperature": 0.9,
+}).encode()
+
+try:
+    req = urllib.request.Request(f"http://{HOST}:8085/v1/chat/completions",
+                                 body, {"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=180))
+    txt = r["choices"][0]["message"]["content"]
+    txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.S)
+    for ln in txt.splitlines():
+        ln = re.sub(r'^\s*[-*\d.)\]]+\s*', "", ln).strip()
+        ln = re.sub(r'["`<>|]', " ", ln)
+        # strip negation/style leaks so they never reach the image model
+        ln = re.sub(r'\b(no|without|avoid|free of)\s+(text|words?|letters?|typography|signage|gradients?)\b', "", ln, flags=re.I)
+        ln = " ".join(ln.split()).strip(" ,.;")
+        if len(ln) > 15:
+            print(ln)
+except Exception:
+    sys.exit(1)
