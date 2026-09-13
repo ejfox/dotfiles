@@ -234,7 +234,7 @@ gp             git push
 ├── .llm-persona.txt        # CIPHER personality for AI features
 ├── .gitconfig               # Git config
 ├── .config/
-│   ├── nvim/               # Neovim (LazyVim + 21 custom plugins)
+│   ├── nvim/               # Neovim (LazyVim + 24 custom plugins)
 │   │   ├── lua/plugins/    # Plugin configs
 │   │   ├── lua/config/     # Keymaps, options
 │   │   ├── colors/         # 8 vulpes colorscheme variants
@@ -245,13 +245,15 @@ gp             git push
 │   │   ├── shaders/        # 52 GLSL shaders (3 active)
 │   │   └── themes/         # Vulpes color themes
 │   ├── lazygit/            # Git TUI (AI commit integration)
-│   ├── sketchybar/         # macOS menu bar (30 plugins)
+│   ├── sketchybar/         # macOS menu bar (10 plugins)
 │   ├── yazi/               # File manager (vulpes theme)
 │   ├── btop/               # System monitor (vulpes theme)
 │   ├── karabiner/          # Keyboard remapping
 │   ├── atuin/              # Shell history sync
 │   ├── bat/                # Syntax-highlighted cat
-│   ├── neomutt/            # Terminal email
+│   ├── fzf/                # Fuzzy finder config
+│   ├── zsh/                # Zsh support files
+│   ├── claude/             # Claude Code config
 │   └── cheatsheet.html     # Master combined cheatsheet
 ├── bin/                    # 60+ custom scripts (see table below)
 ├── docs/                   # Extended documentation
@@ -342,7 +344,7 @@ All scripts live in `bin/` and are on PATH. Run any of them directly. Grouped by
 
 ## Neovim Setup
 
-Based on [LazyVim](https://www.lazyvim.org/) with 21 custom plugin configs. Starts in <100ms.
+Based on [LazyVim](https://www.lazyvim.org/) with 24 custom plugin configs. Starts in <100ms.
 
 ### Plugin Overview
 
@@ -409,12 +411,24 @@ Dark background, red/pink accents. Consistent across ghostty, nvim, lazygit, yaz
 
 ## Sketchybar
 
-macOS menu bar replacement with 30 plugin scripts. Config: `.config/sketchybar/`
+macOS menu bar replacement with 10 plugin scripts (`plugins/`, plus `_lib.sh` shared helper). Config: `.config/sketchybar/sketchybarrc`.
 
-Highlights:
-- **next_event**: Calendar countdown + CIPHER coach (suggests joyful tasks when no events soon)
-- **battery**: OLED black background, fades to red below 50%
-- **creative**: Consolidated demos/notes/words tracker with staleness warnings
+Layout (left → right):
+```
+[talon] [mic] [next_event] ............ [foundations] [demos] [dispatch] [posts] [battery] [clock]
+```
+
+Plugins:
+- **next_event**: Calendar countdown with per-meeting colors + CIPHER coach (suggests joyful tasks when no events soon)
+- **battery**: OLED black background, fades to red below 50%; hides itself entirely on desktop Macs (no battery)
+- **foundations**: Count + staleness of open 🌞 Foundation dailies; visible only outside work hours
+- **demos**: 4-week dot matrix of recordings in `~/demos`
+- **posts**: 4-week dot matrix from ejfox.com RSS pubDates (cached 15min)
+- **dispatch**: Vault publish state from Dispatch's local JSON cache
+- **talon**: Talon voice-control mode indicator (sleep/command/dictation/mixed)
+- **mic**: Shows 🔇 only while mics are muted (driven by `mic-toggle`)
+- **huekey**: Click to toggle keyboard-reactive desk lights
+- **clock**: Rightmost anchor — time-of-day glyph + 12-hour time
 
 ---
 
