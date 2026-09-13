@@ -253,7 +253,7 @@ gp             git push
 │   ├── bat/                # Syntax-highlighted cat
 │   ├── neomutt/            # Terminal email
 │   └── cheatsheet.html     # Master combined cheatsheet
-├── bin/                    # 22 custom scripts
+├── bin/                    # 60+ custom scripts (see table below)
 ├── docs/                   # Extended documentation
 ├── scripts/                # Setup scripts (macOS defaults, VPS)
 ├── talon-overrides/        # Voice control config
@@ -264,32 +264,79 @@ gp             git push
 
 ## Custom Scripts (bin/)
 
-All scripts are symlinked to `~/bin/` by PATH. Run any of them directly.
+All scripts live in `bin/` and are on PATH. Run any of them directly. Grouped by domain:
 
+**AI / CIPHER**
 | Script | What it does |
 |--------|-------------|
-| `ai-commit` | Generates 3 conventional commit messages via Claude, pick with fzf |
+| `ai-commit` | Generates 3 conventional commit messages via Claude, pick with fzf (also lazygit `a`) |
 | `morning-ritual` | CIPHER analyzes your day (Things, calendar, git, Obsidian) and suggests 12 ranked pomodoros |
 | `cipher-daily` | Daily CIPHER wisdom |
 | `claude-say` | Text-to-speech with adaptive playback |
-| `cheatsheets` | Open HTML cheatsheets in Safari (`cheatsheets nvim` / `cheatsheets lazygit` / `cheatsheets`) |
-| `obs` | Obsidian CLI utilities |
-| `pub` | Publishing workflow |
-| `email-summary` | Email digest generation |
-| `usage-summary` | Today's shell/nvim/tmux stats |
-| `usage-analyze` | Pattern analysis over N days |
-| `usage-log` | Log activity events (called by hooks) |
+| `claude-log-ship` | Ship Claude Code fleet event logs to VPS Loki |
+| `fleet-watch` | tmux 3×3 grid watching subagent panes |
+| `chrome-grid` | Open one Chrome window per URL, auto-tiled |
+
+**computah (Windows PC integration)**
+| Script | What it does |
+|--------|-------------|
+| `computah` | Drive the Windows PC: wake/status/doctor/render/blender/demucs/llm/imagine/grid/muse |
+| `computah-provision` | Provision the PC (models, services, firewall, Defender exclusions) |
+| `deskflow-heal` | Idempotent Deskflow KVM keepalive |
+| `muse-*` | Context-aware FLUX art wall: `muse-arena`/`muse-cloudinary` (inspo), `muse-ingredients`/`muse-brainstorm` (prompts), `muse-vision` (local VLM), `muse-push` (screen+notes push) |
+
+**Lights / display**
+| Script | What it does |
+|--------|-------------|
+| `hue` | Hue Bridge v2 CLI (rooms/scenes/on/off/dim) |
+| `hue-stream` | 50Hz DTLS Entertainment streaming daemon |
+| `hue-flash` / `rgb-flash` | One-shot light flash notifications |
+| `hue-keys` / `huetype` / `huetype-tui` | Keyboard-reactive lighting toggles/config |
+| `hue-screen` / `screensync` | Screen → Hue ambient sync |
+| `desk-event` | Grammar for desk-light event signalling (colors/pulses) |
+| `pixel` / `pixel-live` / `pixel-scenes` / `pixel-email-*` | ESP32 desk display control + scenes |
+
+**System / macOS**
+| Script | What it does |
+|--------|-------------|
+| `theme` / `theme-dark` / `theme-light` | Switch light/dark across the whole stack |
 | `appearance-watcher` | React to macOS light/dark mode changes |
-| `dotfiles-verify` | Check that everything is symlinked and working |
-| `dotfiles-audit` | Audit dotfiles integrity |
-| `send-to-canvas` | Send content to Canvas |
-| `vps` | VPS connection utility |
-| `tmux-scratch-toggle` | Toggle persistent scratch terminal |
-| `tmux-focus-color` | Pane focus indicator |
-| `tmux-mutagen-status` | Mutagen sync status |
+| `screenshot-cloudinary` | Auto-upload screenshots to Cloudinary |
 | `mic-toggle` | Microphone on/off |
 | `btop` | System monitor wrapper |
-| `vtsls-wrapper` | TypeScript LSP wrapper for Vue hybrid mode |
+| `mac-backup` / `mac-stay-reachable` | Backup + keep-awake/reachable helpers |
+| `tailscale` | Tailscale helper |
+| `setup-window-mode` / `window-mode-doctor` | Window-mode (⌥Space snapping) setup + diagnostics |
+| `karabiner-ipc-watch` | Watch for Karabiner IPC stuck-modifier bug |
+| `macropad-discover` | Discover/configure macropad |
+
+**Dotfiles / sync**
+| Script | What it does |
+|--------|-------------|
+| `dfsync` | Warn on unpushed/unpulled/dirty dotfiles state |
+| `dotfiles-verify` | Check that everything is symlinked and working |
+| `dotfiles-audit` | Audit dotfiles integrity |
+| `secret-scan` / `leak-scan` / `security-scan-cron` | Secret/leak scanners (git history + live values, gists/npm/HIBP) |
+
+**tmux**
+| Script | What it does |
+|--------|-------------|
+| `tmux-scratch-toggle` | Toggle persistent scratch terminal |
+| `tmux-project-layout` | Recreate a project's pane layout |
+
+**Content / misc**
+| Script | What it does |
+|--------|-------------|
+| `obs` | Obsidian CLI utilities |
+| `pub` | Publishing workflow |
+| `music` | Music helper |
+| `cheatsheets` | Open HTML cheatsheets in Safari (`cheatsheets nvim` / `lazygit`) |
+| `send-to-canvas` | Send content to Canvas |
+| `playtest-subway` | Subway Builder playtest launcher |
+| `vps` | VPS connection utility |
+| `usage-summary` / `usage-analyze` / `usage-log` | Shell/nvim/tmux usage stats + logging |
+
+> Full list: `ls ~/.dotfiles/bin/`. `robots` is a symlink to the Rust binary in `~/.cargo/bin`.
 
 ---
 
@@ -482,7 +529,8 @@ return {
 | `docs/tips.txt` | Complete keybinding cheatsheet (shown randomly on startup) |
 | `docs/WORKFLOWS.md` | Advanced CLI pipelines (obs, pub, llm) |
 | `docs/STARTUP_DOCS.md` | How the startup script and morning ritual work |
-| `docs/TWEAKCC_SETUP.md` | TweakCC configuration |
+| `docs/THEME-SYSTEM.md` | Light/dark theme architecture, recovery, known cruft |
+| `docs/FOXMEDIA.md` | foxmedia CLI: screenshot auto-upload to Cloudflare R2 + Obsidian logging |
 | `docs/HISTORY.md` | Changelog |
 
 ---
