@@ -528,7 +528,7 @@ PYEOF
       pidx=0
     }
 
-    n=0; slot=0; batch_source="(pending first batch)"
+    n=0; slot=0; batch_source="(pending first batch)"; last_game=0; gcyc=0
     while true; do
       n=$((n + 1)); slot=$(( (slot % total) + 1 ))
       # Quiet hours: don't keep a bright monitor on overnight (the 2am-incident
@@ -537,14 +537,31 @@ PYEOF
       if [ -z "${MUSE_ALLNIGHT:-}" ] && { [ "$hh" -ge 22 ] || [ "$hh" -lt 9 ]; }; then
         sleep 300; slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue
       fi
-      # Keep the monitor awake while generating — Windows' display timeout keys
-      # off keyboard/mouse idle, NOT GPU load. A zero-delta mouse move does NOT
-      # count as input (won't wake/keep-awake); a SHIFT key tap does, with no
-      # cursor movement or side effects (no character typed).
-      rssh "powershell -NoProfile -Command \"Add-Type 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\\\"user32.dll\\\")]public static extern void keybd_event(byte k,byte s,uint f,IntPtr e);}'; [K]::keybd_event(0x10,0,0,[IntPtr]::Zero); [K]::keybd_event(0x10,0,2,[IntPtr]::Zero)\"" >/dev/null 2>&1 || true
-      # game guard — only a real game pegs the 3D engine this hard
+      # ── game guard FIRST (any game, with hysteresis) ────────────────────────
+      # Pause while a game runs. A momentary GPU dip (lobby / menu / loading /
+      # death screen) must NOT resume us mid-session — that pounced last time and
+      # kicked off a render that lagged the game. So once we see game-level load we
+      # HOLD the pause for a cooldown after the LAST high reading. Anti-cheat procs
+      # (EasyAntiCheat/BattlEye) also flag a game even when the GPU idles in a menu,
+      # covering any game, not just Fortnite. Runs BEFORE the keep-awake SHIFT tap
+      # so we never inject a keystroke into live gameplay.
       busy=$(rssh "powershell -NoProfile -Command \"[int]((((Get-Counter '\GPU Engine(*engtype_3D)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum).Sum))\"" 2>/dev/null | tr -d '\r' || echo 0)
-      if [ "${busy:-0}" -gt 60 ]; then echo "  gaming (3D ${busy}%) — pausing"; sleep 30; slot=$((slot-1)); [ "$slot" -lt 0 ] && slot=0; continue; fi
+      ac=$(rssh "powershell -NoProfile -Command \"(Get-Process -EA 0 | Where-Object { \$_.Name -match 'EasyAntiCheat|BattlEye|BEService|FortniteClient' } | Measure-Object).Count\"" 2>/dev/null | tr -d '\r' || echo 0)
+      now=$(date +%s)
+      if [ "${busy:-0}" -gt "${MUSE_GAME_THRESHOLD:-50}" ] || [ "${ac:-0}" -gt 0 ]; then last_game=$now; fi
+      cool=${MUSE_GAME_COOLDOWN:-300}
+      if [ "${last_game:-0}" -gt 0 ] && [ $((now - last_game)) -lt "$cool" ]; then
+        gcyc=$((gcyc + 1))
+        # seed future gens: grab a game frame ~every 90s (hidden VBS, non-intrusive)
+        [ $((gcyc % 3)) -eq 0 ] && rssh "schtasks /run /tn gameframe-grab" >/dev/null 2>&1
+        echo "  gaming (3D ${busy}% ac=${ac}) — paused, $((cool-(now-last_game)))s cooldown left"
+        sleep 30; slot=$((slot-1)); [ "$slot" -lt 0 ] && slot=0; continue
+      fi
+      # Keep the monitor awake while generating (only reached when NOT gaming — a
+      # game keeps its own display awake, and we must never inject SHIFT mid-match).
+      # Windows' display timeout keys off keyboard/mouse idle, NOT GPU load. A SHIFT
+      # tap counts as input with no side effects (no character, no cursor move).
+      rssh "powershell -NoProfile -Command \"Add-Type 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\\\"user32.dll\\\")]public static extern void keybd_event(byte k,byte s,uint f,IntPtr e);}'; [K]::keybd_event(0x10,0,0,[IntPtr]::Zero); [K]::keybd_event(0x10,0,2,[IntPtr]::Zero)\"" >/dev/null 2>&1 || true
 
       # refill the batch (fresh notes) whenever we've used them all
       [ "$pidx" -ge "${#prompts[@]}" ] && refill_prompts
@@ -562,7 +579,8 @@ PYEOF
       strength=$(awk -v r=$((RANDOM % 45)) 'BEGIN{printf "0.%02d", 38 + r}')  # 0.38 → 0.82
 
       # Init source per cell. Weights: screen 24 / crop 8 / arena 25 / feedback 17 /
-      # cloud+fuji 14 / pure 12 (are.na is "pretty often" per request).
+      # cloud+fuji 10 / gameframe 12 / pure 4. gameframe = a real frame from your
+      # last gaming session; when the pool is empty it just falls through to pure.
       src="pure"; fb=""; roll=$((RANDOM % 100)); rm -f /tmp/muse-init.png   # fb reset so it can't leak into the trace
       if [ "$roll" -lt 24 ] && command -v screencapture >/dev/null 2>&1; then
         screencapture -x -t png -D 1 /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="screen"
@@ -585,12 +603,23 @@ PYEOF
             magick /tmp/muse-init.png -negate /tmp/muse-init.png 2>/dev/null && src="feedback-inv"
           fi
         fi
-      elif [ "$roll" -lt 88 ]; then
+      elif [ "$roll" -lt 84 ]; then
         # ~half the Cloudinary rolls pull a FUJIFILM shot (DSCF*) specifically
         cu=""; lbl="cloud"
         if [ $((RANDOM % 2)) -eq 0 ]; then cu=$(MUSE_FUJI=1 muse-cloudinary 2>/dev/null || true); [ -n "$cu" ] && lbl="fuji"; fi
         [ -z "$cu" ] && cu=$(muse-cloudinary 2>/dev/null || true)
         [ -n "$cu" ] && curl -s -m 20 -o /tmp/muse-init.png "$cu" 2>/dev/null && [ -s /tmp/muse-init.png ] && src="$lbl"
+      elif [ "$roll" -lt 96 ]; then
+        # a real frame from your last gaming session, reinterpreted into vulpes style
+        # (per-cell strength gives the subtle→heavy mix). Empty pool → falls to pure.
+        gf=$(rssh "powershell -NoProfile -Command \"(Get-ChildItem \$env:USERPROFILE\farm\sd\gameframes\*.jpg -EA 0 | Get-Random).Name\"" 2>/dev/null | tr -d '\r')
+        if [ -n "$gf" ] && scp -q "$REMOTE_USER@$h:farm/sd/gameframes/$gf" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ]; then
+          src="game"
+          # ~30% of the time invert the colors first — for the vibes, like feedback
+          if [ $((RANDOM % 10)) -lt 3 ] && command -v magick >/dev/null 2>&1; then
+            magick /tmp/muse-init.png -negate /tmp/muse-init.png 2>/dev/null && src="game-inv"
+          fi
+        fi
       fi
 
       tag=""
