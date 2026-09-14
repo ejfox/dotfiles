@@ -518,10 +518,10 @@ function rgbToXy([r, g, b]) {
 }
 
 // Scoped, low-key desk-light ping over the REST API. Matches lights by name or
-// room substring (case-insensitive), snapshots them, eases to the event color
-// at peak brightness, holds for the lit portion of the pattern, then restores
-// exactly what was showing. Never opens an entertainment session, so nothing
-// else in the house is touched.
+// room substring (case-insensitive), snapshots them, does a quick fade-in to the
+// event color, then SNAPS instantly back to exactly what was showing. Never opens
+// an entertainment session, so nothing else in the house is touched.
+const FLASH_FADE_MS = 180;   // quick swell up to the event color
 async function cmdFlashRest(rgb, peak, segs, patterns) {
   const stamp = '/tmp/hue-flash-rest.last';
   try { if ((Date.now() - fs.statSync(stamp).mtimeMs) / 1000 < 2) return; } catch {}
@@ -545,21 +545,33 @@ async function cmdFlashRest(rgb, peak, segs, patterns) {
   const snap = await snapshotLights(ids);
   const xy = rgbToXy(rgb);
   const brightness = Math.max(1, Math.min(100, Math.round(peak * 100)));
-  const holdMs = Math.round(segs.reduce((t, [d]) => t + d, 0) * 1000);
 
   try {
+    // Fade in — fire both lights back-to-back (tiny gap) so they swell together.
     for (const id of ids) {
       await api('PUT', `/resource/light/${id}`, {
         on: { on: true },
         dimming: { brightness },
         color: { xy },
-        dynamics: { duration: 250 },
+        dynamics: { duration: FLASH_FADE_MS },
       });
-      await new Promise((r) => setTimeout(r, 60));  // stay under bridge PUT rate limit
+      await new Promise((r) => setTimeout(r, 30));
     }
-    await new Promise((r) => setTimeout(r, holdMs));
+    await new Promise((r) => setTimeout(r, FLASH_FADE_MS));  // let the swell complete
   } finally {
-    await restoreLights(snap);
+    // Snap out instantly (no transition, no settle delay) back to prior state.
+    for (const s of snap) {
+      const body = { on: { on: s.on } };
+      if (s.on) {
+        if (typeof s.brightness === 'number') body.dimming = { brightness: s.brightness };
+        if (s.xy) body.color = { xy: s.xy };
+        else if (s.mirek) body.color_temperature = { mirek: s.mirek };
+        body.dynamics = { duration: 0 };  // instant snap
+      }
+      try { await api('PUT', `/resource/light/${s.id}`, body); }
+      catch { /* best-effort per light */ }
+      await new Promise((r) => setTimeout(r, 30));
+    }
   }
 }
 
