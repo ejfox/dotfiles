@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for the desk light grammar. Consumed by bin/rgb-flash (colors + patterns), hue-stream/pc-rgb-effect.py (patterns), and bin/desk-event (caption colors via jq). color = category, pulse count = urgency.",
+  "_comment": "Single source of truth for the desk light grammar. Consumed by bin/rgb-flash (colors + patterns), hue-stream/pc-rgb-effect.py (patterns), and bin/desk-event (caption colors via jq). color = category, pulse count = urgency. `scope` = name/room substrings the Hue flash is limited to (case-insensitive); omit scope so an event washes the whole room (reserve that for attention-getting events).",
   "palette": {
     "pink":    [230, 0, 103],
     "teal":    [110, 237, 247],
@@ -10,8 +10,8 @@
   },
   "rest": "pink",
   "events": {
-    "fyi":   { "color": "teal",    "peak": 0.55, "segs": [[0.35, true]] },
-    "done":  { "color": "teal",    "peak": 1.0,  "segs": [[0.90, true]] },
+    "fyi":   { "color": "teal",    "peak": 0.55, "segs": [[0.35, true]], "scope": ["desk"] },
+    "done":  { "color": "teal",    "peak": 1.0,  "segs": [[0.90, true]], "scope": ["desk"] },
     "needs": { "color": "hotpink", "peak": 1.0,  "segs": [[0.22, true], [0.14, false], [0.22, true]] },
     "error": { "color": "red",     "peak": 1.0,  "segs": [[1.10, true]] }
   }

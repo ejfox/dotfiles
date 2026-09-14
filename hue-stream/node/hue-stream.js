@@ -454,6 +454,13 @@ async function cmdFlash(eventName = 'done') {
   const rgb = rgb255.map(v => v / 255);
   const peak = ev?.peak ?? 1.0;
   const segs = ev?.segs || [[0.4, true]];
+  const scope = Array.isArray(ev?.scope) ? ev.scope : [];
+
+  // Scoped events (done/fyi) only ping the desk lights. Do that over the plain
+  // REST API — no whole-room entertainment takeover, no DTLS wedge risk, and
+  // every other light in the house is left exactly as it was. Whole-room washes
+  // (needs/error, no scope) fall through to the entertainment session below.
+  if (scope.length) return cmdFlashRest(rgb, peak, segs, scope);
 
   // DTLS wedge guard: min 8s between one-shot sessions, one at a time
   const stamp = '/tmp/hue-flash-once.last';
@@ -496,6 +503,63 @@ async function cmdFlash(eventName = 'done') {
   } finally {
     await deactivate(cfg.id);
     await restoreLights(snap);  // force the pre-flash color back; bridge restore is unreliable
+  }
+}
+
+// sRGB (0..1) → CIE xy chromaticity (Philips Wide-RGB D65 gamut), for REST sets.
+function rgbToXy([r, g, b]) {
+  const gam = (c) => (c > 0.04045 ? Math.pow((c + 0.055) / 1.055, 2.4) : c / 12.92);
+  const R = gam(r), G = gam(g), B = gam(b);
+  const X = R * 0.664511 + G * 0.154324 + B * 0.162028;
+  const Y = R * 0.283881 + G * 0.668433 + B * 0.047685;
+  const Z = R * 0.000088 + G * 0.072310 + B * 0.986039;
+  const s = X + Y + Z;
+  return s === 0 ? { x: 0.3127, y: 0.329 } : { x: +(X / s).toFixed(4), y: +(Y / s).toFixed(4) };
+}
+
+// Scoped, low-key desk-light ping over the REST API. Matches lights by name or
+// room substring (case-insensitive), snapshots them, eases to the event color
+// at peak brightness, holds for the lit portion of the pattern, then restores
+// exactly what was showing. Never opens an entertainment session, so nothing
+// else in the house is touched.
+async function cmdFlashRest(rgb, peak, segs, patterns) {
+  const stamp = '/tmp/hue-flash-rest.last';
+  try { if ((Date.now() - fs.statSync(stamp).mtimeMs) / 1000 < 2) return; } catch {}
+  fs.writeFileSync(stamp, String(process.pid));
+
+  const pats = patterns.map((p) => String(p).toLowerCase());
+  const lights = (await api('GET', '/resource/light')).data || [];
+  const rooms = (await api('GET', '/resource/room')).data || [];
+  const deviceToRoom = {};
+  for (const room of rooms)
+    for (const child of (room.children || []))
+      if (child.rtype === 'device') deviceToRoom[child.rid] = (room.metadata?.name || '').toLowerCase();
+
+  const ids = lights.filter((l) => {
+    const name = (l.metadata?.name || '').toLowerCase();
+    const room = deviceToRoom[l.owner?.rid] || '';
+    return pats.some((p) => name.includes(p) || room.includes(p));
+  }).map((l) => l.id);
+  if (!ids.length) return;
+
+  const snap = await snapshotLights(ids);
+  const xy = rgbToXy(rgb);
+  const brightness = Math.max(1, Math.min(100, Math.round(peak * 100)));
+  const holdMs = Math.round(segs.reduce((t, [d]) => t + d, 0) * 1000);
+
+  try {
+    for (const id of ids) {
+      await api('PUT', `/resource/light/${id}`, {
+        on: { on: true },
+        dimming: { brightness },
+        color: { xy },
+        dynamics: { duration: 250 },
+      });
+      await new Promise((r) => setTimeout(r, 60));  // stay under bridge PUT rate limit
+    }
+    await new Promise((r) => setTimeout(r, holdMs));
+  } finally {
+    await restoreLights(snap);
   }
 }
 

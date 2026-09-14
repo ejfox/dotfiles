@@ -67,7 +67,8 @@ try:
     REST_NAME = _g.get("rest", "pink")
     EVENTS = {name: (ev["color"], name,
                      [(float(d), bool(lit)) for d, lit in ev["segs"]],
-                     float(ev.get("peak", 1.0)))
+                     float(ev.get("peak", 1.0)),
+                     list(ev.get("scope", [])))
               for name, ev in _g["events"].items()}
 except Exception:
     NAMED = {"pink": (0xe6, 0x00, 0x67), "teal": (0x6e, 0xed, 0xf7), "off": (0, 0, 0)}
@@ -87,10 +88,10 @@ def parse(c):
 
 REST = NAMED[REST_NAME]
 if arg in EVENTS:
-    cname, pattern, segs, peak = EVENTS[arg]
+    cname, pattern, segs, peak, scope = EVENTS[arg]
     rgb = NAMED[cname]
 else:
-    pattern, segs, peak = "flat", [(0.4, True)], 1.0
+    pattern, segs, peak, scope = "flat", [(0.4, True)], 1.0, []
     rgb = REST if arg == "rest" else parse(arg)
 
 pulses = sum(1 for _, lit in segs if lit)
@@ -137,6 +138,9 @@ if arg != "rest":
                 "type": "flash",
                 "color": [round(v / 255, 3) for v in scaled],
                 "count": pulses,
+                # Scoped events (done/fyi) only touch the desk lights; unscoped
+                # events (needs/error) omit target and wash the whole room.
+                **({"target": scope} if scope else {}),
             }).encode(), ("127.0.0.1", 9999))
         except OSError:
             pass
