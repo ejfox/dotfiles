@@ -42,32 +42,42 @@ esac
 # Caption accent comes from the shared grammar table (same color the lights use)
 COLOR=$(jq -r ".events.\"$EVENT\".color // \"teal\"" "$HOME/.dotfiles/lib/desk-flash-patterns.json" 2>/dev/null || echo teal)
 
-# 1) Lights — rgb-flash has its own debounce (needs/error punch through)
-"$HOME/.dotfiles/bin/rgb-flash" "$EVENT" >/dev/null 2>&1 &
+# Only attention-getting events light the room / flash the tmux title — a flash
+# on every completion or background-window blip is just noise (and startles
+# anyone else in the room). Everything else still updates the glass caption
+# silently below. Add words here to opt more events back in, e.g. "needs error".
+FLASH_EVENTS="needs"
+SHOULD_FLASH=0
+case " $FLASH_EVENTS " in *" $EVENT "*) SHOULD_FLASH=1 ;; esac
 
-# 1b) tmux: brief cyan flash on the window that fired, timed to match the light
-#     (quick on, then snap back to normal — not tmux's own bell glow, which
-#     lingers cyan until you visit the window). Same teal the bell glow used.
-#     ~360ms ≈ rgb-flash's desk fade-in + hold before it snaps out.
-tmux_flash() {
-  local win="$1"
-  [ -n "$win" ] || return 0
-  command -v tmux >/dev/null 2>&1 && tmux has-session >/dev/null 2>&1 || return 0
-  tmux setw -t "$win" window-status-style "fg=#7bf0f9,bold" 2>/dev/null || return 0
-  tmux refresh-client -S 2>/dev/null || true
-  ( sleep 0.36
-    tmux setw -u -t "$win" window-status-style 2>/dev/null   # unset → back to inherited default
-    tmux refresh-client -S 2>/dev/null
-  ) & disown 2>/dev/null || true
-}
-# Target window: bell/activity carry "sess:idx name" in DETAIL; Claude hooks run
-# inside the agent's pane, so resolve the window from $TMUX_PANE.
-TWIN=""
-case "$KIND" in
-  bell|activity) TWIN="${DETAIL%% *}" ;;
-  *) [ -n "${TMUX_PANE:-}" ] && TWIN=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}:#{window_index}' 2>/dev/null) ;;
-esac
-tmux_flash "$TWIN"
+if [ "$SHOULD_FLASH" = 1 ]; then
+  # 1) Lights — rgb-flash has its own debounce (needs/error punch through)
+  "$HOME/.dotfiles/bin/rgb-flash" "$EVENT" >/dev/null 2>&1 &
+
+  # 1b) tmux: brief cyan flash on the window that fired, timed to match the light
+  #     (quick on, then snap back to normal — not tmux's own bell glow, which
+  #     lingers cyan until you visit the window). Same teal the bell glow used.
+  #     ~360ms ≈ rgb-flash's desk fade-in + hold before it snaps out.
+  tmux_flash() {
+    local win="$1"
+    [ -n "$win" ] || return 0
+    command -v tmux >/dev/null 2>&1 && tmux has-session >/dev/null 2>&1 || return 0
+    tmux setw -t "$win" window-status-style "fg=#7bf0f9,bold" 2>/dev/null || return 0
+    tmux refresh-client -S 2>/dev/null || true
+    ( sleep 0.36
+      tmux setw -u -t "$win" window-status-style 2>/dev/null   # unset → back to inherited default
+      tmux refresh-client -S 2>/dev/null
+    ) & disown 2>/dev/null || true
+  }
+  # Target window: bell/activity carry "sess:idx name" in DETAIL; Claude hooks run
+  # inside the agent's pane, so resolve the window from $TMUX_PANE.
+  TWIN=""
+  case "$KIND" in
+    bell|activity) TWIN="${DETAIL%% *}" ;;
+    *) [ -n "${TMUX_PANE:-}" ] && TWIN=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}:#{window_index}' 2>/dev/null) ;;
+  esac
+  tmux_flash "$TWIN"
+fi
 
 # 2) Caption — debounce 5s so activity storms don't spam draws
 #    ("needs you" events skip the debounce: never swallow those)
