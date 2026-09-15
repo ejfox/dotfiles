@@ -4,6 +4,7 @@
 #
 #   computah                 ssh in
 #   computah wake            wake it up (WoL magic packet, works from off)
+#   computah harden-wol      make WoL survive a full shutdown (Fast Startup off, arm NIC)
 #   computah status          reachable? load? disk?
 #   computah doctor          full health check + auto-heal (models, services, deskflow)
 #   computah render <file>   encode a video on the PC, result lands back beside it
@@ -64,6 +65,65 @@ case "${1:-ssh}" in
     wake
     ;;
 
+  harden-wol)
+    # Make WoL survive a FULL shutdown: disable Fast Startup (its hybrid-off
+    # state leaves the NIC deaf to magic packets) + arm the NIC to wake on one.
+    # Runs elevated via a one-shot scheduled task — SSH sessions aren't elevated,
+    # and these calls need admin. BIOS "ErP Ready"/"Deep Sleep" stays a manual toggle.
+    h=$(host)
+    nc -z -G 3 "$h" 22 2>/dev/null || { echo "PC unreachable — power it on by hand first, then: computah harden-wol"; exit 1; }
+    ps1=$(mktemp /tmp/harden-wol.XXXXXX).ps1
+    cat > "$ps1" <<'PS'
+$ErrorActionPreference = 'Continue'
+$log = "$env:USERPROFILE\harden-wol.log"
+"=== harden-wol $(Get-Date) ===" | Out-File $log -Encoding ascii
+# 1. Fast Startup off (hybrid shutdown leaves the NIC deaf to magic packets)
+powercfg /h off 2>&1 | Out-Null
+Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled -Value 0 -Type DWord -Force
+"fast-startup: disabled (HiberbootEnabled=0)" | Add-Content $log
+# 2. Active wired adapter (prefer wired — WoL over WiFi is unreliable)
+$a = Get-NetAdapter -Physical | ? { $_.Status -eq 'Up' -and $_.MediaType -ne 'Native 802.11' } | Sort LinkSpeed -Desc | Select -First 1
+if (-not $a) { $a = Get-NetAdapter -Physical | ? { $_.Status -eq 'Up' } | Select -First 1 }
+"adapter: $($a.Name) [$($a.InterfaceDescription)]" | Add-Content $log
+# 3. Wake on Magic Packet (driver power management)
+try { Set-NetAdapterPowerManagement -Name $a.Name -WakeOnMagicPacket Enabled -WakeOnPattern Disabled -EA Stop; "WakeOnMagicPacket: Enabled" | Add-Content $log } catch { "power-mgmt ERR: $_" | Add-Content $log }
+foreach ($dn in @('Wake on Magic Packet','Wake on magic packet','WakeOnMagicPacket')) { try { Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName $dn -DisplayValue 'Enabled' -EA Stop; "adv '$dn': Enabled" | Add-Content $log; break } catch {} }
+# Kill green/energy-efficient ethernet that can drop the link in low-power states
+foreach ($dn in @('Energy-Efficient Ethernet','Green Ethernet','Advanced EEE','Gigabit Lite')) { try { Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName $dn -DisplayValue 'Disabled' -EA Stop; "adv '$dn': Disabled" | Add-Content $log } catch {} }
+# 4. Arm the device (Device Manager: 'allow this device to wake the computer')
+powercfg -deviceenablewake "$($a.InterfaceDescription)" 2>&1 | Add-Content $log
+# 5. No self-wake at night (the 2AM rule): kill wake timers + the Win-Update wake task.
+#    WoL from a magic packet still works — only unsolicited self-wakes are blocked.
+powercfg -attributes 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 -ATTRIB_HIDE 2>&1 | Out-Null
+powercfg /SETACVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 0
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 0
+powercfg /SETACTIVE SCHEME_CURRENT
+schtasks /Change /TN "\Microsoft\Windows\UpdateOrchestrator\Schedule Wake To Work" /DISABLE 2>&1 | Out-Null
+"wake-timers: disabled (no self-wake at night; WoL magic packet still works)" | Add-Content $log
+"--- armed devices ---" | Add-Content $log
+powercfg -devicequery wake_armed | Add-Content $log
+"--- wake timers (want: none) ---" | Add-Content $log
+powercfg -waketimers | Add-Content $log
+PS
+    echo "→ shipping hardening script to computah"
+    scp -q "$ps1" "$REMOTE_USER@$h:harden-wol.ps1"
+    rm -f "$ps1"
+    echo "→ applying (elevated, one-shot scheduled task)"
+    # past-dated ONCE task; /run triggers it immediately (the /ST warning is harmless)
+    rssh "schtasks /create /f /tn harden-wol /rl HIGHEST /sc ONCE /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\$REMOTE_USER\\harden-wol.ps1\"" >/dev/null 2>&1
+    rssh "schtasks /run /tn harden-wol" >/dev/null 2>&1
+    # poll until the task finishes writing its log (up to ~24s) instead of a fixed sleep
+    for i in $(seq 1 12); do
+      sleep 2
+      rssh "powershell -NoProfile -Command \"(Test-Path \$env:USERPROFILE\\harden-wol.log) -and ((Get-Content \$env:USERPROFILE\\harden-wol.log -Raw) -match 'armed devices')\"" 2>/dev/null | tr -d '\r' | grep -qi true && break
+    done
+    echo "--- result ---"
+    rssh "powershell -NoProfile -Command \"if(Test-Path \$env:USERPROFILE\\harden-wol.log){Get-Content \$env:USERPROFILE\\harden-wol.log}else{'no log written'}\"" 2>/dev/null | tr -d '\r' || true
+    echo
+    echo "◆ done — Fast Startup off + NIC armed. Test: computah sleep, then computah wake."
+    echo "  Still dead from a full shutdown? Enable WoL / disable 'ErP Ready' in BIOS (manual)."
+    ;;
+
   doctor)
     # One-shot health check + auto-heal of the whole PC integration. Safe to
     # run anytime; starts the preview server and heals deskflow if needed.
@@ -83,6 +143,12 @@ case "${1:-ssh}" in
     [ "$fw" = "1" ] && ok "firewall rules (8085, 7861) present" || bad "firewall rule(s) missing"
     mon=$(rssh "powershell -NoProfile -Command \"(powercfg /query SCHEME_CURRENT SUB_VIDEO VIDEOIDLE | Select-String 'Current AC') -replace '.*: ',''\"" 2>/dev/null | tr -d '\r')
     [ "$mon" = "0x00000000" ] && ok "display set to never sleep (AC)" || bad "display will sleep (monitor-timeout not 0)"
+    # wake-on-LAN readiness — so `computah wake` works after a full shutdown
+    wol=$(rssh "powershell -NoProfile -Command \"\$hb=(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power' -Name HiberbootEnabled -EA SilentlyContinue).HiberbootEnabled; \$armed=((powercfg -devicequery wake_armed) -join ','); if (\$hb -eq 0 -and \$armed -match 'Ethernet|Realtek|Intel|Killer|Network') { '1' } else { '0' }\"" 2>/dev/null | tr -d '\r')
+    [ "$wol" = "1" ] && ok "wake-on-LAN armed (Fast Startup off, NIC wakes)" || bad "wake-on-LAN NOT armed — run: computah harden-wol"
+    # night-wake guard — nothing may self-wake the PC at night (the 2AM rule)
+    wt=$(rssh "powershell -NoProfile -Command \"@((powercfg -waketimers) | Select-String 'expires').Count\"" 2>/dev/null | tr -d '\r')
+    [ "${wt:-0}" = "0" ] && ok "no wake timers armed (won't self-wake at night)" || bad "$wt wake timer(s) ARMED — run: computah harden-wol"
     # preview server — start if down
     if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ]; then
       ok "preview server up (:7861)"
