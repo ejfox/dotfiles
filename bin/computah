@@ -621,6 +621,17 @@ PYEOF
         MOTIF=("${MOTIF_FALLBACK[@]}"); MOTIF_SRC=()
         for _f in "${MOTIF_FALLBACK[@]}"; do MOTIF_SRC+=("built-in fallback motif"); done
       fi
+      # ── FAVORITES: subjects you STARRED on the wall (renders/favorites/*.json keep
+      #    their full trace). Refreshed each wall. A cell replays one ~MUSE_FAV_PCT of
+      #    the time (re-dressed by the per-cell style/brevity rolls, so a favorite
+      #    evolves in a new medium rather than photocopying). MUSE_NO_FAV=1 disables.
+      FAVS=()
+      if [ -z "${MUSE_NO_FAV:-}" ]; then
+        while IFS= read -r _fs; do
+          _fs="$(printf '%s' "$_fs" | tr -d '\r')"; [ -n "$_fs" ] && FAVS+=("$_fs")
+        done < <(rssh "powershell -NoProfile -Command \"Get-ChildItem \$env:USERPROFILE\renders\favorites\*.json -EA 0 | ForEach-Object { (Get-Content \$_.FullName -Raw | ConvertFrom-Json).prompt_subject }\"" 2>/dev/null)
+        [ "${#FAVS[@]}" -gt 0 ] && echo "  ◇ ${#FAVS[@]} favorite$([ ${#FAVS[@]} -ne 1 ] && echo s) in the mix (~${MUSE_FAV_PCT:-22}% of cells)"
+      fi
       # Opt-in: MUSE_VLM=1 lets the vision model read your screen (slower, evicts cache).
       if [ -n "${MUSE_VLM:-}" ] && _vlm_ready && command -v screencapture >/dev/null 2>&1 \
          && screencapture -x -t png -D 1 /tmp/muse-vlm.png 2>/dev/null && [ -s /tmp/muse-vlm.png ]; then
@@ -696,6 +707,14 @@ PYEOF
       prompt_origin="$batch_source"   # for the trace: where this prompt came from
       source_motif="${_meta%%$'\x1f'*}"; source_mined="${_meta#*$'\x1f'}"
       [ "$source_mined" = "$_meta" ] && source_mined=""   # no delimiter = nothing to attribute
+      # ── FAVORITES ROLL: sometimes replay a subject you starred. Flows through the
+      #    style + brevity rolls below, so it re-renders in a fresh medium/length
+      #    (taste-guided evolution, not a photocopy). Provenance recorded in the trace.
+      if [ "${#FAVS[@]}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_FAV_PCT:-22}" ]; then
+        prompt="${FAVS[$((RANDOM % ${#FAVS[@]}))]}"
+        source_motif="$prompt"; source_mined="a favorite you starred on the wall"
+        prompt_origin="favorite replay"
+      fi
       cellseed=$(( (RANDOM << 15) | RANDOM ))   # record-able seed (imagine honors IMAGINE_SEED)
       export IMAGINE_SEED=$cellseed
 
