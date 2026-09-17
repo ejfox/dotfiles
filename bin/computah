@@ -512,16 +512,38 @@ PYEOF
     # Displays in your Mac browser (PC serves the wall over HTTP) — no Windows
     # window wrangling. Renders on the PC GPU. Auto-pauses when a game is running.
     gap="${2:-3}"
-    N="${WALL_N:-4}"
-    total=$((N * N))
     h=$(host)
     FARM="C:\Users\\$REMOTE_USER\farm"
+    # Grid size FOLLOWS the wall UI. The browser reports its N (the +/− buttons,
+    # and on every page load) to the server's /setn route, which writes wall-n.txt;
+    # we re-read that at the top of each sweep so the display & generator can NEVER
+    # disagree — no more blank cells when you zoom. Default 8 (fills 64) so ANY view
+    # 2..8 is populated out of the gate; it shrinks to match once the UI reports in.
+    # WALL_N=<n> pins it and ignores the UI.
+    _sanitize_n() { case "$1" in ''|*[!0-9]*) echo "";; *) { [ "$1" -ge 2 ] && [ "$1" -le 8 ] && echo "$1"; } || echo "";; esac; }
+    _wall_n() { _sanitize_n "$(rssh "type $FARM\sd\wall-n.txt 2>nul" 2>/dev/null | tr -dc '0-9' | cut -c1)"; }
+    # PREFILL every slot from your 2000+ gallery archive so the wall is FULL the
+    # instant it opens — no blank cells while the live sweep (~30s/cell) catches up.
+    # Only fills MISSING slots; the live loop overwrites them with fresh renders over
+    # time. Pure local copies on the PC (no image transfer over the wire).
+    _prefill() {
+      [ -n "${MUSE_NO_PREFILL:-}" ] && return 0
+      rssh "powershell -NoProfile -Command \"\$r=\$env:USERPROFILE+'\farm\sd'; \$pool=@(Get-ChildItem \$env:USERPROFILE\renders\muse-gallery\muse-*.png -EA 0); if(\$pool.Count -gt 0){ for(\$i=1;\$i -le $1;\$i++){ \$t=Join-Path \$r ('wall_'+\$i+'.png'); if(-not(Test-Path \$t)){ Copy-Item \$pool[(Get-Random -Maximum \$pool.Count)].FullName \$t -Force -EA 0 } } }\"" >/dev/null 2>&1
+    }
+    # Adopt the UI's last-known size on start: WALL_N pin → wall-n.txt (what the
+    # kiosk last reported) → 8. Keeps loop, kiosk and file in agreement from cell 1.
+    if [ -n "${WALL_N:-}" ]; then N="$(_sanitize_n "$WALL_N")"; else N="$(_wall_n)"; fi
+    [ -z "${N:-}" ] && N=8
+    total=$((N * N))
     every="${MUSE_SCREEN_EVERY:-2}"
     export IMAGINE_NO_SHOW=1
-    echo "◆ muse-loop → ${N}x${N} wall from your Obsidian notes + screen"
+    echo "◆ muse-loop → ${N}x${N} wall (follows the UI) from your Obsidian notes + screen"
     # Display: WALL_DISPLAY=windows (default) shows it on the PC monitor;
     # =mac opens it in the Mac browser instead.
+    # Seed wall-n.txt so a fresh browser (no localStorage) opens at our size.
     rssh "echo $N > $FARM\sd\wall-n.txt" >/dev/null 2>&1 || true
+    echo "◇ prefilling ${total} slots from the gallery so the wall opens full…"
+    _prefill "$total"
     # Ensure the HTTP preview server is up (its run-once task doesn't survive a
     # reboot on its own) — start it if nothing is answering on 7861.
     if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" != "200" ]; then
@@ -530,6 +552,12 @@ PYEOF
     if [ "${WALL_DISPLAY:-windows}" = "mac" ]; then
       command -v open >/dev/null && open "http://$h:7861/wall.html?n=$N" 2>/dev/null || true
     else
+      # Relaunch the PC kiosk FRESH so it rebuilds the grid AFTER prefill. Its cell
+      # loader only (re)probes on buildGrid or when the live sweep passes a cell, so
+      # a stale window shows blanks for un-swept slots. Kill just the wall-profile
+      # Edge, then wall-show reopens it full (idempotent check now finds none).
+      rssh "powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\"Name='msedge.exe'\\\" -EA 0 | Where-Object { \$_.CommandLine -match 'edge-wall-profile' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -EA 0 }\"" >/dev/null 2>&1
+      sleep 1
       rssh "schtasks /run /tn wall-show >nul" 2>/dev/null || true
     fi
 
@@ -669,6 +697,18 @@ PYEOF
     n=0; slot=0; batch_source="(pending first batch)"; last_game=0; gcyc=0
     while true; do
       n=$((n + 1)); slot=$(( (slot % total) + 1 ))
+      # Follow the wall UI's grid size at the top of each sweep (unless WALL_N pins
+      # it). Cheap: one read per full sweep, not per cell. Shrinks fast / grows to
+      # fill so display & generator stay in lockstep.
+      if [ "$slot" -eq 1 ] && [ -z "${WALL_N:-}" ]; then
+        _n=$(_wall_n)
+        if [ -n "$_n" ] && [ "$_n" -ne "$N" ]; then
+          _grew=0; [ "$_n" -gt "$N" ] && _grew=1
+          N=$_n; total=$((N * N)); slot=1
+          echo "  ◇ wall resized to ${N}x${N} (${total} cells) — following the UI"
+          [ "$_grew" -eq 1 ] && _prefill "$total"   # fill the newly-exposed slots instantly
+        fi
+      fi
       # Quiet hours: don't keep a bright monitor on overnight (the 2am-incident
       # rule). Pause 22:00–09:00 so the display sleeps. MUSE_ALLNIGHT=1 overrides.
       hh=$(date +%H)
