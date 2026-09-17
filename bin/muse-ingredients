@@ -3,7 +3,7 @@
 Sources: Obsidian [[wikilinks]] and #tags (his own named concepts), notable terms
 in recent notes, and his project folder names. Prints one motif per line; the
 muse loop remixes these with modifiers + lenses. Refreshes as his notes change."""
-import collections, glob, os, re
+import collections, glob, os, re, sys
 
 HOME = os.path.expanduser("~")
 VAULTS = [
@@ -21,6 +21,8 @@ STOP = {"index","readme","readme.md","untitled","home","daily","inbox","todo","n
         "output","input","example","examples","demo","scratch","backup","archive"}
 
 items = collections.Counter()
+src = {}                          # term -> human source description (for --trace)
+TRACE = "--trace" in sys.argv     # print "motif<TAB>source" so the wall can show provenance
 
 # Obsidian: wikilinks (his named entities/concepts) weigh most, then tags.
 for v in VAULTS:
@@ -31,14 +33,18 @@ for v in VAULTS:
             t = open(f, encoding="utf-8", errors="ignore").read()
         except Exception:
             continue
+        nb = os.path.splitext(os.path.basename(f))[0]
         for m in re.findall(r"\[\[([^\]|#]+)", t):            # [[wikilinks]]
-            items[m.strip()] += 3
+            k = m.strip(); items[k] += 3
+            src.setdefault(k, f"wikilink [[{k}]] in note '{nb}'")
         for m in re.findall(r"(?<!\w)#([A-Za-z][\w-]{2,})", t): # #tags
-            items[m.replace("-", " ")] += 2
+            k = m.replace("-", " "); items[k] += 2
+            src.setdefault(k, f"#{m} tag in note '{nb}'")
         # note titles (the filename) of very recent notes
     for f in files[:15]:
         title = os.path.splitext(os.path.basename(f))[0]
         items[title] += 1
+        src.setdefault(title, f"recent note titled '{title}'")
 
 # His projects (folder names = things he's actually building).
 for d in CODE_DIRS:
@@ -46,7 +52,9 @@ for d in CODE_DIRS:
         for n in os.listdir(d):
             p = os.path.join(d, n)
             if os.path.isdir(p) and not n.startswith("."):
-                items[n.replace("-", " ").replace("_", " ")] += 1
+                pn = n.replace("-", " ").replace("_", " ")
+                items[pn] += 1
+                src.setdefault(pn, f"project folder '{n}'")
 
 out = []
 seen = set()
@@ -60,7 +68,7 @@ for term, _ in items.most_common(120):
     if re.fullmatch(r"[0-9a-fA-F]{3,8}", t): continue      # skip hex color codes
     if not re.search(r"[aeiouAEIOU]", t): continue         # skip vowel-less slugs/junk
     if re.search(r"\.(md|png|txt|js|py|json)$", low): continue
-    seen.add(low); out.append(t)
+    seen.add(low); out.append((t, src.get(term, "your Obsidian vault")))
 
-for o in out[:60]:
-    print(o)
+for t, s in out[:60]:
+    print(f"{t}\t{s}" if TRACE else t)
