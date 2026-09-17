@@ -126,6 +126,7 @@ body = [
   { k = "computah wake / sleep", d = "power on (WoL) / suspend" },
   { k = "computah harden-wol", d = "run once if wake dies after a full shutdown (Fast Startup off, arm NIC, kill night-wake)" },
   { k = "computah imagine \"…\"", d = "one FLUX image on the PC GPU" },
+  { k = "computah sd-server start/stop", d = "keep FLUX hot — imagine/muse-loop skip the multi-min model reload", hl = true },
   { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
   { div = true },
   { o = "◆ reverse channel: on the PC, robots run `tomac <file>` → ~/Desktop/from-computah here" },
