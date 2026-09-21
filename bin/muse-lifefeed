@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""dark-scanner: distill EJ's RECENT life-stream — Mastodon toots, blog posts,
+git commits — into oblique image prompts, each TIED BACK to the real moment it
+came from. Prints `<prompt>\t<provenance>` per line (the loop records provenance
+in the wall trace). Needs the PC LLM at HOST:8085 (computah llm on).
+
+  muse-lifefeed [N] [HOST]      distill N prompts (default 24)
+  muse-lifefeed --dump          just show the gathered recent items (no LLM)
+
+Everything is local + your own public feeds. Distills (mood + nouns), never
+pastes raw text — better art, and your literal words never hit the wall.
+"""
+import glob, html, itertools, json, os, re, subprocess, sys, urllib.request
+
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+DUMP = "--dump" in sys.argv
+N = int(ARGS[0]) if ARGS and ARGS[0].isdigit() else 24
+HOST = ARGS[1] if len(ARGS) > 1 else "10.0.0.169"
+HOME = os.path.expanduser("~")
+MASTO = os.environ.get("MUSE_MASTODON_RSS", "https://mastodon.social/@ejfox.rss")
+
+def _strip(t):
+    return " ".join(re.sub(r"<[^>]+>", " ", html.unescape(t or "")).split())
+
+def mastodon(limit=12):
+    out = []
+    try:  # curl, not urllib — reliable TLS + redirects on macOS python (certifi gotcha)
+        raw = subprocess.run(["curl", "-sL", "-m", "12", "-A", "muse-lifefeed/1", MASTO],
+                             capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        return out
+    for item in re.findall(r"<item>(.*?)</item>", raw, re.S)[:limit]:  # per-item skips the channel <description>
+        m = re.search(r"<description>(.*?)</description>", item, re.S)
+        t = _strip(m.group(1))[:220] if m else ""
+        if len(t) > 12:
+            out.append(("toot", t))
+    return out
+
+def blog(limit=6):
+    out = []
+    files = [f for f in glob.glob(f"{HOME}/code/website2/content/**/*.md", recursive=True) if os.path.isfile(f)]
+    files.sort(key=os.path.getmtime, reverse=True)
+    for f in files[:limit]:
+        try:
+            txt = open(f, encoding="utf-8", errors="ignore").read()
+        except Exception:
+            continue
+        mt = re.search(r'^title:\s*["\']?(.+?)["\']?\s*$', txt, re.M)
+        title = _strip(mt.group(1)) if mt else os.path.splitext(os.path.basename(f))[0]
+        b = re.sub(r"^---.*?---", "", txt, flags=re.S)
+        b = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", b)          # drop image markdown (cloudinary urls)
+        b = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", b)       # links -> their text
+        body = _strip(b)[:160]
+        out.append(("blog", f"{title} — {body}"))
+    return out
+
+def commits(limit=12):
+    out = []
+    repos = []
+    for base in (f"{HOME}/code", f"{HOME}/dev", f"{HOME}/projects", f"{HOME}/.dotfiles"):
+        repos += [os.path.dirname(g) for g in glob.glob(f"{base}/*/.git")]
+    repos = sorted({r for r in repos if os.path.isdir(r)}, key=os.path.getmtime, reverse=True)
+    for r in repos[:25]:
+        try:
+            log = subprocess.run(["git", "-C", r, "log", "--since=10.days", "--pretty=%s", "-4"],
+                                 capture_output=True, text=True, timeout=6).stdout
+        except Exception:
+            continue
+        proj = os.path.basename(r)
+        for line in log.splitlines():
+            line = line.strip()
+            if line and not line.lower().startswith("merge"):
+                out.append(("commit", f"{proj}: {line}"))
+        if len(out) >= limit:
+            break
+    return out[:limit]
+
+def interleave(*lists):
+    return [x for grp in itertools.zip_longest(*lists) for x in grp if x]
+
+TOOTS, BLOGS, COMMITS = mastodon(), blog(), commits()
+ITEMS = interleave(TOOTS, BLOGS, COMMITS)[:N]
+
+if DUMP:
+    print(f"# {len(TOOTS)} toots, {len(BLOGS)} blog, {len(COMMITS)} commits -> {len(ITEMS)} items")
+    for k, v in ITEMS:
+        print(f"  [{k}] {v[:100]}")
+    sys.exit(0)
+
+TAG = {"toot": "Mastodon post", "blog": "blog post", "commit": "commit"}
+
+def _snip(k, v):
+    if k == "commit":
+        return v.split(":", 1)[0]
+    if k == "blog":
+        return v.split("—", 1)[0].strip()
+    return v[:44].rstrip()
+
+def ask(items):
+    labeled = "\n".join(f"{i+1}. [{k}] {v}" for i, (k, v) in enumerate(items))
+    sysp = (
+        "You are a paranoid surveillance scanner turning a person's RECENT life into oblique "
+        "dream-images. For EACH numbered item, invent ONE vivid, strange image prompt that "
+        "METAPHORICALLY refracts it — never literal, never quote their words, no text/letters "
+        "in the image. Dark-scanner mood: memory, self-surveillance, things half-seen. Output "
+        "EXACTLY one line per item, SAME ORDER, one sentence each. /no_think")
+    body = json.dumps({"messages": [{"role": "system", "content": sysp},
+                                    {"role": "user", "content": labeled}],
+                       "max_tokens": 3200, "temperature": 1.0,
+                       "chat_template_kwargs": {"enable_thinking": False}}).encode()
+    req = urllib.request.Request(f"http://{HOST}:8085/v1/chat/completions", body,
+                                 {"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=180))
+    txt = re.sub(r"<think>.*?</think>", "", r["choices"][0]["message"]["content"], flags=re.S)
+    prompts = []
+    for ln in txt.splitlines():
+        ln = re.sub(r'^\s*[-*\d.)\]]+\s*', "", ln)
+        ln = re.split(r'\s*::\s*', ln)[0]                       # drop any trailing tag
+        ln = re.sub(r'["`<>|]', " ", ln)
+        ln = re.sub(r'\b(no|without|avoid)\s+(text|words?|letters?)\b', "", ln, flags=re.I)
+        ln = " ".join(ln.split()).strip(" ,.;")
+        if len(ln) > 15:
+            prompts.append(ln)
+    return prompts
+
+prompts = []
+if ITEMS:
+    try:
+        prompts = ask(ITEMS)
+    except Exception as e:
+        print(f"[lifefeed] distill failed: {e}", file=sys.stderr)
+        prompts = []
+
+# pair prompts positionally with the item they refract -> true provenance
+for i, p in enumerate(prompts[:N]):
+    k, v = ITEMS[i] if i < len(ITEMS) else ("life", "recent activity")
+    print(f"{p}\tfrom your {TAG.get(k, 'recent update')}: {_snip(k, v)}")
