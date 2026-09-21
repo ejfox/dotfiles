@@ -1005,6 +1005,23 @@ PYEOF
         [ $((RANDOM % 100)) -lt "${MUSE_GUEST_PCT:-8}" ] && cell_style="${ALL_STYLES[$((RANDOM % ${#ALL_STYLES[@]}))]}, ${WILD[$((RANDOM % ${#WILD[@]}))]}, ${ALL_PALETTES[$((RANDOM % ${#ALL_PALETTES[@]}))]}"
       fi
 
+      # ── CHAOS: on a minority of cells, grab a RANDOM HANDFUL of the actual generation
+      #    dials — steps, aspect, cfg, sampler, strength, style, palette — and shove them
+      #    to wild/extreme values TOGETHER. Real parametric noise: each chaos cell fucks
+      #    with a DIFFERENT random subset, so no two are perturbed the same way. This is
+      #    the seasoning, not a phrase from a list. Knob: MUSE_CHAOS_PCT (default 16).
+      if [ $((RANDOM % 100)) -lt "${MUSE_CHAOS_PCT:-16}" ]; then
+        _m=""
+        [ $((RANDOM % 2)) -eq 0 ] && { if [ $((RANDOM % 2)) -eq 0 ]; then steps=$((RANDOM % 6 + 8)); else steps=$((RANDOM % 13 + 32)); fi; _m="$_m steps=$steps"; }
+        [ $((RANDOM % 2)) -eq 0 ] && { _asp=(1280x512 512x1280 1024x1024 960x1152 1152x960 448x832 832x448 704x704); size=${_asp[$((RANDOM % ${#_asp[@]}))]}; _m="$_m ${size}"; }
+        [ $((RANDOM % 2)) -eq 0 ] && { export IMAGINE_CFG="$(awk -v r=$((RANDOM % 95)) 'BEGIN{printf "%.2f", 1.0 + r/100}')"; _m="$_m cfg=$IMAGINE_CFG"; }
+        [ $((RANDOM % 2)) -eq 0 ] && { export IMAGINE_SAMPLER="${SAMPLERS[$((RANDOM % ${#SAMPLERS[@]}))]}"; _m="$_m $IMAGINE_SAMPLER"; }
+        [ $((RANDOM % 3)) -eq 0 ] && { strength=$(awk -v r=$((RANDOM % 82)) 'BEGIN{printf "0.%02d", 14 + r}'); _m="$_m str=$strength"; }
+        [ $((RANDOM % 2)) -eq 0 ] && { cell_style="${ALL_STYLES[$((RANDOM % ${#ALL_STYLES[@]}))]%%,*}, ${WILD[$((RANDOM % ${#WILD[@]}))]}, ${WILD[$((RANDOM % ${#WILD[@]}))]}, ${ALL_PALETTES[$((RANDOM % ${#ALL_PALETTES[@]}))]}"; _m="$_m style-scramble"; }
+        [ $((RANDOM % 3)) -eq 0 ] && STYLELESS_PCT=$((RANDOM % 60))
+        echo "  ◇ chaos cell —$_m"
+      fi
+
       # ── BREVITY ROLL: most cells keep the descriptive subject, but a chunk go
       #    terse for texture. Bare cells + styleless above = genuinely short "a red
       #    fox" prompts. Works on ANY source (LLM/vision/motif) by trimming words.
@@ -1018,8 +1035,8 @@ PYEOF
       else
         subject="$prompt"
       fi
-      # SALT: sprinkle one oblique seasoning phrase onto a minority of prompts.
-      [ $((RANDOM % 100)) -lt "${MUSE_SALT_PCT:-18}" ] && subject="$subject, ${SALT[$((RANDOM % ${#SALT[@]}))]}"
+      # a rare oblique phrase is now just ONE chaos grain, not the main seasoning
+      [ $((RANDOM % 100)) -lt "${MUSE_SALT_PCT:-7}" ] && subject="$subject, ${SALT[$((RANDOM % ${#SALT[@]}))]}"
 
       # Init source per cell. SCREENSHOT-BIASED (MUSE_SCREEN_PCT, default 45): a live
       # full-screen grab seeds ~45%, a random crop of the screen +13% ⇒ ~58% of cells
