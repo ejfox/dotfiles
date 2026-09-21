@@ -637,6 +637,115 @@ PYEOF
     MOD=("colossal" "tiny and intricate" "melting" "blooming with fungus" "fractal" "ancient and weathered"
       "iridescent" "half-submerged" "winged" "made of stained glass" "overgrown" "shattered and floating"
       "bioluminescent" "folded like origami" "windswept" "mirrored" "sprouting crystals")
+
+    # ══ EXPLORE MODE (default on) ══════════════════════════════════════════════
+    # Only a handful of favorites so far, so WIDEN + SPEED UP rather than prune:
+    # many quick sketches, wilder variety than our fixed pools can give. Set
+    # MUSE_EXPLORE=0 to restore slow "finish" quality (screen-seeded, high-step).
+    EXPLORE=1; [ "${MUSE_EXPLORE:-1}" = "0" ] && EXPLORE=
+    # Palettes beyond the baked pink/teal — variety the fixed STYLE pool can't reach.
+    PALETTES=(
+      "hot pink and cyan-teal on deep black" "acid green and magenta on charcoal"
+      "sodium-orange and deep indigo, night-street palette" "bone white, rust and slate, faded fresco"
+      "ultramarine and gold leaf, byzantine" "sun-bleached pastel: peach, mint, dusty blue"
+      "monochrome oxblood on cream" "electric yellow and violet, high-voltage"
+      "muted forest greens with one blood-red accent" "iridescent oil-slick spectrum on wet black"
+      "sepia and teal, cross-processed film" "cold cyan and warm amber, cinematic")
+    # Wildcard media sampled ALONGSIDE the style pool — genuine surprise, not our list.
+    WILD=(
+      "shot on expired Polaroid" "as a faded tapestry" "airbrushed on a van, 1979"
+      "carved from a single block of jade" "as a bootleg anime cel" "as a stained microscope slide"
+      "woven from copper wire" "as a hand-drawn weather map" "printed on misregistered newsprint"
+      "as medieval marginalia" "annotated blueprint schematic" "as a shoebox diorama"
+      "long-exposure light painting" "cast in translucent resin" "as a subway tile mosaic"
+      "batik wax-resist dye" "scrimshaw etched on bone" "smoke and long shadows"
+      "as an X-ray plate" "chalk mural on wet pavement" "as a pop-up book spread")
+    # PROMPT BANK: an LLM writes a big pile of weird prompts ONCE; we render from it
+    # for hours (amortises the model-swap ~1:120 instead of 1:1). Refilled when low or
+    # stale (>MUSE_BANK_HOURS). Knobs: MUSE_BANK_{BATCH,MIN,MAX,HOURS,PCT}.
+    BANK="$HOME/.cache/muse/prompt-bank.txt"; mkdir -p "$(dirname "$BANK")"
+    refill_bank() {
+      [ -z "$EXPLORE" ] && return 0
+      local n age; n=$( [ -f "$BANK" ] && wc -l < "$BANK" | tr -d ' ' || echo 0 )
+      age=99999; [ -f "$BANK" ] && age=$(( ( $(date +%s) - $(stat -f %m "$BANK" 2>/dev/null || echo 0) ) / 3600 ))
+      { [ "${n:-0}" -ge "${MUSE_BANK_MIN:-40}" ] && [ "$age" -lt "${MUSE_BANK_HOURS:-6}" ]; } && return 0
+      echo "  ◇ refilling prompt bank (one LLM batch → hours of fast sketches)…"
+      "$0" llm on >/dev/null 2>&1 || true
+      if _wait_8085; then
+        muse-brainstorm "${MUSE_BANK_BATCH:-50}" "$h" 2>/dev/null | while IFS= read -r _l; do
+          _l="$(printf '%s' "$_l" | sed 's/^[[:space:]0-9.)*-]*//' | tr -d '\r')"
+          [ ${#_l} -ge 6 ] && printf '%s\n' "$_l" >> "$BANK"
+        done
+      fi
+      "$0" llm off >/dev/null 2>&1 || true
+      [ -f "$BANK" ] && { sort -u "$BANK" | tail -n "${MUSE_BANK_MAX:-400}" > "$BANK.tmp" && mv "$BANK.tmp" "$BANK"; }
+    }
+
+    # ══ CREATIVE TEAMS (time-of-day crews) ═════════════════════════════════════
+    # A different crew owns each block of the day, so the wall's character shifts hour
+    # to hour and no single aesthetic (or the GPU) monopolises the energy. Purely
+    # additive — each team only ADDS to the gallery, tagged by team in the trace so we
+    # can later see which crew's shifts you actually star. Only one crew is ever on the
+    # clock at once (and games still win via the game-guard). MUSE_TEAM_OFF=1 disables
+    # the rotation; MUSE_TEAM=<NAME> pins one crew all day.
+    ALL_STYLES=("${STYLES[@]}"); ALL_PALETTES=("${PALETTES[@]}")
+    PAL_WARM=("bone white, rust and slate, faded fresco" "ultramarine and gold leaf, byzantine" "monochrome oxblood on cream" "sepia and teal, cross-processed film" "cold cyan and warm amber, cinematic" "muted forest greens with one blood-red accent")
+    PAL_ELECTRIC=("hot pink and cyan-teal on deep black" "acid green and magenta on charcoal" "electric yellow and violet, high-voltage" "iridescent oil-slick spectrum on wet black" "sodium-orange and deep indigo, night-street palette")
+    PAL_PASTEL=("sun-bleached pastel: peach, mint, dusty blue" "bone white, rust and slate, faded fresco" "sepia and teal, cross-processed film" "monochrome oxblood on cream")
+    LAST_TEAM=""
+    _pick_styles(){ local re="$1" s; STYLES=(); for s in "${ALL_STYLES[@]}"; do [[ $s =~ $re ]] && STYLES+=("$s"); done; [ ${#STYLES[@]} -eq 0 ] && STYLES=("${ALL_STYLES[@]}"); }
+    _team_blurb(){ case "$1" in
+      DAWN)   echo "airy sketches, pastel, terse";;
+      STUDIO) echo "vulpes graphic — flat vector, neon";;
+      LAB)    echo "max wildcard — palettes, blends, weird media";;
+      GOLDEN) echo "moody oil & amber, leans on your favorites";;
+      SIGNAL) echo "field recordings — seeded from your screen";;
+      DUSK)   echo "neon seance — dark, electric, experimental";;
+      DREAM)  echo "deep-night pure-txt2img, max weird";;
+    esac; }
+    muse_team(){
+      [ -n "${MUSE_TEAM_OFF:-}" ] && { TEAM=""; return 0; }
+      local hh t label; hh=$((10#$(date +%H))); t="${MUSE_TEAM:-}"
+      if [ -z "$t" ]; then
+        # Crews CONDENSED into daytime (07–22, since the box usually sleeps at night);
+        # late night goes fully RANDOM — a different crew each wall for max variety on
+        # the rare nights it's awake.
+        if   [ $hh -ge 7 ]  && [ $hh -lt 10 ]; then t=DAWN
+        elif [ $hh -ge 10 ] && [ $hh -lt 12 ]; then t=STUDIO
+        elif [ $hh -ge 12 ] && [ $hh -lt 14 ]; then t=LAB
+        elif [ $hh -ge 14 ] && [ $hh -lt 16 ]; then t=GOLDEN
+        elif [ $hh -ge 16 ] && [ $hh -lt 19 ]; then t=SIGNAL
+        elif [ $hh -ge 19 ] && [ $hh -lt 22 ]; then t=DUSK
+        else t=RANDOM; fi
+      fi
+      # RANDOM (late night, or MUSE_TEAM=RANDOM): re-roll a crew every wall.
+      if [ "$t" = "RANDOM" ]; then
+        local _pool=(DAWN STUDIO LAB GOLDEN SIGNAL DUSK DREAM)
+        t=${_pool[$((RANDOM % ${#_pool[@]}))]}; label="RANDOM·$t"
+      else
+        label="$t"
+      fi
+      TEAM="$label"
+      # neutral baseline each shift, then the crew's recipe on top
+      [ -z "${MUSE_STYLE:-}" ] && STYLES=("${ALL_STYLES[@]}"); PALETTES=("${ALL_PALETTES[@]}")
+      STYLELESS_PCT=20; MUSE_PALETTE_PCT=40; MUSE_WILD_PCT=30; MUSE_BLEND_PCT=25
+      MUSE_SCREEN_PCT=10; MUSE_FAV_PCT=22; MUSE_BARE_PCT=18; MUSE_BANK_PCT=60
+      FINISH_1IN=8; SK_LO=12; SK_HI=20; FN_LO=30; FN_HI=40
+      case "$t" in
+        DAWN)   [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'watercolor|charcoal|cyanotype|risograph|woodblock'; PALETTES=("${PAL_PASTEL[@]}")
+                STYLELESS_PCT=40; MUSE_PALETTE_PCT=55; MUSE_WILD_PCT=25; MUSE_BLEND_PCT=15; MUSE_FAV_PCT=12; MUSE_BARE_PCT=30; MUSE_BANK_PCT=55; FINISH_1IN=14; SK_HI=18 ;;
+        STUDIO) [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|art nouveau|stained glass|screenprint'; PALETTES=("${PAL_ELECTRIC[@]}")
+                STYLELESS_PCT=10; MUSE_PALETTE_PCT=25; MUSE_WILD_PCT=10; MUSE_BLEND_PCT=12; MUSE_FAV_PCT=25 ;;
+        LAB)    STYLELESS_PCT=25; MUSE_PALETTE_PCT=65; MUSE_WILD_PCT=55; MUSE_BLEND_PCT=40; MUSE_FAV_PCT=10; MUSE_BANK_PCT=78 ;;
+        GOLDEN) [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'oil painting|watercolor|charcoal|art nouveau|airbrushed'; PALETTES=("${PAL_WARM[@]}")
+                STYLELESS_PCT=8; MUSE_PALETTE_PCT=45; MUSE_WILD_PCT=15; MUSE_BLEND_PCT=20; MUSE_FAV_PCT=35; MUSE_BANK_PCT=50; FINISH_1IN=5; SK_LO=18; SK_HI=26; FN_LO=32 ;;
+        SIGNAL) STYLELESS_PCT=20; MUSE_PALETTE_PCT=30; MUSE_WILD_PCT=25; MUSE_BLEND_PCT=20; MUSE_SCREEN_PCT=50; MUSE_FAV_PCT=15; MUSE_BANK_PCT=45 ;;
+        DUSK)   [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|stained glass|sci-fi|risograph|oil painting'; PALETTES=("${PAL_ELECTRIC[@]}")
+                STYLELESS_PCT=15; MUSE_PALETTE_PCT=60; MUSE_WILD_PCT=35; MUSE_BLEND_PCT=35; MUSE_FAV_PCT=15; MUSE_BANK_PCT=65 ;;
+        DREAM)  STYLELESS_PCT=30; MUSE_PALETTE_PCT=70; MUSE_WILD_PCT=60; MUSE_BLEND_PCT=45; MUSE_SCREEN_PCT=5; MUSE_FAV_PCT=8; MUSE_BANK_PCT=82; FINISH_1IN=12; SK_LO=10; SK_HI=18 ;;
+      esac
+      if [ "$TEAM" != "$LAST_TEAM" ]; then echo "  ◆ creative crew on shift: $TEAM $(date +%H:%M) — $(_team_blurb "$t")"; LAST_TEAM="$TEAM"; fi
+    }
     refill_prompts() {
       prompts=(); pmeta=()          # pmeta[i] = "motif<US>mined_from" — provenance per prompt
       # Mine fresh organic motifs from your world each wall (fast, no model).
@@ -659,6 +768,24 @@ PYEOF
           _fs="$(printf '%s' "$_fs" | tr -d '\r')"; [ -n "$_fs" ] && FAVS+=("$_fs")
         done < <(rssh "powershell -NoProfile -Command \"Get-ChildItem \$env:USERPROFILE\renders\favorites\*.json -EA 0 | ForEach-Object { (Get-Content \$_.FullName -Raw | ConvertFrom-Json).prompt_subject }\"" 2>/dev/null)
         [ "${#FAVS[@]}" -gt 0 ] && echo "  ◇ ${#FAVS[@]} favorite$([ ${#FAVS[@]} -ne 1 ] && echo s) in the mix (~${MUSE_FAV_PCT:-22}% of cells)"
+      fi
+      # ── EXPLORE fill: most prompts from the batched prompt-bank + your mined motifs.
+      #    No per-wall LLM/VLM swap here — quick, wide sampling. (The bank refill is the
+      #    only model swap, amortised across hours.) MUSE_EXPLORE=0 uses the paths below.
+      if [ -n "$EXPLORE" ]; then
+        refill_bank
+        BANKP=(); [ -f "$BANK" ] && while IFS= read -r _b; do [ -n "$_b" ] && BANKP+=("$_b"); done < "$BANK"
+        while [ "${#prompts[@]}" -lt "$bn" ]; do
+          if [ "${#BANKP[@]}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_BANK_PCT:-60}" ]; then
+            _bp="${BANKP[$((RANDOM % ${#BANKP[@]}))]}"
+            prompts+=("$_bp"); pmeta+=("$_bp"$'\x1f'"LLM prompt-bank (batched, explore)")
+          else
+            _mi=$((RANDOM % ${#MOTIF[@]}))
+            prompts+=("${MOTIF[$_mi]}, ${MOD[$((RANDOM % ${#MOD[@]}))]}, ${LENS[$((RANDOM % ${#LENS[@]}))]}")
+            pmeta+=("${MOTIF[$_mi]}"$'\x1f'"${MOTIF_SRC[$_mi]}")
+          fi
+        done
+        batch_source="${TEAM:+team $TEAM · }prompt-bank + your motifs"; pidx=0; return 0
       fi
       # Opt-in: MUSE_VLM=1 lets the vision model read your screen (slower, evicts cache).
       if [ -n "${MUSE_VLM:-}" ] && _vlm_ready && command -v screencapture >/dev/null 2>&1 \
@@ -694,7 +821,7 @@ PYEOF
       pidx=0
     }
 
-    n=0; slot=0; batch_source="(pending first batch)"; last_game=0; gcyc=0
+    n=0; slot=0; batch_source="(pending first batch)"; last_game=0; gcyc=0; game_freed=0
     while true; do
       n=$((n + 1)); slot=$(( (slot % total) + 1 ))
       # Follow the wall UI's grid size at the top of each sweep (unless WALL_N pins
@@ -709,12 +836,8 @@ PYEOF
           [ "$_grew" -eq 1 ] && _prefill "$total"   # fill the newly-exposed slots instantly
         fi
       fi
-      # Quiet hours: don't keep a bright monitor on overnight (the 2am-incident
-      # rule). Pause 22:00–09:00 so the display sleeps. MUSE_ALLNIGHT=1 overrides.
-      hh=$(date +%H)
-      if [ -z "${MUSE_ALLNIGHT:-}" ] && { [ "$hh" -ge 22 ] || [ "$hh" -lt 9 ]; }; then
-        sleep 300; slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue
-      fi
+      [ "$slot" -eq 1 ] && muse_team    # rotate the day's creative crew (time-of-day teams)
+      # (Overnight quiet-hours pause removed 2026-09-18 — the wall renders 24/7 now.)
       # ── game guard FIRST (any game, with hysteresis) ────────────────────────
       # Pause while a game runs. A momentary GPU dip (lobby / menu / loading /
       # death screen) must NOT resume us mid-session — that pounced last time and
@@ -723,18 +846,34 @@ PYEOF
       # (EasyAntiCheat/BattlEye) also flag a game even when the GPU idles in a menu,
       # covering any game, not just Fortnite. Runs BEFORE the keep-awake SHIFT tap
       # so we never inject a keystroke into live gameplay.
-      busy=$(rssh "powershell -NoProfile -Command \"[int]((((Get-Counter '\GPU Engine(*engtype_3D)\Utilization Percentage' -ErrorAction SilentlyContinue).CounterSamples | Measure-Object CookedValue -Sum).Sum))\"" 2>/dev/null | tr -d '\r' || echo 0)
-      ac=$(rssh "powershell -NoProfile -Command \"(Get-Process -EA 0 | Where-Object { \$_.Name -match 'EasyAntiCheat|BattlEye|BEService|FortniteClient' } | Measure-Object).Count\"" 2>/dev/null | tr -d '\r' || echo 0)
+      # Process-aware game detection (farm\sd\game-detect.ps1): fires on a known
+      # anti-cheat/game process OR a NON-whitelisted process owning the GPU 3D engine.
+      # The browser walls (msedge) + our own model servers are whitelisted, so the
+      # wall's own GPU use never reads as a game — only a real game (e.g. Liftoff,
+      # Fortnite) does. Prints GAME or IDLE.
+      gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\\$REMOTE_USER\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
       now=$(date +%s)
-      if [ "${busy:-0}" -gt "${MUSE_GAME_THRESHOLD:-50}" ] || [ "${ac:-0}" -gt 0 ]; then last_game=$now; fi
+      if [ "$gstate" = "GAME" ]; then last_game=$now; fi
       cool=${MUSE_GAME_COOLDOWN:-300}
       if [ "${last_game:-0}" -gt 0 ] && [ $((now - last_game)) -lt "$cool" ]; then
         gcyc=$((gcyc + 1))
+        # First cycle of a game session: FREE THE GPU. Unload FLUX (sd-server) and
+        # Qwen (llama-server) so the game gets the full 16GB VRAM — pausing renders
+        # alone leaves both models resident and stealing the card. Done once; the
+        # wall reloads sd-server on its next render and llm when it needs a prompt
+        # once the game is gone. MUSE_GAME_KEEPGPU=1 opts out (leave models loaded).
+        if [ "${game_freed:-0}" -eq 0 ] && [ -z "${MUSE_GAME_KEEPGPU:-}" ]; then
+          echo "  ◆ game detected — freeing GPU (sd-server + llm off)"
+          "$0" sd-server stop >/dev/null 2>&1
+          "$0" llm off        >/dev/null 2>&1
+          game_freed=1
+        fi
         # seed future gens: grab a game frame ~every 90s (hidden VBS, non-intrusive)
         [ $((gcyc % 3)) -eq 0 ] && rssh "schtasks /run /tn gameframe-grab" >/dev/null 2>&1
-        echo "  gaming (3D ${busy}% ac=${ac}) — paused, $((cool-(now-last_game)))s cooldown left"
+        echo "  gaming detected — paused, $((cool-(now-last_game)))s cooldown left"
         sleep 30; slot=$((slot-1)); [ "$slot" -lt 0 ] && slot=0; continue
       fi
+      game_freed=0   # not gaming any more — allow a fresh GPU-free next time a game starts
       # Keep the monitor awake while generating (only reached when NOT gaming — a
       # game keeps its own display awake, and we must never inject SHIFT mid-match).
       # Windows' display timeout keys off keyboard/mouse idle, NOT GPU load. A SHIFT
@@ -774,6 +913,17 @@ PYEOF
         1) strength=$(awk -v r=$((RANDOM % 13)) 'BEGIN{printf "0.%02d", 84 + r}');;  # 0.84–0.96 wild
       esac
 
+      # EXPLORE: quick sketches — lower steps + smaller canvas — with a ~1-in-8 "finish"
+      # cell (big + deep) so the wall still throws the occasional hero frame.
+      if [ -n "$EXPLORE" ]; then
+        _f1in=${FINISH_1IN:-8}; _sl=${SK_LO:-12}; _sh=${SK_HI:-20}; _fl=${FN_LO:-30}; _fh=${FN_HI:-40}
+        if [ $((RANDOM % _f1in)) -eq 0 ]; then
+          _fs=(768x768 768x1024 1024x768); size=${_fs[$((RANDOM % ${#_fs[@]}))]}; steps=$((RANDOM % (_fh-_fl+1) + _fl))
+        else
+          _ss=(512x512 512x512 576x576 640x640); size=${_ss[$((RANDOM % ${#_ss[@]}))]}; steps=$((RANDOM % (_sh-_sl+1) + _sl))
+        fi
+      fi
+
       # ── SAMPLER varies freely (safe, real visual diversity — these are the
       #    stable-diffusion.cpp tokens the server's -p path already accepts). cfg
       #    stays 1.0 on distilled FLUX-klein by default (guidance is baked in;
@@ -792,6 +942,17 @@ PYEOF
         cell_style=""
       else
         cell_style="${STYLES[$((RANDOM % ${#STYLES[@]}))]}"
+      fi
+      # EXPLORE: widen the aesthetic past the fixed pool — 2-style blends, a wildcard
+      # medium, off-brand palettes. Knobs: MUSE_{BLEND,WILD,PALETTE}_PCT.
+      if [ -n "$EXPLORE" ]; then
+        if [ -z "$cell_style" ]; then
+          [ $((RANDOM % 100)) -lt 40 ] && cell_style="${WILD[$((RANDOM % ${#WILD[@]}))]}"
+        else
+          [ $((RANDOM % 100)) -lt "${MUSE_BLEND_PCT:-25}" ] && cell_style="$cell_style, ${STYLES[$((RANDOM % ${#STYLES[@]}))]%%,*}"
+          [ $((RANDOM % 100)) -lt "${MUSE_WILD_PCT:-30}" ]  && cell_style="$cell_style, ${WILD[$((RANDOM % ${#WILD[@]}))]}"
+        fi
+        [ $((RANDOM % 100)) -lt "${MUSE_PALETTE_PCT:-40}" ] && cell_style="${cell_style:+$cell_style, }${PALETTES[$((RANDOM % ${#PALETTES[@]}))]}"
       fi
 
       # ── BREVITY ROLL: most cells keep the descriptive subject, but a chunk go
@@ -812,7 +973,11 @@ PYEOF
       # full-screen grab seeds ~45%, a random crop of the screen +13% ⇒ ~58% of cells
       # are based on what's on your screen right now. Remainder: arena / a past cell
       # (feedback) / a Cloudinary or Fuji photo / a real game frame / pure text.
-      scr=${MUSE_SCREEN_PCT:-45}; crp=$((scr+13)); arn=$((crp+13)); fbk=$((arn+11)); cld=$((fbk+6)); gam=$((cld+10))
+      if [ -n "$EXPLORE" ]; then   # explore: ~80% pure txt2img (fast + favorite-aligned), ~20% screen/crop for spice
+        scr=${MUSE_SCREEN_PCT:-10}; crp=$((scr+8)); arn=$crp; fbk=$crp; cld=$crp; gam=$((crp+2))
+      else
+        scr=${MUSE_SCREEN_PCT:-45}; crp=$((scr+13)); arn=$((crp+13)); fbk=$((arn+11)); cld=$((fbk+6)); gam=$((cld+10))
+      fi
       src="pure"; fb=""; roll=$((RANDOM % 100)); rm -f /tmp/muse-init.png   # fb reset so it can't leak into the trace
       if [ "$roll" -lt "$scr" ] && command -v screencapture >/dev/null 2>&1; then
         screencapture -x -t png -D 1 /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="screen"
