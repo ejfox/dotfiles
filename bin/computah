@@ -676,6 +676,17 @@ PYEOF
       "long-exposure light painting" "cast in translucent resin" "as a subway tile mosaic"
       "batik wax-resist dye" "scrimshaw etched on bone" "smoke and long shadows"
       "as an X-ray plate" "chalk mural on wet pavement" "as a pop-up book spread")
+    # SALT: a light dusting of oblique surprise on a MINORITY of prompts — a grain, not
+    # a flood. Adds strangeness to any crew/subject without changing what it is.
+    # Knobs: MUSE_SALT_PCT (default 18), MUSE_GUEST_PCT (default 8, a cell that ignores
+    # its crew and goes full-random).
+    SALT=(
+      "caught a half-second before it changes" "with one detail that shouldn't be there"
+      "seen through heat-haze" "at the last light before dark" "in the wrong season"
+      "as if remembered, not seen" "with an impossible color bleeding in" "mid-transformation"
+      "just after something happened" "under a sky that's slightly off" "lit from an impossible angle"
+      "with a small anomaly no one notices" "at the edge of a dream" "a moment held too long"
+      "with its own reflection disagreeing" "as the light does something it can't")
     # PROMPT BANK: an LLM writes a big pile of weird prompts ONCE; we render from it
     # for hours (amortises the model-swap ~1:120 instead of 1:1). Refilled when low or
     # stale (>MUSE_BANK_HOURS). Knobs: MUSE_BANK_{BATCH,MIN,MAX,HOURS,PCT}.
@@ -989,6 +1000,9 @@ PYEOF
           [ $((RANDOM % 100)) -lt "${MUSE_WILD_PCT:-30}" ]  && cell_style="$cell_style, ${WILD[$((RANDOM % ${#WILD[@]}))]}"
         fi
         [ $((RANDOM % 100)) -lt "${MUSE_PALETTE_PCT:-40}" ] && cell_style="${cell_style:+$cell_style, }${PALETTES[$((RANDOM % ${#PALETTES[@]}))]}"
+        # GUEST GRAIN: ~8% of cells ignore the crew entirely and go full-random —
+        # a lone stranger's frame that breaks the shift's coherence, on purpose.
+        [ $((RANDOM % 100)) -lt "${MUSE_GUEST_PCT:-8}" ] && cell_style="${ALL_STYLES[$((RANDOM % ${#ALL_STYLES[@]}))]}, ${WILD[$((RANDOM % ${#WILD[@]}))]}, ${ALL_PALETTES[$((RANDOM % ${#ALL_PALETTES[@]}))]}"
       fi
 
       # ── BREVITY ROLL: most cells keep the descriptive subject, but a chunk go
@@ -1004,6 +1018,8 @@ PYEOF
       else
         subject="$prompt"
       fi
+      # SALT: sprinkle one oblique seasoning phrase onto a minority of prompts.
+      [ $((RANDOM % 100)) -lt "${MUSE_SALT_PCT:-18}" ] && subject="$subject, ${SALT[$((RANDOM % ${#SALT[@]}))]}"
 
       # Init source per cell. SCREENSHOT-BIASED (MUSE_SCREEN_PCT, default 45): a live
       # full-screen grab seeds ~45%, a random crop of the screen +13% ⇒ ~58% of cells
