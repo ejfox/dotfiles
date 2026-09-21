@@ -16,6 +16,9 @@
 #   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
 #   computah demucs <file>   split stems on the PC → ~/Music/ACAPELLAS/<name>/
 #   computah llm [on|off]    OpenAI-compatible LLM server on the PC (:8085)
+#   computah ask "<prompt>"  ask the PC's local Qwen3-14B — frees the GPU (pauses
+#                            the wall), answers, then restores the wall. Reuses a
+#                            held LLM if one's already up; won't steal the GPU mid-game.
 #   computah imagine "<prompt>" [WxH]  FLUX image gen on the PC GPU, PNG lands in cwd
 #   computah grid "<prompt>" [N]  NxN grid of alternates resolving live on the PC screen
 #   computah muse [--ambient]  context-aware art: Qwen3 writes the prompt, FLUX paints it
@@ -264,6 +267,57 @@ PS
         ;;
       off) rssh "powershell -NoProfile -Command \"Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; 'stopped'\"" ;;
     esac
+    ;;
+
+  ask)
+    # On-demand, GPU-arbitrated local LLM (Qwen3-14B). The card holds ONE model at
+    # a time, so a naive `llm on` fights the wall's FLUX and dies. This frees the
+    # GPU first (pauses the wall), loads the 14B, answers, then hands VRAM back.
+    # If the LLM is already up (a held session), it just answers and leaves it —
+    # so rapid asks don't thrash the wall. Never steals the GPU while a game runs.
+    q="${2:?usage: computah ask \"<prompt>\"}"
+    h=$(host)
+    gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\\$REMOTE_USER\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
+    if [ "$gstate" = "GAME" ]; then
+      echo "a game is running — leaving the GPU alone. try again after." >&2; exit 1
+    fi
+    held=0
+    [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && held=1
+    if [ "$held" -eq 0 ]; then
+      echo "→ freeing GPU (pausing wall) + loading Qwen3-14B…" >&2
+      rssh "taskkill /im sd-server.exe /f >nul 2>&1 & echo ." >/dev/null 2>&1 || true
+      "$0" llm on >/dev/null 2>&1 || true
+      up=0
+      for _ in $(seq 1 40); do
+        [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && { up=1; break; }
+        sleep 2
+      done
+      [ "$up" -eq 1 ] || { echo "LLM didn't come up in time." >&2; "$0" sd-server start >/dev/null 2>&1 || true; exit 1; }
+    fi
+    Q="$q" HOST="$h" python3 - <<'PYEOF'
+import json, os, sys, urllib.request
+body = json.dumps({
+    "messages": [{"role": "user", "content": os.environ["Q"]}],
+    "max_tokens": 1024, "temperature": 0.6,
+    "chat_template_kwargs": {"enable_thinking": False},
+}).encode()
+req = urllib.request.Request(f"http://{os.environ['HOST']}:8085/v1/chat/completions",
+                            body, {"Content-Type": "application/json"})
+try:
+    r = json.load(urllib.request.urlopen(req, timeout=180))
+    print(r["choices"][0]["message"]["content"].strip())
+except Exception as e:
+    print("LLM error:", e, file=sys.stderr); sys.exit(1)
+PYEOF
+    rc=$?
+    if [ "$held" -eq 0 ]; then
+      "$0" llm off >/dev/null 2>&1 || true
+      "$0" sd-server start >/dev/null 2>&1 || true
+      echo "(wall restored)" >&2
+    else
+      echo "(LLM still held — 'computah llm off && computah sd-server start' to resume the wall)" >&2
+    fi
+    exit $rc
     ;;
 
   sd-server)
