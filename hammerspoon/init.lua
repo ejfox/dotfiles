@@ -2,6 +2,7 @@
 -- Sends UDP JSON to the hue-stream daemon on localhost:9999.
 
 require("hs.ipc")  -- enables `hs -c "..."` CLI for debugging
+_G.computah_audio = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/computah-audio.lua"))  -- menu bar PC-audio control (guarded)
 
 -- ── Config ──────────────────────────────────────────────────────────────
 local STREAK_GAP = 0.8       -- seconds of silence that resets streak
