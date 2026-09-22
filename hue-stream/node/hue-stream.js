@@ -33,8 +33,18 @@ const CONFIG_NAME = 'ejfox-stream';
 // Comma-separated room names to exclude from the Entertainment group.
 // Case-insensitive. Lights in these rooms stay on regular Hue API control
 // instead of being blanked by the daemon's ambient.
-const EXCLUDE_ROOMS = (process.env.HUE_STREAM_EXCLUDE_ROOMS || '')
-  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+//
+// HARD FLOOR: these rooms are ALWAYS excluded, in code, regardless of env.
+// "pamaras room" = gf's office — her lights must never be flashed. This lives
+// in the repo (not just ~/.env) so the guarantee survives a fresh checkout,
+// a rebuilt ~/.env, or a `setup` run from a shell that didn't source it.
+// HUE_STREAM_EXCLUDE_ROOMS can ADD rooms; it can never remove the floor.
+const EXCLUDE_ROOMS_FLOOR = ['pamaras room'];
+const EXCLUDE_ROOMS = [...new Set([
+  ...EXCLUDE_ROOMS_FLOOR,
+  ...(process.env.HUE_STREAM_EXCLUDE_ROOMS || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+])];
 const POS_FILE = path.join(os.homedir(), '.local/share/hue/positions.json');
 const CONFIG_FILE = path.join(os.homedir(), '.config/hue-key/config.json');
 
