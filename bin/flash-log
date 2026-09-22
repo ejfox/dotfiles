@@ -47,3 +47,12 @@ try:
         f.write(json.dumps(rec) + "\n")
 except Exception:
     pass
+
+# On-screen mirror: brief tmux toast so a flash is visible where you're working,
+# not just on the bulbs. Fire-and-forget; flash-toast dedupes + no-ops off-tmux.
+try:
+    subprocess.Popen(
+        [os.path.expanduser("~/.dotfiles/bin/flash-toast"), src, event, detail],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+except Exception:
+    pass

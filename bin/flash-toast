@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# flash-toast <source> <event> [detail] — brief on-screen tmux toast mirroring a
+# light flash, colored to match the traffic-light grammar. Shows on every
+# attached client, auto-vanishes. Deduped 1.5s so the rgb-flash+hue-stream
+# double (and storms) collapse to one. Silent no-op if no tmux server/clients.
+set -u
+SRC="${1:-?}"; EV="${2:-}"; DETAIL="${3:-}"
+
+command -v tmux >/dev/null 2>&1 || exit 0
+tmux list-clients >/dev/null 2>&1 || exit 0    # no server / nobody attached
+
+# Dedupe: one physical flash often logs twice (rgb-flash then hue-stream).
+STAMP="/tmp/flash-toast.last"
+now=$(date +%s.%N 2>/dev/null || date +%s)
+if [ -f "$STAMP" ]; then
+  last=$(cat "$STAMP" 2>/dev/null || echo 0)
+  awk "BEGIN{exit !($now - $last < 1.5)}" 2>/dev/null && exit 0
+fi
+printf '%s' "$now" > "$STAMP"
+
+# Color + human label from the traffic-light grammar.
+case "$EV" in
+  needs)        C=yellow;    L="NEEDS YOU" ;;
+  needs-office) C=yellow;    L="NEEDS YOU !!" ;;
+  needs-house)  C=yellow;    L="COME HERE !!!" ;;
+  done)         C=green;     L="done" ;;
+  error)        C=red;       L="ERROR" ;;
+  fyi)          C=white;     L="fyi" ;;
+  rest)         exit 0 ;;                       # resting state isn't a flash
+  *)            C=colour213; L="$EV" ;;
+esac
+
+MSG="#[fg=${C},bold]⬤ ${L}#[default]  #[fg=colour245]flash · ${SRC}${DETAIL:+ · ${DETAIL}}#[default]"
+for c in $(tmux list-clients -F '#{client_name}' 2>/dev/null); do
+  # -d (duration ms) needs tmux >=3.2; fall back to the configured display-time.
+  tmux display-message -c "$c" -d 2500 "$MSG" 2>/dev/null \
+    || tmux display-message -c "$c" "$MSG" 2>/dev/null || true
+done
