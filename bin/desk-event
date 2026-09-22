@@ -32,21 +32,32 @@ esac
 # Event color (caption accent) + light grammar event. The lights speak a
 # decodable code — color = category, pulse count = urgency:
 #   fyi 1 soft blip · done 1 slow swell · needs 2 pulses · error 1 deep red swell
+# "needs" is a severity ladder — scope widens with urgency (desk → office → house):
+#   needs         desk lamp + underlight   (default: Claude waiting on you)
+#   needs-office  whole office zone        (really important)
+#   needs-house   whole house              (drop everything; Pamaras Room floor-excluded)
 case "$KIND" in
-  needs)  LABEL="NEEDS YOU"; EVENT="needs" ;;
-  error)  LABEL="ERROR";     EVENT="error" ;;
-  claude) LABEL="CLAUDE";    EVENT="done" ;;
-  *)      EVENT="fyi"
-          LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
+  needs)        LABEL="NEEDS YOU";  EVENT="needs" ;;
+  needs-office) LABEL="NEEDS YOU!"; EVENT="needs-office" ;;
+  needs-house)  LABEL="COME HERE";  EVENT="needs-house" ;;
+  error)        LABEL="ERROR";      EVENT="error" ;;
+  claude)       LABEL="CLAUDE";     EVENT="done" ;;
+  *)            EVENT="fyi"
+                LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
 esac
-# Caption accent comes from the shared grammar table (same color the lights use)
-COLOR=$(jq -r ".events.\"$EVENT\".color // \"teal\"" "$HOME/.dotfiles/lib/desk-flash-patterns.json" 2>/dev/null || echo teal)
+# Caption accent comes from the shared grammar table (same color the lights use).
+# Resolve the name to raw RGB from the palette and paint the caption with r/g/b
+# so any grammar color works — the pixel firmware only knows a fixed name list
+# (no "yellow"), but it always honours explicit r&g&b (see firmware parseColor).
+PAT="$HOME/.dotfiles/lib/desk-flash-patterns.json"
+COLOR=$(jq -r ".events.\"$EVENT\".color // \"teal\"" "$PAT" 2>/dev/null || echo teal)
+CRGB=$(jq -r --arg c "$COLOR" '.palette[$c] // [230,0,103] | "r=\(.[0])&g=\(.[1])&b=\(.[2])"' "$PAT" 2>/dev/null || echo "r=230&g=0&b=103")
 
 # Only attention-getting events light the room / flash the tmux title — a flash
 # on every completion or background-window blip is just noise (and startles
 # anyone else in the room). Everything else still updates the glass caption
 # silently below. Add words here to opt more events back in, e.g. "needs error".
-FLASH_EVENTS="needs"
+FLASH_EVENTS="needs needs-office needs-house"
 SHOULD_FLASH=0
 case " $FLASH_EVENTS " in *" $EVENT "*) SHOULD_FLASH=1 ;; esac
 
@@ -83,7 +94,8 @@ fi
 #    ("needs you" events skip the debounce: never swallow those)
 STAMP="/tmp/desk-event.last"
 now=$(date +%s)
-if [ "$KIND" != "needs" ] && [ -f "$STAMP" ]; then
+case "$KIND" in needs|needs-office|needs-house) SKIP_DEBOUNCE=1 ;; *) SKIP_DEBOUNCE=0 ;; esac
+if [ "$SKIP_DEBOUNCE" = 0 ] && [ -f "$STAMP" ]; then
   last=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
   [ $((now - last)) -lt 5 ] && exit 0
 fi
@@ -105,10 +117,12 @@ msg="$DETAIL"
 [ ${#msg} -gt 30 ] && msg="${msg:0:29}~"
 ts=$(date +%H:%M)
 
-# Caption strip: colored hairline + black bar over the bottom of the scene
-px "rect?x=0&y=212&w=320&h=1&color=${COLOR}"
+# Caption strip: colored hairline + black bar over the bottom of the scene.
+# Accent painted via r/g/b (resolved from the palette) so grammar colors the
+# firmware doesn't know by name (e.g. yellow) still render correctly.
+px "rect?x=0&y=212&w=320&h=1&${CRGB}"
 px "rect?x=0&y=213&w=320&h=27&r=0&g=0&b=0"
-px "text?msg=$(enc "$LABEL")&x=8&y=222&size=1&color=${COLOR}"
+px "text?msg=$(enc "$LABEL")&x=8&y=222&size=1&${CRGB}"
 x=$(( 8 + (${#LABEL} + 1) * 6 ))
 [ -n "$msg" ] && px "text?msg=$(enc "$msg")&x=${x}&y=222&size=1&color=body"
 px "text?msg=$(enc "$ts")&x=284&y=222&size=1&color=dustrose"
@@ -117,8 +131,8 @@ px "text?msg=$(enc "$ts")&x=284&y=222&size=1&color=dustrose"
 # Claude events wash into the fleet scene so the glass keeps showing
 # agent context; everything else goes back to ambient rotation.
 case "$KIND" in
-  claude|needs) WASH="fleet" ;;
-  *)            WASH="random" ;;
+  claude|needs|needs-office|needs-house) WASH="fleet" ;;
+  *)                                     WASH="random" ;;
 esac
 (
   sleep 75
