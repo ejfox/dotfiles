@@ -454,7 +454,19 @@ async function cmdStop() {
 
 const GRAMMAR_FILE = path.join(os.homedir(), '.dotfiles/lib/desk-flash-patterns.json');
 
+// Forensic log: record a Hue flash + who triggered it (view with `flashlog`).
+// Fire-and-forget; never blocks or breaks the flash.
+function logFlash(mode, eventName) {
+  try {
+    const { spawn } = require('child_process');
+    spawn(path.join(os.homedir(), '.dotfiles/bin/flash-log'),
+      [`hue-stream:${mode}`, eventName || ''],
+      { detached: true, stdio: 'ignore' }).unref();
+  } catch { /* best-effort */ }
+}
+
 async function cmdFlash(eventName = 'done') {
+  logFlash('flash', eventName);
   // never fight a running daemon for the session — it renders flashes itself
   // (checked again here in case the caller didn't)
   let g = null;

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""flash-log <source> <event> [detail] — record a light flash + who caused it.
+
+Appends one JSONL line to ~/.local/share/usage-logs/lights/YYYY-MM-DD.jsonl with
+the full process ancestry, so a mystery flash ("who keeps bopping the lights?")
+is answerable at a glance. Best-effort + silent — never delays or breaks a flash.
+
+Coverage note: this catches every flash that goes through OUR code (rgb-flash,
+hue-stream.js). A flash initiated entirely outside (Hue app scene, another
+integration hitting the bridge directly) won't touch this and won't be logged.
+"""
+import os, sys, json, subprocess, time
+
+src    = sys.argv[1] if len(sys.argv) > 1 else "?"
+event  = sys.argv[2] if len(sys.argv) > 2 else ""
+detail = sys.argv[3] if len(sys.argv) > 3 else ""
+
+# One ps snapshot → {pid: (ppid, command)}, then walk up from our parent.
+procs = {}
+try:
+    out = subprocess.check_output(["ps", "-axo", "pid=,ppid=,command="], text=True)
+    for line in out.splitlines():
+        parts = line.strip().split(None, 2)
+        if len(parts) >= 2:
+            procs[int(parts[0])] = (int(parts[1]), parts[2] if len(parts) > 2 else "")
+except Exception:
+    pass
+
+chain, pid = [], os.getppid()
+for _ in range(8):
+    if pid <= 1 or pid not in procs:
+        break
+    ppid, cmd = procs[pid]
+    chain.append(cmd)
+    pid = ppid
+
+rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "source": src, "event": event}
+if detail:
+    rec["detail"] = detail
+rec["caller"] = chain[0] if chain else ""
+rec["chain"] = chain
+
+try:
+    logdir = os.path.expanduser("~/.local/share/usage-logs/lights")
+    os.makedirs(logdir, exist_ok=True)
+    with open(os.path.join(logdir, time.strftime("%Y-%m-%d") + ".jsonl"), "a") as f:
+        f.write(json.dumps(rec) + "\n")
+except Exception:
+    pass

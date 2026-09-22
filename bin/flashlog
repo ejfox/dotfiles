@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# flashlog [N] [YYYY-MM-DD] — show the last N light-flash events and who caused them.
+# Reads ~/.local/share/usage-logs/lights/<date>.jsonl (default: today, last 25).
+set -u
+N="${1:-25}"
+DAY="${2:-$(date +%F)}"
+LOG="$HOME/.local/share/usage-logs/lights/${DAY}.jsonl"
+[ -f "$LOG" ] || { echo "no flashes logged for ${DAY}"; exit 0; }
+echo "time      source            event        ← who triggered it (nearest → furthest)"
+tail -n "$N" "$LOG" | jq -r '
+  def pad(n): (.[0:n] // "") + (" " * (n - (.[0:n] | length)));
+  "\(.ts[11:19])  \(.source | pad(16))  \(.event | pad(11))  ← " +
+  (.chain | map(gsub("^\\s+";"") | .[0:44]) | join("  ← "))
+'
