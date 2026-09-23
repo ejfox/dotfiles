@@ -26,6 +26,12 @@ setGlobalDispatcher(new Agent({ connect: { rejectUnauthorized: false } }));
 
 const DAEMON_PORT = 9999;
 
+// One-shot flash / restore timings (ms). The bridge is REST-rate-limited and
+// needs a beat to settle after an entertainment session deactivates.
+const RESTORE_SETTLE_MS = 300;      // pause after deactivate before re-asserting
+const RESTORE_TRANSITION_MS = 250;  // ease the restore back rather than snap it
+const LIGHT_PUT_GAP_MS = 60;        // spacing between per-light REST PUTs
+
 const BRIDGE = process.env.HUE_BRIDGE_IP;
 const KEY = process.env.HUE_APP_KEY;
 const CLIENT_KEY = process.env.HUE_CLIENT_KEY;
@@ -210,22 +216,28 @@ async function snapshotLights(ids) {
   return snap;
 }
 
+// Build the REST body that re-asserts one snapshotted light. transitionMs=0 snaps
+// instantly (scoped desk flash cleanup); >0 eases it (post-entertainment restore).
+function buildLightRestoreBody(s, transitionMs) {
+  const body = { on: { on: s.on } };
+  if (s.on) {
+    if (typeof s.brightness === 'number') body.dimming = { brightness: s.brightness };
+    if (s.xy) body.color = { xy: s.xy };
+    else if (s.mirek) body.color_temperature = { mirek: s.mirek };
+    body.dynamics = { duration: transitionMs };
+  }
+  return body;
+}
+
 // Re-assert a prior snapshot via the regular API after the entertainment
 // session closes. Short transition so it eases back rather than snapping.
 async function restoreLights(snap) {
   if (!snap || !snap.length) return;
-  await new Promise(r => setTimeout(r, 300));  // let the bridge settle post-deactivate
+  await new Promise(r => setTimeout(r, RESTORE_SETTLE_MS));  // settle post-deactivate
   for (const s of snap) {
-    const body = { on: { on: s.on } };
-    if (s.on) {
-      if (typeof s.brightness === 'number') body.dimming = { brightness: s.brightness };
-      if (s.xy) body.color = { xy: s.xy };
-      else if (s.mirek) body.color_temperature = { mirek: s.mirek };
-      body.dynamics = { duration: 250 };
-    }
-    try { await api('PUT', `/resource/light/${s.id}`, body); }
+    try { await api('PUT', `/resource/light/${s.id}`, buildLightRestoreBody(s, RESTORE_TRANSITION_MS)); }
     catch { /* best-effort per light */ }
-    await new Promise(r => setTimeout(r, 60));  // stay under the bridge PUT rate limit
+    await new Promise(r => setTimeout(r, LIGHT_PUT_GAP_MS));  // stay under PUT rate limit
   }
 }
 
@@ -452,7 +464,26 @@ async function cmdStop() {
 // The bridge restores the lights' prior state on deactivate — so scenes
 // (sun-synced wake-up etc.) survive; no standing daemon required.
 
-const GRAMMAR_FILE = path.join(os.homedir(), '.dotfiles/lib/desk-flash-patterns.json');
+// Loads the shared flash grammar (desk-flash-patterns.json — the same file the
+// bash side reads via flash-lib.sh) and resolves an event name to concrete flash
+// parameters. Read-only; falls back to a soft teal blip for unknown events.
+class Grammar {
+  constructor(file = path.join(os.homedir(), '.dotfiles/lib/desk-flash-patterns.json')) {
+    try { this.data = JSON.parse(fs.readFileSync(file, 'utf8')); }
+    catch { this.data = { palette: {}, events: {} }; }
+  }
+  // → { rgb: [0..1,0..1,0..1], peak, segs, scope }
+  event(name) {
+    const ev = this.data.events?.[name] || {};
+    const rgb255 = this.data.palette?.[ev.color] || [110, 237, 247];
+    return {
+      rgb: rgb255.map(v => v / 255),
+      peak: ev.peak ?? 1.0,
+      segs: Array.isArray(ev.segs) ? ev.segs : [[0.4, true]],
+      scope: Array.isArray(ev.scope) ? ev.scope : [],
+    };
+  }
+}
 
 // Forensic log: record a Hue flash + who triggered it (view with `flashlog`).
 // Fire-and-forget; never blocks or breaks the flash.
@@ -469,14 +500,7 @@ async function cmdFlash(eventName = 'done') {
   logFlash('flash', eventName);
   // never fight a running daemon for the session — it renders flashes itself
   // (checked again here in case the caller didn't)
-  let g = null;
-  try { g = JSON.parse(fs.readFileSync(GRAMMAR_FILE, 'utf8')); } catch {}
-  const ev = g?.events?.[eventName];
-  const rgb255 = g?.palette?.[ev?.color] || [110, 237, 247];
-  const rgb = rgb255.map(v => v / 255);
-  const peak = ev?.peak ?? 1.0;
-  const segs = ev?.segs || [[0.4, true]];
-  const scope = Array.isArray(ev?.scope) ? ev.scope : [];
+  const { rgb, peak, segs, scope } = new Grammar().event(eventName);
 
   // Scoped events (done/fyi) only ping the desk lights. Do that over the plain
   // REST API — no whole-room entertainment takeover, no DTLS wedge risk, and
@@ -590,16 +614,9 @@ async function cmdFlashRest(rgb, peak, segs, patterns) {
       }
     }
   } finally {
-    // Snap out instantly (no transition, no settle delay) back to prior state.
+    // Snap out instantly (duration 0, no settle) back to the prior state.
     for (const s of snap) {
-      const body = { on: { on: s.on } };
-      if (s.on) {
-        if (typeof s.brightness === 'number') body.dimming = { brightness: s.brightness };
-        if (s.xy) body.color = { xy: s.xy };
-        else if (s.mirek) body.color_temperature = { mirek: s.mirek };
-        body.dynamics = { duration: 0 };  // instant snap
-      }
-      try { await api('PUT', `/resource/light/${s.id}`, body); }
+      try { await api('PUT', `/resource/light/${s.id}`, buildLightRestoreBody(s, 0)); }
       catch { /* best-effort per light */ }
       await new Promise((r) => setTimeout(r, 30));
     }
