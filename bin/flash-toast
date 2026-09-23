@@ -27,6 +27,15 @@ if [ -f "$STAMP" ]; then
 fi
 printf '%s' "$now" > "$STAMP"
 
+# Did the bulbs actually have a chance to fire? Probe the Hue bridge so a flash
+# that couldn't reach the LAN (VPN up / bridge moved or off) is ANNOUNCED, not
+# silent — the whole point of an alert is you know it happened.
+LIGHTS_NOTE=""
+HUE_IP=$(grep -m1 'HUE_BRIDGE_IP=' "$HOME/.env" 2>/dev/null | sed 's/.*HUE_BRIDGE_IP=//; s/["'\'' ]//g')
+if [ -n "$HUE_IP" ] && ! nc -z -G 1 -w 1 "$HUE_IP" 443 >/dev/null 2>&1; then
+  LIGHTS_NOTE=" · 💡✕ lights offline (VPN?)"
+fi
+
 # Color + human label from the traffic-light grammar.
 case "$EV" in
   needs)        C=yellow;    L="NEEDS YOU" ;;
@@ -41,7 +50,7 @@ esac
 
 # Solid colored block (bg fill) so it's a vivid flash on the status line, not
 # thin text that's easy to miss over a fullscreen TUI.
-MSG="#[bg=${C},fg=black,bold]  ⬤ ${L}  #[default] #[fg=${C}]${ORIGIN} · ${SRC}${DETAIL:+ · ${DETAIL}}#[default]"
+MSG="#[bg=${C},fg=black,bold]  ⬤ ${L}  #[default] #[fg=${C}]${ORIGIN} · ${SRC}${DETAIL:+ · ${DETAIL}}${LIGHTS_NOTE}#[default]"
 for c in $(tmux list-clients -F '#{client_name}' 2>/dev/null); do
   # -d (duration ms) needs tmux >=3.2; fall back to the configured display-time.
   tmux display-message -c "$c" -d 2500 "$MSG" 2>/dev/null \
@@ -61,5 +70,5 @@ if command -v osascript >/dev/null 2>&1; then
   esac
   safe_detail=$(printf '%s' "$DETAIL" | tr -d '"\\')
   safe_origin=$(printf '%s' "$ORIGIN" | tr -d '"\\')
-  osascript -e "display notification \"flash · ${SRC}${safe_detail:+ · ${safe_detail}}\" with title \"${EMOJI} ${L}\" subtitle \"${safe_origin}\"" >/dev/null 2>&1 || true
+  osascript -e "display notification \"flash · ${SRC}${safe_detail:+ · ${safe_detail}}${LIGHTS_NOTE}\" with title \"${EMOJI} ${L}\" subtitle \"${safe_origin}\"" >/dev/null 2>&1 || true
 fi
