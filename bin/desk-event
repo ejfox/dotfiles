@@ -43,6 +43,7 @@ case "$KIND" in
   needs)        LABEL="NEEDS YOU";  EVENT="needs" ;;
   needs-office) LABEL="NEEDS YOU!"; EVENT="needs-office" ;;
   needs-house)  LABEL="COME HERE";  EVENT="needs-house" ;;
+  done)         LABEL="DONE";       EVENT="done" ;;
   error)        LABEL="ERROR";      EVENT="error" ;;
   claude)       LABEL="CLAUDE";     EVENT="done" ;;
   *)            EVENT="fyi"
@@ -60,10 +61,14 @@ CRGB=$(grammar_rgb_query "$EVENT")
 FLASH_EVENTS="needs needs-office needs-house"
 SHOULD_FLASH=0
 case " $FLASH_EVENTS " in *" $EVENT "*) SHOULD_FLASH=1 ;; esac
+# DESK_EVENT_FORCE=1 (set by the manual `flash` command) always lights, so a
+# hand-fired flash isn't swallowed by the automatic-event noise gate.
+[ "${DESK_EVENT_FORCE:-0}" = 1 ] && SHOULD_FLASH=1
 
 if [ "$SHOULD_FLASH" = 1 ]; then
-  # 1) Lights — rgb-flash has its own debounce (needs/error punch through)
-  "$HOME/.dotfiles/bin/rgb-flash" "$EVENT" >/dev/null 2>&1 &
+  # 1) Lights — rgb-flash has its own debounce (needs/error punch through).
+  #    Pass DETAIL so the message rides through to the toast/banner too.
+  "$HOME/.dotfiles/bin/rgb-flash" "$EVENT" "$DETAIL" >/dev/null 2>&1 &
 
   # 1b) tmux: brief cyan flash on the window that fired, timed to match the light
   #     (quick on, then snap back to normal — not tmux's own bell glow, which
@@ -95,6 +100,7 @@ fi
 STAMP="/tmp/desk-event.last"
 now=$(date +%s)
 case "$KIND" in needs|needs-office|needs-house) SKIP_DEBOUNCE=1 ;; *) SKIP_DEBOUNCE=0 ;; esac
+[ "${DESK_EVENT_FORCE:-0}" = 1 ] && SKIP_DEBOUNCE=1   # manual flashes never debounced
 if [ "$SKIP_DEBOUNCE" = 0 ] && [ -f "$STAMP" ]; then
   last=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
   [ $((now - last)) -lt 5 ] && exit 0

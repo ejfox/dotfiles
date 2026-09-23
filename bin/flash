@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# flash [tier] [message...] — fire a desk flash by hand: lights + macOS banner +
+# tmux toast + pixel caption, all at once. Manual flashes always light up (they
+# bypass the automatic-event noise gate) and skip the debounce.
+#
+# Tiers (default: needs):
+#   flash                     needs        · yellow breath on the desk ("come back")
+#   flash office | o          needs-office · whole office zone ("important")
+#   flash house  | h | drop   needs-house  · whole apartment ("drop everything")
+#   flash error  | err | x    error        · red ("something broke")
+#   flash done   | ok         done         · green ("finished")
+#   flash fyi                 fyi          · soft white blip
+#
+# Everything after the tier is the message:
+#   flash house pizza's here
+#   flash error "build is red"
+#   flash "come look at this"        (no tier → needs)
+set -u
+
+case "${1:-needs}" in
+  needs|desk|n)         KIND=needs        ; shift ;;
+  office|o)             KIND=needs-office ; shift ;;
+  house|h|drop|\!)      KIND=needs-house  ; shift ;;
+  error|err|x|red)      KIND=error        ; shift ;;
+  done|ok|green|fin)    KIND=done         ; shift ;;
+  fyi|info)             KIND=fyi          ; shift ;;
+  -h|--help|help|list)  sed -n '2,/^set -u/p' "$0" | sed 's/^# \{0,1\}//; /^set -u/d'; exit 0 ;;
+  *)                    KIND=needs ;;   # no tier word → default needs, all args = message
+esac
+
+exec env DESK_EVENT_FORCE=1 "$HOME/.dotfiles/bin/desk-event" "$KIND" "${*:-}"

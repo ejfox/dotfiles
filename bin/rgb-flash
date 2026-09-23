@@ -34,10 +34,11 @@ STAMP="/tmp/rgb-flash.last"
 [ -x "$VENV_PY" ] || exit 0   # venv gone -> silent no-op (hook-safe)
 
 ARG="${1:-teal}"   # event name, color name, hex, or "rest"
+MSG="${2:-}"       # optional message, surfaced in the toast/banner
 
 # Forensic log: record every flash + the full process ancestry that triggered
 # it (view with `flashlog`). Best-effort, never blocks the flash.
-"$HOME/.dotfiles/bin/flash-log" rgb-flash "$ARG" 2>/dev/null || true
+"$HOME/.dotfiles/bin/flash-log" rgb-flash "$ARG" "$MSG" 2>/dev/null || true
 
 # `computah rgb off` mutes the PC lights entirely — no event flashes either.
 # (Hue + canvas captions still carry the signal; delete the flag or run any
