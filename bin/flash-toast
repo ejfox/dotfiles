@@ -9,6 +9,15 @@ SRC="${1:-?}"; EV="${2:-}"; DETAIL="${3:-}"
 command -v tmux >/dev/null 2>&1 || exit 0
 tmux list-clients >/dev/null 2>&1 || exit 0    # no server / nobody attached
 
+# Which tmux window triggered this flash. $TMUX_PANE is inherited all the way
+# down the hook → desk-event → rgb-flash → flash-log → here chain, so it points
+# at the pane that fired. Empty if the flash came from outside tmux (cron etc.).
+ORIGIN=""
+if [ -n "${TMUX_PANE:-}" ]; then
+  ORIGIN=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}:#{window_index} #{window_name}' 2>/dev/null)
+fi
+[ -n "$ORIGIN" ] || ORIGIN="external"
+
 # Dedupe: one physical flash often logs twice (rgb-flash then hue-stream).
 STAMP="/tmp/flash-toast.last"
 now=$(date +%s.%N 2>/dev/null || date +%s)
@@ -30,9 +39,27 @@ case "$EV" in
   *)            C=colour213; L="$EV" ;;
 esac
 
-MSG="#[fg=${C},bold]⬤ ${L}#[default]  #[fg=colour245]flash · ${SRC}${DETAIL:+ · ${DETAIL}}#[default]"
+# Solid colored block (bg fill) so it's a vivid flash on the status line, not
+# thin text that's easy to miss over a fullscreen TUI.
+MSG="#[bg=${C},fg=black,bold]  ⬤ ${L}  #[default] #[fg=${C}]${ORIGIN} · ${SRC}${DETAIL:+ · ${DETAIL}}#[default]"
 for c in $(tmux list-clients -F '#{client_name}' 2>/dev/null); do
   # -d (duration ms) needs tmux >=3.2; fall back to the configured display-time.
   tmux display-message -c "$c" -d 2500 "$MSG" 2>/dev/null \
     || tmux display-message -c "$c" "$MSG" 2>/dev/null || true
 done
+
+# macOS banner — the channel that actually reaches you when a fullscreen TUI
+# (Claude Code) paints over the tmux status line. Silent (no sound), auto-
+# dismisses, doesn't steal keyboard focus. Emoji dot carries the color.
+if command -v osascript >/dev/null 2>&1; then
+  case "$EV" in
+    needs*) EMOJI="🟡" ;;
+    done)   EMOJI="🟢" ;;
+    error)  EMOJI="🔴" ;;
+    fyi)    EMOJI="⚪" ;;
+    *)      EMOJI="⬤" ;;
+  esac
+  safe_detail=$(printf '%s' "$DETAIL" | tr -d '"\\')
+  safe_origin=$(printf '%s' "$ORIGIN" | tr -d '"\\')
+  osascript -e "display notification \"flash · ${SRC}${safe_detail:+ · ${safe_detail}}\" with title \"${EMOJI} ${L}\" subtitle \"${safe_origin}\"" >/dev/null 2>&1 || true
+fi
