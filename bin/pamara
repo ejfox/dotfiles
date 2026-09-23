@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# pamara — a deliberate one-off PINK flash of Pamaras Room, then restore her lamp
+# to exactly what it was showing before (snapshot → pink heartbeat → snap back).
+#
+# This is the intentional opposite of the hard exclusion: that floor guards her
+# room against ACCIDENTAL alert flashes; this touches it ON PURPOSE. Isolated to
+# her lamp over the REST API — never the desk, never the PC RGB. 💗
+set -u
+
+[ -f "$HOME/.env" ] && { set -a; . "$HOME/.env"; set +a; }
+NODE=$(command -v node 2>/dev/null || ls "$HOME/.nvm/versions/node/v22.22.2/bin/node" \
+  /usr/local/bin/node /opt/homebrew/bin/node 2>/dev/null | head -1)
+JS="$HOME/.dotfiles/hue-stream/node/hue-stream.js"
+
+exec "$NODE" "$JS" flash pamara
