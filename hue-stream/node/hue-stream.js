@@ -59,15 +59,33 @@ if (!BRIDGE || !KEY || !CLIENT_KEY) {
   process.exit(1);
 }
 
-async function api(method, pathStr, body) {
-  const res = await fetch(`https://${BRIDGE}/clip/v2${pathStr}`, {
-    method,
-    headers: { 'hue-application-key': KEY, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  try { return JSON.parse(text); } catch { return text; }
+// The Hue CLIP v2 REST client for one bridge. Everything that talks to the
+// bridge goes through `bridge.api(...)`; the module-level `api` below is a thin
+// alias so existing callers keep working unchanged.
+class Bridge {
+  constructor(ip, appKey) {
+    this.ip = ip;
+    this.appKey = appKey;
+  }
+  async api(method, pathStr, body) {
+    const res = await fetch(`https://${this.ip}/clip/v2${pathStr}`, {
+      method,
+      headers: { 'hue-application-key': this.appKey, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  }
+  // Is the bridge answering on the LAN right now? (false when VPN blocks the LAN
+  // or the bridge moved/off — lets callers degrade instead of hanging.)
+  async reachable() {
+    try { return Array.isArray((await this.api('GET', '/resource/bridge'))?.data); }
+    catch { return false; }
+  }
 }
+
+const bridge = new Bridge(BRIDGE, KEY);
+const api = (method, pathStr, body) => bridge.api(method, pathStr, body);
 
 function loadPositions() {
   try { return JSON.parse(fs.readFileSync(POS_FILE, 'utf8')); }
