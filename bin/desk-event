@@ -11,13 +11,16 @@
 #   desk-event error "something"       # red-coded event
 #   desk-event <kind> [detail...]      # anything else
 #
-# Light grammar: color = category (hotpink needs-you · teal claude · red error),
-# pulse count = urgency (1 soft blip FYI · 1 slow swell done · 2 needs · 1 deep red error).
+# Light grammar (traffic-light): color = category — yellow=needs/help, green=done,
+# red=error, white=fyi; pulse count = urgency. "needs" is a severity ladder whose
+# scope widens with urgency (desk → office → house). Grammar lives in
+# lib/desk-flash-patterns.json, read via lib/flash-lib.sh.
 # Silent no-op per-device when unreachable. Caption debounced 5s.
 # Washaway after ~75s: claude/needs events repaint the fleet scene
 # (context follows the event), everything else repaints a random scene.
 
 set -u
+. "$HOME/.dotfiles/lib/flash-lib.sh"
 
 KIND="${1:-event}"; shift 2>/dev/null || true
 DETAIL="${*:-}"
@@ -45,13 +48,10 @@ case "$KIND" in
   *)            EVENT="fyi"
                 LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
 esac
-# Caption accent comes from the shared grammar table (same color the lights use).
-# Resolve the name to raw RGB from the palette and paint the caption with r/g/b
-# so any grammar color works — the pixel firmware only knows a fixed name list
-# (no "yellow"), but it always honours explicit r&g&b (see firmware parseColor).
-PAT="$HOME/.dotfiles/lib/desk-flash-patterns.json"
-COLOR=$(jq -r ".events.\"$EVENT\".color // \"teal\"" "$PAT" 2>/dev/null || echo teal)
-CRGB=$(jq -r --arg c "$COLOR" '.palette[$c] // [230,0,103] | "r=\(.[0])&g=\(.[1])&b=\(.[2])"' "$PAT" 2>/dev/null || echo "r=230&g=0&b=103")
+# Caption accent = the same grammar color the lights use, resolved to raw r/g/b
+# (the pixel firmware only knows a fixed name list — no "yellow" — but always
+# honours explicit r&g&b; see firmware parseColor). One accessor, one source.
+CRGB=$(grammar_rgb_query "$EVENT")
 
 # Only attention-getting events light the room / flash the tmux title — a flash
 # on every completion or background-window blip is just noise (and startles
