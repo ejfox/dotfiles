@@ -32,6 +32,12 @@ const RESTORE_SETTLE_MS = 300;      // pause after deactivate before re-assertin
 const RESTORE_TRANSITION_MS = 250;  // ease the restore back rather than snap it
 const LIGHT_PUT_GAP_MS = 60;        // spacing between per-light REST PUTs
 
+// Entertainment activation handshake (the bridge is slow to flip to "active").
+const ACTIVATE_RESTART_SETTLE_MS = 1000;  // wait after stopping a stale session
+const ACTIVATE_POLL_MS = 150;             // poll interval for "active" status
+const ACTIVATE_MAX_POLLS = 20;            // give up after this many polls
+const ACTIVATE_PRE_DTLS_SETTLE_MS = 2000; // let the bridge settle before DTLS
+
 const BRIDGE = process.env.HUE_BRIDGE_IP;
 const KEY = process.env.HUE_APP_KEY;
 const CLIENT_KEY = process.env.HUE_CLIENT_KEY;
@@ -115,103 +121,118 @@ function ringPosition(i, n) {
   return [Math.cos(a) * 0.8, 0, Math.sin(a) * 0.8];
 }
 
-async function ensureConfig() {
-  const ent = (await api('GET', '/resource/entertainment')).data.filter(e => e.renderer);
-  const lights = (await api('GET', '/resource/light')).data;
-  const rooms = (await api('GET', '/resource/room')).data;
-
-  // Map device → Hue room name
-  const deviceToRoom = {};
-  for (const room of rooms) {
-    for (const child of (room.children || [])) {
-      if (child.rtype === 'device') deviceToRoom[child.rid] = room.metadata.name;
-    }
+// Owns the named entertainment configuration ('ejfox-stream'): create-or-reuse
+// it — applying the room-exclusion floor so Pamaras Room can never be a channel —
+// and start/stop the streaming session the DTLS push rides on.
+class EntertainmentConfig {
+  constructor(bridge, configName, excludeRooms) {
+    this.bridge = bridge;
+    this.configName = configName;
+    this.excludeRooms = excludeRooms;   // lowercased room names to never include
   }
 
-  const streamers = ent.map(e => {
-    const ownerDeviceId = e.owner.rid;
-    const light = lights.find(l => l.owner?.rid === ownerDeviceId);
-    return {
-      entId: e.id,
-      lightId: light?.id,
-      name: light?.metadata?.name || '?',
-      room: deviceToRoom[ownerDeviceId] || '',
-    };
-  }).filter(s => s.lightId && !EXCLUDE_ROOMS.includes((s.room || '').toLowerCase()));
+  // Create the config if missing, else reuse the existing one by name.
+  // → { cfg, streamers } where streamers are ordered to match cfg.channels.
+  async ensure() {
+    const ent = (await this.bridge.api('GET', '/resource/entertainment')).data.filter(e => e.renderer);
+    const lights = (await this.bridge.api('GET', '/resource/light')).data;
+    const rooms = (await this.bridge.api('GET', '/resource/room')).data;
 
-  const configs = (await api('GET', '/resource/entertainment_configuration')).data;
-  let cfg = configs.find(c => c.metadata?.name === CONFIG_NAME);
+    const deviceToRoom = {};
+    for (const room of rooms) {
+      for (const child of (room.children || [])) {
+        if (child.rtype === 'device') deviceToRoom[child.rid] = room.metadata.name;
+      }
+    }
 
-  if (!cfg) {
-    const positions = loadPositions();
-    const withPos = streamers.map((s, i) => {
-      const p = positions[s.name] || ringPosition(i, streamers.length);
-      return { s, pos: { x: p[0], y: p[1], z: p[2] } };
+    // INVARIANT: excluded rooms (incl. the hard 'pamaras room' floor) are
+    // filtered out here, so they can never become entertainment channels.
+    const streamers = ent.map(e => {
+      const ownerDeviceId = e.owner.rid;
+      const light = lights.find(l => l.owner?.rid === ownerDeviceId);
+      return {
+        entId: e.id,
+        lightId: light?.id,
+        name: light?.metadata?.name || '?',
+        room: deviceToRoom[ownerDeviceId] || '',
+      };
+    }).filter(s => s.lightId && !this.excludeRooms.includes((s.room || '').toLowerCase()));
+
+    const configs = (await this.bridge.api('GET', '/resource/entertainment_configuration')).data;
+    let cfg = configs.find(c => c.metadata?.name === this.configName);
+
+    if (!cfg) {
+      const positions = loadPositions();
+      const withPos = streamers.map((s, i) => {
+        const p = positions[s.name] || ringPosition(i, streamers.length);
+        return { s, pos: { x: p[0], y: p[1], z: p[2] } };
+      });
+      const body = {
+        type: 'entertainment_configuration',
+        metadata: { name: this.configName },
+        configuration_type: '3dspace',
+        locations: {
+          service_locations: withPos.map(w => ({
+            service: { rid: w.s.entId, rtype: 'entertainment' },
+            positions: [w.pos],
+            equalization_factor: 1,
+          })),
+        },
+      };
+      const result = await this.bridge.api('POST', '/resource/entertainment_configuration', body);
+      if (result.errors?.length) {
+        console.error('config create failed:', JSON.stringify(result.errors, null, 2));
+        process.exit(1);
+      }
+      const newId = result.data[0].rid;
+      cfg = (await this.bridge.api('GET', `/resource/entertainment_configuration/${newId}`)).data[0];
+      console.log(`created entertainment config: ${newId}`);
+    }
+
+    // Order the streamers to match the config's channel order.
+    const cfgStreamers = cfg.channels.map(ch => {
+      const entId = ch.members[0]?.service?.rid;
+      return streamers.find(s => s.entId === entId) || { entId, lightId: null, name: '?', room: '' };
     });
-    const body = {
-      type: 'entertainment_configuration',
-      metadata: { name: CONFIG_NAME },
-      configuration_type: '3dspace',
-      locations: {
-        service_locations: withPos.map(w => ({
-          service: { rid: w.s.entId, rtype: 'entertainment' },
-          positions: [w.pos],
-          equalization_factor: 1,
-        })),
-      },
-    };
-    const result = await api('POST', '/resource/entertainment_configuration', body);
-    if (result.errors?.length) {
-      console.error('config create failed:', JSON.stringify(result.errors, null, 2));
-      process.exit(1);
-    }
-    const newId = result.data[0].rid;
-    cfg = (await api('GET', `/resource/entertainment_configuration/${newId}`)).data[0];
-    console.log(`created entertainment config: ${newId}`);
+
+    return { cfg, streamers: cfgStreamers };
   }
 
-  // Filter streamers to only the lights actually in this config's channels
-  const cfgEntIds = new Set();
-  for (const ch of cfg.channels) {
-    for (const member of ch.members) {
-      cfgEntIds.add(member.service.rid);
+  // Flip the config to "active" (a fresh activate every time — the bridge needs
+  // it right before DTLS). Polls until the bridge confirms, then settles.
+  async activate(cfgId) {
+    const check = await this.bridge.api('GET', `/resource/entertainment_configuration/${cfgId}`);
+    if (check.data?.[0]?.status === 'active') {
+      console.log('[activate] stopping first for fresh activation...');
+      await this.bridge.api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'stop' });
+      await new Promise(r => setTimeout(r, ACTIVATE_RESTART_SETTLE_MS));
     }
+    const result = await this.bridge.api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'start' });
+    if (result.errors?.length) throw new Error('activate: ' + JSON.stringify(result.errors));
+    for (let i = 0; i < ACTIVATE_MAX_POLLS; i++) {
+      await new Promise(r => setTimeout(r, ACTIVATE_POLL_MS));
+      const cur = await this.bridge.api('GET', `/resource/entertainment_configuration/${cfgId}`);
+      if (cur.data?.[0]?.status === 'active') {
+        await new Promise(r => setTimeout(r, ACTIVATE_PRE_DTLS_SETTLE_MS));
+        return;
+      }
+    }
+    throw new Error('activate: bridge never reported active');
   }
 
-  // Build ordered list matching channel order
-  const cfgStreamers = cfg.channels.map(ch => {
-    const entId = ch.members[0]?.service?.rid;
-    return streamers.find(s => s.entId === entId) || { entId, lightId: null, name: '?', room: '' };
-  });
-
-  return { cfg, streamers: cfgStreamers };
+  // Stop the streaming session (best-effort — must never leave it active).
+  async deactivate(cfgId) {
+    try { await this.bridge.api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'stop' }); }
+    catch { /* best-effort */ }
+  }
 }
 
-async function activate(cfgId) {
-  // Always do a fresh activate — bridge needs it right before DTLS
-  const check = await api('GET', `/resource/entertainment_configuration/${cfgId}`);
-  if (check.data?.[0]?.status === 'active') {
-    console.log('[activate] stopping first for fresh activation...');
-    await api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'stop' });
-    await new Promise(r => setTimeout(r, 1000));
-  }
-  const result = await api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'start' });
-  if (result.errors?.length) throw new Error('activate: ' + JSON.stringify(result.errors));
-  for (let i = 0; i < 20; i++) {
-    await new Promise(r => setTimeout(r, 150));
-    const cur = await api('GET', `/resource/entertainment_configuration/${cfgId}`);
-    if (cur.data?.[0]?.status === 'active') {
-      await new Promise(r => setTimeout(r, 2000));  // let bridge settle before DTLS
-      return;
-    }
-  }
-  throw new Error('activate: bridge never reported active');
-}
-
-async function deactivate(cfgId) {
-  try { await api('PUT', `/resource/entertainment_configuration/${cfgId}`, { action: 'stop' }); }
-  catch (e) { /* best-effort */ }
-}
+const entConfig = new EntertainmentConfig(bridge, CONFIG_NAME, EXCLUDE_ROOMS);
+// Compatibility aliases — existing callers (cmdFlash, cmdDaemon, cmdRun, cmdStop)
+// keep calling these free functions unchanged.
+const ensureConfig = () => entConfig.ensure();
+const activate = (cfgId) => entConfig.activate(cfgId);
+const deactivate = (cfgId) => entConfig.deactivate(cfgId);
 
 // Capture the exact live state of the given lights *before* entertainment
 // hijacks them. The bridge's own restore-on-deactivate is unreliable — it
