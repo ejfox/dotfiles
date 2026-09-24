@@ -78,6 +78,7 @@
 (zsh) jcurl <url> - curl URL and pretty-print JSON
 (zsh) catcopy - cat file and copy to clipboard
 (zsh) showcase - open code showcase with clipboard content
+(zsh) name-recordings [dir] - OCR-identify screen recordings (macOS Vision, no API tokens) + rename to YYYY-MM-DD-HHMM-slug.mov; dry-run by default, --apply to rename, --llm for local-Qwen slugs
 (zsh) uvi <tool> - install Python CLI tool
 (zsh) uvr <file> - run Python file in isolated env
 (zsh) uvs - sync dependencies
