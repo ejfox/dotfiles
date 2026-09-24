@@ -1,0 +1,3 @@
+#!/bin/zsh
+# stream-clipper: turn a recording into captioned 9:16 Shorts
+exec python3 "$HOME/code/stream-clipper/clip.py" "$@"

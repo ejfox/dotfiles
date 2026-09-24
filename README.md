@@ -2,7 +2,7 @@
 
 Terminal-first development environment optimized for speed-of-thought computing. Everything is fuzzy-searchable, keyboard-driven, voice-controllable, and wired into ambient lighting, a Windows GPU box, and a wall of custom telemetry. It is designed to get out of your way — and occasionally to glow pink at you.
 
-This is a big config. 383 tracked files, 66 scripts, a Rust cheatsheet TUI, 24 Neovim plugin configs, a voice-control layer, an ambient-lighting protocol, and a persistent-model art wall. The README is long on purpose; use the table of contents.
+This is a big config. 383 tracked files, 75 scripts, a Rust cheatsheet TUI, 24 Neovim plugin configs, a voice-control layer, an ambient-lighting protocol, and a persistent-model art wall. The README is long on purpose; use the table of contents.
 
 **Three ways to read this:**
 - **New Mac?** Start at [Quick Start](#quick-start-new-mac) and follow the setup.
@@ -288,7 +288,7 @@ remote next/prev/... (Ctrl-B prefix)                     Nested/remote tmux
 │   ├── claude/ zsh/        # Claude Code statusline + zsh themes
 │   ├── minimal-prompt.zsh  # Minimal prompt matching tmux/nvim aesthetic
 │   └── cheatsheet.html     # Generated cheatsheet panel (from cheatsheet.toml)
-├── bin/                    # 66 custom scripts (see tables below)
+├── bin/                    # 75 custom scripts (see tables below)
 ├── lib/                    # Shared libraries (usage logging, pixel kit, music-cli)
 ├── cheatsheet/             # Rust/ratatui cheatsheet TUI — SINGLE source of truth
 ├── hue-stream/             # Hue Entertainment daemon + PC RGB sync
@@ -479,7 +479,7 @@ Layout (left → right):
 
 ## Custom Scripts (bin/)
 
-66 scripts on PATH. Run any directly. `robots` symlinks to the Rust binary in `~/.cargo/bin`. Full list: `ls ~/.dotfiles/bin/`.
+75 scripts on PATH. Run any directly. `robots` symlinks to the Rust binary in `~/.cargo/bin`. Full list: `ls ~/.dotfiles/bin/`.
 
 **AI / CIPHER / fleet**
 | Script | Does |
@@ -501,6 +501,7 @@ Layout (left → right):
 | `muse-arena` / `muse-cloudinary` | Gather visual inspiration for the art wall |
 | `muse-ingredients` / `muse-brainstorm` | Build prompts from Obsidian motifs (`--trace` shows provenance) |
 | `muse-vision` / `muse-push` | Local VLM critique / push screen + notes to the wall |
+| `pcshot` | Screenshot the PC's interactive desktop → downscaled 1920px JPEG (readable at vision limits) |
 
 **Lights / display / desk**
 | Script | Does |
@@ -542,6 +543,7 @@ Layout (left → right):
 | `tmux-scratch-toggle` / `tmux-project-layout` | Scratch popup / recreate a project's pane layout |
 | `obs` / `pub` / `send-to-canvas` | Obsidian utils / publishing / send to Canvas |
 | `music` | Music helper |
+| `clip` | Turn a recording into captioned 9:16 Shorts (wraps `~/code/stream-clipper`) |
 | `cheatsheets` | Open HTML cheatsheets in Safari |
 | `playtest-subway` | Subway Builder playtest launcher |
 | `vps` | VPS connection utility |

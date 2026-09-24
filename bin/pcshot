@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# pcshot — screenshot computah (the Windows PC), downscaled to 1920px wide JPEG
+# so it's readable without hitting vision resolution limits.
+#
+# Captures from the INTERACTIVE session via a scheduled task (LogonType
+# Interactive) — a plain SSH capture runs in session 0 (no desktop) and returns
+# blank white. Requires a logged-on desktop session on the PC.
+#
+#   pcshot            → primary monitor → /tmp/pcshot.jpg
+#   pcshot -w 1280    → cap width at 1280
+#   pcshot -o foo.jpg → write elsewhere
+set -uo pipefail
+REMOTE=ejfox; LAN=10.0.0.169; TS=100.106.221.70
+ping -c1 -t1 "$LAN" >/dev/null 2>&1 && HOST="$LAN" || HOST="$TS"
+CM=/tmp/cm-computah-pcshot
+SSH=(ssh -o ControlMaster=auto -o ControlPath="$CM" -o ControlPersist=120 -o ConnectTimeout=8)
+SCP=(scp -o ControlPath="$CM" -q)
+
+WIDTH=1920; OUT=/tmp/pcshot.jpg
+while [ $# -gt 0 ]; do case "$1" in
+  -w) WIDTH="$2"; shift;; -o) OUT="$2"; shift;;
+  *) echo "usage: pcshot [-w WIDTH] [-o OUT.jpg]" >&2; exit 1;; esac; shift; done
+
+# ensure the capture script + interactive task exist (idempotent, first run only)
+"${SSH[@]}" "$REMOTE@$HOST" "powershell -NoProfile -Command \"if(!(Test-Path C:\\Users\\ejfox\\pcshot-grab.ps1)){Set-Content C:\\Users\\ejfox\\pcshot-grab.ps1 'Add-Type -AssemblyName System.Windows.Forms,System.Drawing; \$s=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; \$b=New-Object System.Drawing.Bitmap \$s.Width,\$s.Height; \$g=[System.Drawing.Graphics]::FromImage(\$b); \$g.CopyFromScreen(\$s.Location,[System.Drawing.Point]::Empty,\$s.Size); \$b.Save((Join-Path \$env:USERPROFILE ''pcshot.png'')); \$g.Dispose(); \$b.Dispose()'}; if(!(Get-ScheduledTask -TaskName pcshot-grab -EA SilentlyContinue)){\$a=New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\ejfox\\pcshot-grab.ps1'; \$p=New-ScheduledTaskPrincipal -UserId \$env:USERNAME -LogonType Interactive; Register-ScheduledTask -TaskName pcshot-grab -Action \$a -Principal \$p -Force | Out-Null}\"" >/dev/null 2>&1
+
+# fire the capture in the interactive session, wait, pull
+"${SSH[@]}" "$REMOTE@$HOST" "powershell -NoProfile -Command \"Start-ScheduledTask -TaskName pcshot-grab; Start-Sleep 3\"" >/dev/null 2>&1
+TMP=$(mktemp /tmp/pcshot-raw.XXXX.png)
+"${SCP[@]}" "$REMOTE@$HOST:pcshot.png" "$TMP" 2>/dev/null || { echo "pcshot: pull failed (PC unreachable?)" >&2; exit 1; }
+sips -s format jpeg -Z "$WIDTH" "$TMP" --out "$OUT" >/dev/null 2>&1
+rm -f "$TMP"
+DIM=$(sips -g pixelWidth -g pixelHeight "$OUT" 2>/dev/null | awk '/pixel/{print $2}' | paste -sd× -)
+echo "$OUT  ($DIM)"
