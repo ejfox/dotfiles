@@ -32,8 +32,13 @@ STAGED_FILES=$(git diff --cached --name-only | wc -l | xargs)
 
 echo -e "${YELLOW}◆ Analyzing ${STAGED_FILES} staged file(s) on branch '${BRANCH}'...${NC}" >&2
 
-# Generate commit messages using Claude
-MESSAGES=$(claude -p --output-format text <<EOF
+# Build the prompt once, then pick a "brain":
+#   • computah's local Qwen3 if it's ALREADY held on :8085 (free / private / fast)
+#   • else Claude — the default, and the automatic fallback when computah is
+#     off / asleep / gaming. gpu-llm never auto-starts the PC LLM and short-
+#     circuits with ZERO network calls when the PC is dark, so this path NEVER
+#     hangs or breaks — it just quietly uses Claude like before.
+PROMPT=$(cat <<EOF
 You are a commit message generator. Analyze the context below and generate exactly 3 conventional commit messages.
 
 BRANCH: ${BRANCH}
@@ -71,8 +76,19 @@ Think about WHAT changed and WHY (not HOW). Consider the business value.
 EOF
 )
 
-# Check if Claude CLI succeeded
-if [ $? -ne 0 ] || [ -z "$MESSAGES" ]; then
+MESSAGES=""
+# Try the local GPU brain only if it's held and reachable (never auto-starts it).
+if command -v gpu-llm >/dev/null 2>&1 && gpu-llm check 2>/dev/null; then
+    MESSAGES=$(printf '%s' "$PROMPT" | gpu-llm chat 300 2>/dev/null) || true
+    [ -n "$MESSAGES" ] && echo -e "${GREEN}◆ via computah Qwen3 (local)${NC}" >&2
+fi
+# Fallback (and default): Claude. Always works, including when computah is off.
+if [ -z "$MESSAGES" ]; then
+    MESSAGES=$(claude -p --output-format text <<<"$PROMPT") || true
+fi
+
+# Check that some engine produced messages
+if [ -z "$MESSAGES" ]; then
     echo -e "${RED}Error: Failed to generate commit messages${NC}" >&2
     exit 1
 fi

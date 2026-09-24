@@ -104,6 +104,17 @@ sketchybar --add item battery right \
   script="$PLUGIN_DIR/battery.sh" \
   click_script="pmset -g batt"
 
+##### computah cockpit ##### (Windows muscle-machine vitals; cache written by `computah-probe`)
+# 󰤄 moon dim = asleep (click wakes it) · 󰢹 tower muted = idle · 󰢹 amber = busy (shows GPU%).
+# Click when up = notification with full vitals. Renders from cache, never blocks the bar on SSH.
+sketchybar --add item computah right \
+  --set computah update_freq=30 \
+  updates=on \
+  icon.font="$NERD_FONT:Regular:$SIZE_ICON" \
+  label.font="$FONT:Regular:$SIZE_DATA" \
+  script="$PLUGIN_DIR/computah.sh" \
+  --subscribe computah system_woke mouse.clicked
+
 ##### Creative Nudges: 4-week dot matrices (hidden when Focus is on) #####
 # posts (blog) sits right of demos (~/demos). Each dot = shipped at least one that week.
 # Rightmost dot = this week (○ when empty). Icons: 󰕧 video camera, 󰎞 document.

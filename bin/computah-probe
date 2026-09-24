@@ -1,0 +1,84 @@
+#!/bin/bash
+# computah-probe — gather computah's vitals into a cache file for the sketchybar
+# cockpit widget. Mac-side checks are instant; one SSH call grabs PC-internal
+# stats only when reachable. Never blocks longer than the SSH ConnectTimeout.
+#
+# Writes key=val lines to ~/.cache/computah/status. State machine:
+#   down  — unreachable (asleep / off)
+#   busy  — a GPU job is running (render/blender/flux) or GPU load is high
+#   idle  — up and quiet
+set -u
+
+LAN_IP=10.0.0.169
+TS_IP=100.106.221.70
+USER_REMOTE=ejfox
+CACHE_DIR="$HOME/.cache/computah"
+CACHE="$CACHE_DIR/status"
+mkdir -p "$CACHE_DIR"
+
+now=$(date +%s)
+
+# --- pick a route (LAN preferred, Tailscale fallback), fast ---
+via="-"; host=""
+if nc -z -G 1 "$LAN_IP" 22 2>/dev/null; then via="LAN"; host="$LAN_IP"
+elif nc -z -G 2 "$TS_IP" 22 2>/dev/null; then via="TS"; host="$TS_IP"; fi
+
+if [ -z "$host" ]; then
+  # unreachable → asleep/off. Preserve nothing PC-internal.
+  cat > "$CACHE" <<EOF
+state=down
+ts=$now
+via=-
+EOF
+  exit 0
+fi
+
+# --- mac-side checks (instant) ---
+deskflow="idle"
+lsof -nP -iTCP:24800 2>/dev/null | grep -qi established && deskflow="connected"
+vban="down"; pgrep -x "VBAN Receptor" >/dev/null 2>&1 && vban="up"
+llm="down"
+[ "$(curl -s -m2 -o /dev/null -w '%{http_code}' "http://$host:8085/v1/models" 2>/dev/null)" = "200" ] && llm="up"
+preview="down"
+[ "$(curl -s -m2 -o /dev/null -w '%{http_code}' "http://$host:7861/wall.html" 2>/dev/null)" = "200" ] && preview="up"
+
+# --- one SSH call for PC-internal stats ---
+PS='$cpu=(Get-CimInstance Win32_Processor).LoadPercentage
+$diskC=[math]::Round((Get-PSDrive C).Free/1GB)
+$busy=@(Get-Process ffmpeg,blender,sd-cli -EA SilentlyContinue).Count
+$komo=[bool](Get-Process komorebi -EA SilentlyContinue)
+$vm=[bool](Get-Process voicemeeter* -EA SilentlyContinue)
+$gpu=0; try{ $s=(Get-Counter "\GPU Engine(*engtype_3D)\Utilization Percentage" -EA Stop).CounterSamples; $gpu=[math]::Round(($s|Measure-Object CookedValue -Sum).Sum) }catch{ $gpu=-1 }
+"cpu=$cpu gpu=$gpu diskC=$diskC busy=$busy komo=$komo vm=$vm"'
+ENC=$(printf '%s' "$PS" | iconv -f UTF-8 -t UTF-16LE | base64)
+stats=$(ssh -o ConnectTimeout=6 -o BatchMode=yes "$USER_REMOTE@$host" "powershell -NoProfile -EncodedCommand $ENC" 2>/dev/null | tr -cd '[:print:]\n' | grep -E '^cpu=')
+
+cpu=""; gpu=""; disk=""; busy="0"; komo="False"; vm="False"
+if [ -n "$stats" ]; then
+  for kv in $stats; do case "$kv" in
+    cpu=*) cpu="${kv#cpu=}";; gpu=*) gpu="${kv#gpu=}";; diskC=*) disk="${kv#diskC=}";;
+    busy=*) busy="${kv#busy=}";; komo=*) komo="${kv#komo=}";; vm=*) vm="${kv#vm=}";;
+  esac; done
+fi
+
+# --- derive state ---
+state="idle"
+if [ "${busy:-0}" -gt 0 ] 2>/dev/null; then state="busy"; fi
+if [ -n "$gpu" ] && [ "$gpu" != "-1" ] && [ "$gpu" -ge 50 ] 2>/dev/null; then state="busy"; fi
+
+cat > "$CACHE" <<EOF
+state=$state
+ts=$now
+via=$via
+host=$host
+cpu=${cpu:-?}
+gpu=${gpu:-?}
+disk=${disk:-?}
+busy=${busy:-0}
+komo=$komo
+vm=$vm
+deskflow=$deskflow
+llm=$llm
+preview=$preview
+vban=$vban
+EOF

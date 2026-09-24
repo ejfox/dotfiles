@@ -1,0 +1,77 @@
+#!/bin/bash
+# gpu-llm — safe bridge to computah's local Qwen3 (:8085, OpenAI-compatible).
+#
+# CORE RULE: computah is an OPTIONAL accelerator, never a dependency.
+#   • Uses the LLM ONLY if it's ALREADY listening on :8085 (a held session).
+#   • NEVER auto-starts it (that would pause the muse-wall / steal the GPU) —
+#     use `computah llm on` yourself when you want a local-LLM session.
+#   • When computah is off/asleep this exits fast with ZERO network calls
+#     (reads the cockpit cache), so callers fall back instantly. Nothing breaks.
+#
+# Usage:
+#   gpu-llm check                 → exit 0 if the local LLM is usable right now
+#   gpu-llm chat [max_tokens]     → prompt on stdin, completion on stdout
+#                                   (nonzero + nothing on stdout if unavailable)
+set -u
+
+LAN_IP=10.0.0.169
+CACHE="$HOME/.cache/computah/status"
+
+# Cache-first resolution: read the cockpit cache once (host/state/llm/freshness).
+# Sets globals _HOST, _STATE, _LLM, _FRESH so callers avoid needless network.
+_read_cache() {
+  _HOST="$LAN_IP"; _STATE=""; _LLM=""; _FRESH=0
+  [ -f "$CACHE" ] || return 0
+  local ts=0 k v
+  while IFS='=' read -r k v; do case "$k" in
+    state) _STATE=$v;; host) _HOST=${v:-$LAN_IP};; llm) _LLM=$v;; ts) ts=$v;; esac; done < "$CACHE"
+  [ -n "$ts" ] && [ "$(( $(date +%s) - ts ))" -lt 180 ] && _FRESH=1
+}
+
+_llm_up() {   # 0 if the local LLM is usable, leaning on the cache to stay fast
+  _read_cache
+  # fresh cache is authoritative for the cheap negatives → ZERO network:
+  if [ "$_FRESH" = 1 ]; then
+    [ "$_STATE" = "down" ] && return 1     # PC off/asleep
+    [ "$_LLM" = "down" ]  && return 1     # PC up but LLM not held (common case)
+  fi
+  # cache says up (or is stale) → one short confirm curl
+  [ "$(curl -s -m2 -o /dev/null -w '%{http_code}' "http://$_HOST:8085/health" 2>/dev/null)" = "200" ]
+}
+
+case "${1:-check}" in
+  check)
+    _llm_up
+    ;;
+  host)
+    _read_cache; echo "$_HOST"
+    ;;
+  chat)
+    _llm_up || exit 1               # also resolves _HOST and confirms availability
+    prompt=$(cat)
+    [ -n "$prompt" ] || exit 1
+    MAXTOK="${2:-1024}" HOST="$_HOST" PROMPT="$prompt" python3 - <<'PYEOF'
+import json, os, sys, urllib.request
+body = json.dumps({
+    "messages": [{"role": "user", "content": os.environ["PROMPT"]}],
+    "max_tokens": int(os.environ.get("MAXTOK", "1024")),
+    "temperature": 0.4,
+    "chat_template_kwargs": {"enable_thinking": False},
+}).encode()
+req = urllib.request.Request(
+    f"http://{os.environ['HOST']}:8085/v1/chat/completions",
+    body, {"Content-Type": "application/json"})
+try:
+    r = json.load(urllib.request.urlopen(req, timeout=60))
+    out = r["choices"][0]["message"]["content"].strip()
+    if not out:
+        sys.exit(1)
+    print(out)
+except Exception:
+    sys.exit(1)          # any failure → silent; caller falls back
+PYEOF
+    ;;
+  *)
+    echo "usage: gpu-llm {check|chat [max_tokens]|host}" >&2; exit 2
+    ;;
+esac
