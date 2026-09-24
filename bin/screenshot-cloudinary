@@ -154,6 +154,17 @@ upload_one() {
   # Skip if we've already uploaded this exact path.
   grep -Fqx "$file" "$STATE" && return 0
 
+  # Size guard: Cloudinary's simple upload endpoint 413s on files >100MB. Big
+  # screen recordings aren't worth chunk-uploading — skip them, but RECORD the
+  # path so WatchPaths re-fires don't retry (and re-413) on every dir change.
+  local max_mb="${SCREENSHOT_MAX_MB:-100}" bytes
+  bytes=$(stat -f%z "$file" 2>/dev/null || echo 0)
+  if [ "$bytes" -gt $(( max_mb * 1024 * 1024 )) ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null) SKIP $(basename "$file") too large ($(( bytes / 1024 / 1024 ))MB > ${max_mb}MB)" >&2
+    echo "$file" >> "$STATE"
+    return 0
+  fi
+
   # Videos can take a while to finish writing; wait until the size is stable.
   if [ "$rtype" = "video" ]; then
     local s1 s2
