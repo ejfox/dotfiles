@@ -1,22 +1,117 @@
 #!/bin/bash
-# Rhizome node: runs on the Mac (LaunchAgent) while it's awake. Pushes the
-# current screen + a digest of recent Obsidian notes to the always-on PC brain
-# so it can ground art in what you're doing. Skips silently if the PC is off.
-# The PC coasts on Cloudinary/Mastodon when these files go stale.
+# Rhizome node: runs on the Mac (LaunchAgent) while it's awake. Pushes a
+# content-rich WINDOW from the current screen + a digest of recent Obsidian
+# notes to the always-on PC brain so it can ground art in what you're doing.
+# Skips silently if the PC is off. The PC coasts on Cloudinary/Mastodon when
+# these files go stale.
+#
+# Seed strategy (2026-09): a full-screen grab is useless here — EJ's whole
+# environment is OLED-black, so screencapture returns a ~pure-black frame that
+# gives FLUX img2img nothing. Instead we pick a SPECIFIC interesting window
+# (browser / Obsidian / Photos / OBS / design tools), blacklist boring/blank/
+# private apps (terminals, Mail, Messages, system chrome), and reject any grab
+# that's too dark or too flat. A real window seeds img2img with real structure.
 set +e
 PC=10.0.0.169
 DST="ejfox@$PC:farm/sd"
 nc -z -G 2 "$PC" 22 2>/dev/null || exit 0   # PC off → nothing to push
 
-# 1. screen (downscaled; the PC blurs further before img2img)
-if command -v screencapture >/dev/null 2>&1; then
-  if screencapture -x -t png -D 1 /tmp/muse-push.png 2>/dev/null && [ -s /tmp/muse-push.png ]; then
-    sips -Z 1280 /tmp/muse-push.png --out /tmp/muse-push-sm.png >/dev/null 2>&1
-    scp -q /tmp/muse-push-sm.png "$DST/pushed-screen.png" 2>/dev/null
-  fi
+# Quartz + PIL live only in the homebrew python (Intel: /usr/local/bin);
+# under launchd a bare `python3` is /usr/bin/python3 which has neither.
+PY=/usr/local/bin/python3
+[ -x "$PY" ] || PY=/opt/homebrew/bin/python3
+[ -x "$PY" ] || PY=python3
+
+# 1. pick + capture a content-rich window (downscaled; PC blurs before img2img)
+if "$PY" - <<'PY' 2>>/tmp/muse-push.err
+import subprocess, sys, os, random
+try:
+    import Quartz
+    from PIL import Image, ImageStat
+except Exception as e:
+    print("muse-push: no Quartz/PIL:", e, file=sys.stderr); sys.exit(3)
+
+OUT = "/tmp/muse-push-sm.png"
+MIN_AREA = 600 * 400          # ignore tiny palettes/HUDs
+MIN_MEAN, MAX_MEAN = 10, 250  # reject near-black and blown-out white
+MIN_STDDEV = 12               # reject flat/blank (uniform) grabs
+
+# Boring, blank, or private — never seed art from these.
+BLACK = {
+    "ghostty","terminal","iterm2","alacritty","kitty","wezterm","warp",
+    "mail","messages","signal","whatsapp","discord","slack","telegram","facetime",
+    "1password","1password 7 - password manager","keychain access",
+    "finder","system settings","system preferences","control center",
+    "notification center","window server","dock","screenshot","screencaptureui",
+    "screen sharing","tailscale","deskflow","vban receptor","vban receptor x",
+    "activity monitor","loginwindow","spotlight","universalcontrol","wallpaper",
+}
+# Visually rich — prefer these when present.
+WHITE = {
+    "safari","google chrome","chrome","arc","firefox","brave browser","microsoft edge",
+    "obsidian","preview","photos","pixelmator pro","figma","sketch","affinity photo",
+    "affinity designer","adobe photoshop","obs studio","blender","final cut pro",
+    "davinci resolve","adobe premiere pro","maps","google earth pro","quicktime player",
+    "vlc","iina","mpv","xcode","spotify","music","cleanshot x",
+}
+
+opts = (Quartz.kCGWindowListOptionOnScreenOnly
+        | Quartz.kCGWindowListExcludeDesktopElements)
+wins = Quartz.CGWindowListCopyWindowInfo(opts, Quartz.kCGNullWindowID)
+
+cands = []
+for w in wins:
+    if w.get("kCGWindowLayer") != 0:          # skip menubar/dock/notifications/HUDs
+        continue
+    owner = (w.get("kCGWindowOwnerName") or "").strip()
+    b = w.get("kCGWindowBounds", {})
+    area = int(b.get("Width", 0)) * int(b.get("Height", 0))
+    wid = w.get("kCGWindowNumber")
+    if not owner or wid is None or area < MIN_AREA:
+        continue
+    if owner.lower() in BLACK:
+        continue
+    cands.append((owner, wid, area))
+
+# Prefer whitelisted windows; fall back to any eligible. Shuffle for variety
+# (ambient wall wants change), but bias toward larger windows.
+pref = [c for c in cands if c[0].lower() in WHITE]
+pool = pref if pref else cands
+random.shuffle(pool)
+pool.sort(key=lambda c: c[2], reverse=True)   # stable-ish: big first, shuffled within
+# take a few big ones, then randomize order so it's not always the same window
+pool = pool[:6]; random.shuffle(pool)
+
+for owner, wid, area in pool:
+    tmp = "/tmp/muse-push-raw.png"
+    r = subprocess.run(["screencapture", f"-l{wid}", "-x", "-o", "-t", "png", tmp],
+                       capture_output=True)
+    if r.returncode != 0 or not os.path.exists(tmp) or os.path.getsize(tmp) == 0:
+        continue
+    try:
+        g = Image.open(tmp).convert("L")
+        st = ImageStat.Stat(g)
+        mean, std = st.mean[0], (st.stddev[0] if st.stddev else 0)
+    except Exception:
+        continue
+    if not (MIN_MEAN <= mean <= MAX_MEAN) or std < MIN_STDDEV:
+        print(f"muse-push: skip {owner} (mean={mean:.0f} std={std:.0f})", file=sys.stderr)
+        continue
+    im = Image.open(tmp).convert("RGB")
+    im.thumbnail((1280, 1280))
+    im.save(OUT)
+    print(f"muse-push: seeded from {owner} (mean={mean:.0f} std={std:.0f})", file=sys.stderr)
+    sys.exit(0)
+
+print("muse-push: no content-rich window found — not pushing a seed", file=sys.stderr)
+sys.exit(1)
+PY
+then
+  scp -q /tmp/muse-push-sm.png "$DST/pushed-screen.png" 2>/dev/null
 fi
 
-# 2. recent Obsidian notes digest (both vaults, newest first)
+# 2. recent Obsidian notes digest (both vaults, newest first). Skip MOC index
+#    files — they're just link-lists with no imagery; prefer notes with content.
 python3 - <<'PY' > /tmp/muse-push-notes.txt 2>/dev/null
 import glob, os, re
 H=os.path.expanduser("~")
@@ -26,12 +121,18 @@ fs=[]
 for v in V: fs+=glob.glob(f"{v}/**/*.md", recursive=True)
 fs=[f for f in fs if os.path.isfile(f)]
 fs.sort(key=lambda f: os.path.getmtime(f), reverse=True)
-for f in fs[:12]:
+n=0
+for f in fs:
+    base=os.path.splitext(os.path.basename(f))[0]
+    if base.startswith("MOC - ") or base in ("INDEX","HOME"):   # skip index/nav notes
+        continue
     try: t=open(f,encoding="utf-8",errors="ignore").read()
     except Exception: continue
     t=re.sub(r"^---.*?---","",t,flags=re.S); t=re.sub(r"[#*`>\[\]]"," ",t)
     w=" ".join(t.split())[:300]
-    if w: print(f"- {os.path.splitext(os.path.basename(f))[0]}: {w}")
+    if w:
+        print(f"- {base}: {w}"); n+=1
+    if n>=12: break
 PY
 [ -s /tmp/muse-push-notes.txt ] && scp -q /tmp/muse-push-notes.txt "$DST/pushed-notes.txt" 2>/dev/null
 exit 0
