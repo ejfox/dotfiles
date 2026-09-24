@@ -470,3 +470,42 @@ function cheatsheetToggle() -- global on purpose: reachable via `hs -c`
 end
 
 hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display + autoplace", 2)
+
+-- ============================================================================
+-- MIDI window control — Midi Fighter 3D arcade buttons → windowSnap.
+-- Additive & fully self-contained; the whole block is pcall-guarded so a MIDI
+-- failure can NEVER break the window-snap / Karabiner / autoplace logic above.
+-- CoreMIDI is multi-client, so this coexists with obs-midi-mg: one button press
+-- snaps the focused window HERE and switches the OBS scene THERE, simultaneously.
+-- Buttons are MIDI ch3, notes 36-51 (see ~/code/stream-overlays/midifighter/).
+-- ============================================================================
+midiWindowDevice = nil  -- global so a reload can replace, not leak, the listener
+local okMidi = pcall(function()
+  local DEVICE_MATCH = "Fighter"                       -- "Midi Fighter 3D" / "Spectra"
+  local NOTE_TO_DIR  = { [42] = "left", [38] = "right" } -- row3 col3/col4 → half-screen snap
+
+  local function onMidi(_, _, commandType, _, metadata)
+    if commandType ~= "noteOn" or not metadata then return end
+    if (metadata.velocity or 0) == 0 then return end   -- press only (note-off arrives as vel 0)
+    local dir = NOTE_TO_DIR[metadata.note]
+    if dir then pcall(windowSnap, dir) end
+  end
+
+  local function attach()
+    for _, name in ipairs(hs.midi.devices() or {}) do
+      if name:find(DEVICE_MATCH) then
+        if midiWindowDevice then midiWindowDevice:callback(nil) end
+        midiWindowDevice = hs.midi.new(name)
+        if midiWindowDevice then
+          midiWindowDevice:callback(onMidi)
+          hs.printf("[midi-window] attached to '%s' (42→left, 38→right)", name)
+        end
+        return
+      end
+    end
+  end
+
+  attach()                                             -- attach now if already plugged in
+  hs.midi.deviceCallback(function() pcall(attach) end) -- and re-attach on hot-plug
+end)
+if not okMidi then hs.printf("[midi-window] init failed (hs.midi unavailable?)") end
