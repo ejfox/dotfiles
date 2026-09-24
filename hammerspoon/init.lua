@@ -482,7 +482,7 @@ hs.alert.show("hammerspoon loaded · window snap (⌥Space) + cross-display + au
 midiWindowDevice = nil  -- global so a reload can replace, not leak, the listener
 local okMidi = pcall(function()
   local DEVICE_MATCH = "Fighter"                       -- "Midi Fighter 3D" / "Spectra"
-  local NOTE_TO_DIR  = { [42] = "left", [38] = "right" } -- row3 col3/col4 → half-screen snap
+  local NOTE_TO_DIR  = { [42] = "left", [43] = "right" } -- row3 col3/col4 → half-screen snap (real layout)
 
   local function onMidi(_, _, commandType, _, metadata)
     if commandType ~= "noteOn" or not metadata then return end
