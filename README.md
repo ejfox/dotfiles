@@ -2,7 +2,7 @@
 
 Terminal-first development environment optimized for speed-of-thought computing. Everything is fuzzy-searchable, keyboard-driven, voice-controllable, and wired into ambient lighting, a Windows GPU box, and a wall of custom telemetry. It is designed to get out of your way — and occasionally to glow pink at you.
 
-This is a big config. 383 tracked files, 75 scripts, a Rust cheatsheet TUI, 24 Neovim plugin configs, a voice-control layer, an ambient-lighting protocol, and a persistent-model art wall. The README is long on purpose; use the table of contents.
+This is a big config. 383 tracked files, 76 scripts, a Rust cheatsheet TUI, 24 Neovim plugin configs, a voice-control layer, an ambient-lighting protocol, and a persistent-model art wall. The README is long on purpose; use the table of contents.
 
 **Three ways to read this:**
 - **New Mac?** Start at [Quick Start](#quick-start-new-mac) and follow the setup.
@@ -288,7 +288,7 @@ remote next/prev/... (Ctrl-B prefix)                     Nested/remote tmux
 │   ├── claude/ zsh/        # Claude Code statusline + zsh themes
 │   ├── minimal-prompt.zsh  # Minimal prompt matching tmux/nvim aesthetic
 │   └── cheatsheet.html     # Generated cheatsheet panel (from cheatsheet.toml)
-├── bin/                    # 75 custom scripts (see tables below)
+├── bin/                    # 76 custom scripts (see tables below)
 ├── lib/                    # Shared libraries (usage logging, pixel kit, music-cli)
 ├── cheatsheet/             # Rust/ratatui cheatsheet TUI — SINGLE source of truth
 ├── hue-stream/             # Hue Entertainment daemon + PC RGB sync
@@ -479,7 +479,7 @@ Layout (left → right):
 
 ## Custom Scripts (bin/)
 
-75 scripts on PATH. Run any directly. `robots` symlinks to the Rust binary in `~/.cargo/bin`. Full list: `ls ~/.dotfiles/bin/`.
+76 scripts on PATH. Run any directly. `robots` symlinks to the Rust binary in `~/.cargo/bin`. Full list: `ls ~/.dotfiles/bin/`.
 
 **AI / CIPHER / fleet**
 | Script | Does |
@@ -544,6 +544,7 @@ Layout (left → right):
 | `obs` / `pub` / `send-to-canvas` | Obsidian utils / publishing / send to Canvas |
 | `music` | Music helper |
 | `clip` | Turn a recording into captioned 9:16 Shorts (wraps `~/code/stream-clipper`) |
+| `name-recordings` | OCR-identify screen recordings (ffmpeg + macOS Vision, zero API tokens) → rename to `YYYY-MM-DD-HHMM-<slug>.mov`; `--apply`, `--llm` (local Qwen slugs) |
 | `cheatsheets` | Open HTML cheatsheets in Safari |
 | `playtest-subway` | Subway Builder playtest launcher |
 | `vps` | VPS connection utility |
