@@ -354,7 +354,6 @@ body = [
   { k = "]H / [H", d = "first / last hunk" },
   { k = "]d / [d", d = "diagnostic" },
   { k = "]x / [x", d = "merge conflict" },
-  { k = "]s / [s", d = "copilot suggestion" },
   { k = "]q / [q", d = "quickfix" },
   { n = '*]* forward   *[* back   always' },
 ]
@@ -378,18 +377,18 @@ body = [
 tone = ""
 tool = "nvim"
 badge = "nvim"
-title = "Copilot — Ghost Text"
+title = "Copilot — Ghost Text + Next Edit"
 open = true
 body = [
-  { k = "Tab", d = "accept suggestion", hl = true },
+  { k = "Tab", d = "accept suggestion / next edit", hl = true },
   { k = "C-→", d = "accept word" },
   { k = "C-l", d = "accept line" },
-  { k = "C-]", d = "dismiss" },
-  { k = "]s / [s", d = "cycle suggestions" },
+  { k = "M-] / M-[", d = "cycle suggestions" },
+  { k = "Esc", d = "dismiss" },
   { div = true },
-  { k = "M-⏎", d = "open panel" },
-  { k = "]] / [[", d = "panel: next / prev" },
-  { n = ":Copilot disable / enable / status" },
+  { k = "Tab", d = "normal: jump to / apply next edit" },
+  { k = "⎵uN", d = "toggle next-edit suggestions" },
+  { n = ":LspCopilotSignIn   :lsp stop copilot" },
 ]
 
 [[section]]
@@ -414,7 +413,7 @@ body = [
   { k = "⎵Z", d = "zen mode (100ch)", hl = true },
   { k = "⎵up", d = "prose mode (38ch)" },
   { k = "⎵uw", d = "toggle wrap" },
-  { k = "⎵ut", d = "toggle twilight" },
+  { k = "⎵ut", d = "toggle dim (focus)" },
   { k = "⎵un", d = "dismiss notifications" },
 ]
 

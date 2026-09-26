@@ -499,7 +499,7 @@ tmux select-pane -t 0:6.2 -T "display-pane"
    [`docs/THEME-SYSTEM.md`](docs/THEME-SYSTEM.md).
 
 ## Testing checklist:
-- [ ] `which nvim` returns `/opt/homebrew/bin/nvim`
+- [ ] `which nvim` returns `~/.local/bin/nvim` (→ official 0.12.x build in `~/.local/opt/`, see "Neovim 0.12" below)
 - [ ] `type dev` shows alias
 - [ ] Environment variables load from `~/.env`
 - [ ] P10k prompt loads correctly
@@ -569,6 +569,23 @@ Zombie purge: Jul 13, 2026 - dead aliases/files removed, theme systems consolida
 
 **Upgraded via:** `brew upgrade neovim`
 
+## Neovim 0.12 Modernization (Sep 26, 2026):
+**Status**: ✅ nvim 0.12.5 + LazyVim 15, commits "modernize step A/B/C"
+
+**Binary**: Homebrew has NO Intel bottle for 0.12, so nvim is the official release build:
+`~/.local/opt/nvim-0.12.5/` symlinked as `~/.local/bin/nvim` (ahead of /usr/local/bin in PATH).
+- Upgrade: download `nvim-macos-x86_64.tar.gz` from GitHub releases → `~/.local/opt/nvim-X`, `xattr -dr com.apple.quarantine`, repoint symlink
+- Roll back: `rm ~/.local/bin/nvim` (falls back to brew 0.11.6) or point it at `~/.local/opt/nvim-0.11.6`
+- `tree-sitter-cli` (brew) is REQUIRED — nvim-treesitter main branch compiles parsers with it
+
+**What changed**: zen-mode/twilight → snacks.zen/snacks.dim; nvim-notify/noice → snacks.notifier;
+telescope + codeium removed; obsidian.nvim → `obsidian-nvim/obsidian.nvim` fork (`:Obsidian <sub>` syntax);
+Copilot → LazyVim `ai.copilot-native` (0.12 built-in `vim.lsp.inline_completion` + copilot-language-server)
+plus `ai.sidekick` for Next Edit Suggestions (CLI/chat keys deliberately disabled — EJ wants autocomplete, not chat).
+Custom accept-word/line ports live in `lua/plugins/ai.lua`. Sign in once with `:LspCopilotSignIn`.
+
+**Not adopted (yet)**: ui2 (experimental), vim.pack (step D experiment — see below).
+
 ## Essential Plugins for Daily Driver (Nov 16, 2025):
 **Status**: ✅ INSTALLED - oil.nvim, vim-tmux-navigator, tmux-thumbs
 
@@ -623,6 +640,10 @@ Hit `prefix + Space`, get letter hints on all visible text:
 - Extract API tokens from logs
 
 ### Vue/Nuxt LSP Setup (Jan 26, 2026)
+> **UPDATED 2026-09-26:** the manual vtsls attach below is GONE (`:LspStart` was removed in nvim 0.12).
+> LazyVim 15's `lang.vue` extra now attaches `vue_ls` + `vtsls` (with @vue/typescript-plugin) natively;
+> `vue-lsp.lua` only holds nuxt-goto. The architecture explanation below is still accurate.
+
 **Status**: ✅ CONFIGURED - Volar 2.0+ Hybrid Mode
 **Location**: `~/.config/nvim/lua/plugins/vue-lsp.lua`
 
@@ -826,8 +847,8 @@ Single item replaces separate `demos`, `notes`, and `words` items. Shows most re
 [next_event] ........................ [creative] [clock] [battery]
 ```
 
-### Telescope Keybindings
-**Location**: `~/.config/nvim/lua/plugins/minimal-telescope.lua`
+### Telescope Keybindings (REMOVED 2026-09-26 — telescope dropped, snacks picker only)
+**Location**: ~~`~/.config/nvim/lua/plugins/minimal-telescope.lua`~~
 
 Added custom mappings:
 - `<C-v>` disabled (removed default behavior)

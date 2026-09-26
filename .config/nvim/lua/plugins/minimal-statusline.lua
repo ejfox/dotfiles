@@ -38,7 +38,7 @@ return {
 
       -- Helper function for LSP status
       local function lsp_status()
-        local clients = vim.lsp.get_active_clients({ bufnr = 0 })
+        local clients = vim.lsp.get_clients({ bufnr = 0 })
         local lsp_icons = {
           -- Web
           volar = "V",            -- Vue
@@ -93,19 +93,8 @@ return {
 
       -- Copilot status (AI ready indicator)
       local function copilot_status()
-        local ok, copilot = pcall(require, "copilot.client")
-        if not ok then return "" end
-
-        -- Check if copilot is attached to buffer
-        local attached = false
-        for _, client in ipairs(vim.lsp.get_active_clients({ bufnr = 0 })) do
-          if client.name == "copilot" then
-            attached = true
-            break
-          end
-        end
-
-        if not attached then
+        -- copilot-language-server attached to this buffer? (native LSP, 0.12)
+        if #vim.lsp.get_clients({ name = "copilot", bufnr = 0 }) == 0 then
           return "" -- Hidden when not active
         end
 

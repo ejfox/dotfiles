@@ -1,5 +1,5 @@
 -- blink.cmp UI overrides (base config from lazyvim.plugins.extras.coding.blink)
--- AI completions happen via inline ghost text (see copilot-inline.lua)
+-- AI completions happen via inline ghost text (see ai.lua)
 
 -- Keep copilot as inline ghost text, not in the completion popup
 vim.g.ai_cmp = false
@@ -50,8 +50,8 @@ return {
         ["<C-e>"] = { "cancel", "fallback" },
         ["<C-b>"] = { "scroll_documentation_up", "fallback" },
         ["<C-f>"] = { "scroll_documentation_down", "fallback" },
-        -- Tab stays free for copilot
-        ["<Tab>"] = { "fallback" },
+        -- WHY no <Tab> here: LazyVim's blink extra fills it with
+        -- snippet_forward -> next-edit (sidekick) -> ghost-text accept.
         ["<S-Tab>"] = { "fallback" },
       },
     },
