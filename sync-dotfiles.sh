@@ -50,6 +50,19 @@ ln -sf ~/.dotfiles/.config/fzf ~/.config/fzf
 # Talon voice control overrides (-n: replace the symlink itself, don't descend into it)
 ln -sfn ~/.dotfiles/talon-overrides ~/.talon/user/talon-overrides
 
+# OBS: link whole DIRECTORIES — OBS saves via temp-file + rename, which would replace a
+# per-file symlink with a plain file. Moves a real dir aside once (never deletes).
+link_dir() {
+  if [ -e "$2" ] && [ ! -L "$2" ]; then mv "$2" "$2.pre-dotfiles-$(date +%Y%m%d-%H%M%S)"; fi
+  mkdir -p "$(dirname "$2")"; ln -sfn "$1" "$2"
+}
+OBS_DIR=~/Library/Application\ Support/obs-studio
+link_dir ~/.dotfiles/obs/basic "$OBS_DIR/basic"
+link_dir ~/.dotfiles/obs/plugin_config/obs-midi-mg "$OBS_DIR/plugin_config/obs-midi-mg"
+# UDID-scrubbing git filter for OBS scene collections (config isn't versioned, so set it here)
+git config filter.obs-redact.clean "sed -E 's/\"setting_device_uuid\": *\"[^\"]*\"/\"setting_device_uuid\": \"REDACTED-IPHONE-UDID\"/'"
+git config filter.obs-redact.smudge cat
+
 # Enable pre-commit security hook
 git config core.hooksPath .githooks
 

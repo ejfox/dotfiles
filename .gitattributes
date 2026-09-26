@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# OBS scene collections: scrub the iPhone hardware UDID on commit (see obs/README.md)
+obs/basic/scenes/*.json filter=obs-redact

@@ -161,3 +161,12 @@ vulpes-reddish2-current-tmux.tmux.conf
 .config/cheatsheet-tips.js
 bin/__pycache__/
 lib/__pycache__/
+
+# -----------------------------------------------------------------------------
+# OBS (obs/ is symlinked into ~/Library/Application Support/obs-studio)
+# -----------------------------------------------------------------------------
+obs/basic/profiles/*/service.json
+obs/**/*.bak
+obs/**/*.bak-*
+obs/**/*.tmp
+obs/basic/scenes/Untitled.json
