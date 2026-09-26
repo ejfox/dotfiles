@@ -80,6 +80,10 @@ require("lazy").setup({
   -- WHY: Ensure a usable colorscheme on first install before user theme loads.
   install = { colorscheme = { "tokyonight", "habamax" } },
 
+  -- WHY: No plugin here needs luarocks; disabling silences the hererocks
+  -- ERROR in :checkhealth lazy.
+  rocks = { enabled = false },
+
   checker = {
     -- WHY: Auto-check for updates quietly so you can decide when to apply.
     enabled = true,
