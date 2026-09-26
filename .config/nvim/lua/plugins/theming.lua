@@ -1,10 +1,10 @@
 -- ============================================================================
--- THEMING: Colorscheme + auto dark/light + twilight dimming
+-- THEMING: Colorscheme + auto dark/light + snacks.dim focus
 -- ============================================================================
 -- WHY consolidated: These three plugins work together for visual experience.
 -- - Custom vulpes colorscheme (warm reds, matches terminal theme)
 -- - Auto-switch based on macOS appearance
--- - Twilight dims unfocused code for better focus
+-- - snacks.dim dims unfocused code for better focus
 -- ============================================================================
 
 return {
@@ -43,37 +43,24 @@ return {
   },
 
   -- ============================================================================
-  -- TWILIGHT: Focus mode for code
+  -- DIM: Focus mode for code (snacks.dim, replaced twilight.nvim)
   -- ============================================================================
-  -- WHY: Dims code outside your current context (function, block, etc.)
+  -- WHY: Dims code outside your current scope (function, block, etc.)
   -- Helps focus on what you're editing without hiding surrounding code.
+  -- Opt-in via <leader>ut; also auto-enabled inside zen/prose mode.
   {
-    "folke/twilight.nvim",
-    event = "BufReadPost",  -- WHY: Load after file opens, not at startup
+    "folke/snacks.nvim",
     keys = {
-      { "<leader>ut", "<cmd>Twilight<cr>", desc = "Toggle Twilight" },
+      { "<leader>ut", function() Snacks.toggle.dim():toggle() end, desc = "Toggle Dim (focus)" },
     },
-    config = function()
+    init = function()
       -- WHY dynamic color: Different dim colors for dark vs light themes
-      local function get_twilight_color()
-        return vim.o.background == "dark" and "#735865" or "#4a3040"
+      local function set_dim_hl()
+        local fg = vim.o.background == "dark" and "#735865" or "#4a3040"
+        vim.api.nvim_set_hl(0, "SnacksDim", { fg = fg })
       end
-
-      local function set_twilight_hl()
-        vim.api.nvim_set_hl(0, "Twilight", { fg = get_twilight_color() })
-      end
-
-      require("twilight").setup({
-        dimming = { alpha = 0.5, inactive = false },
-        context = 6,  -- WHY 6: Show ~6 lines of context around cursor
-        treesitter = true,  -- WHY: Use treesitter for smart context detection
-        expand = { "function", "method", "table", "if_statement" },
-      })
-
-      set_twilight_hl()
-      vim.api.nvim_create_autocmd("ColorScheme", { callback = set_twilight_hl })
-
-      -- Twilight is opt-in: use <leader>ut to enable when you want focus mode
+      set_dim_hl()
+      vim.api.nvim_create_autocmd("ColorScheme", { callback = set_dim_hl })
     end,
   },
 }

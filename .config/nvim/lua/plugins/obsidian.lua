@@ -1,5 +1,6 @@
 return {
-  "epwalsh/obsidian.nvim",
+  -- WHY fork: epwalsh/obsidian.nvim is unmaintained; community fork has blink support
+  "obsidian-nvim/obsidian.nvim",
   version = "*", -- recommended, use latest release instead of latest commit
   lazy = true,
   ft = "markdown",
@@ -18,6 +19,7 @@ return {
     -- see below for full list of optional dependencies 👇
   },
   opts = {
+    legacy_commands = false, -- use :Obsidian <subcommand> syntax
     workspaces = {
       {
         name = "personal",

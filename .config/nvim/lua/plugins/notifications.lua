@@ -1,43 +1,26 @@
 -- ============================================================================
--- NOTIFICATIONS: nvim-notify styling + noice integration
--- Consolidates: notify.lua, noice.lua
+-- NOTIFICATIONS: snacks.notifier (replaced nvim-notify + noice)
+-- WHY: noice was only used to route vim.notify into nvim-notify (cmdline,
+-- messages, popupmenu were all disabled). snacks.notifier does that alone,
+-- and snacks is already loaded. History: <leader>n (LazyVim default).
 -- ============================================================================
 
 return {
-  -- Notification styling
+  { "rcarriga/nvim-notify", enabled = false },
+  { "folke/noice.nvim", enabled = false },
+
   {
-    "rcarriga/nvim-notify",
-    config = function()
-      local notify = require("notify")
-      notify.setup({
-        max_width = function() return math.floor(vim.o.columns * 0.35) end,
-        max_height = 5,
-        minimum_width = 30,
-        stages = "fade",
+    "folke/snacks.nvim",
+    opts = {
+      notifier = {
+        enabled = true,
+        style = "compact",
         timeout = 2500,
-        background_colour = "#000000",
-        render = "compact",
-        icons = { ERROR = "", WARN = "", INFO = "", DEBUG = "" },
+        width = { min = 30, max = 0.35 },
+        height = { min = 1, max = 5 },
         top_down = false,
         padding = false,
-      })
-      vim.notify = notify
-    end,
-  },
-
-  -- Noice: route notifications through nvim-notify
-  {
-    "folke/noice.nvim",
-    opts = {
-      cmdline = { enabled = false },
-      messages = { enabled = false },
-      popupmenu = { enabled = false },
-      notify = { enabled = true, view = "notify" },
-      views = {
-        notify = {
-          backend = "notify",
-          render = "wrapped-compact",
-        },
+        icons = { error = "", warn = "", info = "", debug = "", trace = "" },
       },
     },
   },

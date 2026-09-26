@@ -1,13 +1,35 @@
 -- ============================================================================
 -- FOCUS: Zen mode and prose mode for distraction-free editing
--- Consolidates: zen-mode.lua, prose.lua
+-- WHY snacks.zen: replaces folke/zen-mode.nvim + twilight.nvim (snacks is
+-- already loaded; its zen toggles snacks.dim, which replaces twilight).
 -- ============================================================================
+
+-- WHY tmux zoom: matches the old zen-mode on_open/on_close behavior so the
+-- nvim pane fills the tmux window while focused.
+local function tmux_zoom()
+  if vim.env.TMUX then vim.fn.system("tmux resize-pane -Z") end
+end
+
+local zen_wo = {
+  signcolumn = "no",
+  number = false,
+  relativenumber = false,
+  cursorline = false,
+}
 
 return {
   {
-    "folke/zen-mode.nvim",
+    "folke/snacks.nvim",
+    opts = {
+      zen = {
+        toggles = { dim = true, git_signs = false, mini_diff_signs = false },
+        win = { width = 100, wo = zen_wo },
+        on_open = tmux_zoom,
+        on_close = tmux_zoom,
+      },
+    },
     keys = {
-      { "<leader>Z", "<cmd>ZenMode<cr>", desc = "Zen Mode" },
+      { "<leader>Z", function() Snacks.zen() end, desc = "Zen Mode" },
       {
         "<leader>uw",
         function()
@@ -26,45 +48,15 @@ return {
       {
         "<leader>up",
         function()
-          require("zen-mode").toggle({
-            window = {
+          Snacks.zen({
+            win = {
               width = 38,
-              options = {
-                signcolumn = "no",
-                number = false,
-                relativenumber = false,
-                cursorline = false,
-                wrap = true,
-                linebreak = true,
-              },
+              wo = vim.tbl_extend("force", zen_wo, { wrap = true, linebreak = true }),
             },
-            plugins = { twilight = { enabled = true }, tmux = { enabled = true } },
           })
         end,
         desc = "Prose mode (34ch narrow)",
       },
     },
-    config = function()
-      require("zen-mode").setup({
-        window = {
-          backdrop = 1,
-          width = 100,
-          height = 0.95,
-          options = {
-            signcolumn = "no",
-            number = false,
-            relativenumber = false,
-            cursorline = false,
-          },
-        },
-        plugins = {
-          twilight = { enabled = true },
-          gitsigns = { enabled = false },
-          tmux = { enabled = true },
-        },
-        on_open = function() vim.fn.system("tmux resize-pane -Z") end,
-        on_close = function() vim.fn.system("tmux resize-pane -Z") end,
-      })
-    end,
   },
 }

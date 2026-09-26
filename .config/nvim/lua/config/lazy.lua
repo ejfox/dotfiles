@@ -5,13 +5,13 @@
 -- Plugin files (19 total):
 --
 --   CORE UI
---   ├── theming.lua        - Colorscheme, auto dark/light, twilight dimming
---   ├── notifications.lua  - nvim-notify + noice routing
+--   ├── theming.lua        - Colorscheme, auto dark/light, snacks.dim focus
+--   ├── notifications.lua  - snacks.notifier
 --   ├── snacks.lua         - Dashboard + picker layouts
---   └── minimal-*.lua      - Statusline, telescope config
+--   └── minimal-*.lua      - Statusline
 --
 --   EDITING
---   ├── focus.lua          - Zen mode, prose mode
+--   ├── focus.lua          - Zen mode, prose mode (snacks.zen)
 --   ├── utilities.lua      - Surround, tmux-navigator, prettier
 --   ├── mini.lua           - Animations, inline diff
 --   └── nvim-ufo.lua       - Code folding

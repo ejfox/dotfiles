@@ -9,7 +9,7 @@
 -- ============================================================================
 -- WHY <leader>Z: Matches tmux C-a Z for consistency across tools
 
-vim.keymap.set("n", "<leader>Z", "<cmd>ZenMode<cr>", { desc = "Zen Mode" })
+-- (mapped in lua/plugins/focus.lua via Snacks.zen)
 
 -- ============================================================================
 -- LSP NAVIGATION
