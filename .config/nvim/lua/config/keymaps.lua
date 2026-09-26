@@ -47,10 +47,13 @@ vim.keymap.set({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, de
 -- ============================================================================
 -- WHY: .env opened 9× across projects — a recurring "where are my keys" reach.
 -- Roots to the git dir so it works uniformly across newswell/website2/metro.
-vim.keymap.set("n", "<leader>fe", function()
+-- WHY <leader>fv not <leader>fe: <leader>fe/<leader>e are claimed by the
+-- snacks_explorer LazyVim extra (Explorer Snacks, root dir).
+vim.keymap.set("n", "<leader>fv", function()
   local root = vim.fs.root(0, { ".git" }) or vim.fn.getcwd()
   vim.cmd.edit(root .. "/.env")
 end, { desc = "Open project .env" })
+
 
 -- ============================================================================
 -- GIT DIFF NAVIGATION
