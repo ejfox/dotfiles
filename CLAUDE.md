@@ -584,7 +584,14 @@ Copilot → LazyVim `ai.copilot-native` (0.12 built-in `vim.lsp.inline_completio
 plus `ai.sidekick` for Next Edit Suggestions (CLI/chat keys deliberately disabled — EJ wants autocomplete, not chat).
 Custom accept-word/line ports live in `lua/plugins/ai.lua`. Sign in once with `:LspCopilotSignIn`.
 
-**Not adopted (yet)**: ui2 (experimental), vim.pack (step D experiment — see below).
+**Not adopted (yet)**: ui2 (experimental).
+
+**Step D experiment — `nvp`** (`~/.dotfiles/.config/nvim-pack`, launched via `bin/nvp` = `NVIM_APPNAME=nvim-pack nvim`):
+zero-LazyVim config on 0.12 natives — vim.pack + mini.nvim (MiniMax layout: init.lua + plugin/10..40_*.lua),
+native `autocomplete` + LSP omnifunc instead of blink, same keys as main config. Reuses main config's mason
+binaries via PATH (no mason plugin). 514 lines vs ~4.1k; ~285ms vs ~371ms startup opening a .ts file.
+Plugin ops: `:lua vim.pack.update()`, `:lua vim.pack.del({'name'})` (after removing from config), `:checkhealth vim.pack`.
+Lockfile `nvim-pack-lock.json` is committed. Main config is untouched by it.
 
 ## Essential Plugins for Daily Driver (Nov 16, 2025):
 **Status**: ✅ INSTALLED - oil.nvim, vim-tmux-navigator, tmux-thumbs

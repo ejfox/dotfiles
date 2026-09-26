@@ -1,0 +1,4 @@
+#!/bin/sh
+# nvp — launch the step-D experiment config (nvim 0.12 native + vim.pack + mini.nvim).
+# Config: ~/.dotfiles/.config/nvim-pack  (main LazyVim config untouched)
+NVIM_APPNAME=nvim-pack exec nvim "$@"
