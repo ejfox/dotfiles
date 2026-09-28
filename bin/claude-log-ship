@@ -26,9 +26,6 @@ VPS="${CLAUDE_LOG_VPS:-vps}"
 HOSTLABEL="$(scutil --get LocalHostName 2>/dev/null || hostname -s)"
 mkdir -p "$STATE_DIR"
 
-today="$(date +%F)"
-FILE="$LOG_DIR/$today.jsonl"
-
 if [ "${1:-}" = "--status" ]; then
   for f in "$LOG_DIR"/*.jsonl; do
     [ -e "$f" ] || continue
@@ -41,21 +38,25 @@ if [ "${1:-}" = "--status" ]; then
   exit 0
 fi
 
-[ -f "$FILE" ] || exit 0
+# Ship every file with unshipped bytes, not just today's — otherwise anything
+# missed during a VPS/Loki outage is stranded forever. Loki rejects entries
+# older than 168h, so only look back 6 days.
+ship_file() {
+  FILE="$1"
 
-base=$(basename "$FILE")
-OFFSET_FILE="$STATE_DIR/$base.offset"
-offset=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
-size=$(stat -f %z "$FILE" 2>/dev/null || echo 0)
+  base=$(basename "$FILE")
+  OFFSET_FILE="$STATE_DIR/$base.offset"
+  offset=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
+  size=$(stat -f %z "$FILE" 2>/dev/null || echo 0)
 
-# Log rotated/truncated under us (new day, edited) -> reship from start.
-[ "$offset" -gt "$size" ] && offset=0
-[ "$offset" -eq "$size" ] && exit 0
+  # Log rotated/truncated under us (new day, edited) -> reship from start.
+  [ "$offset" -gt "$size" ] && offset=0
+  [ "$offset" -eq "$size" ] && return 0
 
-# Build the Loki push payload from just the new tail, then send. python does
-# the ISO->nanos conversion and JSON assembly; nothing ships if there are no
-# valid lines.
-payload=$(tail -c +"$((offset + 1))" "$FILE" | HOSTLABEL="$HOSTLABEL" python3 -c '
+  # Build the Loki push payload from just the new tail, then send. python does
+  # the ISO->nanos conversion and JSON assembly; nothing ships if there are no
+  # valid lines.
+  payload=$(tail -c +"$((offset + 1))" "$FILE" | HOSTLABEL="$HOSTLABEL" python3 -c '
 import sys, os, json, datetime
 host = os.environ["HOSTLABEL"]
 values = []
@@ -76,17 +77,25 @@ if not values:
 values.sort(key=lambda v: v[0])
 json.dump({"streams": [{"stream": {"job": "claude_fleet", "host": host},
                         "values": values}]}, sys.stdout)
-')
-rc=$?
-[ $rc -eq 3 ] && { printf '%s' "$size" > "$OFFSET_FILE"; exit 0; }  # only blanks
-[ $rc -ne 0 ] || [ -z "$payload" ] && exit 0
+  ')
+  rc=$?
+  [ $rc -eq 3 ] && { printf '%s' "$size" > "$OFFSET_FILE"; return 0; }  # only blanks
+  [ $rc -ne 0 ] || [ -z "$payload" ] && return 0
 
-# Push via SSH -> localhost Loki. Advance the offset ONLY on HTTP 204.
-code=$(printf '%s' "$payload" | ssh -o ConnectTimeout=8 "$VPS" \
-  'curl -s -o /dev/null -w "%{http_code}" -XPOST http://localhost:3100/loki/api/v1/push \
-     -H "Content-Type: application/json" --data-binary @-' 2>/dev/null)
+  # Push via SSH -> localhost Loki. Advance the offset ONLY on HTTP 204.
+  code=$(printf '%s' "$payload" | ssh -o ConnectTimeout=8 "$VPS" \
+    'curl -s -o /dev/null -w "%{http_code}" -XPOST http://localhost:3100/loki/api/v1/push \
+       -H "Content-Type: application/json" --data-binary @-' 2>/dev/null)
 
-if [ "$code" = "204" ]; then
-  printf '%s' "$size" > "$OFFSET_FILE"
-fi
+  if [ "$code" = "204" ]; then
+    printf '%s' "$size" > "$OFFSET_FILE"
+  else
+    echo "claude-log-ship: $base push failed (http ${code:-none}); will retry" >&2
+  fi
+  return 0
+}
+
+while IFS= read -r f; do
+  ship_file "$f"
+done < <(find "$LOG_DIR" -name '*.jsonl' -mtime -6 | sort)
 exit 0
