@@ -861,6 +861,12 @@
     <div class="r"><kbd>hue-flash [r g b]</kbd><span class="d">flash entertainment lights, then return</span></div>
     <div class="r"><kbd>hue-keys on/off</kbd><span class="d">typing -&gt; light bursts (default OFF, deliberately)</span></div>
     <div class="o">DTLS handshake timeouts = bridge wedged -&gt; unplug bridge 10s, then <em>computah rgb wave</em> relaunches the chain</div>
+    <div class="div"></div>
+    <div class="lbl">obs-defer (heavy jobs wait while OBS is open)</div>
+    <div class="r dd"><kbd>obs-defer status</kbd><span class="d">OBS open? + what's queued</span></div>
+    <div class="r"><kbd>obs-defer run-all</kbd><span class="d">run the queue now, OBS or not</span></div>
+    <div class="r"><kbd>touch ~/.config/obs-defer-disabled</kbd><span class="d">kill switch: everything runs normally</span></div>
+    <div class="o">queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log</div>
   </div>
 </details>
 

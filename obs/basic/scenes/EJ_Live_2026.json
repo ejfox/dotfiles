@@ -10,7 +10,7 @@
             "device_id": "AppleUSBAudioEngine:Shure Inc:Shure MVX2U:MVX2U#3-5bd18f6ea886ea51bd814b0b58bc8058:2,3"
         },
         "mixers": 255,
-        "sync": 0,
+        "sync": 380000000,
         "flags": 0,
         "volume": 1.0,
         "balance": 0.5,
@@ -33,11 +33,157 @@
         "filters": [
             {
                 "prev_ver": 537001986,
-                "name": "Compressor",
-                "uuid": "8d757bdb-191a-47ca-891e-d809323e0b36",
+                "name": "1 · Denoise",
+                "uuid": "1295be4e-3b1f-4456-8e98-27e869193420",
+                "id": "noise_suppress_filter",
+                "versioned_id": "noise_suppress_filter",
+                "settings": {
+                    "method": "rnnoise"
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": true,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "2 · Expander",
+                "uuid": "812c444b-f78b-47de-8e75-b2d2bdad4bf6",
+                "id": "expander_filter",
+                "versioned_id": "expander_filter",
+                "settings": {
+                    "knee_width": 10,
+                    "presets": "expander",
+                    "ratio": 2.0,
+                    "threshold": -44.0,
+                    "attack_time": 10,
+                    "release_time": 120,
+                    "output_gain": 0.0,
+                    "detector": "RMS"
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": true,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "3 · Gain",
+                "uuid": "06ba4e1b-ad26-4297-b30f-78eb4bd12918",
+                "id": "gain_filter",
+                "versioned_id": "gain_filter",
+                "settings": {
+                    "db": 6.0
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": true,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "4 · EQ",
+                "uuid": "09f032a5-67d5-47dd-aa24-f1d32df97e35",
+                "id": "basic_eq_filter",
+                "versioned_id": "basic_eq_filter",
+                "settings": {
+                    "low": -1.5,
+                    "mid": 0.0,
+                    "high": 2.5
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": true,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "5 · Compressor",
+                "uuid": "2f39fcd7-6ac1-4ea6-a69d-17e541fd21b6",
                 "id": "compressor_filter",
                 "versioned_id": "compressor_filter",
-                "settings": {},
+                "settings": {
+                    "ratio": 3.5,
+                    "threshold": -20.0,
+                    "attack_time": 6,
+                    "release_time": 80,
+                    "output_gain": 4.0
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": true,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "6 · Limiter",
+                "uuid": "79c7a987-eb6b-48d7-abeb-558cb6957307",
+                "id": "limiter_filter",
+                "versioned_id": "limiter_filter",
+                "settings": {
+                    "threshold": -1.5,
+                    "release_time": 60
+                },
                 "mixers": 255,
                 "sync": 0,
                 "flags": 0,
@@ -410,13 +556,13 @@
                 "device_name": "FaceTime HD Camera (Built-in)",
                 "device": "0x8020000005ac8514"
             },
-            "mixers": 255,
+            "mixers": 192,
             "sync": 0,
             "flags": 0,
             "volume": 1.0,
             "balance": 0.5,
             "enabled": true,
-            "muted": false,
+            "muted": true,
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
@@ -478,13 +624,13 @@
             "id": "macos-avcapture",
             "versioned_id": "macos-avcapture",
             "settings": {},
-            "mixers": 255,
+            "mixers": 192,
             "sync": 0,
             "flags": 0,
             "volume": 1.0,
             "balance": 0.5,
             "enabled": true,
-            "muted": false,
+            "muted": true,
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
@@ -507,13 +653,13 @@
             "id": "macos-avcapture",
             "versioned_id": "macos-avcapture",
             "settings": {},
-            "mixers": 255,
+            "mixers": 192,
             "sync": 0,
             "flags": 0,
             "volume": 1.0,
             "balance": 0.5,
             "enabled": true,
-            "muted": false,
+            "muted": true,
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
@@ -539,13 +685,13 @@
                 "device_name": "OsmoAction5pro",
                 "device": "0x1470000005c68004"
             },
-            "mixers": 255,
+            "mixers": 192,
             "sync": 0,
             "flags": 0,
             "volume": 1.0,
             "balance": 0.5,
             "enabled": true,
-            "muted": false,
+            "muted": true,
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
@@ -2390,7 +2536,7 @@
                     {
                         "name": "Overlay",
                         "source_uuid": "327e12b4-a325-42f7-a706-217e5332523c",
-                        "visible": true,
+                        "visible": false,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -2613,12 +2759,12 @@
                         "id": 2,
                         "group_item_backup": false,
                         "pos": {
-                            "x": -24.0,
-                            "y": 0.0
+                            "x": 12.0,
+                            "y": -233.0
                         },
                         "pos_rel": {
-                            "x": -1.8222222328186035,
-                            "y": -1.0
+                            "x": -1.755555510520935,
+                            "y": -1.4314814805984497
                         },
                         "scale": {
                             "x": 1.0,
@@ -2668,11 +2814,11 @@
                         "id": 1,
                         "group_item_backup": false,
                         "pos": {
-                            "x": -448.0,
+                            "x": -468.0,
                             "y": 0.0
                         },
                         "pos_rel": {
-                            "x": -2.607407331466675,
+                            "x": -2.644444465637207,
                             "y": -1.0
                         },
                         "scale": {
@@ -2816,12 +2962,12 @@
                         "id": 2,
                         "group_item_backup": false,
                         "pos": {
-                            "x": 259.0,
-                            "y": 0.0
+                            "x": 12.0,
+                            "y": -233.0
                         },
                         "pos_rel": {
-                            "x": -1.2981481552124023,
-                            "y": -1.0
+                            "x": -1.755555510520935,
+                            "y": -1.4314814805984497
                         },
                         "scale": {
                             "x": 1.0,
@@ -3637,7 +3783,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 2,
+                "order": 1,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -3783,7 +3929,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 1,
+                "order": 0,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4079,7 +4225,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 4,
+                "order": 3,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4282,7 +4428,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 3,
+                "order": 2,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4580,7 +4726,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 0,
+                "order": 4,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4653,8 +4799,8 @@
             "name": "📷 Camera"
         }
     ],
-    "current_scene": "💻 Coding",
-    "current_program_scene": "💻 Coding",
+    "current_scene": "◧ Screen — Left",
+    "current_program_scene": "◧ Screen — Left",
     "canvases": [
         {
             "info": {
@@ -4666,7 +4812,7 @@
         }
     ],
     "current_transition": "Move",
-    "transition_duration": 3000,
+    "transition_duration": 2200,
     "transitions": [
         {
             "name": "Move",
@@ -4705,8 +4851,8 @@
     ],
     "saved_projectors": [],
     "preview_locked": false,
-    "scaling_enabled": false,
-    "scaling_level": -1,
+    "scaling_enabled": true,
+    "scaling_level": -9,
     "scaling_off_x": 0.0,
     "scaling_off_y": 0.0,
     "virtual-camera": {

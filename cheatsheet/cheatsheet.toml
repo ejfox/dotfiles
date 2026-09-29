@@ -744,4 +744,10 @@ body = [
   { k = "hue-flash [r g b]", d = "flash entertainment lights, then return" },
   { k = "hue-keys on/off", d = "typing -> light bursts (default OFF, deliberately)" },
   { o = "DTLS handshake timeouts = bridge wedged -> unplug bridge 10s, then *computah rgb wave* relaunches the chain" },
+  { div = true },
+  { lbl = "obs-defer (heavy jobs wait while OBS is open)" },
+  { k = "obs-defer status", d = "OBS open? + what's queued", hl = true },
+  { k = "obs-defer run-all", d = "run the queue now, OBS or not" },
+  { k = "touch ~/.config/obs-defer-disabled", d = "kill switch: everything runs normally" },
+  { o = "queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log" },
 ]

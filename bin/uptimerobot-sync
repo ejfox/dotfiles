@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""
+uptimerobot-sync — declare EJ's UptimeRobot monitors here; running it creates any
+that are missing (matched by URL). Never edits or deletes existing monitors.
+
+  uptimerobot-sync           create missing monitors
+  uptimerobot-sync --dry     show what would be created
+  uptimerobot-sync --list    list current monitors + status
+
+API key: ~/.config/uptimerobot-key (chmod 600, never committed).
+Keyword monitors alert when the site's real title DISAPPEARS — so a broken deploy
+serving "Welcome to nginx!" or a Cloudflare error page counts as down, not up.
+"""
+import json, os, ssl, sys, time, urllib.error, urllib.request
+
+KEY = open(os.path.expanduser("~/.config/uptimerobot-key")).read().strip()
+API = "https://api.uptimerobot.com/v3/"
+HTTP, KEYWORD, PING = 1, 2, 3
+KEYWORD_NOT_EXISTS = 2   # alert when the keyword is missing
+INTERVAL = 300           # free plan minimum (5 min)
+# python.org builds ship without a CA bundle; macOS always has one here
+SSL = ssl.create_default_context(cafile="/etc/ssl/cert.pem" if os.path.exists("/etc/ssl/cert.pem") else None)
+
+# (friendly name, url, type, keyword)
+MONITORS = [
+    # infrastructure: the things that fail silently
+    ("anomalywatch (alert brain)", "https://anomalywatch.tools.ejfox.com/api/health", KEYWORD, '"status":"ok"'),
+    ("VPS (ping)",                 "208.113.130.118",                                 PING,    None),
+    ("smallweb + CF tunnel",       "https://assets.tools.ejfox.com/$.js",             HTTP,    None),
+    ("archive.ejfox.com",          "https://archive.ejfox.com",                       HTTP,    None),
+    ("umami.tools.ejfox.com",      "https://umami.tools.ejfox.com",                   HTTP,    None),
+    ("grafana.tools.ejfox.com/login", "https://grafana.tools.ejfox.com/login",        HTTP,    None),
+    # public sites (Cloudflare zones) — keyword = the site's own title text
+    ("ejfox.com",                  "https://ejfox.com",                               HTTP,    None),
+    ("artartartgame.com",          "https://artartartgame.com",                       KEYWORD, "Art Art Art"),
+    ("fixcentralhudson.com",       "https://fixcentralhudson.com",                    KEYWORD, "Fix Central Hudson"),
+    ("forestpunks.com",            "https://forestpunks.com",                         KEYWORD, "ForestPunks"),
+    ("getpaperclipped.com",        "https://getpaperclipped.com",                     KEYWORD, "Paperclip"),
+    ("hexagram.news",              "https://hexagram.news",                           KEYWORD, "Hexagram News"),
+    ("room302.studio",             "https://room302.studio",                          KEYWORD, "Room 302 Studio"),
+    ("spliffs.org",                "https://spliffs.org",                             KEYWORD, "spliffs.org"),
+    ("unauthorizedobjects.com",    "https://unauthorizedobjects.com",                 KEYWORD, "UNAUTHORIZED OBJECTS"),
+    ("vestibulequarterly.com",     "https://vestibulequarterly.com",                  KEYWORD, "Vestibule Quarterly"),
+    ("vestibuleresources.com",     "https://vestibuleresources.com",                  KEYWORD, "Vestibule Resources"),
+    ("hudsonline.studio",          "https://hudsonline.studio",                       HTTP,    None),
+    ("arena-bridge.com",           "https://arena-bridge.com",                        KEYWORD, "Arena Bridge"),
+    ("tellmeaboutyourcult.com",    "https://tellmeaboutyourcult.com",                 KEYWORD, "Tell Me About Your Cult"),
+    # not yet: coachartiebot.com + spacepunkgame.com (502), goodneighborkingston.com +
+    # morningradioapp.com (no DNS). Add once fixed, or they'd start red.
+    # (arena-bridge + tellmeaboutyourcult were down 2026-09-21→29: nginx stole :80 from Caddy.)
+]
+
+
+def call(method, path, body=None):
+    # v3 API (v2's newMonitor rejects free-plan creates with "not allowed ... current plan")
+    req = urllib.request.Request(API + path, method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=30, context=SSL) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 3:
+                time.sleep(3 * (attempt + 1)); continue
+            raise SystemExit(f"{method} {path} failed: {e.code} {e.read().decode()[:300]}")
+
+
+def main():
+    args = set(sys.argv[1:])
+    existing = call("GET", "monitors?limit=200").get("data", [])
+    if "--list" in args:
+        for m in sorted(existing, key=lambda m: m["friendlyName"]):
+            n = len(m.get("assignedAlertContacts") or [])
+            print(f"  {str(m.get('status')):10} {m['friendlyName']:34} alerts:{n}")
+        return
+    have = {m["url"].rstrip("/"): m for m in existing}
+    contacts = [c["id"] for c in call("GET", "alert-contacts").get("data", [])]
+    assigned = [{"alertContactId": c, "threshold": 0, "recurrence": 0} for c in contacts]
+    for name, url, mtype, kw in MONITORS:
+        body = {"friendlyName": name, "url": url, "interval": INTERVAL, "timeout": 30,
+                "type": {HTTP: "HTTP", KEYWORD: "KEYWORD", PING: "PING"}[mtype],
+                "assignedAlertContacts": assigned}
+        if mtype == KEYWORD:
+            body.update(keywordValue=kw, keywordType="ALERT_NOT_EXISTS", keywordCaseType=0)
+        m = have.get(url.rstrip("/"))
+        if m:
+            if not m.get("assignedAlertContacts"):   # exists but would alert nobody
+                if "--dry" in args: print(f"  would attach alerts: {name}"); continue
+                call("PATCH", f"monitors/{m['id']}", {"assignedAlertContacts": assigned})
+                print(f"  attached alerts: {name}")
+            continue
+        if "--dry" in args:
+            print(f"  would create: {name}  ({url}{f', keyword {kw!r}' if kw else ''})")
+            continue
+        created = call("POST", "monitors", body)
+        print(f"  created: {name}  (id {created.get('id', created.get('data', {}).get('id'))})")
+        time.sleep(7)  # free plan allows ~10 API requests/minute
+
+
+if __name__ == "__main__":
+    main()
