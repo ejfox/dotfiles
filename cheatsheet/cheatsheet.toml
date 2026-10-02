@@ -773,17 +773,17 @@ body = [
 tone = "accent"
 tool = "both"
 badge = ""
-title = "Chart Desk — daily chart drafts"
+title = "Chart Desk — prep cook for the daily chart"
 open = true
 body = [
-  { n = 'news + inbox + watchers → agents build 3 charts → ONE Things tap. **nothing auto-posts.**' },
-  { k = "desk review", d = "open today's drafts: pick one, copy post, ship", hl = true },
-  { k = "desk run --seed \"hunch or URL\"", d = "force your hunch into today's picks", hl = true },
-  { k = "desk run --dry", d = "gather + pick only (cheap)" },
-  { k = "desk build desks/DATE/02-slug", d = "rebuild one story (edit assignment.json first)" },
-  { k = "desk gather", d = "see what feeds / inbox / watchers returned" },
-  { k = "desk verify desks/DATE/02-slug", d = "ledger + lint + independent fact-check + fix loop", hl = true },
-  { k = "desk lint desks/DATE/02-slug", d = "free deterministic checks only" },
+  { n = 'desk preps the bench at 06:30 (data, sketch, notes, angles). **you make the thing.**' },
+  { k = "desk review", d = "today's bench + the streak", hl = true },
+  { k = "desk work desks/DATE/01-slug", d = "open the bench: folder + sketch + notes", hl = true },
+  { k = "desk check desks/DATE/01-slug", d = "fact-check YOUR version (report only)", hl = true },
+  { k = "desk shipped desks/DATE/01-slug <url>", d = "log it, +1 streak, blog draft stub", hl = true },
+  { k = "desk run --seed \"hunch or URL\"", d = "force your hunch into today's picks" },
+  { k = "desk build desks/DATE/02-slug", d = "prep an on-deck pick" },
+  { k = "desk streak / desk gather / desk lint <dir>", d = "streak · what sources returned · free checks" },
   { k = "desk install", d = "re-apply [schedule] after editing it" },
   { k = "touch ~/.config/chart-desk-disabled", d = "pause the daily run" },
   { o = "knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/*.md" },
