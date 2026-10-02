@@ -24,21 +24,28 @@
 #   computah muse [--ambient]  context-aware art: Qwen3 writes the prompt, FLUX paints it
 #   computah muse-loop  never-ending WEIRD gallery wall; alternate cycles run the
 #                       iMac screen through FLUX img2img (WALL_N, MUSE_SCREEN_EVERY)
+#   computah renders         sync Blender studio renders to ~/Pictures/Blender + open in Finder
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
+# Sibling helpers (muse-lifefeed, muse-brainstorm, muse-arena, muse-cloudinary,
+# muse-taste-*) are called bare. The LaunchAgent's login shell does NOT have
+# ~/.dotfiles/bin on PATH, so they all failed silently under launchd until
+# 2026-09-30 (found via "muse-taste-seed: command not found").
+PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd):$PATH"
 
 LAN_IP=10.0.0.169
 TS_IP=100.106.221.70
 MAC_ADDR=30:c5:99:60:02:40
 REMOTE_USER=ejfox
-RENDERS_WIN='C:\Users\ejfox\renders'
+RENDERS_WIN='C:\dev\computah\renders'
 
 host() {
   if nc -z -G 1 "$LAN_IP" 22 2>/dev/null; then echo "$LAN_IP"; else echo "$TS_IP"; fi
 }
 
 rssh() {
-  ssh -o ConnectTimeout=8 "$REMOTE_USER@$(host)" "$@"
+  # keepalives: a PC reboot mid-command used to hang this forever (and with it the wall)
+  ssh -o ConnectTimeout=8 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 "$REMOTE_USER@$(host)" "$@"
 }
 
 wake() {
@@ -165,7 +172,7 @@ PS
     if ! nc -z -G 3 "$h" 22 2>/dev/null; then bad "PC unreachable (try: computah wake)"; exit 1; fi
     [ "$h" = "$LAN_IP" ] && ok "reachable via LAN ($h)" || ok "reachable via Tailscale ($h)"
     # models
-    miss=$(rssh "powershell -NoProfile -Command \"@('models\image\flux-2-klein-9b-Q5_K_M.gguf','models\image\flux2-vae.safetensors','models\image\qwen3-8b-Q6_K.gguf','models\image\taef2.safetensors','models\vlm\Qwen2.5-VL-7B-Q4_K_M.gguf','models\vlm\mmproj-Qwen2.5-VL-7B.gguf','farm\sd\sd-cli.exe') | Where-Object { -not (Test-Path (Join-Path \$env:USERPROFILE \$_)) }\"" 2>/dev/null | tr -d '\r')
+    miss=$(rssh "powershell -NoProfile -Command \"@('models\image\flux-2-klein-9b-Q5_K_M.gguf','models\image\flux2-vae.safetensors','models\image\qwen3-8b-Q6_K.gguf','models\image\taef2.safetensors','models\vlm\Qwen2.5-VL-7B-Q4_K_M.gguf','models\vlm\mmproj-Qwen2.5-VL-7B.gguf') | Where-Object { -not (Test-Path (Join-Path \$env:USERPROFILE \$_)) }; if (-not (Test-Path 'C:\dev\computah\farm\sd\sd-cli.exe')) { 'farm\sd\sd-cli.exe' }\"" 2>/dev/null | tr -d '\r')
     [ -z "$miss" ] && ok "all models + sd-cli present" || bad "missing: $miss"
     # persistent settings
     dfx=$(rssh "powershell -NoProfile -Command \"((Get-MpPreference).ExclusionPath).Count\"" 2>/dev/null | tr -d '\r')
@@ -223,14 +230,14 @@ PS
     out="${base%.*}-computah.mp4"
     h=$(host)
     echo "→ shipping $base to computah"
-    scp -q "$src" "$REMOTE_USER@$h:renders/"
+    scp -q "$src" "$REMOTE_USER@$h:C:/dev/computah/renders/"
     echo "→ encoding on the 9800X3D (x265 crf 18)"
     # Default: HEVC archival/upload quality. Extra args after the file override nothing; they append.
     # Resolve the real versioned ffmpeg dir: the admin SSH session refuses to
     # traverse scoop's user-created 'current' junction (and the shim can't spawn).
-    rssh "powershell -NoProfile -Command \"\$f = (Get-ChildItem \$env:USERPROFILE\\scoop\\apps\\ffmpeg -Directory | Where-Object Name -ne current | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\bin\\ffmpeg.exe'; Set-Location \$env:USERPROFILE\\renders; & \$f -y -hide_banner -loglevel warning -i '$base' -c:v libx265 -crf 18 -preset medium -tag:v hvc1 -c:a aac -b:a 320k $* '$out'\""
+    rssh "powershell -NoProfile -Command \"\$f = (Get-ChildItem \$env:USERPROFILE\\scoop\\apps\\ffmpeg -Directory | Where-Object Name -ne current | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\bin\\ffmpeg.exe'; Set-Location C:\\dev\\computah\\renders; & \$f -y -hide_banner -loglevel warning -i '$base' -c:v libx265 -crf 18 -preset medium -tag:v hvc1 -c:a aac -b:a 320k $* '$out'\""
     echo "→ retrieving result"
-    scp -q "$REMOTE_USER@$h:renders/$out" "$(dirname "$src")/"
+    scp -q "$REMOTE_USER@$h:C:/dev/computah/renders/$out" "$(dirname "$src")/"
     rssh "del /q \"$RENDERS_WIN\\$base\" \"$RENDERS_WIN\\$out\"" 2>/dev/null || true
     echo "done: $(dirname "$src")/$out"
     ;;
@@ -245,13 +252,13 @@ PS
     h=$(host)
     echo "→ shipping $base to computah"
     rssh "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$RENDERS_WIN\\blender\\$job\\out' | Out-Null\""
-    scp -q "$blend" "$REMOTE_USER@$h:renders/blender/$job/"
+    scp -q "$blend" "$REMOTE_USER@$h:C:/dev/computah/renders/blender/$job/"
     echo "→ rendering on the RX 9070 XT"
     rssh "powershell -NoProfile -Command \"\$b = (Get-ChildItem 'C:\\Program Files\\Blender Foundation' -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName + '\\blender.exe'; & \$b -b '$RENDERS_WIN\\blender\\$job\\$base' -o '$RENDERS_WIN\\blender\\$job\\out\\frame_####' $args -- --cycles-device HIP\""
     echo "→ retrieving frames"
     dest="$(dirname "$blend")/${job}-frames"
     mkdir -p "$dest"
-    scp -q -r "$REMOTE_USER@$h:renders/blender/$job/out/*" "$dest/"
+    scp -q -r "$REMOTE_USER@$h:C:/dev/computah/renders/blender/$job/out/*" "$dest/"
     echo "done: $dest/"
     ;;
 
@@ -261,10 +268,10 @@ PS
     base=$(basename "$src")
     h=$(host)
     echo "→ shipping $base"
-    scp -q "$src" "$REMOTE_USER@$h:farm/"
+    scp -q "$src" "$REMOTE_USER@$h:C:/dev/computah/farm/"
     echo "→ transcribing (whisper large-v3-turbo)"
-    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\farm\\whisper\\Release\\whisper-cli.exe -m \$env:USERPROFILE\\models\\whisper\\ggml-large-v3-turbo.bin -f \$env:USERPROFILE\\farm\\$base -osrt -otxt -of \$env:USERPROFILE\\farm\\${base%.*} 2>\$null | Out-Null; 'transcribed'\""
-    scp -q "$REMOTE_USER@$h:farm/${base%.*}.srt" "$REMOTE_USER@$h:farm/${base%.*}.txt" "$(dirname "$src")/"
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& C:\\dev\\computah\\farm\\whisper\\Release\\whisper-cli.exe -m \$env:USERPROFILE\\models\\whisper\\ggml-large-v3-turbo.bin -f C:\\dev\\computah\\farm\\$base -osrt -otxt -of C:\\dev\\computah\\farm\\${base%.*} 2>\$null | Out-Null; 'transcribed'\""
+    scp -q "$REMOTE_USER@$h:C:/dev/computah/farm/${base%.*}.srt" "$REMOTE_USER@$h:C:/dev/computah/farm/${base%.*}.txt" "$(dirname "$src")/"
     echo "done: $(dirname "$src")/${base%.*}.{srt,txt}"
     ;;
 
@@ -274,12 +281,12 @@ PS
     base=$(basename "$src")
     h=$(host)
     echo "→ shipping $base"
-    scp -q "$src" "$REMOTE_USER@$h:farm/"
+    scp -q "$src" "$REMOTE_USER@$h:C:/dev/computah/farm/"
     echo "→ separating stems on the 9800X3D"
-    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\scoop\\persist\\uv\\tools\\shims\\demucs.exe -o \$env:USERPROFILE\\farm\\stems \$env:USERPROFILE\\farm\\$base\""
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& \$env:USERPROFILE\\scoop\\persist\\uv\\tools\\shims\\demucs.exe -o C:\\dev\\computah\\farm\\stems C:\\dev\\computah\\farm\\$base\""
     dest="$HOME/Music/ACAPELLAS/${base%.*}"
     mkdir -p "$dest"
-    scp -q -r "$REMOTE_USER@$h:farm/stems/htdemucs/${base%.*}/*" "$dest/"
+    scp -q -r "$REMOTE_USER@$h:C:/dev/computah/farm/stems/htdemucs/${base%.*}/*" "$dest/"
     echo "done: $dest/ (vocals, drums, bass, other)"
     ;;
 
@@ -289,7 +296,7 @@ PS
         # Start-Process dies when the SSH session ends (Windows kills the
         # process tree on disconnect) — a scheduled task survives. The task
         # is a one-shot dated in the past: never auto-fires, /run-able forever.
-        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\Users\\$REMOTE_USER\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\Users\\$REMOTE_USER\farm\llama-server.log 2>&1\""
+        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\dev\computah\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\dev\computah\farm\llama-server.log 2>&1\""
         rssh "tasklist | findstr /i llama-server.exe >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
@@ -305,7 +312,7 @@ PS
     # so rapid asks don't thrash the wall. Never steals the GPU while a game runs.
     q="${2:?usage: computah ask \"<prompt>\"}"
     h=$(host)
-    gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\\$REMOTE_USER\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
+    gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
     if [ "$gstate" = "GAME" ]; then
       echo "a game is running — leaving the GPU alone. try again after." >&2; exit 1
     fi
@@ -355,17 +362,20 @@ PYEOF
     # A logon scheduled task (tn sd-server) brings it back after a reboot.
     h=$(host)
     case "${2:-status}" in
+      # sd-server runs under the PC's svc supervisor (services.json → farm\sd\sd-server.cmd).
+      # taskkill from SSH can't stop it ("no running instance of the task"), and a raw
+      # `schtasks /run` doesn't go through the supervisor — always use svc.ps1.
       start|up|on)
-        rssh "tasklist | findstr /i sd-server.exe >nul && echo already-running || (schtasks /run /tn sd-server >nul && echo starting)"
+        rssh "tasklist | findstr /i sd-server.exe >nul && echo already-running || powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 restart sd-server"
         echo "loading model… (first render waits for it); endpoint http://$h:1234/sdapi/v1/{txt2img,img2img}"
         ;;
       stop|off|down)
-        # The wrapper cmd exits once sd-server.exe dies, so one taskkill is enough.
-        rssh "taskkill /im sd-server.exe /f >nul 2>&1 & echo stopped" ;;
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 stop sd-server" ;;
       restart)
-        "$0" sd-server stop >/dev/null 2>&1; sleep 3; "$0" sd-server start ;;
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 restart sd-server"
+        echo "loading model… (first render waits for it)" ;;
       log)
-        rssh "powershell -NoProfile -Command \"Get-Content C:\Users\\$REMOTE_USER\farm\sd\sd-server.log -Tail 20\"" ;;
+        rssh "powershell -NoProfile -Command \"Get-Content C:\dev\computah\farm\sd\sd-server.log -Tail 20\"" ;;
       status|*)
         up=$(curl -s -m4 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)
         [ "$up" = "200" ] && echo "sd-server UP (:1234, model hot)" || echo "sd-server DOWN — 'computah sd-server start'"
@@ -378,7 +388,7 @@ PYEOF
     size="${3:-1024x1024}"
     W="${size%x*}"; H="${size#*x}"
     h=$(host)
-    FARM="C:\Users\\$REMOTE_USER\farm"
+    FARM="C:\dev\computah\farm"
     out="imagine-$(date +%H%M%S).png"
     steps="${STEPS:-32}"
     seed="${IMAGINE_SEED:-$RANDOM}"
@@ -405,6 +415,17 @@ body = {"prompt": os.environ["PROMPT"], "steps": int(os.environ["ISTEPS"]),
         "width": int(os.environ["IW"]), "height": int(os.environ["IH"]),
         "seed": int(os.environ["ISEED"]),
         "sampler_name": os.environ.get("ISAMPLER", "euler")}
+# IMAGINE_LORA="ejtaste-klein9b.safetensors:0.9[,other.safetensors:0.5]" — sd-server
+# IGNORES <lora:...> prompt tags; it needs this field + --lora-model-dir on the server.
+if os.environ.get("IMAGINE_LORA"):
+    body["lora"] = [{"path": p.rsplit(":", 1)[0], "multiplier": float(p.rsplit(":", 1)[1]) if ":" in p else 1.0}
+                    for p in os.environ["IMAGINE_LORA"].split(",") if p.strip()]
+# IMAGINE_REF_LOCAL = a STYLE REFERENCE image on this Mac (FLUX.2-klein reference
+# conditioning via the A1111 route's `extra_images`). Verified 2026-09-30: a starred
+# oil painting as reference turned a plain photo prompt painterly. ~3x render cost.
+if os.environ.get("IMAGINE_REF_LOCAL") and os.path.exists(os.environ["IMAGINE_REF_LOCAL"]):
+    with open(os.environ["IMAGINE_REF_LOCAL"], "rb") as f:
+        body["extra_images"] = [base64.b64encode(f.read()).decode()]
 if ep == "img2img":
     with open(os.environ["INIT"], "rb") as f:
         body["init_images"] = [base64.b64encode(f.read()).decode()]
@@ -433,16 +454,21 @@ PYEOF
     if [ -n "${IMAGINE_WALL_SLOT:-}" ] && [ -z "${MUSE_NO_DEADGATE:-}" ] && [ -n "$_im" ]; then
       _mean=$("$_im" "./$out" -colorspace Gray -format "%[fx:mean]" info: 2>/dev/null)
       _lit=$("$_im" "./$out" -colorspace Gray -threshold 24% -format "%[fx:mean]" info: 2>/dev/null)  # fraction of pixels actually lit
-      if awk -v m="${_mean:-1}" -v l="${_lit:-1}" -v M="${MUSE_DEAD_MEAN:-0.06}" -v L="${MUSE_DEAD_LIT:-0.03}" \
-           'BEGIN{exit !(m+0<M && l+0<L)}'; then
+      # also a WHITE-OUT gate: a blank white screen seed at low strength comes back
+      # as a blank white render (2026-09-30: two cells at mean 0.99 / sd 0.04–0.06;
+      # every real cell had sd ≥ 0.17). MUSE_WHITE_{MEAN,SD}.
+      _sd=$("$_im" "./$out" -colorspace Gray -format "%[fx:standard_deviation]" info: 2>/dev/null)
+      if awk -v m="${_mean:-1}" -v l="${_lit:-1}" -v s="${_sd:-1}" -v M="${MUSE_DEAD_MEAN:-0.06}" -v L="${MUSE_DEAD_LIT:-0.03}" \
+             -v WM="${MUSE_WHITE_MEAN:-0.94}" -v WS="${MUSE_WHITE_SD:-0.08}" \
+           'BEGIN{exit !((m+0<M && l+0<L) || (m+0>WM && s+0<WS))}'; then
         echo "  ◇ rejected a dead/near-empty frame (mean=${_mean} lit=${_lit}) — wall slot kept as-is"
         rm -f "./$out"; exit 0
       fi
     fi
     # Push back to the PC: imagine.png feeds the gallery/TouchDesigner copies that
     # muse-loop makes; wall_<slot>.png is what the live HTTP wall displays.
-    scp -q "./$out" "$REMOTE_USER@$h:farm/imagine.png" 2>/dev/null || true
-    [ -n "${IMAGINE_WALL_SLOT:-}" ] && scp -q "./$out" "$REMOTE_USER@$h:farm/sd/wall_${IMAGINE_WALL_SLOT}.png" 2>/dev/null || true
+    scp -q "./$out" "$REMOTE_USER@$h:C:/dev/computah/farm/imagine.png" 2>/dev/null || true
+    [ -n "${IMAGINE_WALL_SLOT:-}" ] && scp -q "./$out" "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_${IMAGINE_WALL_SLOT}.png" 2>/dev/null || true
     rssh "copy /y $FARM\imagine.png C:\Users\\$REMOTE_USER\muse-td\finals\td-$(date +%H%M%S).png" >/dev/null 2>&1 || true
     echo "done: ./$out"
     # Auto-open is OPT-IN (MUSE_OPEN=1) — don't hijack Preview by default. Use
@@ -461,7 +487,7 @@ PYEOF
     W="${size%x*}"; H="${size#*x}"
     steps="${STEPS:-16}"
     h=$(host)
-    FARM="C:\Users\\$REMOTE_USER\farm"
+    FARM="C:\dev\computah\farm"
     M="C:\Users\\$REMOTE_USER\models\image"
     echo "→ ${N}x${N} = ${total} alternates of: $prompt  (${W}x${H}, ${steps} steps each)"
     # Clear old cells + tell the grid viewer the dimension, then pop it up.
@@ -478,7 +504,7 @@ cd /d $FARM\sd
 del $FARM\sd\preview.png >nul 2>&1
 sd-cli.exe --diffusion-model $M\flux-2-klein-9b-Q5_K_M.gguf --vae $M\flux2-vae.safetensors --llm $M\qwen3-8b-Q6_K.gguf --backend diffusion=vulkan0,te=cpu,vae=vulkan0 -p "$prompt" --seed $seed --cfg-scale 1.0 --steps $steps --sampling-method euler -W $W -H $H --diffusion-fa --taesd $M\taef2.safetensors --taesd-preview-only --preview tae --preview-interval 1 --preview-path $FARM\sd\preview.png -o $FARM\sd\grid_$i.png > $FARM\sd\grid-run.log 2>&1
 CMDEOF
-      awk '{printf "%s\r\n", $0}' "$tmp" > "$tmp.cmd" && scp -q "$tmp.cmd" "$REMOTE_USER@$h:farm/sd/grid-run.cmd" && rm -f "$tmp" "$tmp.cmd"
+      awk '{printf "%s\r\n", $0}' "$tmp" > "$tmp.cmd" && scp -q "$tmp.cmd" "$REMOTE_USER@$h:C:/dev/computah/farm/sd/grid-run.cmd" && rm -f "$tmp" "$tmp.cmd"
       rssh "schtasks /query /tn grid-run >nul 2>&1 || schtasks /create /f /tn grid-run /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"powershell -NoProfile -WindowStyle Hidden -Command cmd /c $FARM\sd\grid-run.cmd\"" >/dev/null
       rssh "schtasks /run /tn grid-run >nul" || true
       # wait for this cell to finish before starting the next (single GPU)
@@ -491,7 +517,7 @@ CMDEOF
     # Composite the sheet locally and drop it on the Desktop.
     dest="$HOME/Desktop/grid-$(date +%H%M%S).png"
     tmpd=$(mktemp -d)
-    scp -q "$REMOTE_USER@$h:farm/sd/grid_*.png" "$tmpd/" 2>/dev/null || true
+    scp -q "$REMOTE_USER@$h:C:/dev/computah/farm/sd/grid_*.png" "$tmpd/" 2>/dev/null || true
     if command -v montage >/dev/null 2>&1; then
       montage $(for i in $(seq 1 "$total"); do echo "$tmpd/grid_$i.png"; done) -tile ${N}x${N} -geometry +2+2 -background black "$dest" 2>/dev/null && echo "sheet: $dest"
     else
@@ -611,7 +637,7 @@ PYEOF
     # window wrangling. Renders on the PC GPU. Auto-pauses when a game is running.
     gap="${2:-3}"
     h=$(host)
-    FARM="C:\Users\\$REMOTE_USER\farm"
+    FARM="C:\dev\computah\farm"
     # Grid size FOLLOWS the wall UI. The browser reports its N (the +/− buttons,
     # and on every page load) to the server's /setn route, which writes wall-n.txt;
     # we re-read that at the top of each sweep so the display & generator can NEVER
@@ -626,7 +652,7 @@ PYEOF
     # time. Pure local copies on the PC (no image transfer over the wire).
     _prefill() {
       [ -n "${MUSE_NO_PREFILL:-}" ] && return 0
-      rssh "powershell -NoProfile -Command \"\$r=\$env:USERPROFILE+'\farm\sd'; \$pool=@(Get-ChildItem \$env:USERPROFILE\renders\muse-gallery\muse-*.png -EA 0); if(\$pool.Count -gt 0){ for(\$i=1;\$i -le $1;\$i++){ \$t=Join-Path \$r ('wall_'+\$i+'.png'); if(-not(Test-Path \$t)){ Copy-Item \$pool[(Get-Random -Maximum \$pool.Count)].FullName \$t -Force -EA 0 } } }\"" >/dev/null 2>&1
+      rssh "powershell -NoProfile -Command \"\$r='C:\dev\computah\farm\sd'; \$pool=@(Get-ChildItem C:\dev\computah\renders\muse-gallery\muse-*.png -EA 0); if(\$pool.Count -gt 0){ for(\$i=1;\$i -le $1;\$i++){ \$t=Join-Path \$r ('wall_'+\$i+'.png'); if(-not(Test-Path \$t)){ Copy-Item \$pool[(Get-Random -Maximum \$pool.Count)].FullName \$t -Force -EA 0 } } }\"" >/dev/null 2>&1
     }
     # Adopt the UI's last-known size on start: WALL_N pin → wall-n.txt (what the
     # kiosk last reported) → 8. Keeps loop, kiosk and file in agreement from cell 1.
@@ -820,6 +846,40 @@ PYEOF
       DREAM)  echo "deep-night pure-txt2img, max weird";;
       SCANNER) echo "dark-scanner — your recent life, refracted through surveillance";;
     esac; }
+    # TASTE-WEIGHTED PICK: `wpick <knob> "${ARR[@]}"` → one element, odds scaled by
+    # ~/.cache/muse/knob-weights.tsv (muse-taste-weights: EJ-taste scores + stars,
+    # clamped 0.5×–2× — a nudge, never a prune). No file / MUSE_TASTE_WEIGHT=0 → plain
+    # random. knob: style|palette|sampler; entries keyed by lowercase first comma-chunk.
+    wpick(){
+      local knob="$1"; shift
+      local wf="$HOME/.cache/muse/knob-weights.tsv"
+      if [ "${MUSE_TASTE_WEIGHT:-1}" = 0 ] || [ ! -s "$wf" ]; then
+        local a=("$@"); printf '%s' "${a[$((RANDOM % ${#a[@]}))]}"; return
+      fi
+      [ "$knob" = palette ] && knob=chunk
+      printf '%s\n' "$@" | awk -F'\t' -v knob="$knob" -v seed="$RANDOM$RANDOM" -v wf="$wf" '
+        BEGIN { srand(seed); while ((getline l < wf) > 0) { split(l, f, "\t"); if (f[1] == knob) w[f[2]] = f[3] } }
+        { k = tolower($0); sub(/,.*/, "", k); gsub(/^ +| +$/, "", k)
+          v[NR] = $0; p[NR] = (k in w) ? w[k] : 1; tot += p[NR] }
+        END { r = rand() * tot; for (i = 1; i <= NR; i++) { r -= p[i]; if (r <= 0) break }
+              printf "%s", v[(i > NR) ? NR : i] }'
+    }
+    # refresh scores + weights every MUSE_WEIGHTS_HOURS (bg; the scorer refuses/stops
+    # while a game runs, so this never touches a live match)
+    taste_refresh(){
+      local wf="$HOME/.cache/muse/knob-weights.tsv"
+      [ "${MUSE_TASTE_WEIGHT:-1}" = 0 ] && return
+      # the 6h clock is the weights file itself (muse-taste-weights rewrites it ONLY on
+      # success); a separate 30-min claim stops double-launches. It used to `touch "$wf"`
+      # up front, so a run that failed (PC asleep → "ship failed") still reset the 6h clock
+      # and 2026-10-01/02 went ~17h with no new embeddings for the taste pick.
+      local claim="$wf.claim"
+      [ -n "$(find "$claim" -mmin -30 2>/dev/null)" ] && return
+      if [ ! -s "$wf" ] || [ -n "$(find "$wf" -mmin +$(( ${MUSE_WEIGHTS_HOURS:-6} * 60 )) 2>/dev/null)" ]; then
+        touch "$claim"
+        ( muse-taste-backfill && muse-taste-weights && { muse-taste-probe || true; } && muse-taste-viz ) >> /tmp/muse-taste.log 2>&1 &
+      fi
+    }
     muse_team(){
       [ -n "${MUSE_TEAM_OFF:-}" ] && { TEAM=""; return 0; }
       local hh t label; hh=$((10#$(date +%H))); t="${MUSE_TEAM:-}"
@@ -894,7 +954,7 @@ PYEOF
       if [ -z "${MUSE_NO_FAV:-}" ]; then
         while IFS= read -r _fs; do
           _fs="$(printf '%s' "$_fs" | tr -d '\r')"; [ -n "$_fs" ] && FAVS+=("$_fs")
-        done < <(rssh "powershell -NoProfile -Command \"Get-ChildItem \$env:USERPROFILE\renders\favorites\*.json -EA 0 | ForEach-Object { (Get-Content \$_.FullName -Raw | ConvertFrom-Json).prompt_subject }\"" 2>/dev/null)
+        done < <(rssh "powershell -NoProfile -Command \"Get-ChildItem C:\dev\computah\renders\favorites\*.json -EA 0 | ForEach-Object { (Get-Content \$_.FullName -Raw | ConvertFrom-Json).prompt_subject }\"" 2>/dev/null)
         [ "${#FAVS[@]}" -gt 0 ] && echo "  ◇ ${#FAVS[@]} favorite$([ ${#FAVS[@]} -ne 1 ] && echo s) in the mix (~${MUSE_FAV_PCT:-22}% of cells)"
       fi
       # ── EXPLORE fill: most prompts from the batched prompt-bank + your mined motifs.
@@ -966,6 +1026,7 @@ PYEOF
         fi
       fi
       [ "$slot" -eq 1 ] && muse_team    # rotate the day's creative crew (time-of-day teams)
+      [ "$slot" -eq 1 ] && taste_refresh   # re-score renders → re-weight knobs (bg, game-safe)
       # (Overnight quiet-hours pause removed 2026-09-18 — the wall renders 24/7 now.)
       # ── game guard FIRST (any game, with hysteresis) ────────────────────────
       # Pause while a game runs. A momentary GPU dip (lobby / menu / loading /
@@ -980,7 +1041,7 @@ PYEOF
       # The browser walls (msedge) + our own model servers are whitelisted, so the
       # wall's own GPU use never reads as a game — only a real game (e.g. Liftoff,
       # Fortnite) does. Prints GAME or IDLE.
-      gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\\$REMOTE_USER\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
+      gstate=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
       now=$(date +%s)
       if [ "$gstate" = "GAME" ]; then last_game=$now; fi
       cool=${MUSE_GAME_COOLDOWN:-300}
@@ -1001,6 +1062,13 @@ PYEOF
         [ $((gcyc % 3)) -eq 0 ] && rssh "schtasks /run /tn gameframe-grab" >/dev/null 2>&1
         echo "  gaming detected — paused, $((cool-(now-last_game)))s cooldown left"
         sleep 30; slot=$((slot-1)); [ "$slot" -lt 0 ] && slot=0; continue
+      fi
+      # game over: bring FLUX back. Nothing did before — `imagine` only POSTs to :1234, so
+      # after each game the wall failed every cell ("render hiccup", 1,894 of them by
+      # 2026-10-02) until someone ran `computah sd-server start` by hand.
+      if [ "${game_freed:-0}" -eq 1 ]; then
+        echo "  ◆ game over — reloading sd-server"
+        "$0" sd-server start >/dev/null 2>&1 || true
       fi
       game_freed=0   # not gaming any more — allow a fresh GPU-free next time a game starts
       # Keep the monitor awake while generating (only reached when NOT gaming — a
@@ -1027,7 +1095,7 @@ PYEOF
       export IMAGINE_SEED=$cellseed
 
       export IMAGINE_WALL_SLOT=$slot
-      unset IMAGINE_INIT_LOCAL IMAGINE_STRENGTH
+      unset IMAGINE_INIT_LOCAL IMAGINE_STRENGTH IMAGINE_REF_LOCAL
 
       # ─────────────── VARIATION ENGINE (randomize everything per cell) ───────
       # Controls, dialed light → heavy at random each cell:
@@ -1059,7 +1127,7 @@ PYEOF
       #    pushing cfg smears it). MUSE_CFG_VARY=1 opts into 1.0–1.99 jitter to
       #    TEST — watch a few cells before trusting it.
       SAMPLERS=(euler euler_a heun dpm++2m dpm++2s_a ipndm)
-      export IMAGINE_SAMPLER="${SAMPLERS[$((RANDOM % ${#SAMPLERS[@]}))]}"
+      export IMAGINE_SAMPLER="$(wpick sampler "${SAMPLERS[@]}")"
       if [ -n "${MUSE_CFG_VARY:-}" ]; then
         export IMAGINE_CFG="$(awk -v r=$((RANDOM % 100)) 'BEGIN{printf "%.1f", 1.0 + r/100.0}')"
       else
@@ -1070,7 +1138,7 @@ PYEOF
       if [ $((RANDOM % 100)) -lt "$STYLELESS_PCT" ]; then
         cell_style=""
       else
-        cell_style="${STYLES[$((RANDOM % ${#STYLES[@]}))]}"
+        cell_style="$(wpick style "${STYLES[@]}")"
       fi
       # EXPLORE: widen the aesthetic past the fixed pool — 2-style blends, a wildcard
       # medium, off-brand palettes. Knobs: MUSE_{BLEND,WILD,PALETTE}_PCT.
@@ -1081,7 +1149,7 @@ PYEOF
           [ $((RANDOM % 100)) -lt "${MUSE_BLEND_PCT:-25}" ] && cell_style="$cell_style, ${STYLES[$((RANDOM % ${#STYLES[@]}))]%%,*}"
           [ $((RANDOM % 100)) -lt "${MUSE_WILD_PCT:-30}" ]  && cell_style="$cell_style, ${WILD[$((RANDOM % ${#WILD[@]}))]}"
         fi
-        [ $((RANDOM % 100)) -lt "${MUSE_PALETTE_PCT:-40}" ] && cell_style="${cell_style:+$cell_style, }${PALETTES[$((RANDOM % ${#PALETTES[@]}))]}"
+        [ $((RANDOM % 100)) -lt "${MUSE_PALETTE_PCT:-40}" ] && cell_style="${cell_style:+$cell_style, }$(wpick palette "${PALETTES[@]}")"
         # GUEST GRAIN: ~8% of cells ignore the crew entirely and go full-random —
         # a lone stranger's frame that breaks the shift's coherence, on purpose.
         [ $((RANDOM % 100)) -lt "${MUSE_GUEST_PCT:-8}" ] && cell_style="${ALL_STYLES[$((RANDOM % ${#ALL_STYLES[@]}))]}, ${WILD[$((RANDOM % ${#WILD[@]}))]}, ${ALL_PALETTES[$((RANDOM % ${#ALL_PALETTES[@]}))]}"
@@ -1124,13 +1192,21 @@ PYEOF
       # full-screen grab seeds ~45%, a random crop of the screen +13% ⇒ ~58% of cells
       # are based on what's on your screen right now. Remainder: arena / a past cell
       # (feedback) / a Cloudinary or Fuji photo / a real game frame / pure text.
-      if [ -n "$EXPLORE" ]; then   # explore: ~80% pure txt2img (fast + favorite-aligned), ~20% screen/crop for spice
-        scr=${MUSE_SCREEN_PCT:-10}; crp=$((scr+8)); arn=$crp; fbk=$crp; cld=$crp; gam=$((crp+2))
+      if [ -n "$EXPLORE" ]; then   # explore: ~72% pure txt2img (fast + favorite-aligned), screen/crop for spice,
+                                   # + MUSE_TASTE_PCT of EJ-taste photo seeds (see muse-taste-seed)
+        scr=${MUSE_SCREEN_PCT:-10}; crp=$((scr+8)); arn=$crp; fbk=$crp; cld=$((crp+${MUSE_TASTE_PCT:-8})); gam=$((cld+2))
       else
         scr=${MUSE_SCREEN_PCT:-45}; crp=$((scr+13)); arn=$((crp+13)); fbk=$((arn+11)); cld=$((fbk+6)); gam=$((cld+10))
       fi
-      src="pure"; fb=""; roll=$((RANDOM % 100)); rm -f /tmp/muse-init.png   # fb reset so it can't leak into the trace
-      if [ "$roll" -lt "$scr" ] && command -v screencapture >/dev/null 2>&1; then
+      src="pure"; fb=""; seed_taste=""; roll=$((RANDOM % 100)); rm -f /tmp/muse-init.png   # fb reset so it can't leak into the trace
+      # BENCH (2026-10-02): during EJ's chart-desk making slot (09:00 until `desk shipped`),
+      # MUSE_BENCH_PCT of cells seed from today's chart, so the wall reinterprets the story
+      # he's making. `desk bench --png` prints the chart path only while the slot is open.
+      _bench=""; [ "${MUSE_BENCH_PCT:-25}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_BENCH_PCT:-25}" ] \
+        && _bench=$("$HOME/.local/bin/desk" bench --png 2>/dev/null)
+      if [ -n "$_bench" ] && [ -s "$_bench" ]; then
+        cp "$_bench" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="bench"
+      elif [ "$roll" -lt "$scr" ] && command -v screencapture >/dev/null 2>&1; then
         screencapture -x -t png -D 1 /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="screen"
       elif [ "$roll" -lt "$crp" ] && command -v screencapture >/dev/null 2>&1; then
         # random rectangular CROP of the desktop (points; screencapture clamps)
@@ -1144,18 +1220,42 @@ PYEOF
         [ -n "$au" ] && curl -s -m 20 -o /tmp/muse-init.png "$au" 2>/dev/null && [ -s /tmp/muse-init.png ] && src="arena"
       elif [ "$roll" -lt "$fbk" ]; then
         fb=$((RANDOM % total + 1))                                        # feedback: evolve a past cell
-        scp -q "$REMOTE_USER@$h:farm/sd/wall_$fb.png" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="feedback"
+        scp -q "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_$fb.png" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="feedback"
       elif [ "$roll" -lt "$cld" ]; then
-        # ~half the Cloudinary rolls pull a FUJIFILM shot (DSCF*) specifically
-        cu=""; lbl="cloud"
-        if [ $((RANDOM % 2)) -eq 0 ]; then cu=$(MUSE_FUJI=1 muse-cloudinary 2>/dev/null || true); [ -n "$cu" ] && lbl="fuji"; fi
+        # EJ-TASTE seed first: a photo from EJ's ranked library, softmax-weighted by
+        # contrast + centered single subject + symmetry (no API call — public URLs).
+        # The old path picked from the 100 newest uploads of ANY kind (scrapbook
+        # screenshots etc), and explore mode gave this branch a 0% share — photo
+        # seeds were 13 of ~12k renders. MUSE_TASTE_SEED=0 → old random-Cloudinary.
+        cu=""; lbl="cloud"; seed_taste=""
+        if [ "${MUSE_TASTE_SEED:-1}" != 0 ] && _ts=$(muse-taste-seed 2>/dev/null) && [ -n "$_ts" ]; then
+          cu=$(printf '%s' "$_ts" | cut -f1); seed_taste=$(printf '%s' "$_ts" | cut -f2); lbl="taste"
+        fi
+        if [ -z "$cu" ] && [ $((RANDOM % 2)) -eq 0 ]; then cu=$(MUSE_FUJI=1 muse-cloudinary 2>/dev/null || true); [ -n "$cu" ] && lbl="fuji"; fi
         [ -z "$cu" ] && cu=$(muse-cloudinary 2>/dev/null || true)
         [ -n "$cu" ] && curl -s -m 20 -o /tmp/muse-init.png "$cu" 2>/dev/null && [ -s /tmp/muse-init.png ] && src="$lbl"
+        [ "$src" = taste ] || seed_taste=""
       elif [ "$roll" -lt "$gam" ]; then
         # a real frame from your last gaming session, reinterpreted into vulpes style
         # (per-cell strength gives the subtle→heavy mix). Empty pool → falls to pure.
-        gf=$(rssh "powershell -NoProfile -Command \"(Get-ChildItem \$env:USERPROFILE\farm\sd\gameframes\*.jpg -EA 0 | Get-Random).Name\"" 2>/dev/null | tr -d '\r')
-        [ -n "$gf" ] && scp -q "$REMOTE_USER@$h:farm/sd/gameframes/$gf" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="game"
+        gf=$(rssh "powershell -NoProfile -Command \"(Get-ChildItem C:\dev\computah\farm\sd\gameframes\*.jpg -EA 0 | Get-Random).Name\"" 2>/dev/null | tr -d '\r')
+        [ -n "$gf" ] && scp -q "$REMOTE_USER@$h:C:/dev/computah/farm/sd/gameframes/$gf" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="game"
+      fi
+
+      # ── REFERENCE CONDITIONING (2026-09-30): a pure cell borrows the STYLE of one of
+      #    EJ's ★ renders via FLUX.2-klein reference images (sd-server `extra_images`).
+      #    Training-free, and it carries the painterly look his stars point at — what
+      #    the photo LoRA couldn't. ~3x render cost, so a modest share. The reference is
+      #    shown as the cell's seed inset. Knob: MUSE_REF_PCT (0 = off).
+      ref_from=""
+      if [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_REF_PCT:-12}" ]; then
+        _rid=$(curl -sf -m 5 "http://$h:7861/favlist" | /usr/local/bin/python3 -c \
+          'import json,sys,random; i=json.load(sys.stdin).get("ids") or []; print(random.choice(i) if i else "")' 2>/dev/null)
+        if [ -n "$_rid" ] && curl -sf -m 20 -o /tmp/muse-ref.png "http://$h:7861/taste/fav/muse-$_rid.png" \
+           && sips -Z 512 /tmp/muse-ref.png --out /tmp/muse-ref-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-ref-sm.png ]; then
+          export IMAGINE_REF_LOCAL=/tmp/muse-ref-sm.png; ref_from="$_rid"; src="ref"
+          cp /tmp/muse-ref-sm.png /tmp/muse-init-sm.png   # inset on the wall = the reference
+        fi
       fi
 
       # ── INIT TRANSFORM POOL: perturb whatever seed we grabbed (ANY source) so
@@ -1163,8 +1263,11 @@ PYEOF
       #    the rest get one random magick op. Replaces the old per-source negate.
       #    The op name is appended to src ("feedback+swirl") so the trace records it.
       if [ "$src" != "pure" ] && [ -s /tmp/muse-init.png ] && command -v magick >/dev/null 2>&1; then
-        fx=""
-        case $((RANDOM % 12)) in
+        fx=""; _op=$((RANDOM % 12))
+        # taste seeds: the composition IS the point — rotate/swirl/blur (5–7) would
+        # break the centering + symmetry, so those rolls pass through untouched.
+        { [ "$src" = taste ] || [ "$src" = bench ]; } && [ "$_op" -ge 5 ] && [ "$_op" -le 7 ] && _op=11
+        case $_op in
           0) magick /tmp/muse-init.png -negate /tmp/muse-init.png 2>/dev/null && fx="negate";;
           1) magick /tmp/muse-init.png -modulate 100,140,$((RANDOM%200+1)) /tmp/muse-init.png 2>/dev/null && fx="hue";;
           2) magick /tmp/muse-init.png -posterize $((RANDOM%4+2)) /tmp/muse-init.png 2>/dev/null && fx="posterize";;
@@ -1181,6 +1284,12 @@ PYEOF
       tag=""
       if [ "$src" != "pure" ] && [ -s /tmp/muse-init.png ]; then
         # sd-server gets the init straight from this local file (base64) — no scp.
+        # taste seeds: clamp into the band where FLUX keeps the init's layout but
+        # repaints its surface (≲0.3 = a filtered photo, ≳0.8 = layout dissolves).
+        if [ "${src%%+*}" = taste ] || [ "${src%%+*}" = bench ]; then
+          strength=$(awk -v s="$strength" -v lo="${MUSE_TASTE_STR_LO:-0.45}" -v hi="${MUSE_TASTE_STR_HI:-0.78}" \
+            'BEGIN{if(s<lo)s=lo; if(s>hi)s=hi; printf "%.2f", s}')
+        fi
         if sips -Z 640 /tmp/muse-init.png --out /tmp/muse-init-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-init-sm.png ]; then
           export IMAGINE_INIT_LOCAL=/tmp/muse-init-sm.png; export IMAGINE_STRENGTH="$strength"
           tag=" s=$strength"
@@ -1189,28 +1298,67 @@ PYEOF
 
       # subject was set by the brevity roll; style is per-cell (may be empty → bare).
       if [ -n "$cell_style" ]; then full="$subject, $cell_style"; else full="$subject"; fi
+
+      # ── BEST-OF-N (2026-09-30): N cheap sketches → the preference probe, minus a
+      #    diversity penalty vs. what's already on the wall, picks one → finished here
+      #    as img2img at full size. DORMANT until muse-taste-probe marks the probe
+      #    ready (enough positive labels + honest leave-one-out AUC). A rerank, never a
+      #    gate. Knobs: MUSE_BON_PCT (share of pure cells), MUSE_BON_STR, MUSE_BON_FORCE=1.
+      if [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_BON_PCT:-25}" ] && \
+         { [ "${MUSE_BON_FORCE:-}" = 1 ] || /usr/local/bin/python3 -c \
+           'import json,os,sys; sys.exit(0 if json.load(open(os.path.expanduser("~/.cache/muse/probe-stats.json"))).get("ready") else 1)' 2>/dev/null; }; then
+        if _pick=$(muse-bestof "$full" "$h" 2>>/tmp/muse-taste.log) && [ -s "$_pick" ] \
+           && sips -z "${size#*x}" "${size%x*}" "$_pick" --out /tmp/muse-init-bon.png >/dev/null 2>&1; then
+          export IMAGINE_INIT_LOCAL=/tmp/muse-init-bon.png IMAGINE_STRENGTH="${MUSE_BON_STR:-0.6}"
+          cp "$_pick" /tmp/muse-init-sm.png; src="bestof"; tag=" s=$IMAGINE_STRENGTH"
+          echo "  ◇ best-of-${MUSE_BON_N:-4}: probe picked a sketch"
+        fi
+      fi
       echo "── #$n cell $slot/$total [$src ${size} ${steps}st$tag ${IMAGINE_SAMPLER} seed=$cellseed]: ${subject:0:55}"
       rssh "echo $slot > $FARM\sd\live-slot.txt" >/dev/null 2>&1 || true
       mkdir -p /tmp/muse && cd /tmp/muse
       STEPS="$steps" "$0" imagine "$full" "$size" >/dev/null 2>&1 || echo "  (render hiccup)"
+      # No fresh render (sd-server error, or the dead-frame gate rejected it) → archive
+      # NOTHING. The gallery step below copies the PC's imagine.png, which is the LAST
+      # GOOD render — so every failed cell used to file a duplicate under a new id
+      # (~650 dupes overnight 2026-10-01/02) that polluted embeddings + the brief art pick.
+      if ! ls /tmp/muse/imagine-*.png >/dev/null 2>&1; then
+        sleep "$gap"; continue
+      fi
       id="$(date +%Y%m%d-%H%M%S)-c${slot}"
       # Save the SEED IMAGE (exactly what fed this cell — the screenshot/photo/past-cell)
       # next to the cell + in the gallery, so the wall can show you what it was based on.
       # Pure text2img cells clear any stale seed image left at this slot.
       inited=""
       if [ "$src" != "pure" ] && [ -s /tmp/muse-init-sm.png ]; then
-        scp -q /tmp/muse-init-sm.png "$REMOTE_USER@$h:farm/sd/wall_$slot-init.png" 2>/dev/null && inited=1
-        scp -q /tmp/muse-init-sm.png "$REMOTE_USER@$h:renders/muse-gallery/muse-$id-init.png" 2>/dev/null || true
+        scp -q /tmp/muse-init-sm.png "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_$slot-init.png" 2>/dev/null && inited=1
+        scp -q /tmp/muse-init-sm.png "$REMOTE_USER@$h:C:/dev/computah/renders/muse-gallery/muse-$id-init.png" 2>/dev/null || true
       else
         rssh "del $FARM\sd\wall_$slot-init.png" >/dev/null 2>&1 || true
       fi
+      # EJ-taste of the finished render (same z-scale as the photo corpus), for
+      # EVERY cell — the measurement for "do taste seeds make tastier renders?"
+      # and future preference-probe training data. Never gates anything.
+      # PRESENCE sample (HID idle) → usage-logs/presence; muse_presence.py uses it to
+      # tell "EJ saw this cell" from "rendered while he slept" (browser/watching time
+      # that the shell/tmux/keypress logs miss).
+      _idle=$(ioreg -c IOHIDSystem 2>/dev/null | awk '/HIDIdleTime/{printf "%d", $NF/1000000000; exit}')
+      [ -n "$_idle" ] && { mkdir -p "$HOME/.local/share/usage-logs/presence"
+        printf '{"ts":"%s","idle_s":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_idle" \
+          >> "$HOME/.local/share/usage-logs/presence/$(date +%Y-%m-%d).jsonl"
+        rssh "echo $_idle > $FARM\sd\taste\idle.txt" >/dev/null 2>&1 || true; }   # TASTE OPS presence lamp
+      render_taste=""
+      _out=$(ls -t /tmp/muse/imagine-*.png 2>/dev/null | head -1)
+      [ -n "$_out" ] && render_taste=$(muse-taste-seed score "$_out" 2>>/tmp/muse-taste.log || true)
+      [ -z "$render_taste" ] && echo "$(date +%T) no render score (out='${_out:-none}' cwd=$PWD)" >> /tmp/muse-taste.log
       # ── TRACE: every choice that made this image → JSON sidecar in the gallery,
       #    named to match the archived PNG. Browse the gallery, each .png has a .json.
+      TR_SEEDTASTE="$seed_taste" TR_RENDERTASTE="$render_taste" \
       TR_N="$n" TR_SLOT="$slot" TR_SRC="$src" TR_FB="${fb:-}" TR_SIZE="$size" \
       TR_STEPS="$steps" TR_STR="${IMAGINE_STRENGTH:-none}" TR_SUBJ="$subject" TR_FULL="$full" \
       TR_PSRC="$prompt_origin" TR_BATCH="$batch_source" TR_ID="$id" \
       TR_SEED="$cellseed" TR_MOTIF="$source_motif" TR_MINED="$source_mined" TR_INIT="$inited" \
-      TR_STYLE="$cell_style" TR_SAMPLER="${IMAGINE_SAMPLER:-euler}" TR_CFG="${IMAGINE_CFG:-1.0}" \
+      TR_STYLE="$cell_style" TR_SAMPLER="${IMAGINE_SAMPLER:-euler}" TR_CFG="${IMAGINE_CFG:-1.0}" TR_REF="$ref_from" \
       python3 - > /tmp/muse-trace.json 2>/dev/null <<'PYT'
 import json, os, datetime
 g=lambda k: os.environ.get(k,"")
@@ -1223,13 +1371,16 @@ rec={"id":g("TR_ID"),"ts":datetime.datetime.now().isoformat(timespec="seconds"),
  "seed":int(g("TR_SEED")) if g("TR_SEED") else None,
  "prompt_subject":g("TR_SUBJ"),"prompt_full":g("TR_FULL"),
  "prompt_from":g("TR_PSRC"),"batch_source":g("TR_BATCH"),
- "source_motif":g("TR_MOTIF") or None,"mined_from":g("TR_MINED") or None}
+ "source_motif":g("TR_MOTIF") or None,"mined_from":g("TR_MINED") or None,
+ "seed_ejtaste":float(g("TR_SEEDTASTE")) if g("TR_SEEDTASTE") else None,
+ "render_ejtaste":float(g("TR_RENDERTASTE")) if g("TR_RENDERTASTE") else None,
+ "ref_from":g("TR_REF") or None}
 print(json.dumps(rec,indent=2))
 PYT
-      rssh "copy /y $FARM\imagine.png C:\Users\\$REMOTE_USER\renders\muse-gallery\muse-$id.png" >/dev/null 2>&1 || true
-      scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:renders/muse-gallery/muse-$id.json" 2>/dev/null || true
+      rssh "copy /y $FARM\imagine.png C:\dev\computah\renders\muse-gallery\muse-$id.png" >/dev/null 2>&1 || true
+      scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:C:/dev/computah/renders/muse-gallery/muse-$id.json" 2>/dev/null || true
       # also drop the trace next to the live wall cell so the wall can pop it up on click
-      scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:farm/sd/wall_$slot.json" 2>/dev/null || true
+      scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_$slot.json" 2>/dev/null || true
       rm -f /tmp/muse/imagine-*.png
       sleep "$gap"
     done
@@ -1337,6 +1488,12 @@ PYEOF
   favorites|favs)
     # pop the curated favorites folder in Explorer on the PC
     rssh "schtasks /run /tn open-favorites" >/dev/null 2>&1 && echo "opened favorites on the PC" || echo "couldn't reach the PC"
+    ;;
+
+  renders)
+    # Blender output: same as the bare `renders` command (PC awake → every render live
+    # off the PC share; PC off → the Mac copy in ~/Pictures/Blender)
+    exec "$(dirname "$0")/renders" "${@:2}"
     ;;
 
   *)
