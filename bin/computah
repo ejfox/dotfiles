@@ -1291,8 +1291,14 @@ PYEOF
         # sd-server gets the init straight from this local file (base64) — no scp.
         # taste seeds: clamp into the band where FLUX keeps the init's layout but
         # repaints its surface (≲0.3 = a filtered photo, ≳0.8 = layout dissolves).
-        if [ "${src%%+*}" = taste ] || [ "${src%%+*}" = bench ]; then
+        if [ "${src%%+*}" = taste ]; then
           strength=$(awk -v s="$strength" -v lo="${MUSE_TASTE_STR_LO:-0.45}" -v hi="${MUSE_TASTE_STR_HI:-0.78}" \
+            'BEGIN{if(s<lo)s=lo; if(s>hi)s=hi; printf "%.2f", s}')
+        fi
+        # bench (data-silhouette) seeds: at 0.78 the shape dissolved entirely (2026-10-02),
+        # so keep them lower — the bars/dots survive, the surface gets repainted.
+        if [ "${src%%+*}" = bench ]; then
+          strength=$(awk -v s="$strength" -v lo="${MUSE_BENCH_STR_LO:-0.40}" -v hi="${MUSE_BENCH_STR_HI:-0.62}" \
             'BEGIN{if(s<lo)s=lo; if(s>hi)s=hi; printf "%.2f", s}')
         fi
         if sips -Z 640 /tmp/muse-init.png --out /tmp/muse-init-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-init-sm.png ]; then
