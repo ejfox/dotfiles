@@ -335,6 +335,7 @@
     <div class="r"><kbd>computah harden-wol</kbd><span class="d">run once if wake dies after a full shutdown (Fast Startup off, arm NIC, kill night-wake)</span></div>
     <div class="r"><kbd>computah imagine "…"</kbd><span class="d">one FLUX image on the PC GPU</span></div>
     <div class="r dd"><kbd>computah renders</kbd><span class="d">sync Blender studio renders to ~/Pictures/Blender and open in Finder (space = Quick Look)</span></div>
+    <div class="r"><kbd>brief-pictures --dry</kbd><span class="d">preview the 08:02 Discord picture DM (today's charts + one art tile); full-size files in ~/Pictures/Brief/&lt;date&gt;/</span></div>
     <div class="r dd"><kbd>computah sd-server start/stop</kbd><span class="d">keep FLUX hot — imagine/muse-loop skip the multi-min model reload</span></div>
     <div class="r"><kbd>computah llm on/off</kbd><span class="d">local Qwen LLM server :8085</span></div>
     <div class="div"></div>
@@ -358,7 +359,13 @@
     <div class="o">stage with space, AI commit with a, push with P</div>
     <div class="o">z to undo anything (reflog-powered safety net)</div>
     <div class="lbl">morning brief feeds</div>
-    <div class="r"><kbd>things-bridge</kbd><span class="d">push Things Today/projects → VPS brief (auto every 30m)</span></div>
+    <div class="r"><kbd>things-bridge</kbd><span class="d">push Things → VPS, pull brief facts back (auto every 30m)</span></div>
+    <div class="r"><kbd>pixel knock / tally / wilt</kbd><span class="d">radar of 25+ hit IPs · blocked-days tally wall · goal garden</span></div>
+    <div class="r"><kbd>pixel action / found / held</kbd><span class="d">today's 10-min step · who found you · what the brief kept quiet</span></div>
+    <div class="lbl">pixel theater</div>
+    <div class="r"><kbd>pixel skyline</kbd><span class="d">repos as a night city · lit windows = today's commits · real sun + moon</span></div>
+    <div class="r"><kbd>pixel vitals / hive</kbd><span class="d">24h operator EKG (prompts, flatlines) · Claude sessions as a swarm + session ids</span></div>
+    <div class="r"><kbd>pixel credits / transmission</kbd><span class="d">the day's opening titles · a phrase you spoke to Talon, decoded</span></div>
     <div class="r"><kbd>things-export | jq</kbd><span class="d">see exactly what leaves the Mac</span></div>
     <div class="o">log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access</div>
   </div>
@@ -889,6 +896,8 @@
     <div class="r"><kbd>desk run --dry</kbd><span class="d">gather + pick only (cheap)</span></div>
     <div class="r"><kbd>desk build desks/DATE/02-slug</kbd><span class="d">rebuild one story (edit assignment.json first)</span></div>
     <div class="r"><kbd>desk gather</kbd><span class="d">see what feeds / inbox / watchers returned</span></div>
+    <div class="r dd"><kbd>desk verify desks/DATE/02-slug</kbd><span class="d">ledger + lint + independent fact-check + fix loop</span></div>
+    <div class="r"><kbd>desk lint desks/DATE/02-slug</kbd><span class="d">free deterministic checks only</span></div>
     <div class="r"><kbd>desk install</kbd><span class="d">re-apply [schedule] after editing it</span></div>
     <div class="r"><kbd>touch ~/.config/chart-desk-disabled</kbd><span class="d">pause the daily run</span></div>
     <div class="o">knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/<em>.md</em></div>
