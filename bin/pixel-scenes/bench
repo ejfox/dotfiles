@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""bench — today's chart-desk workbench, drawn small. The prep cook stocked a
+story at 06:30; from the making slot (09:00) until you run `desk shipped`,
+pixel-pick boosts this scene hard. Shapes come from the bench's data/mini.json
+(or the first numeric column of data/chart.csv); the 1-3 marks that carry the
+finding are hotpink. Bottom row = the streak, one dot per day. After you ship
+it flips to a quiet "shipped" card. Reads ~/.local/state/chart-desk/bench.json
+only; never touches the network beyond the device."""
+import csv, json, os, sys, textwrap, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect
+
+STATE = os.path.expanduser("~/.local/state/chart-desk/bench.json")
+try:
+    s = json.load(open(STATE))
+except Exception:
+    s = {}
+today = time.strftime("%Y-%m-%d")
+has_bench = s.get("date") == today and s.get("dir")
+streak = int(s.get("streak") or 0)
+
+
+def mini_values():
+    m = s.get("mini") or {}
+    if m.get("values"):
+        return [float(v) for v in m["values"][:48]], m.get("kind", "bars"), set(m.get("highlight") or []), m.get("label", "")
+    try:  # fallback: first mostly-numeric column of the chart data
+        rows = list(csv.DictReader(open(os.path.join(s["dir"], "data", "chart.csv"))))
+        for col in rows[0]:
+            vals = []
+            for r in rows:
+                try:
+                    vals.append(float(str(r[col]).replace(",", "").replace("$", "")))
+                except ValueError:
+                    pass
+            if len(vals) >= 0.8 * len(rows) and len(set(vals)) > 3:
+                step = max(1, len(vals) // 48)
+                return vals[::step][:48], "bars", set(), col[:30]
+    except Exception:
+        pass
+    return [], "bars", set(), ""
+
+
+cv = connect()
+cv.clear()
+cv.text("today's bench" if has_bench else "chart desk", 8, 8, color="mauve")
+cv.text(f"{streak}d streak" if streak else "start the streak", 312, 8, color="dustrose", align="right")
+
+if not has_bench:
+    cv.text("no bench today", y=96, size=2, color="dustrose", align="center")
+    cv.text("pick one from on-deck", y=126, color="dustrose", align="center")
+elif s.get("shipped_today"):
+    cv.text("shipped", y=70, size=4, color="teal", align="center")
+    cv.text(s.get("slug", "")[:40], y=120, color="dustrose", align="center")
+    cv.text(f"{streak}-day streak", y=140, size=2, color="pink", align="center")
+else:
+    vals, kind, hi, label = mini_values()
+    x0, y0, w, h = 10, 26, 300, 112        # chart box
+    if vals:
+        lo, top = min(0.0, min(vals)), max(vals) or 1.0
+        span = (top - lo) or 1.0
+        n = len(vals)
+        bw = w / n
+        pts = []
+        for i, v in enumerate(vals):
+            bh = max(1, int((v - lo) / span * h))
+            x = x0 + i * bw
+            color = "hotpink" if i in hi else "teal"
+            if kind == "bars":
+                cv.rect(x + 1, y0 + h - bh, max(1, bw - 2), bh, color=color)
+            else:
+                cx, cy = x + bw / 2, y0 + h - bh
+                if kind == "line" and pts:
+                    cv.line(pts[-1][0], pts[-1][1], cx, cy, color="teal")
+                cv.circle(cx, cy, 3 if i in hi else 2, color)
+                pts.append((cx, cy))
+        cv.rect(x0, y0 + h + 1, w, 1, color="dustrose")
+        if label:
+            cv.text(label, x0, y0 + h + 4, color="dustrose", max_w=w)
+    finding = s.get("finding") or s.get("slug", "")
+    for i, line in enumerate(textwrap.wrap(finding, 50)[:3]):
+        cv.text(line, 10, 160 + i * 12, color="body", max_w=300)
+
+# streak: one dot per day, last 14 days
+dots = min(streak, 14)
+for i in range(14):
+    cv.circle(18 + i * 21, 226, 4, "pink" if i < dots else "dustrose")
+
+sys.exit(0 if cv.ok else 1)
