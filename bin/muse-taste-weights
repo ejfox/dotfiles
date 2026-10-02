@@ -1,0 +1,119 @@
+#!/usr/local/bin/python3
+"""Turn EJ's reactions to the wall into gentle knob weights.
+
+Reads  ~/.cache/muse/render-scores.csv   (muse-taste-backfill: one row per render)
+       ~/.cache/muse/wall-events.jsonl   (wall UI: 👎, inspect clicks, daily pair picks)
+       ~/.local/share/usage-logs/*       (presence — muse_presence.py)
+Writes ~/.cache/muse/knob-weights.tsv    knob<TAB>key<TAB>weight<TAB>n<TAB>signal
+       ~/.cache/muse/labels.json         per-render labels (for the preference probe)
+
+LABELS (Fable review 2026-09-30 — the old version learned EJ's SCHEDULE):
+  · only renders EJ could have SEEN count; unseen ones are ignored, never negative
+  · "favorite replay" cells are excluded (replaying starred prompts then counting
+    their stars was a feedback loop: 4/19 stars)
+  · positive mass: ★ 1.0 · inspect click 0.5 · daily-pair win 0.5
+  · negative mass: 👎 1.0 · daily-pair loss 0.25
+Per knob value: smoothed positive rate ÷ global rate, × smoothed down rate ÷
+global (inverted), each ^GAMMA, clamped [LO, HI] — a nudge, never a prune.
+The EJ-taste photo metric only joins if it agrees with his stars (AUC ≥ MIN_AUC);
+on 2026-09-30 it scored 0.40, so it sits out.
+Knobs: MUSE_W_{LO,HI,MIN_AUC,PRIOR,GAMMA}.
+"""
+import csv, json, os, sys
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import muse_presence as P
+
+E = os.environ.get
+C = os.path.expanduser("~/.cache/muse")
+SRC, EVENTS = f"{C}/render-scores.csv", f"{C}/wall-events.jsonl"
+OUT, LABELS = f"{C}/knob-weights.tsv", f"{C}/labels.json"
+LO, HI = float(E("MUSE_W_LO", "0.5")), float(E("MUSE_W_HI", "2.0"))
+MIN_AUC = float(E("MUSE_W_MIN_AUC", "0.6"))
+PRIOR = float(E("MUSE_W_PRIOR", "300"))
+GAMMA = float(E("MUSE_W_GAMMA", "0.5"))
+
+def wall_events():
+    """Latest 👎 state per id, inspected ids, pair wins/losses."""
+    down, insp, win, lose = {}, set(), {}, {}
+    try:
+        for line in open(EVENTS):
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            t = e.get("type")
+            if t == "down":
+                down[e["id"]] = bool(e.get("on", True))
+            elif t == "inspect":
+                insp.add(e["id"])
+            elif t == "pair":
+                win[e["win"]] = win.get(e["win"], 0) + 1
+                lose[e["lose"]] = lose.get(e["lose"], 0) + 1
+    except FileNotFoundError:
+        pass
+    return {i for i, on in down.items() if on}, insp, win, lose
+
+def groups(rows):
+    g = {}
+    for r in rows:
+        ch = [c.strip().lower() for c in r["style"].split(",") if c.strip()]
+        keys = [("sampler", r["sampler"]), ("source", r["init_source"].split("+")[0])]
+        if ch:
+            keys.append(("style", ch[0]))
+        keys += [("chunk", c) for c in ch[1:]]   # palettes / wild / blends
+        for k in keys:
+            if k[1]:
+                g.setdefault(k, []).append(r)
+    return g
+
+def main():
+    rows = [r for r in csv.DictReader(open(SRC, newline="", encoding="utf-8")) if r["ejtaste"]]
+    seen = P.seen_flags(rows)
+    down, insp, win, lose = wall_events()
+    pool = [r for r in rows if seen.get(r["id"]) and r["prompt_from"] != "favorite replay"]
+    for r in pool:
+        i = r["id"]
+        r["pos"] = (r["favorite"] == "1") * 1.0 + (i in insp) * 0.5 + 0.5 * win.get(i, 0)
+        r["neg"] = (i in down) * 1.0 + 0.25 * lose.get(i, 0)
+    n_star = sum(r["favorite"] == "1" for r in pool)
+    print(f"◆ {len(rows)} renders · {len(pool)} seen (non-replay) · {n_star}★ · {len(down)}👎 · "
+          f"{len(insp)} inspected · {sum(win.values())} pair picks")
+    if len(pool) < 200 or n_star < 3:
+        print("◇ not enough seen labels to weight yet"); return
+
+    # does the photo metric agree with EJ on what he actually saw?
+    fv = [float(r["ejtaste"]) for r in pool if r["favorite"] == "1"]
+    rv = [float(r["ejtaste"]) for r in pool if r["favorite"] != "1"]
+    auc = sum((f > x) + 0.5 * (f == x) for f in fv for x in rv) / (len(fv) * len(rv))
+    print(f"◆ EJ-taste AUC on seen ★ = {auc:.2f} → {'joins' if auc >= MIN_AUC else 'sits out'}")
+
+    p0 = sum(r["pos"] for r in pool) / len(pool)
+    q0 = sum(r["neg"] for r in pool) / len(pool)
+    out = []
+    for (knob, key), rs in groups(pool).items():
+        n = len(rs)
+        pr = (sum(r["pos"] for r in rs) + PRIOR * p0) / (n + PRIOR)
+        w = (pr / p0) ** GAMMA if p0 else 1.0
+        if q0:
+            qr = (sum(r["neg"] for r in rs) + PRIOR * q0) / (n + PRIOR)
+            w *= (q0 / qr) ** GAMMA
+        out.append((knob, key, min(HI, max(LO, w)), n, sum(r["pos"] for r in rs)))
+    with open(OUT, "w") as f:
+        for knob, key, w, n, s in sorted(out):
+            f.write(f"{knob}\t{key}\t{w:.3f}\t{n}\t{s:.3f}\n")
+    # per-render labels for the preference probe (seen, non-replay only)
+    json.dump({"auc": auc, "rows": {r["id"]: [r["pos"], r["neg"]] for r in pool}}, open(LABELS, "w"))
+    for knob in ("source", "style", "sampler"):
+        xs = sorted((o for o in out if o[0] == knob and o[3] >= 20 and abs(o[2] - 1) > 0.05), key=lambda o: -o[2])
+        if xs:
+            fmt = lambda o: f"{o[1][:24]} ×{o[2]:.2f} ({o[3]} seen, {o[4]:.1f}+)"
+            print(f"  {knob:7} ▲ " + " · ".join(map(fmt, xs[:3])))
+            if len(xs) > 3:
+                print(f"  {'':7} ▼ " + " · ".join(map(fmt, xs[-3:])))
+    print(f"◆ wrote {len(out)} weights → {OUT}")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except FileNotFoundError:
+        print("◇ no render-scores.csv yet — run muse-taste-backfill"); sys.exit(1)

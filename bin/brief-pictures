@@ -1,0 +1,286 @@
+#!/usr/local/bin/python3
+"""brief-pictures — the morning picture DM: today's charts first, one art tile.
+
+  brief-pictures           build the sheet + send it to EJ via Artie's DM API (once a day)
+  brief-pictures --dry     build + open the sheet locally, send nothing
+  brief-pictures --force   send even if today's already went out
+
+Charts: the latest chart-desk run for today (~/code/chart-desk/desks/<today>*/NN-*/chart.png),
+headlines from each post.md blog-stub title. This is Fable's Bet 1 surfacing in Discord.
+Art tile: a wall render from the last 24h — EJ's own ★ first, else the top pick of his
+taste probe (CLIP probe trained on his reactions; ~/.cache/muse/probe.npz), never a ▽.
+Full-size files land in ~/Pictures/Brief/<date>/ for posting. Delivery reuses the brief's
+DM path: scp to vps:/home/debian/brief-pictures/<date>/, POST /api/dm with the token the brief uses.
+Runs from LaunchAgent com.ejfox.brief-pictures at 08:02 (right after the 08:00 brief).
+Off switch: ~/.config/brief-pictures-disabled
+"""
+import base64, datetime as dt, glob, json, os, re, shutil, subprocess, sys, urllib.request
+
+HOME = os.path.expanduser("~")
+DESKS = f"{HOME}/code/chart-desk/desks"
+CACHE = f"{HOME}/.cache/muse"
+OUTROOT = f"{HOME}/Pictures/Brief"
+OWNER = "688448399879438340"
+PC_HTTP = "http://10.0.0.169:7861"
+FONT = "/System/Library/Fonts/Menlo.ttc"
+BG, INK, MUTED, ACCENT = (11, 11, 13), (238, 238, 242), (140, 140, 152), (255, 77, 141)
+
+SEND_SH = r'''#!/usr/bin/env bash
+# brief-pictures sender, run ON the VPS: send.sh <dir> <discord-user-id> <date>
+set -uo pipefail
+cd "$1" || exit 1
+# land UNDER the text brief (contract with the drip-brief session, 2026-10-02): its morning
+# slot writes facts.json .last_dm_at.morning at DM time; until that ships, the archive file
+# written just before its DM — but only if written THIS morning (a 01:00 test run already
+# made today's file, so plain existence passed instantly). Wait up to 15 min, then send anyway.
+F=/home/debian/briefs/facts.json; A="/home/debian/briefs/archive/$3-morning.md"
+for _ in $(seq 90); do
+  jq -e --arg d "$3" '(.last_dm_at.morning // "") | startswith($d)' "$F" >/dev/null 2>&1 && break
+  [ -n "$(find "$A" -newermt "$3 07:30" 2>/dev/null)" ] && break
+  sleep 10
+done
+tok=$(tr -d '\n' < /data2/smallweb/data/anomalywatch/data/.artie-dm-token)
+jq -n --arg u "$2" --rawfile m message.txt --rawfile b <(base64 -w0 sheet.jpg) --arg n "desk-$3.jpg" \
+  '{userId:$u, message:$m, fileBase64:$b, fileName:$n}' \
+| curl -s -m 30 -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:47321/api/dm \
+    -H 'Content-Type: application/json' -H "Authorization: Bearer $tok" -d @-
+'''
+
+today = dt.date.today().isoformat()
+OUT = f"{OUTROOT}/{today}"
+DRY, FORCE = "--dry" in sys.argv, "--force" in sys.argv
+STAMP = f"{CACHE}/brief-pictures-sent-{today}"
+PIN = f"{CACHE}/brief-pictures-run-{today}"
+PREFETCH = f"{CACHE}/brief-art"
+
+
+def pc_host():
+    ok = subprocess.run(["nc", "-z", "-G", "2", "10.0.0.169", "22"], capture_output=True).returncode == 0
+    return "ejfox@10.0.0.169" if ok else "computah"
+
+def get_json(path):
+    try:
+        return json.load(urllib.request.urlopen(PC_HTTP + path, timeout=6))
+    except Exception:
+        return None
+
+# ------------------------------------------------------------------ charts
+def todays_charts(pinned=None):
+    runs = sorted(d for d in glob.glob(f"{DESKS}/{today}*") if glob.glob(f"{d}/*/chart.png"))
+    if pinned and f"{DESKS}/{pinned}" in runs:
+        runs = [f"{DESKS}/{pinned}"]
+    # prefer the newest FINISHED run (chart-desk writes index.html last); a run still
+    # building has only some chart.pngs and would ship a partial desk
+    done = [d for d in runs if os.path.exists(f"{d}/index.html")]
+    runs = done or runs
+    if not runs:
+        return []
+    # of those, the MOST complete run wins (newest on a tie): a later re-run can finish
+    # with fewer charts (2026-10-02: the 00:40 re-run landed 1 of 3, the 06:30 run had 3)
+    runs.sort(key=lambda d: (len(glob.glob(f"{d}/*/chart.png")), d))
+    out = []
+    for png in sorted(glob.glob(f"{runs[-1]}/*/chart.png")):
+        folder = os.path.dirname(png)
+        title = os.path.basename(folder).split("-", 1)[-1].replace("-", " ")
+        try:
+            m = re.search(r'^title:\s*"?(.+?)"?\s*$', open(f"{folder}/post.md").read(), re.M)
+            if m:
+                title = m.group(1)
+        except OSError:
+            pass
+        out.append({"kind": "chart", "path": png, "title": title,
+                    "code": f"{os.path.basename(runs[-1])}/{os.path.basename(folder)}"})
+    return out
+
+# ------------------------------------------------------------------ art tile
+def ts_of(rid):
+    m = re.match(r"(\d{8})-(\d{6})", rid)
+    return dt.datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S") if m else None
+
+def art_pick():
+    favs = set((get_json("/favlist") or {}).get("ids", []))
+    downs = set((get_json("/downlist") or {}).get("ids", []))
+    cutoff = dt.datetime.now() - dt.timedelta(hours=24)
+    fresh_favs = sorted((i for i in favs if (ts_of(i) or cutoff) > cutoff), reverse=True)
+    if fresh_favs:
+        return fresh_favs[0], "your ★"
+    try:
+        import numpy as np
+        z = np.load(f"{CACHE}/render-embeds.npz"); p = np.load(f"{CACHE}/probe.npz")
+    except Exception:
+        return None, None
+    ids = [str(i) for i in z["ids"]]
+    keep = [k for k, i in enumerate(ids) if i not in downs and (ts_of(i) or cutoff) > cutoff]
+    if not keep:
+        return None, None
+    scores = z["vecs"][keep].astype("float32") @ p["w"] + float(p["b"])
+    return ids[keep[int(scores.argmax())]], "your taste model"
+
+def fetch_render(rid, dest):
+    src = f"{pc_host()}:C:/dev/computah/renders/muse-gallery/muse-{rid}.png"
+    return subprocess.run(["scp", "-q", "-o", "ConnectTimeout=8", src, dest]).returncode == 0
+
+def prefetch():
+    """--prefetch: while the PC is AWAKE, fetch today's art pick to PREFETCH so the 08:02
+    send has wall art even when the PC is asleep (it usually is). Run by blender-sync's
+    15-min tick; re-downloads only when the pick changes. Silent, no DMs."""
+    rid, why = art_pick()
+    if not rid:
+        return
+    meta = f"{PREFETCH}/pick.json"
+    try:
+        if json.load(open(meta)).get("rid") == rid and os.path.exists(f"{PREFETCH}/pick.png"):
+            return
+    except (OSError, ValueError):
+        pass
+    os.makedirs(PREFETCH, exist_ok=True)
+    if fetch_render(rid, f"{PREFETCH}/pick.png.part"):
+        os.replace(f"{PREFETCH}/pick.png.part", f"{PREFETCH}/pick.png")
+        json.dump({"rid": rid, "why": why, "subject": render_subject(rid),
+                   "ts": dt.datetime.now().isoformat()}, open(meta, "w"))
+
+def prefetched():
+    """The last prefetched pick, if its render is from the last 24h."""
+    try:
+        m = json.load(open(f"{PREFETCH}/pick.json"))
+    except (OSError, ValueError):
+        return None
+    t = ts_of(m.get("rid", ""))
+    if not t or t < dt.datetime.now() - dt.timedelta(hours=24) or not os.path.exists(f"{PREFETCH}/pick.png"):
+        return None
+    return m
+
+def studio_fallback():
+    """Newest Blender studio masterpiece from the last 24h, already mirrored to the Mac by
+    blender-sync — art for mornings when the PC is asleep at send time."""
+    cutoff = dt.datetime.now().timestamp() - 86400
+    pngs = [p for p in glob.glob(f"{HOME}/Pictures/Blender/masterpieces/*.png") if os.path.getmtime(p) > cutoff]
+    if not pngs:
+        return None, None
+    p = max(pngs, key=os.path.getmtime)
+    scene = re.sub(r"^\d{8}-\d{6}_", "", os.path.splitext(os.path.basename(p))[0]).replace("_", " ")
+    return p, scene
+
+def render_subject(rid):
+    for r in (get_json("/taste/recent.json") or {}).get("renders", []):
+        if r.get("id") == rid:
+            return (r.get("style") or "").strip()
+    return ""
+
+# ------------------------------------------------------------------ sheet
+def sheet(tiles, path):
+    from PIL import Image, ImageDraw, ImageFont
+    W, PAD, TW = 1600, 24, (1600 - 3 * 24) // 2
+    IH, CAP = 460, 64
+    rows = (len(tiles) + 1) // 2
+    H = 70 + rows * (IH + CAP + PAD) + PAD
+    im = Image.new("RGB", (W, H), BG)
+    d = ImageDraw.Draw(im)
+    f_head, f_cap, f_num, f_code = (ImageFont.truetype(FONT, s) for s in (26, 21, 30, 16))
+    d.text((PAD, 22), f"◆ THE DESK · {dt.date.today():%a %b %-d}", font=f_head, fill=ACCENT)
+    for k, t in enumerate(tiles):
+        x = PAD + (k % 2) * (TW + PAD); y = 70 + (k // 2) * (IH + CAP + PAD)
+        src = Image.open(t["path"]).convert("RGB")
+        src.thumbnail((TW, IH))
+        im.paste(src, (x + (TW - src.width) // 2, y + (IH - src.height) // 2))
+        # the number lives in the caption row, never over the chart (it covered chart headlines)
+        label = f"{k + 1}" if t["kind"] == "chart" else "◇"
+        d.text((x, y + IH + 4), label, font=f_num, fill=ACCENT if t["kind"] == "chart" else (22, 166, 182))
+        cx = x + 34
+        words, lines, line = t["title"].split(), [], ""
+        for w in words:
+            if d.textlength(line + " " + w, font=f_cap) > TW - 38:
+                lines.append(line); line = w
+            else:
+                line = (line + " " + w).strip()
+        lines.append(line)
+        first = lines[0]
+        if len(lines) > 1:   # trim words until the ellipsis fits inside the column
+            while first and d.textlength(first + " …", font=f_cap) > TW - 38:
+                first = first.rsplit(" ", 1)[0] if " " in first else first[:-1]
+            first += " …"
+        d.text((cx, y + IH + 8), first, font=f_cap, fill=INK if t["kind"] == "chart" else MUTED)
+        d.text((cx, y + IH + 36), t["code"], font=f_code, fill=MUTED)   # lookup code
+    im.save(path, "JPEG", quality=88)
+
+
+def main():
+    if os.path.exists(f"{HOME}/.config/brief-pictures-disabled"):
+        return
+    if "--prefetch" in sys.argv:
+        prefetch(); return
+    if os.path.exists(STAMP) and not (FORCE or DRY):
+        return
+    # quiet hours (brief-session contract): never DM EJ 22:00–07:30, not even --force;
+    # test with --dry. (2026-10-02: 00:57/00:59 test sends landed in his Discord.)
+    now = dt.datetime.now().time()
+    if not DRY and (now >= dt.time(22, 0) or now < dt.time(7, 30)):
+        print("◇ quiet hours (22:00–07:30) — not sending; use --dry to preview"); return
+    os.makedirs(OUT, exist_ok=True)
+    # ONE chart set per day: the first real send pins its desk run in PIN; --force resends
+    # that same set even if chart-desk re-runs later (three sets went out on 10-02)
+    pinned = open(PIN).read().strip() if os.path.exists(PIN) else None
+    tiles = todays_charts(pinned)
+    # saved filenames carry the lookup code, so the folder is self-describing
+    for k, t in enumerate(tiles):
+        dest = f"{OUT}/{k + 1}-{t['code'].split('/')[-1]}.png"
+        shutil.copy(t["path"], dest); t["path"] = dest
+    rid, why = art_pick()
+    wall = f"{OUT}/art-wall-{rid}.png" if rid else None
+    ok, pf = bool(rid) and fetch_render(rid, wall), None
+    if not ok:
+        pf = prefetched()   # PC asleep → the pick fetched while it was awake
+        if pf:
+            rid, why, wall = pf["rid"], pf["why"], f"{OUT}/art-wall-{pf['rid']}.png"
+            shutil.copy(f"{PREFETCH}/pick.png", wall); ok = True
+    if ok:
+        subj = pf["subject"] if pf else render_subject(rid)
+        tiles.append({"kind": "art", "path": wall, "code": f"muse-{rid}",
+                      "title": " · ".join(x for x in ("from the wall", subj, why) if x)})
+    else:
+        sp, scene = studio_fallback()
+        if sp:
+            dest = f"{OUT}/art-studio-{os.path.basename(sp)}"
+            shutil.copy(sp, dest); rid = rid or "studio"
+            tiles.append({"kind": "art", "path": dest, "code": os.path.splitext(os.path.basename(sp))[0],
+                          "title": f"from the studio · {scene}"})
+    if not tiles:
+        print("◇ nothing to show today (no charts yet, no art pick)"); return
+    sheet_path = f"{OUT}/sheet.jpg"
+    sheet(tiles, sheet_path)
+
+    charts = [t for t in tiles if t["kind"] == "chart"]
+    lines = [f"◆ the desk · {len(charts)} chart{'s' if len(charts) != 1 else ''} ready" if charts
+             else "◆ the desk · no charts yet today"]
+    for k, t in enumerate(charts):
+        lines += [f"{k + 1} · {t['title']}", f"    `{t['code']}`"]
+    for t in tiles:
+        if t["kind"] == "art":
+            lines += [f"◇ {t['title']}", f"    `{t['code']}`"]
+    lines.append(f"↳ full size on the iMac: ~/Pictures/Brief/{today}/ · pick in today's Things to-do")
+    msg = "\n".join(lines)
+    open(f"{OUT}/message.txt", "w").write(msg)
+
+    if DRY:
+        print(msg); subprocess.run(["open", sheet_path]); return
+    # own dir, NOT under /home/debian/briefs/ (the brief session owns that tree)
+    remote = f"/home/debian/brief-pictures/{today}"
+    subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps", f"mkdir -p {remote}"], check=True)
+    # ship a tiny sender script instead of nesting shell quotes over ssh (the outer shell
+    # expanded $tok before the inner one set it → empty bearer → 401)
+    sender = f"{OUT}/send.sh"
+    open(sender, "w").write(SEND_SH)
+    subprocess.run(["scp", "-q", sheet_path, f"{OUT}/message.txt", sender, f"vps:{remote}/"], check=True)
+    code = subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps", "bash", f"{remote}/send.sh", remote, OWNER, today],
+                          capture_output=True, text=True).stdout.strip()
+    if code.startswith("2"):
+        open(STAMP, "w").write(dt.datetime.now().isoformat())
+        if charts and not os.path.exists(PIN):
+            open(PIN, "w").write(charts[0]["code"].split("/")[0])
+        print(f"◆ sent ({len(charts)} charts{', + art' if rid else ''})")
+    else:
+        print(f"◇ DM failed (http {code or 'none'})"); sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# studio-dev — fast iteration on the 1-bit Blender studio (computah).
+#
+#   studio-dev on               push code + switch the studio to DEV previews (360p, ~5-15s each)
+#   studio-dev push             copy changed blender-math code to the PC (next preview uses it)
+#   studio-dev pin k=v [k=v..]  pin recipe axes: scene= signal= dither= dataset=   (pin clear)
+#   studio-dev wait [n]         block until n new previews (or an error) land, then show them
+#   studio-dev last [n]         recipes / timings / errors of the newest n previews
+#   studio-dev sheet [n]        contact sheet of the newest n previews -> /tmp/studio-dev-sheet.png
+#   studio-dev err              the latest error, full traceback
+#   studio-dev now              stage breadcrumbs of the piece in progress (where a stall is)
+#   studio-dev ps / kill        studio Blender processes on the PC / kill stuck pieces (never EJ's own)
+#   studio-dev open             the live dev page (http://10.0.0.169:7861/studio-dev.html)
+#   studio-dev off              back to full-size live renders
+#
+# DEV mode auto-expires 30 min after the last on/push/pin (studio_loop.py), so the
+# studio can't be left in previews. Every preview is a fresh Blender process, so a
+# push is all it takes — no restarts. Source: ~/.dotfiles/bin/studio-dev
+set -uo pipefail
+PC=10.0.0.169
+if nc -z -G 2 "$PC" 22 2>/dev/null; then H="ejfox@$PC"; else H=computah; fi
+SRC="$HOME/code/blender-math"
+DST="C:/dev/computah/renders/mathblend"
+URL="http://$PC:7861"
+STAMP="$HOME/.cache/studio-dev-pushed"
+PY=/usr/local/bin/python3
+
+touch_on() { ssh -o ConnectTimeout=8 "$H" "cmd /c echo on> C:\\dev\\computah\\farm\\sd\\studio\\dev\\ON" >/dev/null; }
+index() { curl -s -m 5 "$URL/studio/dev/index.json?t=$(date +%s)"; }
+
+push() {
+  mkdir -p "$(dirname "$STAMP")"
+  local files=() newer=()
+  [ -f "$STAMP" ] && newer=(-newer "$STAMP")
+  while IFS= read -r f; do files+=("$f"); done < <(cd "$SRC" && find . -maxdepth 2 -name '*.py' "${newer[@]}" \
+      \( -path './scenes/*' -o -path './*.py' \) | sed 's|^\./||')
+  if [ ${#files[@]} -eq 0 ]; then echo "◇ nothing changed since last push"; touch_on; return; fi
+  for f in "${files[@]}"; do scp -q -o ConnectTimeout=8 "$SRC/$f" "$H:$DST/$f" || echo "◇ failed: $f"; done
+  touch "$STAMP"; touch_on
+  echo "◆ pushed ${#files[@]}: ${files[*]}"
+}
+
+show() {   # newest n entries from index.json
+  index | "$PY" -c '
+import json, sys
+n = int(sys.argv[1]); d = json.load(sys.stdin)
+print("pin:", d.get("pin") or "none")
+for i in d["items"][:n]:
+    secs = "%5ss" % i["secs"]
+    if i["ok"]:
+        kn = i["recipe"].get("knobs", {})
+        extra = [i["recipe"].get("place"), kn.get("lensy"), "%smm" % kn["lens"] if "lens" in kn else None,
+                 "seed=%s" % i["recipe"].get("seed")]
+        print("  ◆ " + secs + "  " + i["tag"] + "  " + " ".join(str(b) for b in extra if b))
+    else:
+        print("  ◇ " + secs + "  ERROR: " + i["error"].strip().splitlines()[-1][:160])
+' "${1:-6}"
+}
+
+case "${1:-}" in
+  on)    push; echo "◆ dev previews on — $URL/studio-dev.html (auto-off 30 min after the last push)" ;;
+  push)  push ;;
+  pin)   shift
+         if [ "${1:-}" = clear ]; then json='{}'
+         else json=$("$PY" -c 'import json,sys; print(json.dumps(dict(a.split("=",1) for a in sys.argv[1:])))' "$@"); fi
+         printf '%s' "$json" > /tmp/studio-pin.json
+         scp -q /tmp/studio-pin.json "$H:C:/dev/computah/farm/sd/studio/dev/pin.json" && touch_on && echo "◆ pin: $json" ;;
+  wait)  n=${2:-1}; start=$(index | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(len([i for i in d["items"]]) and d["items"][0]["ts"])' 2>/dev/null || echo 0)
+         for _ in $(seq 180); do
+           got=$(index | "$PY" -c '
+import json, sys; d = json.load(sys.stdin); s = sys.argv[1]
+new = [i for i in d["items"] if i["ts"] > s]
+print("err" if new and not new[0]["ok"] else len(new))' "$start" 2>/dev/null)
+           { [ "$got" = err ] || [ "${got:-0}" -ge "$n" ] 2>/dev/null; } && break
+           sleep 3
+         done
+         show "$n" ;;
+  last)  show "${2:-6}" ;;
+  sheet) n=${2:-6}; out=/tmp/studio-dev-sheet.png
+         index | "$PY" -c '
+import io, json, sys, urllib.request
+from PIL import Image, ImageDraw
+n, url, out = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+items = [i for i in json.load(sys.stdin)["items"] if i["ok"]][:n]
+W, Hh, cols = 640, 360, 3
+rows = (len(items) + cols - 1) // cols
+sheet = Image.new("RGB", (W * cols, (Hh + 22) * max(rows, 1)), (18, 18, 22))
+d = ImageDraw.Draw(sheet)
+for k, i in enumerate(items):
+    name, tag = i["name"], i["tag"]
+    im = Image.open(io.BytesIO(urllib.request.urlopen(url + "/studio/dev/" + urllib.parse.quote(name) + ".png").read()))
+    im = im.convert("RGB").resize((W, Hh), Image.NEAREST)
+    x, y = (k % cols) * W, (k // cols) * (Hh + 22)
+    sheet.paste(im, (x, y)); d.text((x + 6, y + Hh + 4), "%d. %s" % (k + 1, tag[:95]), fill=(255, 77, 141))
+sheet.save(out); print(out)
+' "$n" "$URL" "$out" ;;
+  err)   curl -s -m 5 "$URL/studio/dev/error.txt" || echo "(no error)" ;;
+  now)   for m in dev live; do echo "── $m piece:"; curl -s -m 5 "$URL/studio/$m-progress.txt?t=$(date +%s)" | tail -6; done ;;
+  ps)    pcps <<'PS'
+Get-CimInstance Win32_Process -Filter "Name='blender.exe'" | ForEach-Object {
+  $p = Get-Process -Id $_.ProcessId -EA 0
+  '{0,6}  started {1}  cpu {2,6:N0}s  {3}' -f $_.ProcessId, $_.CreationDate.ToString('HH:mm:ss'), $p.CPU,
+    $(if ($_.CommandLine -match 'studio_one') { 'studio piece' } else { 'OTHER blender (EJ?) - left alone' }) }
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'studio_loop' } | ForEach-Object { "  loop pid $($_.ProcessId)" }
+PS
+         ;;
+  kill)  pcps <<'PS'
+Get-CimInstance Win32_Process -Filter "Name='blender.exe'" | Where-Object { $_.CommandLine -match 'studio_one' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force; "killed stuck piece $($_.ProcessId)" }
+PS
+         ;;
+  open)  open "$URL/studio-dev.html" ;;
+  off)   ssh -o ConnectTimeout=8 "$H" "del C:\\dev\\computah\\farm\\sd\\studio\\dev\\ON" >/dev/null 2>&1; echo "◆ dev off — studio back to live renders" ;;
+  *)     sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

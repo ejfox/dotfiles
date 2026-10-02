@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Every 15 min: copy new Blender studio masterpieces from computah into
+     ~/Pictures/Blender/masterpieces (blender-sync). Silent; skips while OBS is
+     live (obs-defer) and when the PC is off. Unload:
+     launchctl bootout gui/$(id -u)/com.ejfox.blender-sync -->
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin</string>
+	</dict>
+	<key>Label</key>
+	<string>com.ejfox.blender-sync</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/ejfox/.dotfiles/bin/obs-defer</string>
+		<string>blender-sync</string>
+		<string>--skip</string>
+		<string>--</string>
+		<string>/bin/bash</string>
+		<string>/Users/ejfox/.dotfiles/bin/blender-sync</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>StandardOutPath</key>
+	<string>/Users/ejfox/.local/share/blender-sync.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/ejfox/.local/share/blender-sync.log</string>
+</dict>
+</plist>

@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- studio-dev.html: the studio's dev loop, live. Fast 360p previews from studio_loop.py
+     (DEV mode, driven by `studio-dev` on the Mac), newest first, with the recipe that
+     made each one and any error. Served by preview-server (:7861) from farm\sd.
+     Source of truth: ~/.dotfiles/computah/studio-dev.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Dev</title>
+<style>
+  :root { --bg: #08080a; --panel: #121216; --ink: #f2f2f5; --muted: #8a8a96; --hot: #ff4d8d; --cool: #7bf0f9; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 12px/1.4 Menlo, Consolas, monospace; }
+  header { display: flex; gap: 1.5em; flex-wrap: wrap; align-items: baseline; padding: 12px 16px; border-bottom: 1px solid #1e1e24; }
+  header h1 { margin: 0; font-size: 14px; color: var(--hot); font-weight: normal; }
+  header span { color: var(--muted); }
+  header b { color: var(--cool); font-weight: normal; }
+  .err { margin: 12px 16px; padding: 10px 12px; border: 1px solid var(--hot); color: var(--hot); white-space: pre-wrap;
+         max-height: 30vh; overflow: auto; }
+  .err[hidden] { display: none; }
+  .grid { display: grid; gap: 8px; padding: 12px 16px; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+  figure { margin: 0; background: var(--panel); }
+  figure img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; image-rendering: pixelated; }
+  figcaption { padding: 6px 8px; color: var(--muted); overflow-wrap: anywhere; }
+  figcaption b { color: var(--ink); font-weight: normal; }
+  figure.bad { border: 1px solid var(--hot); }
+  figure.bad figcaption { color: var(--hot); }
+</style>
+</head>
+<body>
+<header><h1>◆ studio dev</h1><span id="state">…</span><span>pin: <b id="pin">none</b></span></header>
+<div class="err" id="err" hidden></div>
+<div class="grid" id="grid"></div>
+<script>
+const $ = id => document.getElementById(id);
+let last = "";
+async function tick() {
+  const [idx, now] = await Promise.all(["studio/dev/index.json", "studio/now.json"].map(p =>
+    fetch(`${p}?t=${Date.now()}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null)));
+  $("state").textContent = now ? now.state : "studio offline";
+  if (!idx || idx.updated === last) return;
+  last = idx.updated;
+  const pin = idx.pin && Object.keys(idx.pin).length ? Object.entries(idx.pin).map(([k, v]) => `${k}=${v}`).join(" ") : "none";
+  $("pin").textContent = pin;
+  const newestBad = idx.items[0] && !idx.items[0].ok ? idx.items[0] : null;
+  $("err").hidden = !newestBad; $("err").textContent = newestBad ? `${newestBad.ts}\n${newestBad.error}` : "";
+  $("grid").innerHTML = idx.items.filter(i => i.ok).map(i => {
+    const r = i.recipe || {};
+    const extra = [r.place, r.lens && `${r.lens}mm`, r.lensy, r.gamma && `γ${r.gamma}`, r.soft && `soft${r.soft}`].filter(Boolean).join(" · ");
+    return `<figure><img src="studio/dev/${encodeURIComponent(i.name)}.png" alt="">` +
+           `<figcaption><b>${i.tag.replace(/_/g, " · ")}</b><br>${extra} · ${i.secs}s</figcaption></figure>`;
+  }).join("");
+}
+tick(); setInterval(tick, 3000);
+</script>
+</body>
+</html>

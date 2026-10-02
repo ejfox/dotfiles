@@ -1,0 +1,84 @@
+#!/usr/local/bin/python3
+"""EJ-taste for the muse wall's img2img.
+
+  muse-taste-seed            → pick a seed photo, taste-weighted
+                               prints: url<TAB>ejtaste<TAB>public_id
+  muse-taste-seed score IMG  → EJ-taste of any image (e.g. a finished render),
+                               on the same z-scale as the photo corpus
+  muse-taste-seed stats      → that z-scale as JSON (shipped to the PC scorer)
+
+Why seeds: FLUX img2img at mid strength keeps the init's low-frequency
+structure — composition, tonal layout, symmetry — which is exactly what
+EJ-taste measures (contrast + one centered subject + symmetry). So seeding
+from high-taste photos teaches the render EJ's framing without a LoRA.
+
+Sampling is softmax(ejtaste / T), NOT top-N: favorites-as-direction, not
+monoculture. T=0.6 ≈ ~100 photos in real rotation out of ~800. A recent-picks
+window stops the same frame repeating back-to-back.
+
+Data: ~/roadtrip-rank (github.com/ejfox/ejtaste) — cld_ejtaste.json scores,
+cld_photos.json formats, taste.py metrics. Public delivery URLs, no API key.
+Uses /usr/local/bin/python3 (homebrew: numpy+PIL; launchd's python3 lacks them).
+"""
+import json, math, os, random, re, sys
+
+REPO = os.path.expanduser(os.environ.get("MUSE_TASTE_REPO", "~/roadtrip-rank"))
+CLOUD = os.environ.get("MUSE_TASTE_CLOUD", "ejf")
+TEMP = float(os.environ.get("MUSE_TASTE_TEMP", "0.6"))
+RECENT_N = int(os.environ.get("MUSE_TASTE_RECENT", "40"))
+RECENT = os.path.expanduser("~/.cache/muse/taste-recent.txt")
+# same weights as cld_taste.py's EJ-taste v1 blend
+W = {"c": 0.31, "t": 0.13, "sy": 0.28, "sgce": 0.28}
+
+def load():
+    rows = json.load(open(os.path.join(REPO, "data/cld_ejtaste.json")))
+    return [r for r in rows if not junk(r["p"])]
+
+def junk(pid):
+    # DSCF1931–2123 = camera-in-bag run; saliency/contrast love it (known gotcha)
+    m = re.search(r"DSCF(\d+)", pid)
+    return bool(m and 1931 <= int(m.group(1)) <= 2123)
+
+def pick():
+    rows = load()
+    fmt = {r["p"]: r.get("f", "jpg") for r in json.load(open(os.path.join(REPO, "data/cld_photos.json")))}
+    try:
+        recent = set(open(RECENT).read().split())
+    except OSError:
+        recent = set()
+    pool = [r for r in rows if r["p"] not in recent] or rows
+    r = random.choices(pool, weights=[math.exp(x["ejtaste"] / TEMP) for x in pool])[0]
+    os.makedirs(os.path.dirname(RECENT), exist_ok=True)
+    keep = ([l for l in open(RECENT).read().split()] if os.path.exists(RECENT) else [])[-(RECENT_N - 1):]
+    open(RECENT, "w").write("\n".join(keep + [r["p"]]) + "\n")
+    url = f"https://res.cloudinary.com/{CLOUD}/image/upload/w_1024,c_limit/{r['p']}.{fmt.get(r['p'], 'jpg')}"
+    print(f"{url}\t{r['ejtaste']}\t{r['p']}")
+
+def stats():
+    """Corpus mean/sd per component — the z-scale every score is expressed on."""
+    rows = load()
+    corpus = {"c": [r["c"] for r in rows], "t": [r["t"] for r in rows],
+              "sy": [r["sy"] for r in rows], "sgce": [r["sg"] * r["ce"] for r in rows]}
+    mu = {k: sum(v) / len(v) for k, v in corpus.items()}
+    sd = {k: (sum((x - mu[k]) ** 2 for x in v) / len(v)) ** 0.5 or 1.0 for k, v in corpus.items()}
+    return {"w": W, "mu": mu, "sd": sd}
+
+def score(path):
+    sys.path.insert(0, REPO)
+    from taste import metrics
+    st = stats()
+    c, t, sy, sg, ce = metrics(path)
+    me = {"c": c, "t": t, "sy": sy, "sgce": sg * ce}
+    print(round(sum(W[k] * (me[k] - st["mu"][k]) / st["sd"][k] for k in me), 3))
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) > 1 and sys.argv[1] == "stats":
+            print(json.dumps(stats()))
+        elif len(sys.argv) > 2 and sys.argv[1] == "score":
+            score(sys.argv[2])
+        else:
+            pick()
+    except Exception as e:
+        print(f"muse-taste-seed: {e}", file=sys.stderr)
+        sys.exit(1)

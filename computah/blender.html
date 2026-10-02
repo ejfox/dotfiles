@@ -1,0 +1,98 @@
+<!doctype html>
+<!-- blender.html: browse EVERY Blender studio render, served by preview-server (:7861)
+     on the PC. No login (the SMB share wanted EJ's Microsoft-account password; he signs
+     in with a PIN). Thumbnails + index.json from blender-index.ps1; full PNGs via the
+     junction farm\sd\masterpieces. Open from the Mac with `renders`.
+     Source of truth: ~/.dotfiles/computah/blender.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blender Renders</title>
+<style>
+  :root { --bg: #08080a; --panel: #121216; --ink: #f2f2f5; --muted: #8a8a96; --hot: #ff4d8d; --cool: #7bf0f9; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 Menlo, Consolas, monospace; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; gap: 1.5em; align-items: baseline; flex-wrap: wrap;
+           padding: 12px 16px; background: rgba(8,8,10,.92); backdrop-filter: blur(6px); border-bottom: 1px solid #1e1e24; }
+  header h1 { margin: 0; font-size: 14px; color: var(--hot); font-weight: normal; }
+  header span { color: var(--muted); }
+  header a { color: var(--cool); text-decoration: none; }
+  h2 { margin: 22px 16px 8px; font-size: 12px; color: var(--muted); font-weight: normal; letter-spacing: .08em; text-transform: uppercase; }
+  .grid { display: grid; gap: 6px; padding: 0 16px; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+  figure { margin: 0; background: var(--panel); cursor: zoom-in; position: relative; }
+  figure img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+  figcaption { padding: 5px 7px; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  figcaption b { color: var(--ink); font-weight: normal; }
+  .view { position: fixed; inset: 0; z-index: 5; background: rgba(0,0,0,.94); display: grid; grid-template-rows: 1fr auto; }
+  .view[hidden] { display: none; }
+  .view img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+  .view .bar { display: flex; justify-content: space-between; gap: 1em; padding: 10px 16px; color: var(--muted); }
+  .view .bar b { color: var(--hot); font-weight: normal; }
+  .view a { color: var(--cool); }
+  @media (max-width: 560px) { figcaption, .view .bar span.k { display: none; } }
+</style>
+</head>
+<body>
+<header><h1>◆ blender renders</h1><span id="sum">loading…</span><a href="studio.html">live studio →</a></header>
+<main id="main"></main>
+<div class="view" id="view" hidden>
+  <img id="big" alt="">
+  <div class="bar"><span><b id="vname"></b> <span id="vmeta"></span></span>
+    <span class="k">← → step · esc close · <a id="vlink" href="#" download>full PNG</a></span></div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let items = [], cur = -1;
+const parse = n => {            // 20261002-114208_phyllotaxis_2160p_magma
+  const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)\d\d_(.*)$/.exec(n) || [];
+  const day = m[1] ? new Date(+m[1], m[2] - 1, +m[3]) : null;
+  return { day, time: m[4] ? `${m[4]}:${m[5]}` : "", tag: (m[6] || n).replace(/_/g, " · ") };
+};
+const dayLabel = d => !d ? "undated" :
+  d.toDateString() === new Date().toDateString() ? "today" :
+  d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
+async function load() {
+  const r = await fetch(`studio/index.json?t=${Date.now()}`, { cache: "no-store" }).catch(() => null);
+  const idx = r && r.ok ? await r.json() : { items: [] };
+  if (items.length && idx.items.length === items.length) return;     // nothing new
+  items = idx.items;
+  $("sum").textContent = `${items.length} renders · newest first · click for full size`;
+  const main = $("main"); main.textContent = "";
+  let grid = null, last = null;
+  items.forEach((it, i) => {
+    const p = parse(it.name), lab = dayLabel(p.day);
+    if (lab !== last) {
+      const h = document.createElement("h2"); h.textContent = lab; main.append(h);
+      grid = document.createElement("div"); grid.className = "grid"; main.append(grid); last = lab;
+    }
+    const f = document.createElement("figure");
+    f.innerHTML = `<img loading="lazy" src="studio/thumbs/${encodeURIComponent(it.name)}.jpg" alt="">` +
+                  `<figcaption><b>${p.tag}</b> · ${p.time} · ${it.mb} MB</figcaption>`;
+    f.onclick = () => open(i);
+    grid.append(f);
+  });
+}
+function open(i) {
+  cur = (i + items.length) % items.length;
+  const it = items[cur], p = parse(it.name), url = `masterpieces/${encodeURIComponent(it.name)}.png`;
+  $("big").src = `studio/thumbs/${encodeURIComponent(it.name)}.jpg`;   // instant, then the full PNG
+  const full = new Image(); full.onload = () => { if (items[cur] === it) $("big").src = url; }; full.src = url;
+  $("vname").textContent = p.tag;
+  $("vmeta").textContent = `· ${dayLabel(p.day)} ${p.time} · ${it.mb} MB · ${cur + 1}/${items.length}`;
+  $("vlink").href = url; $("vlink").setAttribute("download", `${it.name}.png`);
+  $("view").hidden = false;
+}
+const close = () => { $("view").hidden = true; cur = -1; };
+$("view").onclick = e => { if (e.target.id === "big" || e.target.id === "view") close(); };
+addEventListener("keydown", e => {
+  if (cur < 0) return;
+  if (e.key === "Escape") close();
+  if (e.key === "ArrowRight") open(cur + 1);
+  if (e.key === "ArrowLeft") open(cur - 1);
+});
+load(); setInterval(load, 60000);
+</script>
+</body>
+</html>

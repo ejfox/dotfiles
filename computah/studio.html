@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- studio.html: the Blender studio's window, served by preview-server (:7861) from
+     farm\sd. The studio renders HEADLESS (blender -b, svc "studio") because the old
+     in-window progressive render leaked dwm VRAM (~600 MB/min) and starved FLUX.
+     This page shows the newest finished still (farm\sd\studio\latest.png) and redraws
+     only when it changes. Source of truth: ~/.dotfiles/computah/studio.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio</title>
+<style>
+  :root { --bg: #000; --ink: #f2f2f5; --muted: #8a8a96; --hot: #ff4d8d; --cool: #7bf0f9; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+               font: 13px/1.35 Menlo, Consolas, monospace; overflow: hidden; }
+  .stage { position: fixed; inset: 0; }
+  .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+               opacity: 0; transition: opacity 2.5s ease; }
+  .stage img.on { opacity: 1; }
+  .cap { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 2em;
+         justify-content: space-between; align-items: baseline; padding: 10px 16px;
+         background: linear-gradient(transparent, rgba(0,0,0,.78)); }
+  .cap b { color: var(--hot); font-weight: normal; }
+  .cap .now { color: var(--cool); text-align: right; }
+  .cap span { color: var(--muted); }
+  [hidden] { display: none !important; }   /* .cap/.empty set display, which beats the attribute */
+  .empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); }
+  /* small windows: image only (EJ, 2026-09-30) */
+  @media (max-width: 640px), (max-height: 420px) { .cap { display: none; } }
+</style>
+</head>
+<body>
+<div class="stage"><img id="a" alt=""><img id="b" alt=""></div>
+<div class="empty" id="empty">waiting for the first finished render</div>
+<div class="cap" id="cap" hidden>
+  <div id="what"></div>
+  <div class="now" id="now"></div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let shown = null, front = $("a"), back = $("b"), now = null;
+
+const ago = s => {   // "20261002-104512" -> minutes since
+  const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/.exec(s || "");
+  if (!m) return "";
+  const t = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  const min = Math.round((Date.now() - t) / 60000);
+  return min < 1 ? "just now" : min < 60 ? `${min} min ago` : `${Math.floor(min / 60)}h ${min % 60}m ago`;
+};
+const fmt = tag => (tag || "").replace(/_/g, " · ");
+
+async function get(path) {
+  try { const r = await fetch(`${path}?t=${Date.now()}`, { cache: "no-store" }); return r.ok ? r.json() : null; }
+  catch { return null; }
+}
+
+async function tick() {
+  const [latest, status] = await Promise.all([get("studio/latest.json"), get("studio/now.json")]);
+  now = status;
+  if (latest && latest.name !== shown) {
+    const img = new Image();
+    img.onload = () => {
+      back.src = img.src; back.classList.add("on"); front.classList.remove("on");
+      [front, back] = [back, front]; shown = latest.name; $("empty").hidden = true; $("cap").hidden = false;
+    };
+    img.src = `studio/latest.png?n=${encodeURIComponent(latest.name)}`;
+  }
+  if (latest) {
+    $("what").innerHTML = `<b>${fmt(latest.tag)}</b> <span>${latest.res} · ${latest.samples} spp · ` +
+      `${Math.round(latest.render_s / 60)} min render · finished ${ago(latest.finished)}</span>`;
+  }
+  $("now").textContent = !now ? "" :
+    now.state === "rendering" ? `next: ${fmt((now.name || "").replace(/^\d{8}-\d{6}_/, ""))} · started ${ago(now.started)}` :
+    now.state;
+}
+tick(); setInterval(tick, 10000);
+</script>
+</body>
+</html>

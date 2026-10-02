@@ -1,0 +1,64 @@
+#!/usr/local/bin/python3
+"""Best-of-N for the muse wall: N cheap sketches → the preference probe (minus a
+diversity penalty vs. the cells already on the wall) picks one → the loop finishes
+it with img2img at full size.
+
+  muse-bestof "<prompt>" <host>   → prints the chosen sketch's local path
+Logs every pick to ~/.cache/muse/bestof.jsonl (probe + maxsim per candidate).
+Scoring runs on computah (taste-embed.py score — CPU CLIP, same model as the probe).
+Knobs: MUSE_BON_{N,STEPS,SIZE,LAMBDA}. The loop only calls this when
+~/.cache/muse/probe-stats.json says ready (or MUSE_BON_FORCE=1).
+"""
+import base64, json, os, random, subprocess, sys, time, urllib.request
+
+N = int(os.environ.get("MUSE_BON_N", "4"))
+STEPS = int(os.environ.get("MUSE_BON_STEPS", "10"))
+SIZE = int(os.environ.get("MUSE_BON_SIZE", "512"))
+LOG = os.path.expanduser("~/.cache/muse/bestof.jsonl")
+PC = "C:/Users/ejfox/farm/taste/bon"
+
+def ssh_host(h):
+    return h if "@" in h else f"ejfox@{h}"
+
+def sketch(host, prompt, seed, out):
+    body = {"prompt": prompt, "steps": STEPS, "cfg_scale": 1.0, "width": SIZE, "height": SIZE,
+            "seed": seed, "sampler_name": "euler"}
+    req = urllib.request.Request(f"http://{host}:1234/sdapi/v1/txt2img", json.dumps(body).encode(),
+                                 {"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=300))
+    open(out, "wb").write(base64.b64decode(r["images"][0]))
+
+def main():
+    prompt, host = sys.argv[1], sys.argv[2]
+    sh = ssh_host(host)
+    files = []
+    for k in range(N):
+        f = f"/tmp/muse-bon-{k}.png"
+        sketch(host, prompt, random.randrange(1 << 30), f)
+        files.append(f)
+    subprocess.run(["ssh", "-o", "ConnectTimeout=8", sh, f"if not exist {PC.replace('/', chr(92))} mkdir {PC.replace('/', chr(92))}"],
+                   capture_output=True)
+    subprocess.run(["scp", "-q"] + files + [f"{sh}:{PC}/"], check=True)
+    remote = [f"{PC}/{os.path.basename(f)}".replace("/", "\\") for f in files]
+    cmd = ('set "PATH=C:\\Windows\\system32;C:\\Windows" && '
+           f'set MUSE_BON_LAMBDA={os.environ.get("MUSE_BON_LAMBDA", "4.0")} && '
+           "C:\\Users\\ejfox\\farm\\taste\\venv\\Scripts\\python.exe C:\\Users\\ejfox\\farm\\taste\\taste-embed.py "
+           "score C:\\Users\\ejfox\\farm\\taste\\probe.npz " + " ".join(remote))
+    out = subprocess.run(["ssh", "-o", "ConnectTimeout=8", sh, cmd], capture_output=True, text=True, check=True).stdout
+    res = json.loads(out.strip().splitlines()[-1])
+    pick = next((r for r in res if r.get("pick")), res[0])
+    local = files[remote.index(pick["file"])] if pick["file"] in remote else files[0]
+    with open(LOG, "a") as f:
+        f.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "prompt": prompt[:120],
+                            "cands": [{"probe": round(r["probe"], 3), "maxsim": r["maxsim"]} for r in res],
+                            "pick": res.index(pick)}) + "\n")
+    # the TASTE OPS board shows each best-of decision as it happens
+    subprocess.run(["scp", "-q", LOG, f"{sh}:C:/dev/computah/farm/sd/taste/bestof.jsonl"], capture_output=True)
+    print(local)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"muse-bestof: {e}", file=sys.stderr)
+        sys.exit(1)

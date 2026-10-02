@@ -1,0 +1,93 @@
+#!/usr/local/bin/python3
+"""Build + push the data behind the PC's taste page (farm/sd/taste.html).
+
+  muse-taste-viz            build ~/.cache/muse/taste-data.json, push to the PC
+                            (+ the favorites' images into farm\\sd\\taste\\fav)
+  muse-taste-viz --local    build only
+
+Inputs: render-scores.csv (muse-taste-backfill), knob-weights.tsv
+(muse-taste-weights). The page itself is ~/.dotfiles/computah/taste.html.
+"""
+import csv, json, math, os, subprocess, sys, time
+
+C = os.path.expanduser("~/.cache/muse")
+SCORES, WEIGHTS, OUT = f"{C}/render-scores.csv", f"{C}/knob-weights.tsv", f"{C}/taste-data.json"
+PAGE = os.path.expanduser("~/.dotfiles/computah/taste.html")
+MIN_AUC = float(os.environ.get("MUSE_W_MIN_AUC", "0.6"))
+
+def build():
+    rows = [r for r in csv.DictReader(open(SCORES, newline="", encoding="utf-8")) if r["ejtaste"]]
+    fav = [r for r in rows if r["favorite"] == "1"]
+    rest = [float(r["ejtaste"]) for r in rows if r["favorite"] != "1"]
+    fv = [float(r["ejtaste"]) for r in fav]
+    auc = sum((f > x) + 0.5 * (f == x) for f in fv for x in rest) / (len(fv) * len(rest)) if fv else 0.5
+    # histogram of the non-starred scores (fixed bins), plus every starred dot
+    allv = rest + fv   # fit the axis to the data (half-unit steps)
+    lo, hi, nb = math.floor(min(allv) * 2) / 2, math.ceil(max(allv) * 2) / 2, 48
+    bins = [0] * nb
+    for v in rest:
+        bins[min(nb - 1, max(0, int((v - lo) / (hi - lo) * nb)))] += 1
+    weights = []
+    for line in open(WEIGHTS):
+        knob, key, w, n, sig = line.rstrip("\n").split("\t")
+        if int(n) >= 20:
+            weights.append({"knob": knob, "key": key, "w": float(w), "n": int(n), "sig": float(sig)})
+    # SEEN-ONLY scoreboard (Fable: success = ★ per hour EJ actually watched)
+    sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+    import muse_presence as P
+    seen = P.seen_flags(rows)
+    seen_rows = [r for r in rows if seen.get(r["id"])]
+    seen_hours = len({r["ts"][:13] for r in seen_rows})
+    ev = {"down": 0, "inspect": 0, "pair": 0}
+    try:
+        for line in open(f"{C}/wall-events.jsonl"):
+            t = json.loads(line).get("type")
+            if t in ev:
+                ev[t] += 1
+    except (FileNotFoundError, ValueError):
+        pass
+    try:
+        lab = json.load(open(f"{C}/labels.json"))["rows"]
+    except FileNotFoundError:
+        lab = {}
+    src = {}
+    for r in seen_rows:
+        if r["prompt_from"] == "favorite replay":
+            continue
+        s = src.setdefault(r["init_source"].split("+")[0] or "pure", [0, 0.0])
+        s[0] += 1; s[1] += (lab.get(r["id"]) or [0, 0])[0]
+    try:
+        probe = json.load(open(f"{C}/probe-stats.json"))
+    except FileNotFoundError:
+        probe = None
+    data = {
+        "built": time.strftime("%Y-%m-%d %H:%M"),
+        "seen": len(seen_rows), "seen_hours": seen_hours,
+        "stars_per_seen_hour": round(sum(r["favorite"] == "1" for r in seen_rows) / max(1, seen_hours), 3),
+        "events": ev, "probe": probe,
+        "sources": sorted(({"src": k, "seen": v[0], "pos": round(v[1], 1),
+                            "per100": round(100 * v[1] / v[0], 2)} for k, v in src.items() if v[0] >= 10),
+                          key=lambda d: -d["per100"]),
+        "renders": len(rows), "stars": len(fav), "auc": round(auc, 3),
+        "mode": "taste" if auc >= MIN_AUC else "stars",
+        "hist": {"lo": lo, "hi": hi, "bins": bins},
+        "starred": [{"id": r["id"], "s": float(r["ejtaste"]), "style": r["style"].split(",")[0]} for r in fav],
+        "weights": weights,
+    }
+    json.dump(data, open(OUT, "w"))
+    return data
+
+def push():
+    H = "ejfox@10.0.0.169" if subprocess.run(["nc", "-z", "-G", "2", "10.0.0.169", "22"]).returncode == 0 else "computah"
+    ps = ("New-Item -ItemType Directory -Force C:\\dev\\computah\\farm\\sd\\taste\\fav | Out-Null; "
+          "Copy-Item C:\\dev\\computah\\renders\\favorites\\muse-*.png C:\\dev\\computah\\farm\\sd\\taste\\fav\\ -Force")
+    subprocess.run(["ssh", "-o", "ConnectTimeout=8", H, f'powershell -NoProfile -Command "{ps}"'], check=True)
+    subprocess.run(["scp", "-q", OUT, f"{H}:C:/dev/computah/farm/sd/taste/taste-data.json"], check=True)
+    subprocess.run(["scp", "-q", PAGE, f"{H}:C:/dev/computah/farm/sd/taste.html"], check=True)
+
+if __name__ == "__main__":
+    d = build()
+    print(f"◆ {d['renders']} renders · {d['stars']}★ · AUC {d['auc']} · {len(d['weights'])} weights → {OUT}")
+    if "--local" not in sys.argv:
+        push()
+        print("◆ pushed → http://10.0.0.169:7861/taste.html")

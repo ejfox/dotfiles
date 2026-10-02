@@ -1,0 +1,349 @@
+<!doctype html>
+<html style="background:#000">
+<head><meta charset="utf-8"><title>IMAGINE wall</title>
+<style>
+  #wall > div { position: relative; overflow: hidden; border-radius: 4px; background: #0a0a0a; cursor: pointer; transition: outline .2s; }
+  #wall > div:hover { outline: 2px solid #7bf0f9; }
+  .star { position: absolute; top: 4px; right: 7px; font-size: 16px; color: #ff4d8d; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; }
+  .srcbadge { position: absolute; top: 4px; left: 7px; font-size: 14px; color: #7bf0f9; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; display: none; }
+  #wall > div:hover .srcbadge.on { display: block; }
+  .wbtn { background: #0a0a0a; color: #e8e8e8; border: 1px solid #ff4d8d; border-radius: 6px; padding: 6px 11px; font-family: monospace; font-size: 12px; cursor: pointer; }
+  .wbtn:hover { background: #1a0a12; color: #ff4d8d; }
+  #ctl { position: fixed; top: 9px; left: 11px; z-index: 6; display: flex; gap: 7px; align-items: center; opacity: .5; transition: opacity .2s; background: rgba(10,10,10,.55); padding: 4px 8px; border-radius: 8px; border: 1px solid #2a2a2a; }
+  #ctl:hover { opacity: 1; }
+  #ctl .lbl { color: #7bf0f9; font-size: 11px; }
+  .down { position: absolute; top: 4px; right: 7px; font-size: 14px; color: #7bf0f9; opacity: .8; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; }
+  /* daily pair pick: two cells outlined, one click = which one EJ prefers */
+  #wall > div.pairpick { outline: 3px dashed #ff4d8d !important; outline-offset: -3px; }
+  /* DENSE MODE (2026-09-30): caption strip + source edge tick per cell, 2h timeline */
+  /* captions scale with the CELL (container queries), not the window: an 8x8 grid
+     on a laptop and a 3x3 on a 4K panel both read right. */
+  #wall > div { container-type: size; }
+  .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: .25em .5em .3em .8em; background: rgba(0,0,0,.66);
+         font: clamp(9px, 4.2cqw, 20px)/1.3 monospace; color: #c9c9d2; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap b { color: #f2f2f5; font-weight: 600; } .cap .m { color: #8a8a96; }
+  .cap .l1, .cap .l2 { display: block; overflow: hidden; text-overflow: ellipsis; }
+  .star { font-size: clamp(12px, 7cqw, 30px) !important; } .down { font-size: clamp(11px, 6cqw, 26px) !important; }
+  .tick { width: clamp(2px, 1.1cqw, 6px) !important; }
+  /* EJ 2026-09-30: small cells = images only (no caption, no tick); big cells get both lines */
+  @container (max-width: 199px), (max-height: 150px) { .cap, .tick { display: none !important; } }
+  .tick { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; pointer-events: none; }
+  /* 2h render timeline strip — one wall, no modes (EJ 2026-09-30) */
+  #tl { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: var(--tlh); background: #000; border-top: 1px solid #1a1a21; z-index: 5; }
+  :root { --tlh: clamp(24px, 2.6vh, 48px); }
+  #wall { height: calc(100vh - var(--tlh)) !important; }
+  #corner { bottom: calc(var(--tlh) + 8px) !important; }
+  @media (max-width: 520px) { #tl { display: none; } #wall { height: 100vh !important; } #corner { bottom: 9px !important; } }
+  @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #corner .wbtn, #ctl .wbtn { padding: 4px 7px; font-size: 11px; } }
+  #pairbar { position: fixed; top: 9px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; gap: 10px; align-items: center;
+             background: rgba(10,10,10,.85); border: 1px solid #ff4d8d; border-radius: 8px; padding: 6px 12px; color: #e8e8e8; font-size: 12px; }
+</style>
+</head>
+<body style="margin:0;background:#000;overflow:hidden;font-family:monospace">
+<div id="wall" style="display:grid;gap:4px;width:100vw;height:100vh;padding:4px;box-sizing:border-box"></div>
+
+<!-- top-left controls (fade in on hover so they don't clutter the ambient wall) -->
+<div id="ctl">
+  <span class="lbl">grid</span>
+  <button class="wbtn" onclick="stepN(-1)">−</button>
+  <span id="nlabel" style="color:#e8e8e8;font-size:12px;min-width:50px;text-align:center"></span>
+  <button class="wbtn" onclick="stepN(1)">+</button>
+  <button class="wbtn" id="fitbtn" onclick="toggleFit()"></button>
+</div>
+<svg id="tl" aria-label="last 2 hours of renders"></svg>
+
+<!-- corner controls -->
+<div id="corner" style="position:fixed;bottom:9px;right:11px;z-index:6;display:flex;gap:8px">
+  <button class="wbtn" onclick="openFolder('gallery')">◆ all renders</button>
+  <button class="wbtn" onclick="openFolder('favorites')">★ favorites</button>
+</div>
+
+<!-- daily pair pick prompt -->
+<div id="pairbar"><span style="color:#ff4d8d">◆</span> which of the two outlined cells do you like more? <button class="wbtn" onclick="endPair(true)">skip today</button></div>
+
+<!-- click-to-inspect overlay -->
+<div id="ov" style="position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;z-index:10;align-items:center;justify-content:center;backdrop-filter:blur(3px);cursor:zoom-out">
+  <div id="card" style="display:flex;gap:22px;max-width:1120px;width:92vw;max-height:88vh;padding:24px;box-sizing:border-box;background:#0a0a0a;border:1px solid #ff4d8d;border-radius:10px;cursor:auto">
+    <img id="ovimg" style="width:44%;object-fit:contain;background:#000;border-radius:6px;align-self:flex-start">
+    <div id="ovmeta" style="flex:1;overflow:auto;color:#e8e8e8;font-size:14px;line-height:1.5"></div>
+  </div>
+</div>
+
+<script>
+const wall = document.getElementById('wall');
+const clampN = n => Math.max(2, Math.min(8, n || 4));
+// user's UI choice (localStorage) wins; else the ?n= the wall was opened with; else 4
+let N = clampN(parseInt(localStorage.getItem('wallN') || new URLSearchParams(location.search).get('n') || '4'));
+// ?view=1 = read-only viewer: never steers the generator's grid size (any extra
+// screen looking at the wall used to resize the real wall).
+const VIEW_ONLY = new URLSearchParams(location.search).get('view') === '1';
+const reportN = n => { if (VIEW_ONLY) return; try { fetch('setn?n=' + n, { cache: 'no-store' }); } catch (e) {} };
+reportN(N);
+let fitMode = localStorage.getItem('wallFit') || 'cover';   // cover = fill/crop, contain = fit/letterbox (true aspect)
+let favset = new Set(), downset = new Set();
+let WMAP = {};                                           // learned weights: 'knob|key' -> multiplier
+const FAMILY = src => { const s = String(src || 'pure').split('+')[0];
+  return s === 'pure' ? 'text' : (s === 'ref' || s === 'bestof') ? 'taste' : 'seeded'; };
+const FCOL = { text: '#e8407a', seeded: '#16a6b6', taste: '#f2f2f5' };
+const FGLYPH = { text: '○', seeded: '◇', taste: '◆' };
+const SRCN = { pure: 'text', screen: 'screen', crop: 'crop', feedback: 'past cell', 'feedback-inv': 'past inv', game: 'game', 'game-inv': 'game inv',
+  arena: 'are.na', cloud: 'cloud', fuji: 'fuji', taste: 'ej photo', ref: '★ ref', bestof: 'best-of' };
+let pair = null;   // [i, j] while today's pair pick is showing
+
+let total, divs, cells, stars, srcs, downs, caps, ticks, cellIds, traceCache, live = 0;
+// taste signals → preview-server /event → taste\events.jsonl (learned from on the Mac)
+const sendEvent = qs => { try { fetch('event?' + qs + '&t=' + Date.now(), { cache: 'no-store' }); } catch (e) {} };
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function buildGrid() {
+  total = N * N; live = 0;
+  wall.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  wall.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+  wall.innerHTML = '';
+  divs = []; cells = []; stars = []; srcs = []; downs = []; caps = []; ticks = []; cellIds = []; traceCache = []; pair = null;
+  const pb = document.getElementById('pairbar'); if (pb) pb.style.display = 'none';
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    const img = document.createElement('img');
+    img.style.cssText = `width:100%;height:100%;object-fit:${fitMode};display:block`;
+    const st = document.createElement('span'); st.className = 'star'; st.textContent = '★'; st.style.display = 'none';
+    const sc = document.createElement('span'); sc.className = 'srcbadge'; sc.textContent = '◇'; sc.title = 'img2img — had a source image (click to see it)';
+    const dn = document.createElement('span'); dn.className = 'down'; dn.textContent = '▼'; dn.style.display = 'none';
+    const cp = document.createElement('div'); cp.className = 'cap';
+    const tk = document.createElement('div'); tk.className = 'tick';
+    d.appendChild(img); d.appendChild(st); d.appendChild(sc); d.appendChild(dn); d.appendChild(cp); d.appendChild(tk);
+    d.addEventListener('click', () => (pair && pair.includes(i)) ? pickPair(i) : inspect(i));
+    wall.appendChild(d);
+    divs.push(d); cells.push(img); stars.push(st); srcs.push(sc); downs.push(dn); caps.push(cp); ticks.push(tk);
+  }
+  for (let i = 0; i < total; i++) loadCell(i);
+  Promise.all(Array.from({ length: total }, (_, i) => loadTrace(i))).then(refreshBadges);
+  updateCtl();
+}
+
+function updateCtl() {
+  document.getElementById('nlabel').textContent = `${N}×${N} · ${N * N}`;
+  document.getElementById('fitbtn').textContent = fitMode === 'cover' ? '▦ fill' : '▢ fit';
+}
+
+// ── per-cell caption + edge tick, 2h timeline ─────────────────────────────────
+async function loadWeights() {
+  try { const d = await (await fetch('taste/taste-data.json?t=' + Date.now(), { cache: 'no-store' })).json();
+        WMAP = {}; (d.weights || []).forEach(w => WMAP[w.knob + '|' + w.key] = w.w); refreshBadges(); } catch (e) {}
+}
+const ageStr = ts => { const m = Math.max(0, (Date.now() - new Date(ts).getTime()) / 60000);
+  return m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
+function refreshCap(i) {
+  const t = traceCache[i];
+  if (!t || !caps[i]) { if (caps[i]) caps[i].innerHTML = ''; return; }
+  const src = String(t.init_source || 'pure').split('+')[0], fam = FAMILY(src);
+  const style = String(t.style || '').split(',')[0].trim().toLowerCase();
+  const ws = WMAP['style|' + style], wsm = WMAP['sampler|' + t.sampler];
+  const mult = [ws, wsm].filter(x => x != null).reduce((a, b) => a * b, 1);
+  const state = (favset.has(t.id) ? ' <b style="color:#ff4d8d">★</b>' : '') + (downset.has(t.id) ? ' <b style="color:#7bf0f9">▼</b>' : '');
+  caps[i].innerHTML =
+    `<span class="l1"><span style="color:${FCOL[fam]}">${FGLYPH[fam]}</span> <b>${esc(SRCN[src] || src)}</b> ${esc(style || 'no style')} <span class="m">· ${esc(t.sampler || '')} · ${esc(t.steps || '')}st</span>${state}</span>` +
+    `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${ageStr(t.ts)} ago` +
+    (t.render_ejtaste != null ? ` · ej ${t.render_ejtaste.toFixed(2)}` : '') + (t.ref_from ? ' · ref ★' : '') + `</span></span>`;
+  const ageH = (Date.now() - new Date(t.ts).getTime()) / 3600e3;
+  ticks[i].style.background = FCOL[fam]; ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
+}
+let RECENT = [];
+async function loadRecent() {
+  try { RECENT = (await (await fetch('taste/recent.json?t=' + Date.now(), { cache: 'no-store' })).json()).renders || []; } catch (e) {}
+  drawTimeline();
+}
+function drawTimeline() {
+  const svg = document.getElementById('tl'); svg.innerHTML = '';
+  const W = innerWidth, H = svg.clientHeight || 30, now = Date.now(), span = 2 * 3600e3, NS = 'http://www.w3.org/2000/svg';
+  const fs = Math.max(9, Math.min(15, H * .32));                                   // label size follows the strip
+  const narrow = W < 560, X0 = narrow ? 8 : fs * 26;                               // legend hides when narrow
+  const xAt = age => W - 10 - (age / span) * (W - 10 - X0);
+  const mk = (tag, a) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); svg.appendChild(n); return n; };
+  const tickTop = H * .16, tickH = H * .44, tw = Math.max(1.5, Math.min(3, W / 900));
+  for (let h = 0; h <= 4; h++) { const x = xAt(h * 1800e3);
+    mk('line', { x1: x, x2: x, y1: tickTop, y2: tickTop + tickH, stroke: '#1a1a21' });
+    const t = mk('text', { x: h === 0 ? x : x, y: H - 2, 'text-anchor': h === 0 ? 'end' : 'middle', fill: '#55555f', 'font-size': fs, 'font-family': 'monospace' });
+    t.textContent = h ? `-${h * 30}m` : 'now'; }
+  RECENT.forEach(r => { const age = now - new Date(r.ts).getTime(); if (age > span || age < 0) return;
+    const x = xAt(age), fam = FAMILY(r.src);
+    mk('rect', { x: x - tw / 2, y: tickTop, width: tw, height: tickH, rx: 1, fill: FCOL[fam], opacity: r.down ? .35 : .9 });
+    if (r.fav) { const s = mk('text', { x, y: tickTop, 'text-anchor': 'middle', fill: '#ff4d8d', 'font-size': fs }); s.textContent = '★'; } });
+  if (!narrow) {
+    const lg = mk('text', { x: 6, y: tickTop + tickH * .75, fill: '#8a8a96', 'font-size': fs, 'font-family': 'monospace' });
+    lg.innerHTML = '<tspan fill="#e8407a">○ text</tspan>  <tspan fill="#16a6b6">◇ seeded</tspan>  <tspan fill="#f2f2f5">◆ ★ref/best-of</tspan>';
+  }
+}
+function setN(n) { n = clampN(n); if (n === N) return; N = n; localStorage.setItem('wallN', n); reportN(n); buildGrid(); }
+function stepN(d) { setN(N + d); }
+function toggleFit() { fitMode = fitMode === 'cover' ? 'contain' : 'cover'; localStorage.setItem('wallFit', fitMode); cells.forEach(c => c.style.objectFit = fitMode); updateCtl(); }
+
+function loadCell(i) {                       // load a finished cell's image once
+  const src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
+  const probe = new Image();
+  probe.onload = () => { cells[i].src = src; };
+  probe.src = src;
+}
+async function loadTrace(i) {                 // cache the trace + id (for inspect + badge + date)
+  try {
+    const r = await fetch('wall_' + (i + 1) + '.json?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) { const t = await r.json(); traceCache[i] = t; cellIds[i] = t.id; }
+  } catch (e) {}
+}
+async function loadFavs() {
+  try { const r = await fetch('favlist?t=' + Date.now(), { cache: 'no-store' }); favset = new Set((await r.json()).ids || []); } catch (e) {}
+  try { const r = await fetch('downlist?t=' + Date.now(), { cache: 'no-store' }); downset = new Set((await r.json()).ids || []); } catch (e) {}
+}
+function refreshBadges() {
+  for (let i = 0; i < total; i++) {
+    stars[i].style.display = (cellIds[i] && favset.has(cellIds[i])) ? 'block' : 'none';
+    downs[i].style.display = (cellIds[i] && downset.has(cellIds[i]) && !favset.has(cellIds[i])) ? 'block' : 'none';
+    refreshCap(i);
+    const t = traceCache[i];
+    const hasSrc = !!(t && (t.seed_image || (t.init_source && t.init_source !== 'pure')));
+    srcs[i].classList.toggle('on', hasSrc);
+  }
+}
+
+(async () => { await loadFavs(); buildGrid(); loadWeights(); loadRecent(); })();
+setInterval(loadRecent, 30000);
+setInterval(loadWeights, 10 * 60 * 1000);
+setInterval(() => { for (let i = 0; i < total; i++) refreshCap(i); }, 60000);   // ages tick
+addEventListener('resize', drawTimeline);
+
+async function syncLive() {
+  try {
+    const r = await fetch('live-slot.txt?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const v = parseInt((await r.text()).trim());
+    if (v >= 1 && v <= total && (v - 1) !== live) {
+      const prev = live;
+      if (pair && pair.includes(v - 1)) endPair(false);   // a pair cell is being repainted — retry later
+      loadCell(prev);                        // the cell we just left finished
+      loadTrace(prev).then(refreshBadges);  // trace/badge/caption may be new
+      live = v - 1;
+      divs.forEach((d, i) => d.style.outline = (i === live) ? '3px solid #ff4d8d' : 'none');
+    }
+  } catch (e) {}
+}
+function pollLive() {                         // ONLY the live cell polls fast
+  if (live >= total) return;
+  const src = 'preview.png?t=' + Date.now();
+  const probe = new Image();
+  probe.onload = () => { if (cells[live]) cells[live].src = src; };
+  probe.src = src;
+}
+setInterval(syncLive, 600);
+setInterval(pollLive, 250);
+
+// ── inspect + favorite ───────────────────────────────────────────────────────
+const ov = document.getElementById('ov'), ovimg = document.getElementById('ovimg'), ovmeta = document.getElementById('ovmeta');
+const row = (k, v) => (v == null || v === '') ? '' :
+  `<div style="margin:4px 0"><span style="color:#7bf0f9">${k}</span>&nbsp; <span>${esc(v)}</span></div>`;
+
+async function toggleFav(id) {
+  if (!id) return;
+  const on = favset.has(id) ? 0 : 1;
+  try {
+    const r = await fetch('fav?id=' + encodeURIComponent(id) + '&on=' + on, { cache: 'no-store' });
+    const j = await r.json();
+    if (j.fav) favset.add(id); else favset.delete(id);
+    refreshBadges();
+    const b = document.getElementById('favbtn');
+    if (b) { b.textContent = j.fav ? '★ favorited' : '☆ favorite'; b.style.color = j.fav ? '#ff4d8d' : '#e8e8e8'; }
+  } catch (e) {}
+}
+
+async function toggleDown(id) {
+  if (!id) return;
+  const on = downset.has(id) ? 0 : 1;
+  sendEvent('type=down&id=' + encodeURIComponent(id) + '&on=' + on);
+  if (on) downset.add(id); else downset.delete(id);
+  refreshBadges();
+  const b = document.getElementById('downbtn');
+  if (b) { b.textContent = on ? '▼ not for me' : '▽ not for me'; b.style.color = on ? '#7bf0f9' : '#e8e8e8'; }
+}
+
+async function inspect(i) {
+  if (cellIds[i]) sendEvent('type=inspect&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
+  ovimg.src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
+  ovmeta.innerHTML = '<div style="color:#ff4d8d">◆ loading trace…</div>';
+  ov.style.display = 'flex';
+  let t = traceCache[i];
+  if (!t) { await loadTrace(i); t = traceCache[i]; }
+  if (!t) {
+    ovmeta.innerHTML = '<div style="color:#ff4d8d;font-size:18px">no trace for this cell yet</div>' +
+      '<div style="color:#888;font-size:13px;margin-top:8px">Traces attach as each cell re-renders — give it a cycle.</div>';
+    return;
+  }
+  const src = esc(t.init_source) + (t.feedback_from_cell ? ' (from cell ' + esc(t.feedback_from_cell) + ')' : '');
+  const str = (t.img2img_strength && t.img2img_strength !== 'none') ? t.img2img_strength : '—';
+  const faved = t.id && favset.has(t.id);
+  const downed = t.id && downset.has(t.id);
+  ovmeta.innerHTML =
+    `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">` +
+      `<div style="color:#ff4d8d;font-size:21px;line-height:1.35;flex:1">${esc(t.prompt_subject)}</div>` +
+      `<div style="display:flex;flex-direction:column;gap:6px">` +
+        `<button id="favbtn" class="wbtn" style="white-space:nowrap;color:${faved ? '#ff4d8d' : '#e8e8e8'}">${faved ? '★ favorited' : '☆ favorite'}</button>` +
+        `<button id="downbtn" class="wbtn" style="white-space:nowrap;border-color:#16a6b6;color:${downed ? '#7bf0f9' : '#e8e8e8'}">${downed ? '▼ not for me' : '▽ not for me'}</button>` +
+      `</div>` +
+    `</div>` +
+    row('cell', t.cell + ' / ' + total) +
+    row('when', String(t.ts || '').replace('T', ' ')) +
+    row('source', src) +
+    row('size', t.size) +
+    row('steps', t.steps) +
+    row('img2img strength', str) +
+    row('seed', t.seed) +
+    row('prompt origin', t.prompt_from) +
+    row('motif', t.source_motif) +
+    row('mined from', t.mined_from) +
+    (t.seed_image ?
+      `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #2a2a2a">` +
+        `<div style="color:#7bf0f9;font-size:12px;margin-bottom:6px">◇ seed image — what this cell was based on</div>` +
+        `<img src="wall_${i + 1}-init.png?t=${Date.now()}" style="max-width:240px;max-height:170px;border-radius:5px;border:1px solid #333;background:#000">` +
+      `</div>` : '') +
+    `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #2a2a2a;color:#7bf0f9;font-size:12px">full prompt sent to the model</div>` +
+    `<div style="color:#bbb;font-size:12px;line-height:1.5;margin-top:5px">${esc(t.prompt_full)}</div>`;
+  const b = document.getElementById('favbtn');
+  if (b) b.onclick = () => toggleFav(t.id);
+  const db = document.getElementById('downbtn');
+  if (db) db.onclick = () => toggleDown(t.id);
+}
+
+// ── daily pair pick ──────────────────────────────────────────────────────────
+// Once a day two finished cells get a dashed outline; one click says which you
+// prefer. Pairwise picks are far more label-efficient than stars. Cells are
+// picked at random positions, so there's no fixed left/right bias.
+async function maybePair() {
+  if (pair || ov.style.display === 'flex' || document.hidden) return;
+  if (localStorage.getItem('pairSkip') === new Date().toISOString().slice(0, 10)) return;
+  try { if (!(await (await fetch('pairstate?t=' + Date.now(), { cache: 'no-store' })).json()).due) return; } catch (e) { return; }
+  const ok = [];
+  for (let i = 0; i < total; i++) if (i !== live && cellIds[i] && !favset.has(cellIds[i]) && !downset.has(cellIds[i])) ok.push(i);
+  if (ok.length < 2) return;
+  const a = ok.splice(Math.floor(Math.random() * ok.length), 1)[0], b = ok[Math.floor(Math.random() * ok.length)];
+  pair = [a, b];
+  pair.forEach(i => divs[i].classList.add('pairpick'));
+  document.getElementById('pairbar').style.display = 'flex';
+}
+function pickPair(i) {
+  const [a, b] = pair, lose = i === a ? b : a;
+  sendEvent('type=pair&win=' + encodeURIComponent(cellIds[i]) + '&lose=' + encodeURIComponent(cellIds[lose]));
+  endPair(false);
+}
+function endPair(skipped) {
+  if (skipped) localStorage.setItem('pairSkip', new Date().toISOString().slice(0, 10));
+  if (pair) pair.forEach(i => divs[i] && divs[i].classList.remove('pairpick'));
+  pair = null;
+  document.getElementById('pairbar').style.display = 'none';
+}
+setInterval(maybePair, 5 * 60 * 1000);
+setTimeout(maybePair, 20 * 1000);
+ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+
+function openFolder(which) { fetch('open?which=' + which, { cache: 'no-store' }).catch(() => {}); }
+</script>
+</body>
+</html>

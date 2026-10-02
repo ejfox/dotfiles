@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taste Ops</title>
+<!-- TASTE OPS — live instrument panel for the muse wall's taste machinery on computah.
+     Served by preview-server (:7861/ops.html). Every number is real:
+       taste/sys.json     3s sampler (taste-telemetry.ps1): cpu/gpu/vram/ram, sd-server step, jobs, presence
+       taste/recent.json  newest 240 renders · taste/events.jsonl ★▽/inspect/pair · taste/bestof.jsonl
+       taste/taste-data.json  weights, scoreboard, probe (muse-taste-viz) · live-slot.txt + preview.png
+     Source of truth: ~/.dotfiles/computah/ops.html -->
+<style>
+  :root { --bg:#000; --panel:#07070a; --rule:#1a1a21; --ink:#f2f2f5; --ink2:#b4b4c0; --muted:#666674;
+          --hot:#e8407a; --cool:#16a6b6; --accent:#ff4d8d; --dim:#2c2c36; }
+  * { box-sizing: border-box; }
+  /* FLUID TYPE: one root size scales with the viewport; everything below is rem,
+     and chart text is sized by CSS (beats the SVG font-size attributes). */
+  html { font-size: clamp(10px, 0.42vw + 0.36vh + 4px, 28px); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace; line-height: 1.35; overflow: hidden; }
+  body { font-size: 1rem; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.4rem; padding: .55rem 1.1rem; border-bottom: 1px solid var(--rule); min-height: 3.1rem; }
+  header h1 { margin: 0; font-size: 1.1rem; letter-spacing: .22em; color: var(--accent); font-weight: 600; }
+  header .k { color: var(--muted); font-size: .82rem; letter-spacing: .12em; white-space: nowrap; }
+  header .v { color: var(--ink); }
+  #clock { margin-left: auto; font-size: 1.1rem; color: var(--ink); letter-spacing: .08em; }
+  .lamp { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin-right: .45rem; vertical-align: 0; background: var(--dim); }
+  .lamp.on { background: var(--hot); box-shadow: 0 0 .6rem var(--hot); }
+  .lamp.cool { background: var(--cool); box-shadow: 0 0 .5rem var(--cool); }
+  main { display: grid; height: calc(100% - 3.1rem); padding: .6rem; gap: .6rem;
+         grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: 1fr 1.25fr 1fr; }
+  section { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: .7rem .9rem; min-width: 0; min-height: 0;
+            position: relative; overflow: hidden; display: flex; flex-direction: column; }
+  section::before { content: ''; position: absolute; inset: 0 auto auto 0; width: 1.1rem; height: 1px; background: var(--accent); }
+  h2 { margin: 0 0 .5rem; font-size: .82rem; letter-spacing: .2em; color: var(--ink2); font-weight: 600; display: flex; gap: .6rem; flex-wrap: wrap; }
+  h2 .tag { margin-left: auto; color: var(--muted); letter-spacing: .08em; font-weight: 400; }
+  .big { font-size: 2.5rem; font-weight: 600; line-height: 1; letter-spacing: -.01em; }
+  .mid { font-size: 1.5rem; font-weight: 600; }
+  .muted { color: var(--muted); } .ink2 { color: var(--ink2); }
+  .bar { height: .8rem; background: #111117; border-radius: 2px; overflow: hidden; position: relative; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; background: var(--hot); border-radius: 2px; transition: width .4s; }
+  .bar.cool > i { background: var(--cool); }
+  .bar.tall { height: 1.5rem; }
+  .row { display: flex; align-items: center; gap: .6rem; margin: .25rem 0; }
+  .row .lbl { width: 4rem; color: var(--muted); font-size: .82rem; letter-spacing: .1em; flex: none; }
+  .row .val { width: 6.2rem; text-align: right; flex: none; }
+  .row .bar { flex: 1; }
+  svg { display: block; width: 100%; } svg text { font-family: inherit; font-size: .8rem; }
+  .grow { flex: 1; min-height: 3rem; }
+  #ticker { list-style: none; margin: 0; padding: 0; overflow: hidden; flex: 1; font-size: .92rem; }
+  #ticker li { padding: .25rem 0; border-bottom: 1px solid #0f0f14; display: flex; gap: .6rem; white-space: nowrap; }
+  #ticker .t { color: var(--muted); width: 4.8rem; flex: none; }
+  #ticker .g { width: 1.1rem; flex: none; text-align: center; }
+  #live { display: flex; gap: .8rem; flex: 1; min-height: 0; }
+  #live img { height: 100%; max-width: 55%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; background: #0b0b0f; }
+  #live .meta { flex: 1; min-width: 0; overflow: hidden; }
+  .kv { display: grid; grid-template-columns: 6rem 1fr; gap: .15rem .6rem; font-size: .92rem; }
+  .kv b { color: var(--muted); font-weight: 400; font-size: .82rem; letter-spacing: .1em; }
+  .kv span { overflow: hidden; text-overflow: ellipsis; }
+  .chips span { display: inline-block; border: 1px solid var(--rule); border-radius: 1rem; padding: 0 .5rem; margin: 0 .3rem .25rem 0; color: var(--ink2); font-size: .82rem; }
+  /* MID (tiled column / laptop): 2 columns, the page scrolls, panels get a floor */
+  @media (max-width: 1100px), (max-height: 640px) {
+    html, body { overflow: auto; height: auto; }
+    main { height: auto; grid-template-columns: 1fr 1fr; grid-template-rows: none; grid-auto-rows: minmax(15rem, auto); }
+    #live img { height: auto; width: 45%; align-self: flex-start; }
+  }
+  /* NARROW (phone / thin tile): one column, header sheds its spec labels */
+  @media (max-width: 620px) {
+    html { font-size: 12px; }
+    main { grid-template-columns: 1fr; grid-auto-rows: minmax(13rem, auto); }
+    header .k.spec { display: none; }
+    #live { flex-direction: column; } #live img { width: 100%; max-width: none; }
+  }
+  .scan { position: absolute; inset: 0; pointer-events: none;
+          background: repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px); }
+</style>
+</head>
+<body>
+<header>
+  <h1>◆ TASTE OPS</h1>
+  <span class="k spec">HOST <span class="v">computah</span></span>
+  <span class="k spec">GPU <span class="v">RX 9070 XT</span></span>
+  <span class="k spec">MODEL <span class="v">FLUX.2-klein 9B</span></span>
+  <span class="k" id="presence"><span class="lamp"></span>EJ —</span>
+  <span id="clock"></span>
+</header>
+<main>
+  <section>
+    <h2>RENDER ENGINE <span class="tag" id="sdtag">sd-server :1234</span></h2>
+    <div class="row" style="align-items:baseline"><span class="big" id="phase">—</span><span class="mid ink2" id="stepnum"></span><span style="margin-left:auto" class="ink2" id="sit"></span></div>
+    <div class="bar tall" style="margin:8px 0"><i id="stepbar" style="width:0"></i></div>
+    <div class="kv"><b>ETA</b><span id="eta">—</span><b>LAST</b><span id="last">—</span><b>LORA</b><span id="lora">off</span></div>
+    <svg id="sitspark" class="grow" width="100%" aria-label="seconds per step history"></svg>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>SYSTEM <span class="tag">3s sample</span></h2>
+    <div class="row"><span class="lbl">CPU</span><div class="bar"><i id="b-cpu"></i></div><span class="val" id="v-cpu"></span></div>
+    <div class="row"><span class="lbl">GPU 3D</span><div class="bar"><i id="b-gpu"></i></div><span class="val" id="v-gpu"></span></div>
+    <div class="row"><span class="lbl">VRAM</span><div class="bar cool"><i id="b-vram"></i></div><span class="val" id="v-vram"></span></div>
+    <div class="row"><span class="lbl">RAM</span><div class="bar cool"><i id="b-ram"></i></div><span class="val" id="v-ram"></span></div>
+    <svg id="sysspark" class="grow" width="100%" aria-label="cpu and gpu history"></svg>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>PIPELINE <span class="tag" id="built"></span></h2>
+    <div id="lamps" style="line-height:1.9"></div>
+    <div style="margin-top:8px" class="muted">PREFERENCE PROBE</div>
+    <div class="row"><span class="lbl">LABELS</span><div class="bar"><i id="b-pos"></i></div><span class="val" id="v-pos"></span></div>
+    <div class="row"><span class="lbl">LOO AUC</span><div class="bar cool"><i id="b-auc"></i></div><span class="val" id="v-auc"></span></div>
+    <div class="muted" id="probenote" style="font-size:10px;margin-top:4px"></div>
+    <div class="scan"></div>
+  </section>
+
+  <section>
+    <h2>LIVE CANVAS <span class="tag" id="slot"></span></h2>
+    <div id="live"><img id="liveimg" alt=""><div class="meta" id="livemeta"></div></div>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>THROUGHPUT <span class="tag">renders / 10 min · last 4h</span></h2>
+    <svg id="thru" class="grow" width="100%" aria-label="renders per 10 minutes"></svg>
+    <div id="mix" class="chips" style="margin-top:6px"></div>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>EVENT TICKER <span class="tag">your reactions, live</span></h2>
+    <ul id="ticker"></ul>
+    <div class="scan"></div>
+  </section>
+
+  <section>
+    <h2>BEST-OF DECISIONS <span class="tag" id="bontag"></span></h2>
+    <svg id="bon" class="grow" width="100%" aria-label="best-of candidate scores"></svg>
+    <div class="muted" style="font-size:10px">bar = probe score · ring = similarity to the wall (penalized) · ◆ = pick</div>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>EJ-TASTE STREAM <span class="tag">photo metric per render · last 240</span></h2>
+    <svg id="ejs" class="grow" width="100%" aria-label="ej-taste per recent render"></svg>
+    <div class="scan"></div>
+  </section>
+  <section>
+    <h2>SCOREBOARD <span class="tag">reactions / 100 seen</span></h2>
+    <svg id="board" class="grow" width="100%" aria-label="positive reactions per 100 seen renders by source"></svg>
+    <div class="scan"></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (t, a, p) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); p && p.appendChild(n); return n; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const get = async (u, kind = 'json') => { const r = await fetch(u + (u.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(r.status); return kind === 'json' ? r.json() : r.text(); };
+const SRC = { pure: 'text', screen: 'screen', crop: 'crop', feedback: 'past cell', 'feedback-inv': 'past inv', game: 'game', 'game-inv': 'game inv',
+  arena: 'are.na', cloud: 'cloud', fuji: 'fuji', taste: 'ej photo', ref: '★ ref', bestof: 'best-of' };
+const hist = { cpu: [], gpu: [], sit: [] }, HN = 120;
+const REM = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 12;   // chart offsets scale with type
+const push = (k, v) => { hist[k].push(v); if (hist[k].length > HN) hist[k].shift(); };
+
+function spark(svg, series) {          // series: [{data, color}]  — shared 0..max scale, one axis
+  svg.innerHTML = ''; const W = svg.clientWidth || 300, H = svg.clientHeight || 60;
+  const all = series.flatMap(s => s.data); if (!all.length) return;
+  const max = Math.max(...all, series[0].min || 1);
+  el('line', { x1: 0, x2: W, y1: H - 1, y2: H - 1, stroke: '#1a1a21' }, svg);
+  series.forEach(s => { if (s.data.length < 2) return;
+    const n = s.data.length;   // newest sample pinned to the right edge, history scrolls left (like a real monitor)
+    const pts = s.data.map((v, i) => `${W - ((n - 1 - i) / (HN - 1)) * W},${H - 2 - (v / max) * (H - 8)}`).join(' ');
+    el('polyline', { points: pts, fill: 'none', stroke: s.color, 'stroke-width': 1.5, 'stroke-linejoin': 'round' }, svg);
+    const t = el('text', { x: W - 2, y: REM() * (1 + series.indexOf(s) * 1.15), 'text-anchor': 'end', fill: 'var(--ink2)' }, svg);
+    t.textContent = s.label + ' ' + s.data[s.data.length - 1].toFixed(s.fix ?? 0) + (s.unit || ''); });
+}
+function setBar(id, frac, text) { $('#b-' + id).style.width = Math.max(0, Math.min(100, frac * 100)) + '%'; $('#v-' + id).textContent = text; }
+
+function drawSys() {
+  spark($('#sitspark'), [{ data: hist.sit, color: 'var(--hot)', label: 's/step', fix: 2, min: 1 }]);
+  spark($('#sysspark'), [{ data: hist.gpu, color: 'var(--hot)', label: 'gpu', unit: '%', min: 100 },
+                         { data: hist.cpu, color: 'var(--cool)', label: 'cpu', unit: '%', min: 100 }]);
+}
+let SD = {};
+async function tickSys() {
+  try {
+    const s = await get('taste/sys.json');
+    const sd = s.sd || {}; SD = sd;
+    $('#phase').textContent = (sd.phase || 'idle').toUpperCase();
+    $('#phase').style.color = sd.phase === 'sampling' ? 'var(--accent)' : sd.phase === 'idle' ? 'var(--muted)' : 'var(--ink)';
+    $('#stepnum').textContent = sd.steps ? `${sd.step}/${sd.steps}` : '';
+    $('#stepbar').style.width = sd.steps ? (100 * sd.step / sd.steps) + '%' : '0';
+    $('#sit').textContent = sd.sit ? `${sd.sit.toFixed(2)} s/step` : '';
+    $('#eta').textContent = sd.steps ? `${Math.round((sd.steps - sd.step) * sd.sit)}s` : '—';
+    $('#last').textContent = sd.last_s ? `${sd.last_s.toFixed(1)}s per image` : '—';
+    $('#lora').textContent = sd.lora ? 'ejtaste-klein9b (runtime)' : 'off';
+    if (sd.sit) push('sit', sd.sit);
+    push('cpu', s.cpu || 0); push('gpu', Math.min(100, s.gpu || 0));
+    drawSys();
+    setBar('cpu', (s.cpu || 0) / 100, `${s.cpu ?? 0}%`);
+    setBar('gpu', Math.min(100, s.gpu || 0) / 100, `${Math.round(s.gpu || 0)}%`);
+    setBar('vram', (s.vram_gb || 0) / (s.vram_total_gb || 16), `${(s.vram_gb || 0).toFixed(1)}/${s.vram_total_gb}G`);
+    setBar('ram', (s.ram_gb || 0) / (s.ram_total_gb || 32), `${s.ram_gb}/${s.ram_total_gb}G`);
+    const jobs = new Set(s.jobs || []);
+    const lamp = (on, name, note, cls = 'on') => `<div><span class="lamp ${on ? cls : ''}"></span>${name} <span class="muted">${on ? note : 'idle'}</span></div>`;
+    $('#lamps').innerHTML =
+      lamp(sd.phase && sd.phase !== 'idle', 'FLUX render', sd.phase) +
+      lamp(s.llm, 'Qwen LLM (prompt writer)', 'loaded — wall paused for prompts', 'cool') +
+      lamp(jobs.has('scoring'), 'ej-taste scoring', 'running') +
+      lamp(jobs.has('embedding'), 'CLIP embedding', 'running') +
+      lamp(jobs.has('best-of rerank'), 'best-of rerank', 'scoring candidates') +
+      (() => { const k = s.keeper || {}, bad = (k.gaveup || []).length, off = (k.off || []).length, l = k.last;
+        const note = bad ? `GAVE UP on ${k.gaveup.join(', ')}` : off ? `${k.off.join(', ')} switched off`
+          : l ? `last: ${esc(l.target || '')} ${esc(l.event || '')} ${esc((l.ts || '').slice(11, 16))}Z` : 'all windows up';
+        return `<div><span class="lamp ${bad ? 'on' : 'cool'}"></span>gui-keeper <span class="muted">${note}</span></div>`; })();
+    const p = $('#presence'), idle = s.idle_s;
+    const here = idle != null && idle < 300;
+    p.innerHTML = `<span class="lamp ${here ? 'on' : ''}"></span>EJ ${idle == null ? '—' : here ? `AT DESK · idle ${idle}s` : `AWAY · ${Math.round(idle / 60)}m`}`;
+  } catch (e) {}
+}
+
+let lastShown = '';
+async function tickLive() {
+  try {
+    // sd-server (persistent) writes no preview.png, so show the JUST-FINISHED cell:
+    // the loop fills slots in order, so that's the slot before the live one.
+    const slot = parseInt(await get('live-slot.txt', 'text'));
+    // while sampling, show the TRUE step preview sd-server writes (patched build, --preview-path)
+    if (SD.phase === 'sampling') {
+      const probe = new Image();
+      probe.onload = () => { $('#liveimg').src = probe.src; lastShown = ''; };
+      probe.src = 'preview.png?t=' + Date.now();
+      $('#slot').textContent = `resolving slot ${slot}`;
+      $('#livemeta').innerHTML = `<div class="muted" style="font-size:.82rem;margin-bottom:.3rem">RESOLVING NOW · from noise</div>
+        <div class="big" style="color:var(--accent)">${SD.step}<span class="ink2" style="font-size:1.2rem">/${SD.steps}</span></div>
+        <div class="kv" style="margin-top:.5rem"><b>S/STEP</b><span>${SD.sit ? SD.sit.toFixed(2) : '—'}</span>
+        <b>ETA</b><span>${SD.steps ? Math.round((SD.steps - SD.step) * SD.sit) + 's' : '—'}</span></div>`;
+      return;
+    }
+    const n = parseInt(await get('wall-n.txt', 'text').catch(() => '3')) || 3;
+    const done = slot > 1 ? slot - 1 : n * n;
+    $('#slot').textContent = `rendering slot ${slot} · showing slot ${done}`;
+    const t = await get(`wall_${done}.json`).catch(() => null);
+    if (t && t.id !== lastShown) { lastShown = t.id;
+      const probe = new Image(); probe.onload = () => { $('#liveimg').src = probe.src; }; probe.src = `wall_${done}.png?t=` + Date.now(); }
+    $('#livemeta').innerHTML = t ? `<div class="muted" style="font-size:10px;margin-bottom:4px">JUST FINISHED · ${esc((t.ts || '').slice(11, 19))}</div>
+      <div style="color:var(--ink);margin-bottom:6px">${esc((t.prompt_subject || '').slice(0, 110))}</div>
+      <div class="kv"><b>SOURCE</b><span>${esc(SRC[(t.init_source || 'pure').split('+')[0]] || t.init_source)}</span>
+      <b>STYLE</b><span>${esc((t.style || '—').split(',')[0])}</span><b>SAMPLER</b><span>${esc(t.sampler)}</span>
+      <b>STEPS</b><span>${esc(t.steps)} · ${esc(t.size)}</span><b>EJ-TASTE</b><span>${t.render_ejtaste == null ? '—' : t.render_ejtaste.toFixed(2)}</span>
+      <b>FROM</b><span>${esc((t.prompt_from || '').slice(0, 40))}</span></div>` : '';
+  } catch (e) {}
+}
+
+let RECENT = [], DATA = null;
+async function tickRecent() {
+  try { RECENT = (await get('taste/recent.json')).renders || []; } catch (e) { return; }
+  drawRecent();
+}
+function drawRecent() {
+  // throughput: renders per 10-min bucket over the last 4h
+  const svg = $('#thru'); svg.innerHTML = ''; const W = svg.clientWidth || 300, H = svg.clientHeight || 80, R = REM();
+  const now = Date.now(), B = 24, span = 10 * 60 * 1000, bins = Array(B).fill(0), stars = Array(B).fill(0);
+  RECENT.forEach(r => { const k = B - 1 - Math.floor((now - new Date(r.ts).getTime()) / span);
+    if (k >= 0 && k < B) { bins[k]++; if (r.fav) stars[k]++; } });
+  const max = Math.max(...bins, 1), bw = W / B;
+  const base = H - 1.3 * R, gap = Math.max(1, Math.min(3, bw * .12));
+  bins.forEach((c, i) => { const h = c / max * (base - 1.4 * R);
+    el('rect', { x: i * bw + gap / 2, y: base - h, width: Math.max(1, bw - gap), height: Math.max(1, h), rx: Math.min(3, bw / 4), fill: i === B - 1 ? 'var(--accent)' : 'var(--hot)', opacity: i === B - 1 ? 1 : .75 }, svg);
+    if (stars[i]) { const t = el('text', { x: i * bw + bw / 2, y: base - h - .25 * R, 'text-anchor': 'middle', fill: 'var(--accent)' }, svg); t.textContent = '★'; } });
+  [['-4h', 0], ['-2h', B / 2], ['now', B - 1]].forEach(([t, i]) => { const x = el('text', { x: i === B - 1 ? W : i * bw, y: H - 2,
+    'text-anchor': i === 0 ? 'start' : i === B - 1 ? 'end' : 'middle', fill: 'var(--muted)' }, svg); x.textContent = t; });
+  const lastHour = RECENT.filter(r => now - new Date(r.ts).getTime() < 3600e3);
+  const mix = {}; lastHour.forEach(r => mix[r.src] = (mix[r.src] || 0) + 1);
+  $('#mix').innerHTML = `<span style="color:var(--ink)">${lastHour.length}/hr</span>` +
+    Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span>${esc(SRC[k] || k)} ${v}</span>`).join('');
+  // ej-taste stream: one dot per render, y = score, color = starred
+  const s2 = $('#ejs'); s2.innerHTML = ''; const W2 = s2.clientWidth || 300, H2 = s2.clientHeight || 80;
+  const vals = RECENT.filter(r => r.ej != null); if (!vals.length) return;
+  const lo = -2.5, hi = 3, y = v => H2 - 6 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * (H2 - 12);
+  el('line', { x1: 0, x2: W2, y1: y(0), y2: y(0), stroke: '#2a2a33', 'stroke-dasharray': '3 3' }, s2);
+  const z = el('text', { x: 2, y: 1.0 * R, fill: 'var(--muted)' }, s2); z.textContent = '- - photo-corpus avg';
+  const dot = Math.max(1.5, Math.min(3, W2 / 260));   // dots scale with the panel
+  vals.forEach((r, i) => el('circle', { cx: 4 + i / Math.max(1, vals.length - 1) * (W2 - 8), cy: y(r.ej), r: r.fav ? dot * 2 : dot,
+    fill: r.fav ? 'var(--accent)' : r.down ? 'var(--cool)' : '#55555f', stroke: r.fav ? '#000' : 'none' }, s2));
+}
+
+async function tickEvents() {
+  let lines = [];
+  try { lines = (await get('taste/events.jsonl', 'text')).trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch (e) {}
+  const stars = RECENT.filter(r => r.fav).map(r => ({ ts: r.ts, type: 'star', id: r.id }));
+  const all = lines.concat(stars).sort((a, b) => (b.ts || '').localeCompare(a.ts || '')).slice(0, 40);
+  const G = { star: ['★', 'var(--accent)', 'starred'], down: ['▼', 'var(--cool)', 'not for me'], inspect: ['◇', 'var(--ink2)', 'inspected'],
+              pair: ['◆', 'var(--hot)', 'pair pick'] };
+  $('#ticker').innerHTML = all.length ? all.map(e => { const [g, c, w] = G[e.type] || ['·', 'var(--muted)', e.type];
+    const what = e.type === 'pair' ? `${esc(e.win)} &gt; ${esc(e.lose)}` : esc(e.id) + (e.type === 'down' && e.on === false ? ' (undone)' : '');
+    return `<li><span class="t">${esc((e.ts || '').slice(11, 19))}</span><span class="g" style="color:${c}">${g}</span><span class="ink2">${w}</span><span class="muted">${what}</span></li>`; }).join('')
+    : '<li class="muted">waiting for your first reaction…</li>';
+}
+
+let LASTBON = null;
+async function tickBon() {
+  try { const t = (await get('taste/bestof.jsonl', 'text')).trim().split('\n'); LASTBON = JSON.parse(t[t.length - 1]); $('#bontag').textContent = `${t.length} decisions · last ${LASTBON.ts.slice(11, 16)}`; } catch (e) {}
+  drawBon();
+}
+function drawBon() {
+  const svg = $('#bon'); svg.innerHTML = ''; const last = LASTBON; if (!last) return;
+  const W = svg.clientWidth || 300, H = svg.clientHeight || 80, R = REM(), c = last.cands, n = c.length, bw = W / n;
+  const ring = Math.min(bw * .25, R * 1.1), top = ring * 2 + 4, base = H - 1.4 * R;
+  const pmax = Math.max(...c.map(x => Math.abs(x.probe)), .5);
+  c.forEach((x, i) => { const cx = i * bw + bw / 2, h = Math.abs(x.probe) / pmax * Math.max(4, base - top - 4);
+    el('rect', { x: cx - bw * .22, y: base - h, width: bw * .44, height: Math.max(2, h), rx: 3, fill: i === last.pick ? 'var(--accent)' : 'var(--hot)', opacity: i === last.pick ? 1 : .45 }, svg);
+    el('circle', { cx, cy: ring + 2, r: Math.max(2, ring * (.3 + x.maxsim * .7)), fill: 'none', stroke: 'var(--cool)', 'stroke-width': 1.5 }, svg);
+    const t = el('text', { x: cx, y: H - 2, 'text-anchor': 'middle', fill: i === last.pick ? 'var(--ink)' : 'var(--muted)' }, svg);
+    t.textContent = (i === last.pick ? '◆ ' : '') + x.probe.toFixed(2); });
+}
+
+async function tickData() {
+  try { DATA = await get('taste/taste-data.json'); } catch (e) { return; }
+  $('#built').textContent = 'weights ' + (DATA.built || '').slice(5);
+  const p = DATA.probe;
+  if (p) {
+    setBar('pos', p.pos_mass / p.min_pos, `${p.pos_mass}/${p.min_pos}`);
+    setBar('auc', ((p.loo_auc || .5) - .5) / .5, p.loo_auc == null ? '—' : p.loo_auc.toFixed(2));
+    $('#probenote').textContent = p.ready ? 'READY — reranking best-of-4 sketches' : `dormant until ${p.min_pos} label mass and AUC ≥ ${p.min_auc} (0.5 = chance)`;
+  }
+  drawBoard();
+}
+function drawBoard() {
+  if (!DATA) return;
+  const svg = $('#board'); svg.innerHTML = ''; const rows = (DATA.sources || []).slice(0, 7), R = REM();
+  const W = svg.clientWidth || 300, rh = Math.min(1.9 * R, (svg.clientHeight || 120) / Math.max(1, rows.length));
+  const lab = 6.5 * R, valw = 3.6 * R, max = Math.max(...rows.map(r => r.per100), .01);
+  rows.forEach((r, i) => { const y = i * rh;
+    const t = el('text', { x: lab - .5 * R, y: y + rh / 2 + .35 * R, 'text-anchor': 'end', fill: 'var(--ink2)' }, svg); t.textContent = SRC[r.src] || r.src;
+    el('rect', { x: lab, y: y + rh * .2, width: Math.max(2, (W - lab - valw) * r.per100 / max), height: rh * .6, rx: 2, fill: 'var(--hot)' }, svg);
+    const v = el('text', { x: W - 2, y: y + rh / 2 + .35 * R, 'text-anchor': 'end', fill: 'var(--ink)' }, svg); v.textContent = r.per100.toFixed(2); });
+}
+// any size change → redraw every chart from cached data (debounced to one frame)
+let rz = 0;
+new ResizeObserver(() => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => { drawSys(); drawRecent(); drawBon(); drawBoard(); }); })
+  .observe(document.querySelector('main'));
+
+setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString([], { hour12: false }); }, 1000);
+tickSys(); tickLive(); tickData(); tickRecent().then(tickEvents); tickBon();
+setInterval(tickSys, 2000); setInterval(tickLive, 800); setInterval(tickEvents, 5000);
+setInterval(tickRecent, 30000); setInterval(tickBon, 10000); setInterval(tickData, 300000);
+</script>
+</body>
+</html>

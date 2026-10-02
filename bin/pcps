@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# pcps — run a PowerShell script on computah from stdin, no quoting hell.
+#
+#   pcps <<'EOF'
+#   Get-Process blender | Select-Object Id, CPU
+#   EOF
+#   pcps -f local.ps1 [args...]     run a local .ps1 file (args passed through)
+#
+# Why: nested bash -> ssh -> cmd -> powershell quoting mangles $vars, pipes, quotes and
+# format strings ('{0}' -f ...). Shipping the script as a file and running it with -File
+# sidesteps all of it (2026-10-02: ~a dozen wasted rounds in one session).
+# LAN first (same probe the computah CLI uses), else the tailnet alias.
+set -uo pipefail
+if nc -z -G 2 10.0.0.169 22 2>/dev/null; then H=ejfox@10.0.0.169; else H=computah; fi
+tmp=$(mktemp -t pcps).ps1
+if [ "${1:-}" = "-f" ]; then cp "$2" "$tmp"; shift 2; else cat > "$tmp"; fi
+name="pcps-$$-$RANDOM.ps1"
+scp -q -o ConnectTimeout=8 "$tmp" "$H:C:/dev/computah/bin/$name" || { echo "pcps: copy failed" >&2; exit 1; }
+rm -f "$tmp"
+ssh -o ConnectTimeout=8 "$H" "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\$name $*"
+rc=$?
+ssh -o ConnectTimeout=8 "$H" "del C:\\dev\\computah\\bin\\$name" >/dev/null 2>&1
+exit $rc

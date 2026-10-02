@@ -1209,8 +1209,17 @@ PYEOF
       # he's making. `desk bench --png` prints the chart path only while the slot is open.
       _bench=""; [ "${MUSE_BENCH_PCT:-25}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_BENCH_PCT:-25}" ] \
         && _bench=$("$HOME/.local/bin/desk" bench --png 2>/dev/null)
+      # STUDIO (2026-10-02): MUSE_STUDIO_PCT of cells seed from a recent 1-bit Blender
+      # studio piece, so the wall reinterprets the studio while the studio already eats
+      # wall renders as textures/backdrops (studio_engine.py) — a two-way loop.
+      _stu=""; [ -z "$_bench" ] && [ "${MUSE_STUDIO_PCT:-10}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_STUDIO_PCT:-10}" ] \
+        && _stu=$(curl -s -m 5 "http://$h:7861/studio/index.json" 2>/dev/null | /usr/local/bin/python3 -c \
+             'import json,random,sys; i=json.load(sys.stdin)["items"][:60]; print(random.choice(i)["name"] if i else "")' 2>/dev/null)
       if [ -n "$_bench" ] && [ -s "$_bench" ]; then
         cp "$_bench" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="bench"
+      elif [ -n "$_stu" ] && curl -sf -m 20 -o /tmp/muse-init.png "http://$h:7861/studio/thumbs/$_stu.jpg" 2>/dev/null \
+           && [ -s /tmp/muse-init.png ]; then
+        src="studio"
       elif [ "$roll" -lt "$scr" ] && command -v screencapture >/dev/null 2>&1; then
         screencapture -x -t png -D 1 /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="screen"
       elif [ "$roll" -lt "$crp" ] && command -v screencapture >/dev/null 2>&1; then

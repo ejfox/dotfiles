@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# blender-sync — one Finder folder for everything Blender makes on computah.
+#
+#   ~/Pictures/Blender/
+#     masterpieces/   live-studio renders, COPIED from the PC (they used to exist only
+#                     there: C:\dev\computah\renders\mathblend\masterpieces)
+#     out/            -> ~/code/blender-math/out        (Mac-driven renders, already here)
+#     finals-5k/      -> ~/code/blender-math/finals-5k  (5K finals)
+#
+#   blender-sync          copy any new masterpieces (incremental, never deletes)
+#   blender-sync --open   ...then open the folder in Finder
+# Quiet and harmless when the PC is off. Browse with Finder + Quick Look (space).
+set -uo pipefail
+DEST="$HOME/Pictures/Blender"
+SRC='C:/dev/computah/renders/mathblend/masterpieces'
+mkdir -p "$DEST/masterpieces"
+for l in out finals-5k; do
+  [ -e "$DEST/$l" ] || ln -s "$HOME/code/blender-math/$l" "$DEST/$l"
+done
+
+# LAN first (the ssh alias also does this, but be explicit for launchd)
+if nc -z -G 2 10.0.0.169 22 2>/dev/null; then H=ejfox@10.0.0.169; else H=computah; fi
+remote=$(ssh -o ConnectTimeout=8 -o ServerAliveInterval=15 "$H" "cmd /c dir /b ${SRC//\//\\}\\*.png" 2>/dev/null | tr -d '\r') || remote=""
+new=()
+while IFS= read -r f; do
+  [ -n "$f" ] && [ ! -e "$DEST/masterpieces/$f" ] && new+=("$f")
+done <<< "$remote"
+
+free_gb=$(df -g "$HOME" | awk 'NR==2 {print $4}')
+if [ "${#new[@]}" -gt 0 ] && [ "${free_gb:-0}" -lt "${BLENDER_SYNC_MIN_FREE_GB:-20}" ]; then
+  echo "◇ only ${free_gb}GB free on the Mac — not copying ${#new[@]} new render(s)"
+  new=()
+fi
+if [ "${#new[@]}" -gt 0 ]; then
+  # scp in batches; each source needs its own host: prefix
+  for ((i = 0; i < ${#new[@]}; i += 20)); do
+    args=()
+    for f in "${new[@]:i:20}"; do args+=("$H:$SRC/$f"); done
+    scp -q -o ConnectTimeout=8 "${args[@]}" "$DEST/masterpieces/" 2>/dev/null
+  done
+  echo "◆ ${#new[@]} new masterpiece(s) → $DEST/masterpieces"
+elif [ -z "$remote" ]; then
+  echo "◇ computah unreachable — nothing synced"
+fi
+
+[ "${1:-}" = "--open" ] && open "$DEST"
+# while the PC is awake, pre-fetch the morning DM's wall-art pick (brief-pictures; the PC
+# is usually asleep at 08:02). Silent, no DMs; no-op when the pick hasn't changed.
+[ -n "$remote" ] && /usr/local/bin/python3 "$HOME/.dotfiles/bin/brief-pictures" --prefetch >/dev/null 2>&1
+exit 0

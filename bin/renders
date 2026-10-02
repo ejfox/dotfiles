@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# renders — the one word to remember for browsing Blender output.
+#
+#   renders        PC awake → the render browser page: EVERY studio render, newest first,
+#                  thumbnails, click for the full PNG (no login)
+#                  PC off   → the Mac copy (~/Pictures/Blender) and how stale it is
+#   renders mac    always the Mac copy (Finder; space = Quick Look)
+#   renders live   the studio's live viewer (what it's showing + rendering right now)
+#
+# Where things actually live (the PC is the master copy; nothing is ever deleted there):
+#   PC     C:\dev\computah\renders\mathblend\masterpieces   (every finished render, full PNG)
+#          browsed via http://10.0.0.169:7861/blender.html  (preview-server; thumbnails +
+#          index from blender-index.ps1, run by the studio after each render)
+#   Mac    ~/Pictures/Blender/masterpieces                  (blender-sync copy, every 15 min;
+#          skips while the Mac has < 20 GB free, so it can lag) + out/ and finals-5k/ links
+# Not the SMB share: it wants EJ's Microsoft-account password (he signs in with a PIN).
+set -uo pipefail
+PC=10.0.0.169
+MAC="$HOME/Pictures/Blender"
+PAGE="http://$PC:7861/blender.html"
+LIVE="http://$PC:7861/studio.html"
+
+map() {
+  echo "  ◇ every render (PC)  $PAGE"
+  echo "  ◇ Mac copy           $MAC/masterpieces  ($(ls "$MAC/masterpieces" 2>/dev/null | grep -c '\.png$') files)"
+  echo "  ◇ live studio        $LIVE   ·   renders mac / renders live"
+}
+
+case "${1:-}" in
+  live) open "$LIVE"; exit 0 ;;
+  mac)  open "$MAC"; map; exit 0 ;;
+esac
+
+if curl -s -m 3 -o /dev/null "http://$PC:7861/studio/index.json"; then
+  open "$PAGE"
+  echo "◆ opening every studio render, live off the PC"
+else
+  newest=$(ls -t "$MAC/masterpieces" 2>/dev/null | head -1)
+  open "$MAC"
+  echo "◇ PC is off — opening the Mac copy (newest: ${newest:-none}); may lag the PC"
+  echo "  for everything: computah wake && renders"
+fi
+map

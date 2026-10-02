@@ -1,0 +1,104 @@
+#!/usr/local/bin/python3
+"""Preference probe for the muse wall: CLIP embedding → "would EJ like this?"
+
+  muse-taste-probe          pull embeddings from computah, train, report, push
+  muse-taste-probe --local  train + report only
+
+Inputs: render-embeds.npz (taste-embed.py embed, on the PC — CLIP ViT-B-32-quickgelu),
+        ~/.cache/muse/labels.json (muse-taste-weights: SEEN, non-replay renders only,
+        id → [positive mass, negative mass]).
+Model: L2 logistic regression, positive-unlabeled weighting (Fable review 2026-09-30):
+  positive  = ★ / inspect / pair-win mass          (weight = mass)
+  negative  = ▽ not-for-me / pair-loss mass         (weight = mass)
+  unlabeled = seen, no reaction → weak negative     (weight = UNL_W)
+  unseen    = excluded entirely (never a negative)
+Honest check: leave-one-out over positives (each held-out ★ ranked against held-out
+unlabeled) → AUC. The probe is READY for best-of-N only when positive mass ≥ MIN_POS
+and LOO AUC ≥ MIN_AUC; until then the loop ignores it.
+Outputs: ~/.cache/muse/probe.npz (w, b) → PC farm\\taste\\probe.npz,
+         ~/.cache/muse/probe-stats.json (for the Wall Taste page + the loop's gate).
+Knobs: MUSE_PROBE_{UNL_W,L2,MIN_POS,MIN_AUC}.
+"""
+import json, os, subprocess, sys, time
+import numpy as np
+
+E = os.environ.get
+C = os.path.expanduser("~/.cache/muse")
+EMB, LAB = f"{C}/render-embeds.npz", f"{C}/labels.json"
+PROBE, STATS = f"{C}/probe.npz", f"{C}/probe-stats.json"
+UNL_W = float(E("MUSE_PROBE_UNL_W", "0.05"))
+L2 = float(E("MUSE_PROBE_L2", "1.0"))
+MIN_POS = float(E("MUSE_PROBE_MIN_POS", "50"))
+MIN_AUC = float(E("MUSE_PROBE_MIN_AUC", "0.65"))
+
+def host():
+    lan = subprocess.run(["nc", "-z", "-G", "2", "10.0.0.169", "22"], capture_output=True).returncode == 0
+    return "ejfox@10.0.0.169" if lan else "computah"
+
+def fit(X, y, w, iters=400, lr=0.5):
+    """Weighted L2 logistic regression by full-batch gradient descent (X is unit-norm)."""
+    d = X.shape[1]
+    wt, b = np.zeros(d), 0.0
+    sw = w / w.sum()
+    for _ in range(iters):
+        p = 1 / (1 + np.exp(-(X @ wt + b)))
+        g = p - y
+        wt -= lr * (X.T @ (sw * g) + L2 * wt / len(y))
+        b -= lr * float(sw @ g)
+    return wt, b
+
+def auc(pos, neg):
+    pos, neg = np.asarray(pos), np.asarray(neg)
+    return float(((pos[:, None] > neg[None, :]).sum() + 0.5 * (pos[:, None] == neg[None, :]).sum()) / (len(pos) * len(neg)))
+
+def main():
+    if "--local" not in sys.argv:
+        subprocess.run(["scp", "-q", f"{host()}:C:/Users/ejfox/farm/taste/render-embeds.npz", EMB], check=True)
+    z = np.load(EMB)
+    ids = [str(i) for i in z["ids"]]
+    V = z["vecs"].astype(np.float64)
+    idx = {i: k for k, i in enumerate(ids)}
+    lab = json.load(open(LAB))["rows"]
+    rows = [(idx[i], p, n) for i, (p, n) in lab.items() if i in idx]
+    X = V[[r[0] for r in rows]]
+    pos = np.array([r[1] for r in rows]); neg = np.array([r[2] for r in rows])
+    # one row per render: label 1 if any positive mass, else 0
+    y = (pos > 0).astype(float)
+    w = np.where(y == 1, pos, np.where(neg > 0, neg, UNL_W))
+    # class balance: positives and negatives carry equal total weight
+    if y.sum():
+        w = np.where(y == 1, w * (w[y == 0].sum() / w[y == 1].sum()), w)
+    pos_mass = float(pos.sum())
+
+    # honest check: leave-one-out over positives
+    rng = np.random.default_rng(0)
+    P = np.where(y == 1)[0]; U = np.where(y == 0)[0]
+    loo = None
+    if len(P) >= 3 and len(U) > 100:
+        held_u = rng.choice(U, size=min(1000, len(U) // 5), replace=False)
+        keep = np.ones(len(y), bool); keep[held_u] = False
+        sp, su = [], None
+        for k in P:
+            m = keep.copy(); m[k] = False
+            wt, b = fit(X[m], y[m], w[m], iters=200)
+            sp.append(float(X[k] @ wt + b))
+            if su is None:
+                su = X[held_u] @ wt + b   # unlabeled scores barely move per fold; reuse fold 1's
+        loo = auc(sp, su)
+    wt, b = fit(X, y, w)
+    np.savez(PROBE, w=wt.astype(np.float32), b=np.float32(b))
+    ready = pos_mass >= MIN_POS and loo is not None and loo >= MIN_AUC
+    stats = {"built": time.strftime("%Y-%m-%d %H:%M"), "labeled_renders": len(rows),
+             "positives": int(y.sum()), "pos_mass": round(pos_mass, 1),
+             "loo_auc": None if loo is None else round(loo, 3), "ready": bool(ready),
+             "min_pos": MIN_POS, "min_auc": MIN_AUC}
+    json.dump(stats, open(STATS, "w"))
+    print(f"◆ probe on {len(rows)} seen renders · {int(y.sum())} positive ({pos_mass:.1f} mass) · "
+          f"leave-one-out AUC {stats['loo_auc']} → {'READY' if ready else 'dormant'} "
+          f"(needs ≥{MIN_POS:.0f} positive mass and AUC ≥{MIN_AUC})")
+    if "--local" not in sys.argv:
+        subprocess.run(["scp", "-q", PROBE, f"{host()}:C:/Users/ejfox/farm/taste/probe.npz"], check=True)
+        print("◆ pushed probe → computah farm\\taste\\probe.npz")
+
+if __name__ == "__main__":
+    main()

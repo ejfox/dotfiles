@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Score every muse-gallery render for EJ-taste — ON computah (no 6GB pull),
+# then fetch the one CSV back to ~/.cache/muse/render-scores.csv.
+#   muse-taste-backfill        incremental (only new renders), quiet-ish
+# Refuses to start while a game / anti-cheat is running; the PC-side scorer
+# also re-checks every 100 images and stops (resumable). Idle CPU priority.
+# Source: ~/.dotfiles/computah/taste-score.py + ~/roadtrip-rank/taste.py
+set -uo pipefail
+# LAN first (the `computah` ssh alias is Tailscale-only, and PC-side Tailscale is
+# offline until someone logs in); same order the computah CLI uses.
+if nc -z -G 2 10.0.0.169 22 2>/dev/null; then H=ejfox@10.0.0.169; else H=computah; fi
+PCDIR='C:\Users\ejfox\farm\taste'
+LOCAL="$HOME/.cache/muse/render-scores.csv"
+mkdir -p "$HOME/.cache/muse"
+
+if ssh -o ConnectTimeout=8 "$H" 'tasklist /fo csv /nh' 2>/dev/null | grep -qiE 'fortniteclient|easyanticheat|beservice|battleye'; then
+  echo "◇ game running on computah — not scoring now"; exit 0
+fi
+
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+muse-taste-seed stats > "$tmp/corpus-stats.json" || { echo "◇ no corpus stats"; exit 1; }
+# venv from scoop's REAL python path (scoop shims can't spawn over SSH, and the
+# admin session refuses the 'current' junction — see computah-interlink notes).
+# Shipped as a .ps1: nested bash→cmd→powershell quoting is a known footgun here.
+cat > "$tmp/taste-setup.ps1" <<'PS1'
+$d = 'C:\Users\ejfox\farm\taste'
+if (-not (Test-Path "$d\venv\Scripts\python.exe")) {
+  $py = Get-ChildItem C:\Users\ejfox\scoop\apps\python -Directory | Where-Object Name -ne 'current' |
+    Sort-Object { [version]($_.Name -replace '[^0-9.]','') } | Select-Object -Last 1
+  & (Join-Path $py.FullName 'python.exe') -m venv "$d\venv"
+  & "$d\venv\Scripts\python.exe" -m pip install -q numpy pillow
+}
+PS1
+ssh "$H" "if not exist $PCDIR mkdir $PCDIR" >/dev/null 2>&1
+scp -q "$HOME/roadtrip-rank/taste.py" "$HOME/.dotfiles/computah/taste-score.py" \
+  "$tmp/corpus-stats.json" "$tmp/taste-setup.ps1" "$H:farm/taste/" || { echo "◇ ship failed"; exit 1; }
+ssh "$H" "powershell -NoProfile -ExecutionPolicy Bypass -File $PCDIR\\taste-setup.ps1" || { echo "◇ venv setup failed"; exit 1; }
+
+ssh "$H" "$PCDIR\\venv\\Scripts\\python.exe $PCDIR\\taste-score.py"
+rc=$?
+# CLIP embeddings for the preference probe (incremental; also game-safe + idle priority).
+# Sanitized PATH: scoop's 'current' junctions break python tooling in the admin SSH session.
+scp -q "$HOME/.dotfiles/computah/taste-embed.py" "$H:farm/taste/" && \
+  ssh "$H" "set \"PATH=C:\\Windows\\system32;C:\\Windows\" && $PCDIR\\venv\\Scripts\\python.exe $PCDIR\\taste-embed.py embed" | tail -1
+scp -q "$H:farm/taste/render-scores.csv" "$LOCAL" && echo "◆ $(($(wc -l < "$LOCAL") - 1)) renders scored → $LOCAL"
+# wall reactions (▽ not-for-me, inspect clicks, daily pair) logged by preview-server
+if scp -q "$H:C:/dev/computah/farm/sd/taste/events.jsonl" "$HOME/.cache/muse/wall-events.jsonl" 2>/dev/null; then
+  echo "◆ $(wc -l < "$HOME/.cache/muse/wall-events.jsonl" | tr -d ' ') wall events → ~/.cache/muse/wall-events.jsonl"
+fi
+exit $rc
