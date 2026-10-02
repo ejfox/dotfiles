@@ -320,14 +320,19 @@ PS
     [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && held=1
     if [ "$held" -eq 0 ]; then
       echo "→ freeing GPU (pausing wall) + loading Qwen3-14B…" >&2
-      rssh "taskkill /im sd-server.exe /f >nul 2>&1 & echo ." >/dev/null 2>&1 || true
+      # sd-server runs under the svc supervisor: taskkill over SSH can't stop it, which
+      # left FLUX on the card and Qwen loading beside it far past the wait (2026-10-02).
+      "$0" sd-server stop >/dev/null 2>&1 || true
       "$0" llm on >/dev/null 2>&1 || true
       up=0
-      for _ in $(seq 1 40); do
+      for _ in $(seq 1 60); do      # ~18s cold, slower right after FLUX leaves; allow ~3 min
         [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && { up=1; break; }
         sleep 2
       done
-      [ "$up" -eq 1 ] || { echo "LLM didn't come up in time." >&2; "$0" sd-server start >/dev/null 2>&1 || true; exit 1; }
+      if [ "$up" -ne 1 ]; then      # never leave a half-loaded Qwen holding the wall's VRAM
+        echo "LLM didn't come up in time." >&2
+        "$0" llm off >/dev/null 2>&1 || true; "$0" sd-server start >/dev/null 2>&1 || true; exit 1
+      fi
     fi
     Q="$q" HOST="$h" python3 - <<'PYEOF'
 import json, os, sys, urllib.request
