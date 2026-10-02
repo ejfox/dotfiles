@@ -126,6 +126,7 @@ body = [
   { k = "computah wake / sleep", d = "power on (WoL) / suspend" },
   { k = "computah harden-wol", d = "run once if wake dies after a full shutdown (Fast Startup off, arm NIC, kill night-wake)" },
   { k = "computah imagine \"…\"", d = "one FLUX image on the PC GPU" },
+  { k = "computah renders", d = "sync Blender studio renders to ~/Pictures/Blender and open in Finder (space = Quick Look)", hl = true },
   { k = "computah sd-server start/stop", d = "keep FLUX hot — imagine/muse-loop skip the multi-min model reload", hl = true },
   { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
   { div = true },
@@ -153,6 +154,10 @@ body = [
   { o = "C-a g = float lazygit over your panes, dismiss when done" },
   { o = "stage with space, AI commit with a, push with P" },
   { o = "z to undo anything (reflog-powered safety net)" },
+  { lbl = "morning brief feeds" },
+  { k = "things-bridge", d = "push Things Today/projects → VPS brief (auto every 30m)" },
+  { k = "things-export | jq", d = "see exactly what leaves the Mac" },
+  { o = "log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access" },
 ]
 
 [[section]]
@@ -750,4 +755,27 @@ body = [
   { k = "obs-defer run-all", d = "run the queue now, OBS or not" },
   { k = "touch ~/.config/obs-defer-disabled", d = "kill switch: everything runs normally" },
   { o = "queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log" },
+  { div = true },
+  { lbl = "obs-synccheck (camera vs mic offset, measured)" },
+  { k = "obs-synccheck", d = "5 screen flashes + beeps while OBS records -> real A/V offset", hl = true },
+  { k = "obs-synccheck --apply", d = "measure, then set the SM7dB sync offset to cancel it" },
+  { o = "OBS open + Camera for OBS app foreground · run after a reconnect or before a long session · test file -> ~/.cache/obs-synccheck" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Chart Desk — daily chart drafts"
+open = true
+body = [
+  { n = 'news + inbox + watchers → agents build 3 charts → ONE Things tap. **nothing auto-posts.**' },
+  { k = "desk review", d = "open today's drafts: pick one, copy post, ship", hl = true },
+  { k = "desk run --seed \"hunch or URL\"", d = "force your hunch into today's picks", hl = true },
+  { k = "desk run --dry", d = "gather + pick only (cheap)" },
+  { k = "desk build desks/DATE/02-slug", d = "rebuild one story (edit assignment.json first)" },
+  { k = "desk gather", d = "see what feeds / inbox / watchers returned" },
+  { k = "desk install", d = "re-apply [schedule] after editing it" },
+  { k = "touch ~/.config/chart-desk-disabled", d = "pause the daily run" },
+  { o = "knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/*.md" },
 ]
