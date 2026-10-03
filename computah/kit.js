@@ -54,14 +54,14 @@
 
   // sparkline: values -> inline SVG bars (or line). opts: {h, color, stack:[{values,color}], line:true}
   function spark(values, opts = {}) {
-    // nulls (an un-filled history) draw nothing; opts.label adds a direct max label (Tufte: label the data, not a legend)
-    values = values.map(v => v == null ? 0 : v);
+    // nulls (an un-filled KIT.history) draw NOTHING — no fake zeros — and keep their slot,
+    // so the newest sample stays at the right edge from the first sample on
     const n = values.length || 1, W = 100, H = 30;
     const stacks = opts.stack || [{ values, color: opts.color || '#a9a9b0' }];
     const tot = Array.from({ length: n }, (_, i) => stacks.reduce((a, s) => a + (s.values[i] || 0), 0));
     const max = opts.max || Math.max(1e-9, ...tot), w = W / n;
     if (opts.line) {
-      const pts = values.map((v, i) => `${(i + .5) * w},${H - 1 - (H - 2) * (v / max)}`).join(' ');
+      const pts = values.map((v, i) => v == null ? null : `${(i + .5) * w},${H - 1 - (H - 2) * (v / max)}`).filter(Boolean).join(' ');
       return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;width:100%;height:${opts.h || '2.6em'}">` +
         `<polyline points="${pts}" fill="none" stroke="${opts.color || '#a9a9b0'}" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>`;
     }
