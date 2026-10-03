@@ -1,281 +1,219 @@
 <!doctype html>
+<!-- taste.html — WALL TASTE terminal. Is the muse wall learning EJ's taste, what has it
+     learned, what's working, what moves it forward. ONE screen, never scrolls; built for
+     half of the 4K gaming monitor (≈1280×1440 CSS px at 150%), adapts to landscape halves.
+     EJ 2026-10-03: "useless and too scrolly … comfortable being 50% of my gaming monitor and a
+     hyper-dense dashboard bloomberg terminal vibe".
+     Data (preview-server :7861, farm\sd): taste/taste-data.json (muse-taste-viz, every 6 h),
+     taste/recent.json (taste-telemetry, 30 s), taste/events.jsonl (wall clicks), favlist,
+     taste/fav/muse-<id>.png. Previous version: farm\sd\taste.html.bak-20261003.
+     Source of truth: ~/.dotfiles/computah/taste.html (ASCII-safe JS, no external deps). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wall Taste</title>
-<!-- Served by preview-server.ps1 from farm\sd\ on computah (:7861/taste.html).
-     Source of truth: ~/.dotfiles/computah/taste.html; data: muse-taste-viz. -->
 <style>
   :root {
-    --bg: #000; --panel: #0b0b0d; --rule: #1d1d22;
-    --ink: #f2f2f5; --ink2: #b9b9c4; --muted: #6f6f7c;
-    --up: #e8407a;   /* boosted — validated vs #000 (dark band, CVD ΔE 9.4) */
-    --down: #16a6b6; /* damped */
-    --mid: #3a3a44;  /* neutral midpoint / the crowd */
-    --accent: #ff4d8d;
+    --bg: #000; --panel: #07070a; --rule: #1d1d24; --ink: #e4e4ea; --dim: #73737f; --faint: #3a3a44;
+    --amber: #ffb000; --hot: #ff4d8d; --cool: #7bf0f9; --ok: #7dff9a;
+    --fs: clamp(10px, min(0.95vw, 0.82vh), 15px);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 13px/1.45 "JetBrains Mono", "Cascadia Mono", ui-monospace, Consolas, monospace; }
-  header { padding: 18px 22px 10px; display: flex; flex-wrap: wrap; gap: 28px; align-items: baseline;
-           border-bottom: 1px solid var(--rule); }
-  h1 { font-size: 15px; letter-spacing: .14em; margin: 0; color: var(--accent); font-weight: 600; }
-  .hero { display: flex; gap: 26px; flex-wrap: wrap; }
-  .hero div b { display: block; font-size: 26px; font-weight: 600; color: var(--ink); line-height: 1.1; }
-  .hero div span { color: var(--muted); font-size: 11px; letter-spacing: .06em; }
-  .mode { color: var(--ink2); max-width: 520px; font-size: 12px; }
-  main { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(380px, 1fr); gap: 16px; padding: 16px 22px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  section { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; min-width: 0; }
-  h2 { font-size: 11px; letter-spacing: .14em; color: var(--ink2); margin: 0 0 4px; font-weight: 600; }
-  .sub { color: var(--muted); font-size: 11px; margin: 0 0 10px; }
-  .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
-  .tabs button { background: none; border: 1px solid var(--rule); color: var(--ink2); font: inherit; font-size: 11px;
-                 padding: 3px 10px; border-radius: 12px; cursor: pointer; }
-  .tabs button.on { border-color: var(--accent); color: var(--ink); }
-  .legend { display: flex; gap: 14px; font-size: 11px; color: var(--ink2); margin-bottom: 6px; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-  svg text { font: inherit; }
-  .wide { grid-column: 1 / -1; }
-  .favs { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
-  .favs figure { margin: 0; }
-  .favs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; display: block; background: #111; }
-  .favs figcaption { font-size: 10px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .live { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-  .cell { border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; background: #050506; }
-  .cell .imgs { display: flex; position: relative; }
-  .cell .imgs img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #111; }
-  .cell .imgs img.seed { position: absolute; left: 6px; bottom: 6px; width: 34%; border: 1px solid var(--ink2); border-radius: 3px; }
-  .cell .meta { padding: 7px 8px; font-size: 11px; color: var(--ink2); }
-  .cell .meta b { color: var(--ink); font-weight: 600; }
-  .chip { display: inline-block; padding: 0 6px; border-radius: 9px; border: 1px solid var(--rule); color: var(--ink2); margin: 0 4px 3px 0; font-size: 10px; }
-  .mult.up { border-color: var(--up); } .mult.down { border-color: var(--down); }
-  #tip { position: fixed; pointer-events: none; background: #141418; border: 1px solid #2a2a33; border-radius: 5px;
-         padding: 7px 9px; font-size: 11px; color: var(--ink); display: none; max-width: 260px; z-index: 9; }
-  #tip img { width: 160px; display: block; margin-top: 6px; border-radius: 3px; }
-  .note { color: var(--muted); font-size: 11px; }
-  table.sr { position: absolute; left: -9999px; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+               font: var(--fs)/1.28 Consolas, Menlo, "DejaVu Sans Mono", monospace; font-variant-numeric: tabular-nums; }
+  body { display: grid; gap: 3px; padding: 3px; height: 100vh;
+         grid-template-columns: 1fr 1fr;
+         grid-template-rows: auto minmax(0, 1.25fr) minmax(0, .72fr) auto minmax(0, 1.25fr) auto;
+         grid-template-areas: "top top" "style chunk" "src model" "stars stars" "sig wall" "spark spark"; }
+  @media (min-aspect-ratio: 4/3) {           /* landscape half: three columns */
+    body { grid-template-columns: 1fr 1fr 1fr;
+           grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) auto auto;
+           grid-template-areas: "top top top" "style chunk sig" "src model wall" "stars stars stars" "spark spark spark"; }
+  }
+  .p { background: var(--panel); border: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .h { background: var(--amber); color: #000; padding: 1px 6px; font-weight: bold; letter-spacing: .04em;
+       display: flex; justify-content: space-between; white-space: nowrap; }
+  .h span { font-weight: normal; }
+  .b { padding: 3px 6px; min-height: 0; overflow: hidden; flex: 1; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 0 4px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0; }
+  td.n { text-align: right; width: 4.6em; max-width: none; color: var(--dim); }
+  td.w { text-align: right; width: 3.6em; max-width: none; }
+  td.bar { width: 34%; max-width: none; }
+  .div { position: relative; height: .62em; }
+  .div::before { content: ""; position: absolute; left: 50%; top: -1px; bottom: -1px; border-left: 1px solid var(--faint); }
+  .div i { position: absolute; top: 0; bottom: 0; }
+  .up { color: var(--hot); } .dn { color: var(--cool); } .dim { color: var(--dim); } .am { color: var(--amber); } .ok { color: var(--ok); }
+  .sep td { border-top: 1px solid var(--rule); padding-top: 1px; }
+  #top { grid-area: top; display: flex; flex-wrap: wrap; gap: 0 1.6em; align-items: baseline; padding: 4px 8px;
+         background: var(--panel); border: 1px solid var(--rule); }
+  #top b { color: var(--amber); font-weight: normal; }
+  #top .big { font-size: 1.45em; font-weight: bold; }
+  .gauge { display: inline-block; width: 11em; height: .7em; border: 1px solid var(--faint); vertical-align: middle; position: relative; }
+  .gauge i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--hot); }
+  .gauge s { position: absolute; top: -2px; bottom: -2px; border-left: 1px solid var(--ink); }
+  #stars .b { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(6.5em, 12%), 1fr)); gap: 3px; padding: 3px; }
+  #stars img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #111; }
+  #spark svg { display: block; width: 100%; height: 3.4em; }
+  .row { display: flex; gap: .6em; white-space: nowrap; overflow: hidden; }
+  .row .t { color: var(--dim); flex: none; width: 4.1em; }
+  .stale { color: var(--hot); }
 </style>
 </head>
 <body>
-<header>
-  <h1>◆ WHAT THE WALL LEARNED FROM YOU</h1>
-  <div class="hero" id="hero"></div>
-  <div class="mode" id="mode"></div>
-</header>
-<main>
-  <section>
-    <h2>◇ LEARNED WEIGHTS</h2>
-    <p class="sub">odds each choice gets on the wall, vs. plain random (1×). clamped 0.5×–2× — a nudge, never a prune.</p>
-    <div class="tabs" id="tabs"></div>
-    <div class="legend"><span><i style="background:var(--up)"></i>boosted</span><span><i style="background:var(--down)"></i>damped</span></div>
-    <svg id="bars" width="100%" role="img" aria-label="learned weights per choice"></svg>
-  </section>
-  <section>
-    <h2>◇ WHY THE PHOTO METRIC WAS BENCHED</h2>
-    <p class="sub">ej-taste (contrast · centered subject · symmetry) works on your photos. on renders, your ★s score <em>below</em> the crowd — so stars drive the weights instead.</p>
-    <svg id="dist" width="100%" role="img" aria-label="ej-taste distribution, all renders vs your stars"></svg>
-    <p class="note" id="distnote"></p>
-  </section>
-  <section>
-    <h2>◇ SCOREBOARD — WHAT EARNS YOUR REACTIONS</h2>
-    <p class="sub">positive reactions (★ · inspect · pair win) per 100 renders you actually saw, by where the cell came from. replays excluded.</p>
-    <svg id="board" width="100%" role="img" aria-label="positive reactions per 100 seen renders by source"></svg>
-  </section>
-  <section>
-    <h2>◇ SIGNALS</h2>
-    <p class="sub">what the wall is learning from. only renders shown while you were at the desk count.</p>
-    <div id="signals" class="note" style="font-size:12px;line-height:1.9"></div>
-  </section>
-  <section class="wide">
-    <h2>● LIVE — THE WALL RIGHT NOW</h2>
-    <p class="sub">each cell with the choices behind it and the weight they carried. small inset = the seed image it was painted over.</p>
-    <div class="live" id="live"></div>
-  </section>
-  <section class="wide">
-    <h2>★ YOUR STARS — THE GROUND TRUTH</h2>
-    <p class="sub">everything above is learned from these. star more on the wall and the weights sharpen.</p>
-    <div class="favs" id="favs"></div>
-  </section>
-</main>
-<div id="tip"></div>
-<table class="sr" id="srtable"></table>
+<div id="top">…</div>
+<div class="p" id="style" style="grid-area:style"><div class="h">STYLE <span>learned odds · seen · ★ mass</span></div><div class="b"></div></div>
+<div class="p" id="chunk" style="grid-area:chunk"><div class="h">PALETTE / MOOD <span>learned odds</span></div><div class="b"></div></div>
+<div class="p" id="src" style="grid-area:src"><div class="h">WHAT'S WORKING <span>+ reactions per 100 seen</span></div><div class="b"></div></div>
+<div class="p" id="model" style="grid-area:model"><div class="h">MODEL + SAMPLER <span>probe · odds</span></div><div class="b"></div></div>
+<div class="p" id="stars" style="grid-area:stars"><div class="h">STARRED <span id="starcount"></span></div><div class="b"></div></div>
+<div class="p" id="sig" style="grid-area:sig"><div class="h">YOUR SIGNAL TAPE <span>newest first</span></div><div class="b"></div></div>
+<div class="p" id="wall" style="grid-area:wall"><div class="h">WALL TAPE <span>source · style · odds · ej</span></div><div class="b"></div></div>
+<div class="p" id="spark" style="grid-area:spark"><div class="h">THROUGHPUT 24H <span id="sparkmeta"></span></div><div class="b"></div></div>
 <script>
 const $ = s => document.querySelector(s);
-const tip = $('#tip');
-const showTip = (e, html) => { tip.innerHTML = html; tip.style.display = 'block';
-  const x = Math.min(e.clientX + 14, innerWidth - 280), y = Math.min(e.clientY + 14, innerHeight - 220);
-  tip.style.left = x + 'px'; tip.style.top = y + 'px'; };
-const hideTip = () => { tip.style.display = 'none'; };
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const NS = 'http://www.w3.org/2000/svg';
-const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag);
-  for (const k in attrs) n.setAttribute(k, attrs[k]); parent && parent.appendChild(n); return n; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const get = async (p, kind = 'json') => {
+  try { const r = await fetch(`${p}${p.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' });
+        return r.ok ? (kind === 'text' ? r.text() : r.json()) : null; } catch (e) { return null; }
+};
+const ago = ts => { const m = (Date.now() - new Date(ts).getTime()) / 60000;
+  return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? (m / 60).toFixed(m < 600 ? 1 : 0) + 'h' : Math.round(m / 1440) + 'd'; };
+const hhmm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const SRCN = { pure: 'text', screen: 'screen', crop: 'crop', feedback: 'past', game: 'game', taste: 'photo',
+               ref: '★ref', bestof: 'best-of', bench: 'chart', studio: 'studio', arena: 'are.na', fuji: 'fuji', cloud: 'cloud' };
+let D = null, RECENT = [], W = {}, starsShown = '';
 
-let DATA = null, WMAP = {}, knob = 'style';
-const KNOBS = [['style', 'style'], ['chunk', 'palette & texture'], ['sampler', 'sampler'], ['source', 'seed source']];
-
-function hero(d) {
-  $('#hero').innerHTML = [
-    [d.renders.toLocaleString(), 'renders scored'],
-    [(d.seen || 0).toLocaleString(), 'you actually saw'],
-    [d.stars, 'your ★s'],
-    [d.stars_per_seen_hour != null ? d.stars_per_seen_hour.toFixed(2) : '—', '★ per seen hour'],
-    [d.auc.toFixed(2), 'photo metric ↔ ★ (0.5 = coin flip)'],
-  ].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-  $('#mode').innerHTML = d.mode === 'stars'
-    ? `<b style="color:var(--accent)">stars mode</b> — the photo metric disagrees with you on renders, so weights come from your ★ rate per choice. updated ${esc(d.built)}.`
-    : `<b style="color:var(--accent)">taste mode</b> — the metric agrees with your ★s, so it helps weight. updated ${esc(d.built)}.`;
+function bar(w) {            // diverging bar on log2 scale, clamp 0.5x..2x
+  const l = Math.max(-1, Math.min(1, Math.log2(w)));
+  const pct = Math.abs(l) * 50;
+  return `<div class="div"><i style="${l >= 0 ? 'left:50%' : 'right:50%'};width:${pct}%;background:${l >= 0 ? 'var(--hot)' : 'var(--cool)'}"></i></div>`;
 }
-
-function tabs() {
-  $('#tabs').innerHTML = KNOBS.map(([k, l]) => `<button data-k="${k}" class="${k === knob ? 'on' : ''}">${l}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { knob = b.dataset.k; tabs(); bars(); });
-}
-
-function bars() {
-  const svg = $('#bars'); svg.innerHTML = '';
-  let rows = DATA.weights.filter(w => w.knob === knob).sort((a, b) => b.w - a.w);
-  if (rows.length > 18) rows = rows.slice(0, 9).concat(rows.slice(-9));   // top + bottom
-  const W = svg.clientWidth || 560, rowH = 22, labW = Math.min(230, W * 0.42), valW = 54;
-  const plotL = labW + 8, plotR = W - valW, cx = (plotL + plotR) / 2, half = (plotR - plotL) / 2;
-  const H = rows.length * rowH + 26; svg.setAttribute('height', H);
-  const x = w => cx + Math.max(-1, Math.min(1, Math.log2(w))) * half;  // log scale: 0.5×..2× symmetric
-  // recessive grid: 0.5×, 1×, 2×
-  [[0.5, '0.5×'], [1, '1×'], [2, '2×']].forEach(([v, t]) => {
-    el('line', { x1: x(v), x2: x(v), y1: 14, y2: H, stroke: v === 1 ? '#4a4a55' : '#1d1d22', 'stroke-width': 1 }, svg);
-    const tt = el('text', { x: x(v), y: 10, 'text-anchor': 'middle', fill: 'var(--muted)', 'font-size': 10 }, svg); tt.textContent = t;
-  });
-  rows.forEach((r, i) => {
-    const y = 20 + i * rowH, up = r.w >= 1, x0 = x(1), x1 = x(r.w);
-    const g = el('g', {}, svg);
-    el('rect', { x: 0, y: y - 2, width: W, height: rowH, fill: 'transparent' }, g);  // big hit target
-    el('rect', { x: Math.min(x0, x1), y: y + 3, width: Math.max(2, Math.abs(x1 - x0)), height: rowH - 8, rx: 3,
-                 fill: up ? 'var(--up)' : 'var(--down)' }, g);
-    const lab = el('text', { x: labW, y: y + rowH / 2 + 2, 'text-anchor': 'end', fill: 'var(--ink2)', 'font-size': 11 }, g);
-    lab.textContent = r.key;   // measure, then trim to fit the label column
-    for (let s = r.key; lab.getComputedTextLength() > labW - 4 && s.length > 4; ) { s = s.slice(0, -1); lab.textContent = s + '…'; }
-    const val = el('text', { x: W - 2, y: y + rowH / 2 + 2, 'text-anchor': 'end', fill: 'var(--ink)', 'font-size': 11 }, g);
-    val.textContent = '×' + r.w.toFixed(2);
-    const sig = DATA.mode === 'stars' ? `${r.sig.toFixed(0)} ★ in ${r.n.toLocaleString()} renders` : `avg ${r.sig.toFixed(2)} over ${r.n} renders`;
-    g.onmousemove = e => showTip(e, `<b>${esc(r.key)}</b><br>×${r.w.toFixed(2)} odds · ${sig}`);
-    g.onmouseleave = hideTip;
-  });
-  $('#srtable').innerHTML = '<tr><th>choice</th><th>weight</th><th>renders</th></tr>' +
-    rows.map(r => `<tr><td>${esc(r.key)}</td><td>${r.w}</td><td>${r.n}</td></tr>`).join('');
-}
-
-function dist() {
-  const svg = $('#dist'); svg.innerHTML = '';
-  const { lo, hi, bins } = DATA.hist, W = svg.clientWidth || 560, H = 330, top = 40, base = 230, stripY = 276;
-  svg.setAttribute('height', H);
-  const x = v => 10 + (v - lo) / (hi - lo) * (W - 20), max = Math.max(...bins), bw = (W - 20) / bins.length;
-  bins.forEach((c, i) => {
-    const h = c / max * (base - top);
-    const r = el('rect', { x: 10 + i * bw + 1, y: base - h, width: Math.max(1, bw - 2), height: h, rx: 2, fill: 'var(--mid)' }, svg);
-    const a = (lo + i * (hi - lo) / bins.length).toFixed(2), b = (lo + (i + 1) * (hi - lo) / bins.length).toFixed(2);
-    r.onmousemove = e => showTip(e, `${c.toLocaleString()} unstarred renders<br>ej-taste ${a} to ${b}`); r.onmouseleave = hideTip;
-  });
-  el('line', { x1: 10, x2: W - 10, y1: base, y2: base, stroke: '#2a2a33' }, svg);
-  const crowdMean = (() => { let s = 0, n = 0; bins.forEach((c, i) => { s += c * (lo + (i + .5) * (hi - lo) / bins.length); n += c; }); return s / n; })();
-  const starMean = DATA.starred.reduce((s, d) => s + d.s, 0) / DATA.starred.length;
-  [[crowdMean, 'crowd avg', 'var(--ink2)'], [starMean, '★ avg', 'var(--accent)']].forEach(([v, t, c], k) => {
-    el('line', { x1: x(v), x2: x(v), y1: 6 + k * 16, y2: stripY + 10, stroke: c, 'stroke-dasharray': '3 3' }, svg);
-    // labels live in their own band above the bars, on opposite sides of their line
-    const left = v < (k ? crowdMean : starMean);
-    const tt = el('text', { x: x(v) + (left ? -5 : 5), y: 14 + k * 16, 'text-anchor': left ? 'end' : 'start', fill: c, 'font-size': 11 }, svg);
-    tt.textContent = `${t} ${v.toFixed(2)}`;
-  });
-  const lbl = el('text', { x: 10, y: stripY - 14, fill: 'var(--muted)', 'font-size': 10 }, svg); lbl.textContent = 'your ★s';
-  DATA.starred.forEach((d, i) => {
-    const c = el('circle', { cx: x(d.s), cy: stripY + ((i % 3) - 1) * 7, r: 5, fill: 'var(--up)', stroke: '#000', 'stroke-width': 2 }, svg);
-    c.onmousemove = e => showTip(e, `★ ej-taste ${d.s.toFixed(2)}<br>${esc(d.style || 'no style')}<img src="taste/fav/muse-${d.id}.png">`);
-    c.onmouseleave = hideTip;
-  });
-  [[lo, 'flat / busy / off-center'], [hi, 'contrasty / centered / symmetric']].forEach(([v, t], k) => {
-    const tt = el('text', { x: k ? W - 10 : 10, y: H - 4, 'text-anchor': k ? 'end' : 'start', fill: 'var(--muted)', 'font-size': 10 }, svg);
-    tt.textContent = (k ? '' : '← ') + t + (k ? ' →' : '');
-  });
-  $('#distnote').textContent = `agreement ${DATA.auc.toFixed(2)}: a random ★ outscores a random unstarred render only ${Math.round(DATA.auc * 100)}% of the time.`;
-}
-
-const SRC_NAME = { pure: 'text only', screen: 'your screen', crop: 'screen crop', feedback: 'past cell', 'feedback-inv': 'past cell, inverted',
-  game: 'game frame', 'game-inv': 'game frame, inverted', arena: 'are.na', cloud: 'cloudinary', fuji: 'fuji photo', taste: 'ej-taste photo',
-  ref: '★ as style reference', bestof: 'best-of-4 (probe pick)' };
-function board() {
-  const svg = $('#board'); svg.innerHTML = '';
-  const rows = DATA.sources || [];
-  if (!rows.length) { svg.setAttribute('height', 20); return; }
-  const W = svg.clientWidth || 560, rowH = 22, labW = Math.min(200, W * 0.38), valW = 120;
-  const max = Math.max(...rows.map(r => r.per100), 0.01), H = rows.length * rowH + 8;
-  svg.setAttribute('height', H);
-  rows.forEach((r, i) => {
-    const y = 4 + i * rowH, g = el('g', {}, svg), bw = (W - labW - valW - 8) * r.per100 / max;
-    el('rect', { x: 0, y, width: W, height: rowH, fill: 'transparent' }, g);
-    el('rect', { x: labW + 8, y: y + 4, width: Math.max(2, bw), height: rowH - 8, rx: 3, fill: 'var(--up)' }, g);
-    const l = el('text', { x: labW, y: y + rowH / 2 + 4, 'text-anchor': 'end', fill: 'var(--ink2)', 'font-size': 11 }, g);
-    l.textContent = SRC_NAME[r.src] || r.src;
-    const v = el('text', { x: W - 2, y: y + rowH / 2 + 4, 'text-anchor': 'end', fill: 'var(--ink)', 'font-size': 11 }, g);
-    v.textContent = `${r.per100.toFixed(2)} / 100`;
-    g.onmousemove = e => showTip(e, `<b>${esc(SRC_NAME[r.src] || r.src)}</b><br>${r.pos} positive reactions over ${r.seen.toLocaleString()} seen renders`);
-    g.onmouseleave = hideTip;
-  });
-}
-function signals() {
-  const e = DATA.events || {}, p = DATA.probe;
-  const probe = !p ? 'not trained yet'
-    : p.ready ? `<b style="color:var(--accent)">ready</b> — reranking best-of-4 sketches (leave-one-out AUC ${p.loo_auc})`
-    : `dormant — ${p.pos_mass} / ${p.min_pos} positive label mass, leave-one-out AUC ${p.loo_auc ?? '—'} (needs ≥ ${p.min_auc})`;
-  $('#signals').innerHTML = [
-    ['★ stars', DATA.stars], ['▽ not for me', e.down || 0], ['◇ inspect clicks', e.inspect || 0],
-    ['◆ daily pair picks', e.pair || 0], ['seen hours', DATA.seen_hours || 0],
-  ].map(([k, v]) => `<span style="color:var(--ink)">${v}</span> ${k}`).join(' &nbsp;·&nbsp; ') +
-  `<br>preference probe: ${probe}`;
-}
-
-function favs() {
-  $('#favs').innerHTML = DATA.starred.map(d =>
-    `<figure><img loading="lazy" src="taste/fav/muse-${d.id}.png" alt=""><figcaption>${esc(d.style || '—')}</figcaption></figure>`).join('');
-}
-
-async function live() {
-  let n = 3;
-  try { n = parseInt(await (await fetch('wall-n.txt?t=' + Date.now(), { cache: 'no-store' })).text()) || 3; } catch (e) {}
-  const cells = [];
-  for (let i = 1; i <= Math.min(n * n, 12); i++) {
-    try {
-      const tr = await (await fetch(`wall_${i}.json?t=${Date.now()}`, { cache: 'no-store' })).json();
-      cells.push([i, tr]);
-    } catch (e) {}
+function weightTable(knob, el, nUp, nDn, again = true) {
+  const rows = D.weights.filter(w => w.knob === knob).sort((a, b) => b.w - a.w);
+  const draw = () => weightTableDraw(knob, el, rows, nUp, nDn);
+  draw();
+  if (!again) return;
+  const tr = el.querySelector('tr');                       // measure a REAL row, then fill the panel
+  if (tr && tr.offsetHeight) {
+    const fit = Math.floor(el.clientHeight / tr.offsetHeight) - nDn - 3;
+    if (fit > 0 && fit !== nUp) { nUp = fit; draw(); }
   }
-  cells.sort((a, b) => (b[1].ts || '').localeCompare(a[1].ts || ''));
-  $('#live').innerHTML = cells.slice(0, 8).map(([i, t]) => {
-    const style = (t.style || '').split(',')[0].trim().toLowerCase();
-    const src = (t.init_source || 'pure').split('+')[0];
-    const chips = [['style', style], ['sampler', t.sampler], ['source', src]].filter(([, k]) => k).map(([kn, k]) => {
-      const w = WMAP[kn + '|' + k];
-      const cls = w == null ? '' : w > 1.02 ? 'up' : w < 0.98 ? 'down' : '';
-      return `<span class="chip mult ${cls}" title="${esc(kn)}">${esc(k)}${w == null ? '' : ' ×' + w.toFixed(2)}</span>`;
-    }).join('');
-    const seed = t.seed_image ? `<img class="seed" src="wall_${i}-init.png?t=${Date.now()}" alt="">` : '';
-    const sc = t.render_ejtaste == null ? '' : ` · ej-taste <b>${t.render_ejtaste.toFixed(2)}</b>`;
-    const st = t.seed_ejtaste == null ? '' : ` · seed photo <b>${t.seed_ejtaste.toFixed(2)}</b>`;
-    return `<div class="cell"><div class="imgs"><img src="wall_${i}.png?t=${encodeURIComponent(t.id || Date.now())}" alt="">${seed}</div>
-      <div class="meta">${chips}<br><span title="${esc(t.prompt_subject || '')}">${esc((t.prompt_subject || '').slice(0, 60))}</span><br>
-      <span class="note">${esc((t.ts || '').slice(11, 16))}${sc}${st}</span></div></div>`;
-  }).join('') || '<p class="note">waiting for wall traces…</p>';
+}
+function weightTableDraw(knob, el, rows, nUp, nDn) {
+  const up = rows.filter(r => r.w > 1.001).slice(0, nUp), dn = rows.filter(r => r.w < 0.999).slice(-nDn);
+  // spare rows (fewer boosted entries than space) → the UNTESTED ones, dim: what his picks haven't touched
+  const neutral = rows.filter(r => r.w >= 0.999 && r.w <= 1.001).sort((a, b) => b.n - a.n).slice(0, Math.max(0, nUp - up.length));
+  const tr = (r, cls) => `<tr><td class="${cls}">${esc(r.key)}</td><td class="bar">${bar(r.w)}</td>` +
+    `<td class="w ${cls}">×${r.w.toFixed(2)}</td><td class="n">${r.n}·${r.sig}</td></tr>`;
+  el.innerHTML = `<table>${up.map(r => tr(r, 'up')).join('')}` +
+    (neutral.length ? `<tr class="sep"><td colspan="4" class="dim">no evidence yet (×1.00, untouched by your picks)</td></tr>` + neutral.map(r => tr(r, 'dim')).join('') : '') +
+    (dn.length ? `<tr class="sep"><td colspan="4"></td></tr>` + dn.map(r => tr(r, 'dn')).join('') : '') + `</table>` +
+    `<div class="dim" style="margin-top:2px">${rows.length} ${knob === 'chunk' ? 'palettes' : knob + 's'} weighted · bars: log scale ×0.5 … ×2</div>`;
+}
+function fitRows(el) {       // how many table rows fit the panel body (no scrolling, ever)
+  const lh = parseFloat(getComputedStyle(document.body).fontSize) * 1.28;
+  return Math.max(3, Math.floor(el.clientHeight / lh) - 2);
 }
 
-async function load() {
-  DATA = await (await fetch('taste/taste-data.json?t=' + Date.now(), { cache: 'no-store' })).json();
-  WMAP = {}; DATA.weights.forEach(w => WMAP[w.knob + '|' + w.key] = w.w);
-  hero(DATA); tabs(); bars(); dist(); board(); signals(); favs(); live();
+function renderTop() {
+  const p = D.probe, mass = p.pos_mass, need = Math.max(0, Math.ceil(p.min_pos - mass));
+  const pct = Math.min(100, 100 * mass / p.min_pos);
+  const ready = p.ready, aucOk = p.loo_auc >= p.min_auc;
+  const lastH = RECENT.filter(r => Date.now() - new Date(r.ts).getTime() < 3600e3).length;
+  const builtAge = (Date.now() - new Date(D.built.replace(' ', 'T')).getTime()) / 3600e3;
+  $('#top').innerHTML =
+    `<span class="big am">◆ WALL TASTE</span>` +
+    `<span><b>STATE</b> <span class="big ${ready ? 'ok' : 'up'}">${ready ? 'MODEL LIVE' : 'LEARNING'}</span></span>` +
+    `<span><b>MODEL</b> <span class="gauge"><i style="width:${pct}%"></i></span> ${mass.toFixed(1)}/${p.min_pos} ★-mass</span>` +
+    `<span><b>AUC</b> <span class="${aucOk ? 'ok' : 'dn'}">${p.loo_auc.toFixed(3)}</span> <span class="dim">need ≥${p.min_auc}</span></span>` +
+    (ready ? `<span class="ok">best-of-4 reranking 25% of text cells</span>`
+           : `<span><b>TO ACTIVATE</b> <span class="big up">~${need} ★</span></span>`) +
+    `<span><b>SEEN</b> ${D.seen.toLocaleString()} <span class="dim">renders / ${D.seen_hours}h</span></span>` +
+    `<span><b>★/SEEN-H</b> ${D.stars_per_seen_hour.toFixed(3)}</span>` +
+    `<span><b>WALL</b> <span class="${lastH ? '' : 'stale'}">${lastH}/h</span></span>` +
+    `<span><b>REFRESH</b> <span class="${builtAge > 7 ? 'stale' : ''}">${D.built.slice(5)} (${ago(D.built.replace(' ', 'T'))})</span> <span class="dim">every 6h</span></span>`;
 }
-load();
-setInterval(live, 6000);                 // live strip follows the wall
-setInterval(load, 10 * 60 * 1000);       // weights refresh every 6h; re-read the file every 10 min
-addEventListener('resize', () => { if (DATA) { bars(); dist(); board(); } });
+function renderSources() {
+  const rows = D.sources.slice().sort((a, b) => b.per100 - a.per100);
+  const base = (rows.find(r => r.src === 'pure') || { per100: 0 }).per100;
+  const max = Math.max(...rows.map(r => r.per100), 0.01);
+  $('#src .b').innerHTML = `<table>` + rows.map(r => {
+    const lift = base ? r.per100 / base : 0, cls = r.src === 'pure' ? '' : lift > 1.2 ? 'up' : lift < 0.8 ? 'dn' : '';
+    return `<tr><td class="${cls}">${esc(SRCN[r.src] || r.src)}</td>` +
+      `<td class="bar"><div class="div" style="--x:0"><i style="left:0;width:${100 * r.per100 / max}%;background:${cls === 'dn' ? 'var(--cool)' : 'var(--hot)'}"></i></div></td>` +
+      `<td class="w">${r.per100.toFixed(2)}</td><td class="n">${r.pos}/${r.seen}</td>` +
+      `<td class="n ${cls}">${r.src === 'pure' ? 'base' : (lift ? '×' + lift.toFixed(1) : '—')}</td></tr>`;
+  }).join('') + `</table><div class="dim" style="margin-top:2px">vs plain text (base). small n = noisy: ★ref ${(rows.find(r => r.src === 'ref') || {}).seen || 0} seen</div>`;
+}
+function renderModel() {
+  const p = D.probe, el = $('#model .b');
+  const sampler = D.weights.filter(w => w.knob === 'sampler').sort((a, b) => b.w - a.w);
+  el.innerHTML =
+    `<table>` +
+    `<tr><td>preference model</td><td class="w" colspan="2">${p.ready ? '<span class="ok">LIVE</span>' : '<span class="up">dormant</span>'}</td></tr>` +
+    `<tr><td>positives (seen ★ + ½ inspect/pair)</td><td class="w" colspan="2">${p.positives} · ${p.pos_mass.toFixed(1)}</td></tr>` +
+    `<tr><td>held-out AUC (0.5 = chance)</td><td class="w" colspan="2">${p.loo_auc.toFixed(3)}</td></tr>` +
+    `<tr><td>labeled renders</td><td class="w" colspan="2">${p.labeled_renders.toLocaleString()}</td></tr>` +
+    `<tr><td>photo ej-taste metric</td><td class="w dn" colspan="2">benched · AUC ${D.auc.toFixed(2)}</td></tr>` +
+    `<tr><td>signals</td><td class="w" colspan="2">★${D.stars} ▽${D.events.down} insp ${D.events.inspect} pair ${D.events.pair}</td></tr>` +
+    `<tr class="sep"><td colspan="3"></td></tr>` +
+    sampler.map(r => `<tr><td class="${r.w > 1 ? 'up' : 'dn'}">${esc(r.key)}</td><td class="bar">${bar(r.w)}</td><td class="w ${r.w > 1 ? 'up' : 'dn'}">×${r.w.toFixed(2)}</td></tr>`).join('') +
+    `</table>`;
+}
+function renderStars(favs) {
+  const ids = (favs || D.starred.map(s => s.id)).slice().sort().reverse();
+  $('#starcount').textContent = `${ids.length} · newest first · the model trains on these`;
+  const key = ids.join(',');
+  if (key === starsShown) return;              // images load once; no re-fetch every poll
+  starsShown = key;
+  $('#stars .b').innerHTML = ids.map(id => `<img loading="lazy" title="${esc(id)}" src="taste/fav/muse-${encodeURIComponent(id)}.png">`).join('');
+}
+function renderSignals(text) {
+  const ev = (text || '').trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean).reverse();
+  const el = $('#sig .b'), n = fitRows(el);
+  const G = { inspect: ['◇', 'dim', 'inspect'], down: ['▽', 'dn', 'not for me'], pair: ['◆', 'am', 'pair pick'], fav: ['★', 'up', 'star'] };
+  el.innerHTML = ev.slice(0, n).map(e => { const g = G[e.type] || ['○', 'dim', e.type];
+    return `<div class="row"><span class="t">${hhmm(e.ts)}</span><span class="${g[1]}">${g[0]} ${g[2]}</span><span class="dim">${esc(e.id || '')}</span>` +
+           (e.win ? `<span class="am">win ${esc(e.win)}</span>` : '') + `</div>`; }).join('') ||
+    `<div class="dim">no clicks logged yet — ★ / ▽ / inspect cells on the IMAGINE wall</div>`;
+}
+function renderWall() {
+  const el = $('#wall .b'), n = fitRows(el);
+  el.innerHTML = RECENT.slice().reverse().slice(0, n).map(r => {
+    const src = String(r.src || 'pure').split('+')[0], style = String(r.style || '').split(',')[0].trim().toLowerCase();
+    const m = (W['style|' + style] || 1) * (W['sampler|' + r.sampler] || 1);
+    return `<div class="row"><span class="t">${hhmm(r.ts)}</span><span class="${src === 'ref' || src === 'bestof' ? 'am' : 'dim'}" style="width:5.2em;flex:none">${esc(SRCN[src] || src)}</span>` +
+      `<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(style || '—')}</span>` +
+      `<span class="${m > 1.05 ? 'up' : m < 0.95 ? 'dn' : 'dim'}" style="flex:none">×${m.toFixed(2)}</span>` +
+      `<span class="dim" style="flex:none;width:3.4em;text-align:right">${r.ej == null ? '' : r.ej.toFixed(2)}</span>` +
+      `<span style="flex:none;width:1em">${r.fav ? '<span class="up">★</span>' : r.down ? '<span class="dn">▼</span>' : ''}</span></div>`;
+  }).join('');
+}
+function renderSpark() {
+  const el = $('#spark .b'), now = Date.now(), H = 24, bins = Array(H).fill(0), favs = Array(H).fill(0);
+  RECENT.forEach(r => { const h = Math.floor((now - new Date(r.ts).getTime()) / 3600e3); if (h >= 0 && h < H) { bins[H - 1 - h]++; if (r.fav) favs[H - 1 - h]++; } });
+  const max = Math.max(1, ...bins), w = 100 / H;
+  el.innerHTML = `<svg viewBox="0 0 100 30" preserveAspectRatio="none">` +
+    bins.map((b, i) => `<rect x="${i * w + .15}" y="${30 - 26 * b / max}" width="${w - .3}" height="${26 * b / max}" fill="${b ? '#ff4d8d' : '#1d1d24'}" opacity="${b ? .85 : 1}"/>` +
+      (favs[i] ? `<rect x="${i * w + .15}" y="0" width="${w - .3}" height="2" fill="#ffb000"/>` : '')).join('') + `</svg>`;
+  $('#sparkmeta').textContent = `renders/hour, last 24h (newest right) · peak ${max}/h · gaps = PC off, paused for games, or broken · amber = ★ that hour`;
+}
+
+async function tick() {
+  const [d, rec, ev, favs] = await Promise.all([get('taste/taste-data.json'), get('taste/recent.json'),
+                                               get('taste/events.jsonl', 'text'), get('favlist')]);
+  if (d) { D = d; W = {}; D.weights.forEach(w => W[w.knob + '|' + w.key] = w.w); }
+  if (rec) RECENT = rec.renders || [];
+  if (!D) { $('#top').textContent = 'waiting for taste-data.json …'; return; }
+  renderTop();
+  weightTable('style', $('#style .b'), Math.max(4, fitRows($('#style .b')) - 6), 5);
+  weightTable('chunk', $('#chunk .b'), Math.max(4, fitRows($('#chunk .b')) - 6), 5);
+  renderSources(); renderModel(); renderStars(favs && favs.ids); renderSignals(ev); renderWall(); renderSpark();
+}
+tick(); setInterval(tick, 30000);
+addEventListener('resize', () => D && tick());
 </script>
 </body>
 </html>
