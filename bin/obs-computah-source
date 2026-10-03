@@ -1,0 +1,54 @@
+#!/usr/local/bin/python3
+"""obs-computah-source — add the PC's OBS program feed to the iMac OBS as its own scene.
+
+Creates (idempotently) scene "computah" with a Media Source "computah (SRT)" that LISTENS on
+:9000; the PC's OBS calls in (computah obs-srt.py: srt://imacpro.local:9000?mode=caller —
+OBS's own listener mode crashed OBS on stop, so the iMac listens). Existing
+scenes are untouched; to use the feed elsewhere, add "computah (SRT)" to any scene as an
+existing source. Talks to the running iMac OBS over obs-websocket (password from OBS's own
+config, never printed).
+
+  obs-computah-source          create/repair + grab a test frame to ~/Desktop/computah-srt-test.png
+"""
+import base64, json, os, sys, time
+import obsws_python as obs
+
+CFG = os.path.expanduser("~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json")
+SCENE, INPUT = "computah", "computah (SRT)"
+URL = "srt://0.0.0.0:9000?mode=listener&latency=120000"     # the PC dials imacpro.local; latency in µs
+
+cfg = json.load(open(CFG))
+c = obs.ReqClient(host="127.0.0.1", port=cfg["server_port"], password=cfg["server_password"], timeout=10)
+
+scenes = [s["sceneName"] for s in c.get_scene_list().scenes]
+if SCENE not in scenes:
+    c.create_scene(SCENE); print(f"◆ scene '{SCENE}' created")
+# always listening while the iMac OBS is open (a listener that closed when inactive would make
+# the PC's caller churn); clear_on_media_end so a dropped feed goes black instead of freezing
+settings = {"is_local_file": False, "input": URL, "hw_decode": True, "restart_on_activate": False,
+            "close_when_inactive": False, "reconnect_delay_sec": 2, "buffering_mb": 1, "clear_on_media_end": True}
+inputs = [i["inputName"] for i in c.get_input_list().inputs]
+if INPUT not in inputs:
+    c.create_input(SCENE, INPUT, "ffmpeg_source", settings, True); print(f"◆ media source '{INPUT}' -> {URL}")
+else:
+    c.set_input_settings(INPUT, settings, True); print(f"◆ media source '{INPUT}' settings refreshed")
+
+# fill the canvas
+vs = c.get_video_settings()
+item = next(i for i in c.get_scene_item_list(SCENE).scene_items if i["sourceName"] == INPUT)
+c.set_scene_item_transform(SCENE, item["sceneItemId"], {
+    "boundsType": "OBS_BOUNDS_SCALE_INNER", "boundsWidth": float(vs.base_width), "boundsHeight": float(vs.base_height),
+    "positionX": 0.0, "positionY": 0.0, "alignment": 5})
+
+# prove frames arrive: screenshot the SOURCE itself (not the program)
+for attempt in range(10):
+    time.sleep(2)
+    try:
+        shot = c.get_source_screenshot(INPUT, "png", 640, 360, -1).image_data
+        raw = base64.b64decode(shot.split(",", 1)[1])
+        if len(raw) > 4000:                                      # a black/empty frame compresses to almost nothing
+            out = os.path.expanduser("~/Desktop/computah-srt-test.png")
+            open(out, "wb").write(raw); print(f"◆ receiving video — test frame {out} ({len(raw)//1024} KB)"); sys.exit(0)
+    except Exception as e:
+        last = e
+print("◇ no video yet (is computah streaming? on the PC: obs-srt.py info)"); sys.exit(1)
