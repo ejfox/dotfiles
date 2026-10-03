@@ -207,11 +207,15 @@ function refreshBadges() {
 }
 // CHRONOLOGICAL (EJ 2026-10-03): the generator paints slots round-robin, so slot order said
 // nothing about time. Cells keep their slot index (inspect/pair/badges use it); only the
-// VISUAL order changes: oldest top-left → newest bottom-right, the cell being painted last.
+// VISUAL order changes: NEWEST TOP-RIGHT (the cell being painted), each row read right→left,
+// rows getting older downward, OLDEST BOTTOM-LEFT (EJ's call).
 function applyOrder() {
   const key = i => i === live ? Infinity : (traceCache[i] && traceCache[i].ts ? new Date(traceCache[i].ts).getTime() : 0);
-  Array.from({ length: total }, (_, i) => i).sort((a, b) => key(a) - key(b))
-    .forEach((i, rank) => { if (divs[i]) divs[i].style.order = rank; });
+  Array.from({ length: total }, (_, i) => i).sort((a, b) => key(b) - key(a))   // newest first
+    .forEach((i, k) => {
+      const row = Math.floor(k / N), col = N - 1 - (k % N);                       // right → left
+      if (divs[i]) divs[i].style.order = row * N + col;
+    });
 }
 
 (async () => { await loadFavs(); buildGrid(); loadWeights(); loadRecent(); })();
