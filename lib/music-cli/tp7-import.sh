@@ -84,6 +84,9 @@ sudo -n "$SH/tp7-root-pull.sh" "$DEST" 2>>"$LOG" | while IFS= read -r line; do
           notify "${nextpct}% — ${w[2]}/${total} files"; nextpct=$((nextpct+25))
         done
       fi ;;
+    STOP\ diskfloor*)   # tp7-pull stopped itself before filling the disk (newest recordings came first)
+      notify "stopped early: disk almost full — free up space, then reconnect for the rest"
+      jlog pull_diskfloor ;;
     END*) log "pull end: $line" ;;
   esac
 done
