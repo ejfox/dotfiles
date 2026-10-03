@@ -39,7 +39,7 @@
   const FGLYPH = { text: '○', seeded: '◇', taste: '◆' };
   const SRCN = { pure: 'text', screen: 'screen', crop: 'crop', feedback: 'past cell', 'feedback-inv': 'past inv',
                  game: 'game', 'game-inv': 'game inv', arena: 'are.na', cloud: 'cloud', fuji: 'fuji', taste: 'ej photo',
-                 ref: '★ ref', bestof: 'best-of', bench: 'chart', studio: 'studio' };
+                 ref: '★ ref', bestof: 'best-of', bench: 'chart', studio: 'studio seed' };   // a wall render SEEDED from a studio piece ≠ a studio piece
   const srcName = src => { const s = String(src || 'pure').split('+')[0]; return SRCN[s] || s; };
   // a source label in its family color (the ONLY way source should be colored)
   const famSpan = (src, label) => { const f = FAMILY(src);

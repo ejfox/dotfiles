@@ -135,9 +135,60 @@ function buildGrid() {
     wall.appendChild(d);
     divs.push(d); cells.push(img); stars.push(st); srcs.push(sc); downs.push(dn); caps.push(cp); ticks.push(tk);
   }
+  // STUDIO cells (EJ 2026-10-03: "include the latest blender renders too"): the newest ~10%
+  // of the grid are the 1-bit Blender studio's latest pieces, merged into the SAME timeline;
+  // applyOrder() shows the newest N×N items and hides the oldest wall cells to make room.
+  SN = Math.max(1, Math.round(total * 0.1));
+  sdivs = []; for (let j = 0; j < SN; j++) {
+    const d = document.createElement('div'); d.className = 'studio';
+    const img = document.createElement('img');
+    img.style.cssText = `width:100%;height:100%;object-fit:${fitMode};display:block;image-rendering:pixelated`;
+    const cp = document.createElement('div'); cp.className = 'cap';
+    const tk = document.createElement('div'); tk.className = 'tick'; tk.style.background = 'var(--fam-studio)';
+    d.appendChild(img); d.appendChild(cp); d.appendChild(tk); d.style.display = 'none';
+    d.addEventListener('click', () => studioInspect(j));
+    wall.appendChild(d); sdivs.push({ d, img, cp, item: null });
+  }
   for (let i = 0; i < total; i++) loadCell(i);
   Promise.all(Array.from({ length: total }, (_, i) => loadTrace(i))).then(refreshBadges);
+  loadStudio();
   updateCtl();
+}
+
+// ── studio cells ───────────────────────────────────────────────────────────────
+let SN = 0, sdivs = [], STUDIO = [];                       // STUDIO = newest-first index items
+const studioTs = name => { const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)/.exec(name || '');
+  return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : 0; };
+const studioTag = name => String(name || '').replace(/^\d{8}-\d{6}_/, '');
+async function loadStudio() {
+  try { STUDIO = ((await (await fetch('studio/index.json?t=' + Date.now(), { cache: 'no-store' })).json()).items) || []; } catch (e) { return; }
+  sdivs.forEach((s, j) => {
+    const it = STUDIO[j]; s.item = it || null;
+    if (!it) return;
+    const src = 'masterpieces/' + encodeURIComponent(it.name) + '.png';
+    if (s.img.dataset.name !== it.name) { s.img.src = src; s.img.dataset.name = it.name; }
+    const tag = studioTag(it.name), hero = tag.startsWith('HERO_');
+    const recipe = (hero ? tag.slice(5) : tag).replace(/_/g, ' ');           // scene names keep their words
+    s.cp.innerHTML = `<span class="l1"><span class="fam-studio">■</span> <b>studio</b> ${hero ? '<b>hero</b> ' : ''}${esc(recipe)}</span>` +
+      `<span class="l2"><span class="m">${agoText(new Date(studioTs(it.name)))} · 1-bit Blender · click for recipe</span></span>`;
+  });
+  applyOrder(); drawTimeline();
+}
+async function studioInspect(j) {
+  const it = sdivs[j] && sdivs[j].item; if (!it) return;
+  ovimg.src = 'masterpieces/' + encodeURIComponent(it.name) + '.png';
+  ovimg.style.imageRendering = 'pixelated';
+  let r = null; try { r = await (await fetch('masterpieces/' + encodeURIComponent(it.name) + '.json?t=' + Date.now(), { cache: 'no-store' })).json(); } catch (e) {}
+  const k = (r && r.knobs) || {};
+  // no ★ / ▽ here on purpose: those train the WALL's taste model on img2img renders
+  ovmeta.innerHTML = `<div class="title">■ studio piece</div>` +
+    [['made', `${new Date(studioTs(it.name)).toLocaleString()} · ${agoText(new Date(studioTs(it.name)))}`],
+     ['recipe', studioTag(it.name).replace(/_/g, ' · ')], ['scene', r && r.scene], ['data', r && (r.dataset || r.place)],
+     ['signal', r && r.signal], ['dither', r && r.dither], ['lens', k.lens ? `${k.lens}mm ${k.lensy || ''}` : null],
+     ['backdrop ★', r && r.wall_src], ['seed', r && r.seed], ['size', it.mb + ' MB']]
+      .filter(([, v]) => v != null && v !== '').map(([a, b]) => `<div class="irow"><span class="k">${esc(a)}</span><span>${esc(b)}</span></div>`).join('') +
+    `<div class="sec">every studio piece: the renders page (\`renders\` on the Mac) · reproduce: studio-dev pin seed=${esc(r && r.seed)}</div>`;
+  ov.style.display = 'flex';
 }
 
 function updateCtl() {
@@ -163,7 +214,8 @@ function refreshCap(i) {
     `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${agoText(t.ts)}` +
     (t.render_ejtaste != null ? ` · ej ${t.render_ejtaste.toFixed(2)}` : '') + (t.ref_from ? ' · ref ★' : '') + `</span></span>`;
   const ageH = (Date.now() - new Date(t.ts).getTime()) / 3600e3;
-  ticks[i].style.background = FCOL[fam];   // CSS var string from the kit ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
+  ticks[i].style.background = FCOL[fam];   // CSS var string from the kit
+  ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
 }
 let RECENT = [];
 async function loadRecent() {
@@ -174,7 +226,7 @@ function drawTimeline() {
   const svg = document.getElementById('tl'); svg.innerHTML = '';
   const W = innerWidth, H = svg.clientHeight || 30, now = Date.now(), span = 2 * 3600e3, NS = 'http://www.w3.org/2000/svg';
   const fs = Math.max(9, Math.min(15, H * .32));                                   // label size follows the strip
-  const narrow = W < 560, X0 = narrow ? 8 : fs * 26;                               // legend hides when narrow
+  const narrow = W < 560, X0 = narrow ? 8 : fs * 34;                               // legend hides when narrow
   const xAt = age => W - 10 - (age / span) * (W - 10 - X0);
   const mk = (tag, a) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); svg.appendChild(n); return n; };
   const tickTop = H * .16, tickH = H * .44, tw = Math.max(1.5, Math.min(3, W / 900));
@@ -190,14 +242,18 @@ function drawTimeline() {
     const x = xAt(age), fam = FAMILY(r.src); n[fam]++;
     mk('rect', { x: x - tw / 2, y: tickTop, width: tw, height: tickH, fill: FHEX[fam], opacity: r.down ? .3 : .9 });
     if (r.fav) { const s = mk('text', { x, y: tickTop, 'text-anchor': 'middle', fill: C.hi, 'font-size': fs }); s.textContent = '★'; } });
+  const studioHex = cssvar('--fam-studio') || '#a9a9b0'; let ns = 0;          // studio pieces on the same strip
+  (STUDIO || []).forEach(it => { const age = now - studioTs(it.name); if (age > span || age < 0) return; ns++;
+    mk('rect', { x: xAt(age) - tw / 2, y: tickTop + tickH * .55, width: tw, height: tickH * .45, fill: studioHex }); });
   if (!narrow) {   // the legend doubles as the 2h tally per family
     const lg = mk('text', { x: 6, y: tickTop + tickH * .75, fill: C.dim, 'font-size': fs, 'font-family': C.mono });
-    lg.innerHTML = `<tspan fill="${FHEX.text}">○</tspan> text ${n.text}  <tspan fill="${FHEX.seeded}">◇</tspan> seeded ${n.seeded}  <tspan fill="${FHEX.taste}">◆</tspan> ★ref/best-of ${n.taste}`;
+    lg.innerHTML = `<tspan fill="${FHEX.text}">○</tspan> text ${n.text}  <tspan fill="${FHEX.seeded}">◇</tspan> seeded ${n.seeded}  <tspan fill="${FHEX.taste}">◆</tspan> ★ref/best-of ${n.taste}  <tspan fill="${studioHex}">■</tspan> studio ${ns}`;
   }
 }
 function setN(n) { n = clampN(n); if (n === N) return; N = n; localStorage.setItem('wallN', n); reportN(n); buildGrid(); }
 function stepN(d) { setN(N + d); }
-function toggleFit() { fitMode = fitMode === 'cover' ? 'contain' : 'cover'; localStorage.setItem('wallFit', fitMode); cells.forEach(c => c.style.objectFit = fitMode); updateCtl(); }
+function toggleFit() { fitMode = fitMode === 'cover' ? 'contain' : 'cover'; localStorage.setItem('wallFit', fitMode);
+  cells.forEach(c => c.style.objectFit = fitMode); sdivs.forEach(s => s.img.style.objectFit = fitMode); updateCtl(); }
 
 function loadCell(i) {                       // load a finished cell's image once
   const src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
@@ -232,16 +288,23 @@ function refreshBadges() {
 // VISUAL order changes: NEWEST TOP-RIGHT (the cell being painted), each row read right→left,
 // rows getting older downward, OLDEST BOTTOM-LEFT (EJ's call).
 function applyOrder() {
-  const key = i => i === live ? Infinity : (traceCache[i] && traceCache[i].ts ? new Date(traceCache[i].ts).getTime() : 0);
-  Array.from({ length: total }, (_, i) => i).sort((a, b) => key(b) - key(a))   // newest first
-    .forEach((i, k) => {
+  // one timeline: wall cells (by trace ts; the live cell first) + the newest studio pieces
+  const items = Array.from({ length: total }, (_, i) => ({ el: divs[i],
+    t: i === live ? Infinity : (traceCache[i] && traceCache[i].ts ? new Date(traceCache[i].ts).getTime() : 0) }));
+  (sdivs || []).forEach(s => { if (s.item) items.push({ el: s.d, t: studioTs(s.item.name) }); else s.d.style.display = 'none'; });
+  items.sort((a, b) => b.t - a.t)                                                 // newest first
+    .forEach((it, k) => {
+      if (!it.el) return;
+      if (k >= total) { it.el.style.display = 'none'; return; }                   // oldest overflow hides
+      it.el.style.display = '';
       const row = Math.floor(k / N), col = N - 1 - (k % N);                       // right → left
-      if (divs[i]) divs[i].style.order = row * N + col;
+      it.el.style.order = row * N + col;
     });
 }
 
 (async () => { await loadFavs(); buildGrid(); loadWeights(); loadRecent(); })();
 setInterval(loadRecent, 30000);
+setInterval(loadStudio, 60000);                     // studio pieces land every ~2-5 min
 setInterval(loadWeights, 10 * 60 * 1000);
 setInterval(() => { for (let i = 0; i < total; i++) refreshCap(i); }, 60000);   // ages tick
 addEventListener('resize', drawTimeline);
@@ -308,6 +371,7 @@ async function toggleDown(id) {
 }
 
 async function inspect(i) {
+  ovimg.style.imageRendering = '';                   // studioInspect sets pixelated for 1-bit art
   if (cellIds[i]) sendEvent('type=inspect&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
   ovimg.src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
   ovmeta.innerHTML = '<div class="dim">◆ loading trace…</div>';

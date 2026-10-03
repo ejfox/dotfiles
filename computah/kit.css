@@ -14,6 +14,7 @@
   --bg: #000; --panel: #060607; --rule: #1f1f24; --faint: #2c2c33;
   --ink: #dcdce0; --hi: #ffffff; --dim: #6f6f78;
   --fam-text: #ff4d8d; --fam-seeded: #7bf0f9; --fam-taste: #ffffff;
+  --fam-studio: #a9a9b0;                                  /* 1-bit Blender studio pieces (greyscale art → grey) */
   --warn: #ffb000;
   --mono: Consolas, Menlo, "DejaVu Sans Mono", monospace;
   /* viewport-scaled dense text: opt in with font-size: var(--kit-fs) (screens may override) */
@@ -24,6 +25,7 @@
 /* ink levels + data hues */
 .dim { color: var(--dim); }  .hi { color: var(--hi); }  .warn { color: var(--warn); }
 .fam-text { color: var(--fam-text); }  .fam-seeded { color: var(--fam-seeded); }  .fam-taste { color: var(--fam-taste); }
+.fam-studio { color: var(--fam-studio); }
 
 /* panels: a header line + a body that never scrolls */
 .p { background: var(--panel); border: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
