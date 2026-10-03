@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# computah-check — one-shot health check of everything we run on the Windows PC.
+#   computah-check          ◆ ok / ◇ problem lines, exit 1 if anything is down
+# Covers: svc services (wrapper + process), web endpoints, kiosk windows, tiler, Tailscale,
+# studio + wall actually producing. Built for the 2026-10-03 reboot test; safe any time.
+# Remember: after a reboot nothing in EJ's session starts until he logs in (PIN, no autologon),
+# and some things are deliberately delayed (embed-server 60 s, studio 90 s, kiosks via
+# gui-keeper after a 3-min login grace) — give it ~6 min after login before trusting a ◇.
+set -uo pipefail
+PC=10.0.0.169
+fail=0
+ok()  { printf '  ◆ %s\n' "$*"; }
+bad() { printf '  ◇ %s\n' "$*"; fail=1; }
+
+if ! nc -z -G 3 "$PC" 22 2>/dev/null; then echo "◇ PC unreachable on LAN ($PC)"; exit 1; fi
+
+echo "── PC session + services"
+out=$(pcps <<'EOF'
+$boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+"BOOT {0:N0}" -f ((Get-Date) - $boot).TotalMinutes
+"LOGIN " + [int](@(Get-Process explorer -EA 0).Count -gt 0)
+$reg = Get-Content C:\dev\computah\bin\services.json -Raw | ConvertFrom-Json
+$procs = Get-CimInstance Win32_Process
+foreach ($p in $reg.PSObject.Properties) {
+  if ($p.Name -eq '_doc' -or -not $p.Value.restart) { continue }          # one-shots aren't long-running
+  $m = @($procs | Where-Object { $_.CommandLine -and $_.CommandLine -match $p.Value.match -and $_.Name -ne 'powershell.exe' }).Count
+  "SVC $($p.Name) $m"
+}
+# by Edge PROFILE, not --app= (the wall window is launched without --app)
+$apps = @($procs | Where-Object { $_.Name -eq 'msedge.exe' -and $_.CommandLine -match 'edge-\w+-profile' } | ForEach-Object { [regex]::Match($_.CommandLine, 'edge-(\w+)-profile').Groups[1].Value } | Sort-Object -Unique)
+"KIOSK " + ($apps -join ',')
+"TILER " + @(Get-Process komorebi -EA 0).Count
+"OBS " + @(Get-Process obs64 -EA 0).Count
+"TS " + ((& 'C:\Program Files\Tailscale\tailscale.exe' status --self=true --peers=false 2>$null | Select-Object -First 1) -replace '\s+', ' ')
+try { $e = Invoke-WebRequest -UseBasicParsing -TimeoutSec 12 http://127.0.0.1:8090/health; "EMBED " + $e.StatusCode } catch { "EMBED 0" }
+EOF
+)
+out=$(tr -d '\r' <<<"$out")     # Windows CRLF: "1\r" never equals "1"
+boot=$(awk '/^BOOT/{print $2}' <<<"$out"); login=$(awk '/^LOGIN/{print $2}' <<<"$out")
+echo "  · up ${boot} min, logged in: $([ "$login" = 1 ] && echo yes || echo NO — nothing below starts until EJ logs in)"
+while read -r _ name n; do
+  [ "${n:-0}" -gt 0 ] && ok "$name running" || bad "$name NOT running"
+done < <(grep '^SVC' <<<"$out")
+kiosks=$(awk '/^KIOSK/{print $2}' <<<"$out")
+for k in wall netrunner taste ops studio; do
+  [[ ",$kiosks," == *",$k,"* ]] && ok "kiosk $k" || bad "kiosk $k missing (gui-keeper relaunches after 3 min login grace)"
+done
+[ "$(awk '/^TILER/{print $2}' <<<"$out")" -gt 0 ] && ok "komorebi tiler" || bad "komorebi not running"
+[ "$(awk '/^OBS/{print $2}' <<<"$out")" -gt 0 ] && ok "OBS running (fn-recorder)" || echo "  · OBS not running (fn-recorder starts it when needed)"
+grep -q '^TS .*100\.' <<<"$out" && ok "tailscale up" || bad "tailscale not up"
+[ "$(awk '/^EMBED/{print $2}' <<<"$out")" = 200 ] && ok "embed-server :8090 healthy" || bad "embed-server :8090 not answering"
+
+echo "── endpoints"
+code() { curl -s -m 6 -o /dev/null -w '%{http_code}' "$1"; }
+[ "$(code http://$PC:7861/taste.html)" = 200 ] && ok "preview-server :7861 (wall/taste/ops/studio pages)" || bad "preview-server :7861 down"
+[ "$(code http://$PC:1234/sdapi/v1/sd-models)" = 200 ] && ok "sd-server :1234 (FLUX)" || bad "sd-server :1234 down"
+[ "$(code http://$PC:8842/feed.json)" = 200 ] && ok "netrunner :8842" || bad "netrunner :8842 down"
+
+echo "── producing"
+sys=$(curl -s -m 5 "http://$PC:7861/taste/sys.json")
+age=$(/usr/local/bin/python3 -c 'import json,sys,datetime as d; t=json.loads(sys.argv[1])["ts"]; print(int((d.datetime.now()-d.datetime.fromisoformat(t)).total_seconds()))' "$sys" 2>/dev/null || echo 999)
+[ "$age" -lt 60 ] && ok "taste-telemetry fresh (${age}s)" || bad "taste-telemetry stale (${age}s)"
+now=$(curl -s -m 5 "http://$PC:7861/studio/now.json"); echo "  · studio: $(/usr/local/bin/python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("state","?"))' "$now" 2>/dev/null || echo '?')"
+last=$(curl -s -m 5 "http://$PC:7861/studio/latest.json" | /usr/local/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["finished"])' 2>/dev/null)
+echo "  · studio newest piece: ${last:-none}"
+cells=$(tail -60 /tmp/muse-loop.log 2>/dev/null | grep -c '^── #'); hic=$(tail -60 /tmp/muse-loop.log 2>/dev/null | grep -c 'render hiccup')
+echo "  · wall (Mac loop, recent window): ${cells} cells, ${hic} hiccups"
+launchctl list | grep -q 'com.ejfox.muse$' && ok "wall loop (Mac LaunchAgent) running" || bad "wall loop LaunchAgent not running"
+
+[ $fail = 0 ] && echo "◆ all good" || echo "◇ problems above"
+exit $fail

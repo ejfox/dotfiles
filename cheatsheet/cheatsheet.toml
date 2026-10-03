@@ -131,6 +131,7 @@ body = [
   { k = "studio-dev on / wait N / sheet", d = "fast 1-bit studio iteration: 360p previews on the PC, block for N, contact sheet (page: :7861/studio-dev.html)" },
   { k = "studio-dev pin k=v / now / kill", d = "pin any recipe knob (scene= signal= dither= lens= seed=...), stage breadcrumbs of a stuck piece, kill stuck pieces" },
   { k = "pcps <<'EOF'", d = "run a PowerShell script on the PC from a heredoc: no ssh/cmd quoting hell" },
+  { k = "computah-check", d = "health of everything on the PC: services, kiosks, endpoints, studio + wall producing (◆ ok / ◇ problem)", hl = true },
   { k = "brief-pictures --dry", d = "preview the 08:02 Discord picture DM (today's charts + one art tile); full-size files in ~/Pictures/Brief/<date>/" },
   { k = "computah sd-server start/stop", d = "keep FLUX hot — imagine/muse-loop skip the multi-min model reload", hl = true },
   { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
