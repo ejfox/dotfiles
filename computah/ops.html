@@ -32,27 +32,31 @@
          grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: 1fr 1.25fr 1fr; }
   /* kit panels, scaled up for a kiosk: rem padding instead of px */
   .p { min-width: 0; }
-  .p > .h { padding: .2rem .6rem; font-size: .85rem; }
-  .p > .b { padding: .45rem .6rem; display: flex; flex-direction: column; }
+  .p > .h { font-size: .85rem; }
+  .p > .b { display: flex; flex-direction: column; }
   .big { font-size: 2.5rem; font-weight: 600; line-height: 1; }
   .mid { font-size: 1.5rem; font-weight: 600; }
   /* kit .kv rows (label · bar · value) with fixed columns so the four gauges align */
   .gauges { grid-template-columns: 4.2rem 1fr 6.2rem; gap: .35rem .6rem; font-size: .92rem; }
   .gauges .kbar { height: .55rem; background: var(--faint); }
-  .gauges .kbar s { position: absolute; top: -.2rem; bottom: -.2rem; width: 1px; background: var(--hi); }   /* threshold tick */
   .step { height: .9rem; background: var(--faint); position: relative; margin: .5rem 0; }
   .step > i { position: absolute; inset: 0 auto 0 0; background: var(--hi); transition: width .4s; }
-  .facts { display: grid; grid-template-columns: 6rem 1fr; gap: .15rem .6rem; font-size: .92rem; }
-  .facts b { color: var(--dim); font-weight: 400; font-size: .82rem; }
-  .facts span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .facts { font-size: .92rem; gap: .15rem .8em; max-width: 26rem; }                    /* kit .facts; just denser + truncating */
+  .facts b { font-weight: 400; }
+  .facts > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sub { margin: .6rem 0 .3rem; color: var(--dim); font-size: .82rem; letter-spacing: .1em; }
   svg { display: block; width: 100%; } svg text { font-family: inherit; font-size: .8rem; }
   .grow { flex: 1; min-height: 3rem; }
+  /* live sparklines (KIT.sparkLabeled small multiples): absolutely placed so they never size their box */
+  .sparks { position: relative; margin-top: .4rem; }
+  .sparks > div { position: absolute; inset: 0; display: flex; flex-direction: column; gap: .3rem; }
+  .sm { display: flex; gap: .6rem; align-items: flex-start; font-size: .82rem; }
+  .sm > .nm { width: 4.2rem; flex: none; color: var(--dim); }
+  .sm > .kspark { flex: 1; min-width: 0; }
   #lamps div { line-height: 1.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #lamps .g { display: inline-block; width: 1.2rem; }
   #ticker { list-style: none; margin: 0; padding: 0; overflow: hidden; flex: 1; font-size: .92rem; }
   #ticker li { padding: .15rem 0; border-bottom: 1px solid var(--rule); }
-  #ticker .krow .t { width: 4.8rem; }
   #ticker .g { width: 1.1rem; flex: none; text-align: center; }
   #live { display: flex; gap: .8rem; flex: 1; min-height: 0; }
   #live img { height: 100%; max-width: 55%; aspect-ratio: 1; object-fit: cover; background: #0b0b0f; }
@@ -92,14 +96,14 @@
       <div style="display:flex;align-items:baseline;gap:.6rem"><span class="big" id="phase">—</span><span class="mid" id="stepnum"></span><span style="margin-left:auto" class="hi" id="sit"></span></div>
       <div class="step"><i id="stepbar" style="width:0"></i></div>
       <div class="facts"><b>ETA</b><span id="eta">—</span><b>LAST</b><span id="last">—</span><b>LORA</b><span id="lora">off</span></div>
-      <svg id="sitspark" class="grow" width="100%" aria-label="seconds per step history"></svg>
+      <div id="sitspark" class="grow sparks" aria-label="seconds per step history"></div>
     </div>
   </section>
   <section class="p">
     <div class="h">SYSTEM <span>3s sample · 2 min history</span></div>
     <div class="b">
       <div class="kv gauges" id="gauges"></div>
-      <svg id="sysspark" class="grow" width="100%" aria-label="cpu and gpu history"></svg>
+      <div id="sysspark" class="grow sparks" aria-label="cpu and gpu history"></div>
     </div>
   </section>
   <section class="p">
@@ -151,34 +155,23 @@ const NS = 'http://www.w3.org/2000/svg';
 const el = (t, a, p) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); p && p.appendChild(n); return n; };
 const { esc, get, FAMILY, FHEX, FCOL, FGLYPH, srcName } = KIT;   // get() returns null on failure
 const FAMS = ['text', 'seeded', 'taste'];
-const hist = { cpu: [], gpu: [], sit: [] }, HN = 120;
+const HN = 120, hist = { cpu: KIT.history(HN), gpu: KIT.history(HN), sit: KIT.history(HN) };   // ~4-6 min at 2-3s
 const REM = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 12;   // chart offsets scale with type
-const push = (k, v) => { hist[k].push(v); if (hist[k].length > HN) hist[k].shift(); };
-// gauge row in the kit .kv grid: label · KIT.lin bar · value  (extra = markup appended inside the bar)
-const gauge = (k, frac, v, extra = '') => `<span class="k">${k}</span>${KIT.lin(frac).replace('</div>', extra + '</div>')}<span class="v">${v}</span>`;
+// gauge row in the kit .kv grid: label · KIT.lin bar (optional threshold tick) · value
+const gauge = (k, frac, v, tick) => `<span class="k">${k}</span>${KIT.lin(frac, null, tick)}<span class="v">${v}</span>`;
 
-// fixed-window scrolling monitor (KIT.spark is a fit-to-data bar/line strip; this one pins the
-// newest sample to the right edge over a fixed HN-sample window and direct-labels each series)
-function spark(svg, series) {          // series: [{data, color}]  — shared 0..max scale, one axis
-  svg.innerHTML = ''; const W = svg.clientWidth || 300, H = svg.clientHeight || 60;
-  const all = series.flatMap(s => s.data); if (!all.length) return;
-  const max = Math.max(...all, series[0].min || 1);
-  const top = REM() * (.5 + series.length * 1.15);   // label band above the plot so labels never sit on the line
-  el('line', { x1: 0, x2: W, y1: H - 1, y2: H - 1, stroke: 'var(--rule)' }, svg);
-  el('line', { x1: 0, x2: W, y1: top, y2: top, stroke: 'var(--rule)', 'stroke-dasharray': '1 3' }, svg);   // = max
-  series.forEach(s => { if (s.data.length < 2) return;
-    const n = s.data.length;
-    const pts = s.data.map((v, i) => `${W - ((n - 1 - i) / (HN - 1)) * W},${H - 2 - (v / max) * (H - 2 - top)}`).join(' ');
-    el('polyline', { points: pts, fill: 'none', stroke: s.color, 'stroke-width': 1.25, 'stroke-linejoin': 'round' }, svg);
-    const t = el('text', { x: W - 2, y: REM() * (1 + series.indexOf(s) * 1.15), 'text-anchor': 'end', fill: s.color }, svg);
-    t.textContent = s.label + ' ' + s.data[s.data.length - 1].toFixed(s.fix ?? 0) + (s.unit || ''); });
-  const sc = el('text', { x: 0, y: REM(), fill: 'var(--dim)' }, svg); sc.textContent = 'max ' + (+max.toFixed(2)) + (series[0].unit || '');
+// small multiples of KIT.sparkLabeled (max left, last right), sized to fill their box
+function sparks(box, rows) {
+  const R = REM(), H = box.clientHeight || 60;
+  const h = Math.max(10, Math.floor((H - (rows.length - 1) * .3 * R) / rows.length - 1.3 * R));
+  box.innerHTML = '<div>' + rows.map(r => `<div class="sm"><span class="nm">${r.name}</span>` +
+    KIT.sparkLabeled(r.h.values.filter(v => v != null), {   /* line mode draws nulls as 0: real samples only */ line: true, h: h + 'px', color: KIT.cssvar(r.color), max: r.max, fmt: r.fmt }) + '</div>').join('') + '</div>';
 }
-
 function drawSys() {
-  spark($('#sitspark'), [{ data: hist.sit, color: 'var(--ink)', label: 's/step', fix: 2, min: 1 }]);
-  spark($('#sysspark'), [{ data: hist.gpu, color: 'var(--hi)', label: 'gpu', unit: '%', min: 100 },
-                         { data: hist.cpu, color: 'var(--dim)', label: 'cpu', unit: '%', min: 100 }]);
+  const pctf = v => Math.round(v) + '%';
+  sparks($('#sitspark'), [{ name: 's/step', h: hist.sit, color: '--ink', fmt: v => v.toFixed(2) }]);
+  sparks($('#sysspark'), [{ name: 'GPU 3D', h: hist.gpu, color: '--hi', max: 100, fmt: pctf },
+                          { name: 'CPU', h: hist.cpu, color: '--ink', max: 100, fmt: pctf }]);
 }
 // staleness: sys.json carries its own ts (PC local time); >30s old or unreachable = amber
 let SD = {}, SYS_TS = null; const BOOT = Date.now();
@@ -200,8 +193,8 @@ async function tickSys() {
   $('#eta').textContent = sd.steps ? `${Math.round((sd.steps - sd.step) * sd.sit)}s` : '—';
   $('#last').textContent = sd.last_s ? `${sd.last_s.toFixed(1)}s per image` : '—';
   $('#lora').textContent = sd.lora ? 'ejtaste-klein9b (runtime)' : 'off';
-  if (sd.sit) push('sit', sd.sit);
-  push('cpu', s.cpu || 0); push('gpu', Math.min(100, s.gpu || 0));
+  if (sd.sit) hist.sit.push(sd.sit);
+  hist.cpu.push(s.cpu || 0); hist.gpu.push(Math.min(100, s.gpu || 0));
   drawSys();
   $('#gauges').innerHTML =
     gauge('CPU', (s.cpu || 0) / 100, `${s.cpu ?? 0}%`) +
@@ -310,7 +303,7 @@ async function tickEvents() {
   const G = { star: ['★', 'hi', 'starred'], down: ['▼', '', 'not for me'], inspect: ['◇', 'dim', 'inspected'], pair: ['◆', 'hi', 'pair pick'] };
   $('#ticker').innerHTML = all.length ? all.map(e => { const [g, c, w] = G[e.type] || ['·', 'dim', e.type];
     const what = e.type === 'pair' ? `${esc(e.win)} &gt; ${esc(e.lose)}` : esc(e.id) + (e.type === 'down' && e.on === false ? ' (undone)' : '');
-    return `<li class="krow"><span class="t">${esc((e.ts || '').slice(11, 19))}</span><span class="g ${c}">${g}</span><span>${esc(w)}</span><span class="dim">${what}</span></li>`; }).join('')
+    return `<li class="krow"><span class="t">${e.ts ? KIT.when(e.ts) : ''}</span><span class="g ${c}">${g}</span><span>${esc(w)}</span><span class="dim">${what}</span></li>`; }).join('')
     : '<li class="dim">waiting for your first reaction…</li>';
 }
 
@@ -318,7 +311,7 @@ let LASTBON = null;
 async function tickBon() {
   const txt = await get('taste/bestof.jsonl', 'text');
   try { const t = txt.trim().split('\n'); LASTBON = JSON.parse(t[t.length - 1]);
-    $('#bontag').textContent = `${t.length} decisions · last ${LASTBON.ts.slice(5, 10)} ${KIT.hhmm(LASTBON.ts)} · ${KIT.ago(LASTBON.ts)} ago`; } catch (e) {}
+    $('#bontag').textContent = `${t.length} decisions · last ${LASTBON.ts.slice(5, 10)} ${KIT.hhmm(LASTBON.ts)} · ${KIT.agoText(LASTBON.ts)}`; } catch (e) {}
   drawBon();
 }
 function drawBon() {
@@ -339,7 +332,7 @@ async function tickData() {
   $('#built').textContent = 'weights ' + (DATA.built || '').slice(5);
   const p = DATA.probe;
   if (p) {
-    const tick = p.min_auc != null ? `<s style="left:${Math.max(0, Math.min(100, (p.min_auc - .5) / .5 * 100))}%"></s>` : '';
+    const tick = p.min_auc != null ? (p.min_auc - .5) / .5 : null;
     $('#probe').innerHTML = gauge('LABELS', p.pos_mass / p.min_pos, `${p.pos_mass}/${p.min_pos}`) +
       gauge('LOO AUC', ((p.loo_auc || .5) - .5) / .5, p.loo_auc == null ? '—' : p.loo_auc.toFixed(2), tick);
     $('#probenote').textContent = p.ready ? 'READY — reranking best-of-4 sketches' : `dormant until ${p.min_pos} label mass and AUC ≥ ${p.min_auc} (tick; 0.5 = chance)`;
