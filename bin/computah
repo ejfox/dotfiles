@@ -300,7 +300,8 @@ PS
         rssh "tasklist | findstr /i llama-server.exe >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
-      off) rssh "powershell -NoProfile -Command \"Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue; 'stopped'\"" ;;
+      # only the :8085 LLM — a by-name kill also took down embed-server (nomic, :8090)
+      off) rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\llm-stop.ps1" ;;
     esac
     ;;
 
@@ -986,10 +987,10 @@ PYEOF
          && screencapture -x -t png -D 1 /tmp/muse-vlm.png 2>/dev/null && [ -s /tmp/muse-vlm.png ]; then
         sips -Z 1280 /tmp/muse-vlm.png --out /tmp/muse-vlm-sm.png >/dev/null 2>&1
         echo "  ◇ vision model reading your screen…"
-        rssh "taskkill /im llama-server.exe /f >nul 2>&1" || true; sleep 1
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\llm-stop.ps1" >/dev/null 2>&1 || true; sleep 1
         rssh "schtasks /run /tn vlm-server >nul" 2>/dev/null || true
         _wait_8085 && while IFS= read -r _l; do [ -n "$_l" ] && { prompts+=("$_l"); pmeta+=($'\x1f'"vision model read your screen"); }; done < <(muse-vision "$bn" /tmp/muse-vlm-sm.png "$h" 2>/dev/null)
-        rssh "taskkill /im llama-server.exe /f >nul 2>&1" || true
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\llm-stop.ps1" >/dev/null 2>&1 || true
         [ "${#prompts[@]}" -gt 0 ] && batch_source="vision-model read your screen"
       fi
       # Default: the LLM INTERPRETS your project READMEs + notes into imagery (once
