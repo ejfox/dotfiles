@@ -1018,6 +1018,9 @@ PYEOF
     n=0; slot=0; batch_source="(pending first batch)"; last_game=0; gcyc=0; game_freed=0
     while true; do
       n=$((n + 1)); slot=$(( (slot % total) + 1 ))
+      # re-resolve the PC every cell (LAN first): it was resolved ONCE at loop start, so one
+      # slow 1-second probe pinned a day-long loop to the Tailscale relay (2026-10-03)
+      if nc -z -G 2 "$LAN_IP" 22 2>/dev/null; then h="$LAN_IP"; else h=$(host); fi
       # Follow the wall UI's grid size at the top of each sweep (unless WALL_N pins
       # it). Cheap: one read per full sweep, not per cell. Shrinks fast / grows to
       # fill so display & generator stay in lockstep.
@@ -1263,12 +1266,21 @@ PYEOF
       #    shown as the cell's seed inset. Knob: MUSE_REF_PCT (0 = off).
       ref_from=""
       if [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_REF_PCT:-12}" ]; then
-        _rid=$(curl -sf -m 5 "http://$h:7861/favlist" | /usr/local/bin/python3 -c \
-          'import json,sys,random; i=json.load(sys.stdin).get("ids") or []; print(random.choice(i) if i else "")' 2>/dev/null)
-        if [ -n "$_rid" ] && curl -sf -m 20 -o /tmp/muse-ref.png "http://$h:7861/taste/fav/muse-$_rid.png" \
+        # retry the ★ list once (the single-threaded preview-server can be slow), and LOG
+        # every miss: ref silently fired 0 of 876 pure cells on 10-02/03 with no trace why
+        _rid=""; for _try in 1 2; do
+          _rid=$(curl -sf -m 8 "http://$h:7861/favlist" | /usr/local/bin/python3 -c \
+            'import json,sys,random; i=json.load(sys.stdin).get("ids") or []; print(random.choice(i) if i else "")' 2>/dev/null)
+          [ -n "$_rid" ] && break
+        done
+        if [ -z "$_rid" ]; then
+          echo "$(date +%T) ref skipped: no ★ list from http://$h:7861/favlist" >> /tmp/muse-taste.log
+        elif curl -sf -m 20 -o /tmp/muse-ref.png "http://$h:7861/taste/fav/muse-$_rid.png" \
            && sips -Z 512 /tmp/muse-ref.png --out /tmp/muse-ref-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-ref-sm.png ]; then
           export IMAGINE_REF_LOCAL=/tmp/muse-ref-sm.png; ref_from="$_rid"; src="ref"
           cp /tmp/muse-ref-sm.png /tmp/muse-init-sm.png   # inset on the wall = the reference
+        else
+          echo "$(date +%T) ref skipped: could not fetch/resize ★ $_rid" >> /tmp/muse-taste.log
         fi
       fi
 

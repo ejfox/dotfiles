@@ -203,6 +203,15 @@ function refreshBadges() {
     const hasSrc = !!(t && (t.seed_image || (t.init_source && t.init_source !== 'pure')));
     srcs[i].classList.toggle('on', hasSrc);
   }
+  applyOrder();
+}
+// CHRONOLOGICAL (EJ 2026-10-03): the generator paints slots round-robin, so slot order said
+// nothing about time. Cells keep their slot index (inspect/pair/badges use it); only the
+// VISUAL order changes: oldest top-left → newest bottom-right, the cell being painted last.
+function applyOrder() {
+  const key = i => i === live ? Infinity : (traceCache[i] && traceCache[i].ts ? new Date(traceCache[i].ts).getTime() : 0);
+  Array.from({ length: total }, (_, i) => i).sort((a, b) => key(a) - key(b))
+    .forEach((i, rank) => { if (divs[i]) divs[i].style.order = rank; });
 }
 
 (async () => { await loadFavs(); buildGrid(); loadWeights(); loadRecent(); })();
@@ -223,6 +232,7 @@ async function syncLive() {
       loadTrace(prev).then(refreshBadges);  // trace/badge/caption may be new
       live = v - 1;
       divs.forEach((d, i) => d.style.outline = (i === live) ? '3px solid #ff4d8d' : 'none');
+      applyOrder();                          // the cell being painted moves to the end
     }
   } catch (e) {}
 }
