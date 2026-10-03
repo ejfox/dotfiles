@@ -14,8 +14,8 @@
   .star { right: 5px; font-size: 16px; color: var(--hi); }
   .srcbadge { left: 6px; font-size: 14px; display: none; }      /* color = source family, set in JS */
   #wall > div:hover .srcbadge.on { display: block; }
-  .wbtn { background: var(--bg); color: var(--ink); border: 1px solid var(--faint); border-radius: 0; padding: 5px 10px; font: 12px var(--mono); cursor: pointer; }
-  .wbtn:hover { color: var(--hi); border-color: var(--dim); }
+  /* buttons = kit .kbtn (flat, em-padded, font inherited); containers set the 12px size */
+  #ctl, #pairbar, #ovmeta .btns { font-size: 12px; }
   #ctl { position: fixed; top: 7px; left: 9px; z-index: 6; display: flex; gap: 6px; align-items: center; opacity: .45; transition: opacity .2s; background: var(--bg); padding: 3px 6px; }
   #ctl:hover { opacity: 1; }
   #ctl .sep { width: 1px; align-self: stretch; background: var(--faint); margin: 0 2px; }
@@ -42,7 +42,7 @@
   :root { --tlh: clamp(24px, 2.6vh, 48px); }
   #wall { height: calc(100vh - var(--tlh)) !important; }
   @media (max-width: 520px) { #tl { display: none; } #wall { height: 100vh !important; } }
-  @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #ctl .wbtn { padding: 4px 7px; font-size: 11px; } }
+  @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #ctl { font-size: 11px; } }
   #pairbar { position: fixed; top: 7px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; gap: 10px; align-items: center;
              background: var(--bg); border: 1px solid var(--faint); padding: 5px 10px; color: var(--ink); font-size: 12px; }
   /* inspect overlay */
@@ -56,8 +56,8 @@
   #ovmeta .sec { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 12px; }
   #ovmeta .seedimg { display: block; margin-top: 6px; max-width: 240px; max-height: 170px; border: 1px solid var(--rule); background: var(--bg); }
   #ovmeta .prompt { color: var(--ink); font-size: 12px; line-height: 1.5; margin-top: 5px; }
-  #ovmeta .wbtn { white-space: nowrap; text-align: left; }
-  #ovmeta .wbtn.on { color: var(--hi); border-color: var(--dim); }
+  #ovmeta .kbtn { white-space: nowrap; text-align: left; }
+  #ovmeta .kbtn.on { color: var(--hi); border-color: var(--dim); }
   @media (max-width: 700px) { #card { flex-direction: column; overflow: auto; } #ovimg { width: 100%; } }
 </style>
 </head>
@@ -67,19 +67,19 @@
 <!-- top-left controls (fade in on hover so they don't clutter the ambient wall) -->
 <div id="ctl">
   <span class="lbl">grid</span>
-  <button class="wbtn" onclick="stepN(-1)">−</button>
-  <span id="nlabel" style="color:var(--ink);font-size:12px;min-width:50px;text-align:center"></span>
-  <button class="wbtn" onclick="stepN(1)">+</button>
-  <button class="wbtn" id="fitbtn" onclick="toggleFit()"></button>
+  <button class="kbtn" onclick="stepN(-1)">−</button>
+  <span id="nlabel" style="color:var(--ink);min-width:50px;text-align:center"></span>
+  <button class="kbtn" onclick="stepN(1)">+</button>
+  <button class="kbtn" id="fitbtn" onclick="toggleFit()"></button>
   <!-- folder buttons live here too (were bottom-right, where they covered a caption) -->
   <span class="sep"></span>
-  <button class="wbtn" onclick="openFolder('gallery')">◆ all renders</button>
-  <button class="wbtn" onclick="openFolder('favorites')">★ favorites</button>
+  <button class="kbtn" onclick="openFolder('gallery')">◆ all renders</button>
+  <button class="kbtn" onclick="openFolder('favorites')">★ favorites</button>
 </div>
 <svg id="tl" aria-label="last 2 hours of renders"></svg>
 
 <!-- daily pair pick prompt -->
-<div id="pairbar"><span class="hi">◆</span> which of the two outlined cells do you like more? <button class="wbtn" onclick="endPair(true)">skip today</button></div>
+<div id="pairbar"><span class="hi">◆</span> which of the two outlined cells do you like more? <button class="kbtn" onclick="endPair(true)">skip today</button></div>
 
 <!-- click-to-inspect overlay -->
 <div id="ov">
@@ -105,11 +105,9 @@ let favset = new Set(), downset = new Set();
 let WMAP = {};                                           // learned weights: 'knob|key' -> multiplier
 // source family / glyphs / names / escaping all come from the shared kit (kit.js)
 const { FAMILY, FCOL, FHEX, FGLYPH, esc } = KIT;
-// SVG presentation attributes can't take var(): read the kit's greys once (candidate for KIT.cssvar)
-const cssvar = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+// SVG presentation attributes can't take var(): read the kit's greys once
+const { cssvar, agoText } = KIT;
 const C = { hi: cssvar('--hi') || '#fff', dim: cssvar('--dim') || '#6f6f78', rule: cssvar('--rule') || '#1f1f24', warn: cssvar('--warn') || '#ffb000', mono: cssvar('--mono') || 'monospace' };
-// "4m ago" for captions; KIT.ago says 'now' under a minute
-const agoStr = ts => { const a = KIT.ago(ts); return a === 'now' ? 'now' : a + ' ago'; };
 let pair = null;   // [i, j] while today's pair pick is showing
 
 let total, divs, cells, stars, srcs, downs, caps, ticks, cellIds, traceCache, live = 0;
@@ -162,7 +160,7 @@ function refreshCap(i) {
   const state = (favset.has(t.id) ? ' <span class="fav">★</span>' : '') + (downset.has(t.id) ? ' <span class="dn">▼</span>' : '');
   caps[i].innerHTML =
     `<span class="l1"><span class="fam-${fam}">${FGLYPH[fam]}</span> <b>${esc(KIT.srcName(src))}</b> ${esc(style || 'no style')} <span class="m">· ${esc(t.sampler || '')} · ${esc(t.steps || '')}st</span>${state}</span>` +
-    `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${agoStr(t.ts)}` +
+    `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${agoText(t.ts)}` +
     (t.render_ejtaste != null ? ` · ej ${t.render_ejtaste.toFixed(2)}` : '') + (t.ref_from ? ' · ref ★' : '') + `</span></span>`;
   const ageH = (Date.now() - new Date(t.ts).getTime()) / 3600e3;
   ticks[i].style.background = FCOL[fam];   // CSS var string from the kit ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
@@ -330,13 +328,13 @@ async function inspect(i) {
   ovmeta.innerHTML =
     `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">` +
       `<div class="title">${esc(t.prompt_subject)}</div>` +
-      `<div style="display:flex;flex-direction:column;gap:6px">` +
-        `<button id="favbtn" class="wbtn${faved ? ' on' : ''}">${favLabel(faved)}</button>` +
-        `<button id="downbtn" class="wbtn${downed ? ' on' : ''}">${downLabel(downed)}</button>` +
+      `<div class="btns" style="display:flex;flex-direction:column;gap:6px">` +
+        `<button id="favbtn" class="kbtn${faved ? ' on' : ''}">${favLabel(faved)}</button>` +
+        `<button id="downbtn" class="kbtn${downed ? ' on' : ''}">${downLabel(downed)}</button>` +
       `</div>` +
     `</div>` +
     row('cell', t.cell + ' / ' + total) +
-    row('when', String(t.ts || '').replace('T', ' ') + (t.ts ? '  · ' + agoStr(t.ts) : '')) +
+    row('when', String(t.ts || '').replace('T', ' ') + (t.ts ? '  · ' + agoText(t.ts) : '')) +
     row('source', src, true) +
     row('size', t.size) +
     row('steps', t.steps) +
