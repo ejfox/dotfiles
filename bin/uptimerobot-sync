@@ -25,6 +25,10 @@ SSL = ssl.create_default_context(cafile="/etc/ssl/cert.pem" if os.path.exists("/
 MONITORS = [
     # infrastructure: the things that fail silently
     ("anomalywatch (alert brain)", "https://anomalywatch.tools.ejfox.com/api/health", KEYWORD, '"status":"ok"'),
+    # newsletter signup: keyword = the ejfox.com list's uuid, present only when the whole
+    # chain works (CF tunnel → smallweb `list` proxy → listmonk → its db → the list)
+    ("newsletter signup (listmonk)", "https://list.tools.ejfox.com/subscription/form", KEYWORD,
+     "c2f33988-852d-4e8d-bb66-060afc3df187"),
     ("VPS (ping)",                 "208.113.130.118",                                 PING,    None),
     ("smallweb + CF tunnel",       "https://assets.tools.ejfox.com/$.js",             HTTP,    None),
     ("archive.ejfox.com",          "https://archive.ejfox.com",                       HTTP,    None),
