@@ -65,7 +65,7 @@ case "${1:-}" in
          else json=$("$PY" -c 'import json,sys; print(json.dumps(dict(a.split("=",1) for a in sys.argv[1:])))' "$@"); fi
          printf '%s' "$json" > /tmp/studio-pin.json
          scp -q /tmp/studio-pin.json "$H:C:/dev/computah/farm/sd/studio/dev/pin.json" && touch_on && echo "◆ pin: $json" ;;
-  wait)  n=${2:-1}; start=$(index | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(len([i for i in d["items"]]) and d["items"][0]["ts"])' 2>/dev/null || echo 0)
+  wait)  n=${2:-1}; start=$(date +%Y%m%d-%H%M%S)   # same clock/format as studio_loop stamps (both ET)
          for _ in $(seq 180); do
            got=$(index | "$PY" -c '
 import json, sys; d = json.load(sys.stdin); s = sys.argv[1]
