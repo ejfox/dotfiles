@@ -1,0 +1,53 @@
+/* kit.css — shared look for the computah screens: IMAGINE wall (wall.html), TASTE OPS
+   (ops.html), Wall Taste (taste.html), and NET-RUNNER (vendored copy at build).
+   Served by preview-server from C:\dev\computah\farm\sd\kit.css (:7861/kit.css).
+   Source of truth: ~/.dotfiles/computah/kit.css. Pair: kit.js.
+
+   RULES (EJ 2026-10-03: "color always data-driven", Tufte data density, "color VERY sparingly"):
+   - Greyscale everything. Hue ONLY encodes data:
+       source family of a render:  text-only = --fam-text, seeded img2img = --fam-seeded,
+                                   ★ref / best-of = --fam-taste
+       stale / broken / needs attention = --warn (and nothing else)
+   - Healthy is NOT green: it's just ink. Importance = weight/brightness, not hue.
+   - No decoration: no glows, gradients, shadows, pills; thin rules only; tabular numbers. */
+:root {
+  --bg: #000; --panel: #060607; --rule: #1f1f24; --faint: #2c2c33;
+  --ink: #dcdce0; --hi: #ffffff; --dim: #6f6f78;
+  --fam-text: #ff4d8d; --fam-seeded: #7bf0f9; --fam-taste: #ffffff;
+  --warn: #ffb000;
+  --mono: Consolas, Menlo, "DejaVu Sans Mono", monospace;
+}
+.kit, .kit body { background: var(--bg); color: var(--ink); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ink levels + data hues */
+.dim { color: var(--dim); }  .hi { color: var(--hi); }  .warn { color: var(--warn); }
+.fam-text { color: var(--fam-text); }  .fam-seeded { color: var(--fam-seeded); }  .fam-taste { color: var(--fam-taste); }
+
+/* panels: a header line + a body that never scrolls */
+.p { background: var(--panel); border: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.p > .h { color: var(--hi); padding: 2px 6px 1px; font-weight: bold; letter-spacing: .06em; border-bottom: 1px solid var(--rule);
+          display: flex; justify-content: space-between; gap: 1em; white-space: nowrap; }
+.p > .h span { font-weight: normal; color: var(--dim); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.p > .b { padding: 3px 6px; min-height: 0; overflow: hidden; flex: 1; }
+
+/* dense tables */
+.kit table { width: 100%; border-collapse: collapse; }
+.kit td { padding: 0 4px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kit td.n { text-align: right; color: var(--dim); }
+.kit td.w { text-align: right; color: var(--hi); }
+.kit tr.sep td { border-top: 1px solid var(--rule); }
+
+/* key/value grid: label · optional bar · value */
+.kv { display: grid; grid-template-columns: auto 1fr auto; gap: 0 .8em; align-items: center; }
+.kv .k { color: var(--dim); }  .kv .v { color: var(--hi); text-align: right; }
+
+/* bars (built by KIT.bar / KIT.lin): diverging log bar = boosted solid / damped hollow */
+.kbar { position: relative; height: .6em; min-width: 3em; }
+.kbar.div::before { content: ""; position: absolute; left: 50%; top: -1px; bottom: -1px; border-left: 1px solid var(--faint); }
+.kbar i { position: absolute; top: 0; bottom: 0; }
+.kbar i.pos { background: #a9a9b0; }
+.kbar i.neg { border: 1px solid var(--dim); }
+
+/* tape rows: time · fields */
+.krow { display: flex; gap: .6em; white-space: nowrap; overflow: hidden; }
+.krow .t { color: var(--dim); flex: none; width: 4.1em; }
