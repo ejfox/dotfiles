@@ -1,27 +1,36 @@
 <!doctype html>
-<html style="background:#000">
+<html class="kit" style="background:#000">
 <head><meta charset="utf-8"><title>IMAGINE wall</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- shared palette + helpers for all computah screens (kit.css RULES = the color brief):
+     greyscale unless the hue encodes data — --fam-text / --fam-seeded / --fam-taste = source
+     family, --warn = stale/broken only. ★ = --hi, ▼ = ink on cells / --dim in text. -->
+<link rel="stylesheet" href="kit.css">
 <style>
-  #wall > div { position: relative; overflow: hidden; border-radius: 4px; background: #0a0a0a; cursor: pointer; transition: outline .2s; }
-  #wall > div:hover { outline: 2px solid #7bf0f9; }
-  .star { position: absolute; top: 4px; right: 7px; font-size: 16px; color: #ff4d8d; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; }
-  .srcbadge { position: absolute; top: 4px; left: 7px; font-size: 14px; color: #7bf0f9; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; display: none; }
+  #wall > div { position: relative; overflow: hidden; background: var(--panel); cursor: pointer; }
+  #wall > div:hover { outline: 1px solid var(--dim); outline-offset: -1px; }
+  /* glyphs sit on arbitrary pixels: a 1px black halo is the minimum that keeps them legible */
+  .star, .srcbadge, .down { position: absolute; top: 3px; pointer-events: none; text-shadow: 0 0 1px #000, 0 0 2px #000; line-height: 1; }
+  .star { right: 5px; font-size: 16px; color: var(--hi); }
+  .srcbadge { left: 6px; font-size: 14px; display: none; }      /* color = source family, set in JS */
   #wall > div:hover .srcbadge.on { display: block; }
-  .wbtn { background: #0a0a0a; color: #e8e8e8; border: 1px solid #ff4d8d; border-radius: 6px; padding: 6px 11px; font-family: monospace; font-size: 12px; cursor: pointer; }
-  .wbtn:hover { background: #1a0a12; color: #ff4d8d; }
-  #ctl { position: fixed; top: 9px; left: 11px; z-index: 6; display: flex; gap: 7px; align-items: center; opacity: .5; transition: opacity .2s; background: rgba(10,10,10,.55); padding: 4px 8px; border-radius: 8px; border: 1px solid #2a2a2a; }
+  .wbtn { background: var(--bg); color: var(--ink); border: 1px solid var(--faint); border-radius: 0; padding: 5px 10px; font: 12px var(--mono); cursor: pointer; }
+  .wbtn:hover { color: var(--hi); border-color: var(--dim); }
+  #ctl { position: fixed; top: 7px; left: 9px; z-index: 6; display: flex; gap: 6px; align-items: center; opacity: .45; transition: opacity .2s; background: var(--bg); padding: 3px 6px; }
   #ctl:hover { opacity: 1; }
-  #ctl .lbl { color: #7bf0f9; font-size: 11px; }
-  .down { position: absolute; top: 4px; right: 7px; font-size: 14px; color: #7bf0f9; opacity: .8; text-shadow: 0 0 4px #000, 0 0 4px #000; pointer-events: none; }
+  #ctl .sep { width: 1px; align-self: stretch; background: var(--faint); margin: 0 2px; }
+  #ctl .lbl { color: var(--dim); font-size: 11px; }
+  .down { right: 6px; font-size: 14px; color: var(--ink); }
   /* daily pair pick: two cells outlined, one click = which one EJ prefers */
-  #wall > div.pairpick { outline: 3px dashed #ff4d8d !important; outline-offset: -3px; }
+  #wall > div.pairpick { outline: 2px dashed var(--hi) !important; outline-offset: -2px; }
   /* DENSE MODE (2026-09-30): caption strip + source edge tick per cell, 2h timeline */
   /* captions scale with the CELL (container queries), not the window: an 8x8 grid
      on a laptop and a 3x3 on a 4K panel both read right. */
   #wall > div { container-type: size; }
-  .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: .25em .5em .3em .8em; background: rgba(0,0,0,.66);
-         font: clamp(9px, 4.2cqw, 20px)/1.3 monospace; color: #c9c9d2; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cap b { color: #f2f2f5; font-weight: 600; } .cap .m { color: #8a8a96; }
+  .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: .25em .5em .3em .8em; background: rgba(0,0,0,.72);
+         font: clamp(9px, 4.2cqw, 20px)/1.3 var(--mono); color: var(--ink); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cap b { color: var(--hi); font-weight: 600; } .cap .m { color: var(--dim); }
+  .cap .fav { color: var(--hi); } .cap .dn { color: var(--dim); }
   .cap .l1, .cap .l2 { display: block; overflow: hidden; text-overflow: ellipsis; }
   .star { font-size: clamp(12px, 7cqw, 30px) !important; } .down { font-size: clamp(11px, 6cqw, 26px) !important; }
   .tick { width: clamp(2px, 1.1cqw, 6px) !important; }
@@ -29,46 +38,58 @@
   @container (max-width: 199px), (max-height: 150px) { .cap, .tick { display: none !important; } }
   .tick { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; pointer-events: none; }
   /* 2h render timeline strip — one wall, no modes (EJ 2026-09-30) */
-  #tl { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: var(--tlh); background: #000; border-top: 1px solid #1a1a21; z-index: 5; }
+  #tl { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: var(--tlh); background: var(--bg); border-top: 1px solid var(--rule); z-index: 5; }
   :root { --tlh: clamp(24px, 2.6vh, 48px); }
   #wall { height: calc(100vh - var(--tlh)) !important; }
-  #corner { bottom: calc(var(--tlh) + 8px) !important; }
-  @media (max-width: 520px) { #tl { display: none; } #wall { height: 100vh !important; } #corner { bottom: 9px !important; } }
-  @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #corner .wbtn, #ctl .wbtn { padding: 4px 7px; font-size: 11px; } }
-  #pairbar { position: fixed; top: 9px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; gap: 10px; align-items: center;
-             background: rgba(10,10,10,.85); border: 1px solid #ff4d8d; border-radius: 8px; padding: 6px 12px; color: #e8e8e8; font-size: 12px; }
+  @media (max-width: 520px) { #tl { display: none; } #wall { height: 100vh !important; } }
+  @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #ctl .wbtn { padding: 4px 7px; font-size: 11px; } }
+  #pairbar { position: fixed; top: 7px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; gap: 10px; align-items: center;
+             background: var(--bg); border: 1px solid var(--faint); padding: 5px 10px; color: var(--ink); font-size: 12px; }
+  /* inspect overlay */
+  #ov { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; z-index: 10; align-items: center; justify-content: center; cursor: zoom-out; }
+  #card { display: flex; gap: 22px; max-width: 1120px; width: 92vw; max-height: 88vh; padding: 20px; box-sizing: border-box; background: var(--bg); border: 1px solid var(--rule); cursor: auto; }
+  #ovimg { width: 44%; object-fit: contain; background: var(--bg); align-self: flex-start; }
+  #ovmeta { flex: 1; overflow: auto; color: var(--ink); font-size: 14px; line-height: 1.5; }
+  #ovmeta .title { color: var(--hi); font-size: 21px; line-height: 1.35; flex: 1; }
+  #ovmeta .irow { display: grid; grid-template-columns: 11em 1fr; gap: 0 .8em; margin: 2px 0; }
+  #ovmeta .irow .k { color: var(--dim); }
+  #ovmeta .sec { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 12px; }
+  #ovmeta .seedimg { display: block; margin-top: 6px; max-width: 240px; max-height: 170px; border: 1px solid var(--rule); background: var(--bg); }
+  #ovmeta .prompt { color: var(--ink); font-size: 12px; line-height: 1.5; margin-top: 5px; }
+  #ovmeta .wbtn { white-space: nowrap; text-align: left; }
+  #ovmeta .wbtn.on { color: var(--hi); border-color: var(--dim); }
+  @media (max-width: 700px) { #card { flex-direction: column; overflow: auto; } #ovimg { width: 100%; } }
 </style>
 </head>
-<body style="margin:0;background:#000;overflow:hidden;font-family:monospace">
-<div id="wall" style="display:grid;gap:4px;width:100vw;height:100vh;padding:4px;box-sizing:border-box"></div>
+<body style="margin:0;overflow:hidden">
+<div id="wall" style="display:grid;gap:2px;width:100vw;height:100vh;padding:2px;box-sizing:border-box"></div>
 
 <!-- top-left controls (fade in on hover so they don't clutter the ambient wall) -->
 <div id="ctl">
   <span class="lbl">grid</span>
   <button class="wbtn" onclick="stepN(-1)">−</button>
-  <span id="nlabel" style="color:#e8e8e8;font-size:12px;min-width:50px;text-align:center"></span>
+  <span id="nlabel" style="color:var(--ink);font-size:12px;min-width:50px;text-align:center"></span>
   <button class="wbtn" onclick="stepN(1)">+</button>
   <button class="wbtn" id="fitbtn" onclick="toggleFit()"></button>
-</div>
-<svg id="tl" aria-label="last 2 hours of renders"></svg>
-
-<!-- corner controls -->
-<div id="corner" style="position:fixed;bottom:9px;right:11px;z-index:6;display:flex;gap:8px">
+  <!-- folder buttons live here too (were bottom-right, where they covered a caption) -->
+  <span class="sep"></span>
   <button class="wbtn" onclick="openFolder('gallery')">◆ all renders</button>
   <button class="wbtn" onclick="openFolder('favorites')">★ favorites</button>
 </div>
+<svg id="tl" aria-label="last 2 hours of renders"></svg>
 
 <!-- daily pair pick prompt -->
-<div id="pairbar"><span style="color:#ff4d8d">◆</span> which of the two outlined cells do you like more? <button class="wbtn" onclick="endPair(true)">skip today</button></div>
+<div id="pairbar"><span class="hi">◆</span> which of the two outlined cells do you like more? <button class="wbtn" onclick="endPair(true)">skip today</button></div>
 
 <!-- click-to-inspect overlay -->
-<div id="ov" style="position:fixed;inset:0;background:rgba(0,0,0,.86);display:none;z-index:10;align-items:center;justify-content:center;backdrop-filter:blur(3px);cursor:zoom-out">
-  <div id="card" style="display:flex;gap:22px;max-width:1120px;width:92vw;max-height:88vh;padding:24px;box-sizing:border-box;background:#0a0a0a;border:1px solid #ff4d8d;border-radius:10px;cursor:auto">
-    <img id="ovimg" style="width:44%;object-fit:contain;background:#000;border-radius:6px;align-self:flex-start">
-    <div id="ovmeta" style="flex:1;overflow:auto;color:#e8e8e8;font-size:14px;line-height:1.5"></div>
+<div id="ov">
+  <div id="card">
+    <img id="ovimg">
+    <div id="ovmeta"></div>
   </div>
 </div>
 
+<script src="kit.js"></script>
 <script>
 const wall = document.getElementById('wall');
 const clampN = n => Math.max(2, Math.min(8, n || 4));
@@ -82,18 +103,18 @@ reportN(N);
 let fitMode = localStorage.getItem('wallFit') || 'cover';   // cover = fill/crop, contain = fit/letterbox (true aspect)
 let favset = new Set(), downset = new Set();
 let WMAP = {};                                           // learned weights: 'knob|key' -> multiplier
-const FAMILY = src => { const s = String(src || 'pure').split('+')[0];
-  return s === 'pure' ? 'text' : (s === 'ref' || s === 'bestof') ? 'taste' : 'seeded'; };
-const FCOL = { text: '#e8407a', seeded: '#16a6b6', taste: '#f2f2f5' };
-const FGLYPH = { text: '○', seeded: '◇', taste: '◆' };
-const SRCN = { pure: 'text', screen: 'screen', crop: 'crop', feedback: 'past cell', 'feedback-inv': 'past inv', game: 'game', 'game-inv': 'game inv',
-  arena: 'are.na', cloud: 'cloud', fuji: 'fuji', taste: 'ej photo', ref: '★ ref', bestof: 'best-of' };
+// source family / glyphs / names / escaping all come from the shared kit (kit.js)
+const { FAMILY, FCOL, FHEX, FGLYPH, esc } = KIT;
+// SVG presentation attributes can't take var(): read the kit's greys once (candidate for KIT.cssvar)
+const cssvar = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+const C = { hi: cssvar('--hi') || '#fff', dim: cssvar('--dim') || '#6f6f78', rule: cssvar('--rule') || '#1f1f24', warn: cssvar('--warn') || '#ffb000', mono: cssvar('--mono') || 'monospace' };
+// "4m ago" for captions; KIT.ago says 'now' under a minute
+const agoStr = ts => { const a = KIT.ago(ts); return a === 'now' ? 'now' : a + ' ago'; };
 let pair = null;   // [i, j] while today's pair pick is showing
 
 let total, divs, cells, stars, srcs, downs, caps, ticks, cellIds, traceCache, live = 0;
 // taste signals → preview-server /event → taste\events.jsonl (learned from on the Mac)
 const sendEvent = qs => { try { fetch('event?' + qs + '&t=' + Date.now(), { cache: 'no-store' }); } catch (e) {} };
-const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 function buildGrid() {
   total = N * N; live = 0;
@@ -131,8 +152,6 @@ async function loadWeights() {
   try { const d = await (await fetch('taste/taste-data.json?t=' + Date.now(), { cache: 'no-store' })).json();
         WMAP = {}; (d.weights || []).forEach(w => WMAP[w.knob + '|' + w.key] = w.w); refreshBadges(); } catch (e) {}
 }
-const ageStr = ts => { const m = Math.max(0, (Date.now() - new Date(ts).getTime()) / 60000);
-  return m < 60 ? Math.round(m) + 'm' : m < 1440 ? Math.round(m / 60) + 'h' : Math.round(m / 1440) + 'd'; };
 function refreshCap(i) {
   const t = traceCache[i];
   if (!t || !caps[i]) { if (caps[i]) caps[i].innerHTML = ''; return; }
@@ -140,13 +159,13 @@ function refreshCap(i) {
   const style = String(t.style || '').split(',')[0].trim().toLowerCase();
   const ws = WMAP['style|' + style], wsm = WMAP['sampler|' + t.sampler];
   const mult = [ws, wsm].filter(x => x != null).reduce((a, b) => a * b, 1);
-  const state = (favset.has(t.id) ? ' <b style="color:#ff4d8d">★</b>' : '') + (downset.has(t.id) ? ' <b style="color:#7bf0f9">▼</b>' : '');
+  const state = (favset.has(t.id) ? ' <span class="fav">★</span>' : '') + (downset.has(t.id) ? ' <span class="dn">▼</span>' : '');
   caps[i].innerHTML =
-    `<span class="l1"><span style="color:${FCOL[fam]}">${FGLYPH[fam]}</span> <b>${esc(SRCN[src] || src)}</b> ${esc(style || 'no style')} <span class="m">· ${esc(t.sampler || '')} · ${esc(t.steps || '')}st</span>${state}</span>` +
-    `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${ageStr(t.ts)} ago` +
+    `<span class="l1"><span class="fam-${fam}">${FGLYPH[fam]}</span> <b>${esc(KIT.srcName(src))}</b> ${esc(style || 'no style')} <span class="m">· ${esc(t.sampler || '')} · ${esc(t.steps || '')}st</span>${state}</span>` +
+    `<span class="l2"><span class="m">odds</span> <b>×${mult.toFixed(2)}</b> <span class="m">· ${agoStr(t.ts)}` +
     (t.render_ejtaste != null ? ` · ej ${t.render_ejtaste.toFixed(2)}` : '') + (t.ref_from ? ' · ref ★' : '') + `</span></span>`;
   const ageH = (Date.now() - new Date(t.ts).getTime()) / 3600e3;
-  ticks[i].style.background = FCOL[fam]; ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
+  ticks[i].style.background = FCOL[fam];   // CSS var string from the kit ticks[i].style.opacity = Math.max(.25, 1 - ageH / 4);
 }
 let RECENT = [];
 async function loadRecent() {
@@ -161,17 +180,21 @@ function drawTimeline() {
   const xAt = age => W - 10 - (age / span) * (W - 10 - X0);
   const mk = (tag, a) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); svg.appendChild(n); return n; };
   const tickTop = H * .16, tickH = H * .44, tw = Math.max(1.5, Math.min(3, W / 900));
+  // newest render age: if the loop has gone quiet, "now" turns amber and says how long (the only amber on the wall)
+  const newest = RECENT.reduce((m, r) => Math.max(m, new Date(r.ts).getTime() || 0), 0);
+  const quietM = newest ? (now - newest) / 60000 : Infinity, stale = quietM > 20;
   for (let h = 0; h <= 4; h++) { const x = xAt(h * 1800e3);
-    mk('line', { x1: x, x2: x, y1: tickTop, y2: tickTop + tickH, stroke: '#1a1a21' });
-    const t = mk('text', { x: h === 0 ? x : x, y: H - 2, 'text-anchor': h === 0 ? 'end' : 'middle', fill: '#55555f', 'font-size': fs, 'font-family': 'monospace' });
-    t.textContent = h ? `-${h * 30}m` : 'now'; }
+    mk('line', { x1: x, x2: x, y1: tickTop, y2: tickTop + tickH, stroke: C.rule });
+    const t = mk('text', { x, y: H - 2, 'text-anchor': h === 0 ? 'end' : 'middle', fill: h === 0 && stale ? C.warn : C.dim, 'font-size': fs, 'font-family': C.mono });
+    t.textContent = h ? `-${h * 30}m` : stale ? (isFinite(quietM) ? `quiet ${KIT.ago(newest)}` : 'no renders') : 'now'; }
+  const n = { text: 0, seeded: 0, taste: 0 };
   RECENT.forEach(r => { const age = now - new Date(r.ts).getTime(); if (age > span || age < 0) return;
-    const x = xAt(age), fam = FAMILY(r.src);
-    mk('rect', { x: x - tw / 2, y: tickTop, width: tw, height: tickH, rx: 1, fill: FCOL[fam], opacity: r.down ? .35 : .9 });
-    if (r.fav) { const s = mk('text', { x, y: tickTop, 'text-anchor': 'middle', fill: '#ff4d8d', 'font-size': fs }); s.textContent = '★'; } });
-  if (!narrow) {
-    const lg = mk('text', { x: 6, y: tickTop + tickH * .75, fill: '#8a8a96', 'font-size': fs, 'font-family': 'monospace' });
-    lg.innerHTML = '<tspan fill="#e8407a">○ text</tspan>  <tspan fill="#16a6b6">◇ seeded</tspan>  <tspan fill="#f2f2f5">◆ ★ref/best-of</tspan>';
+    const x = xAt(age), fam = FAMILY(r.src); n[fam]++;
+    mk('rect', { x: x - tw / 2, y: tickTop, width: tw, height: tickH, fill: FHEX[fam], opacity: r.down ? .3 : .9 });
+    if (r.fav) { const s = mk('text', { x, y: tickTop, 'text-anchor': 'middle', fill: C.hi, 'font-size': fs }); s.textContent = '★'; } });
+  if (!narrow) {   // the legend doubles as the 2h tally per family
+    const lg = mk('text', { x: 6, y: tickTop + tickH * .75, fill: C.dim, 'font-size': fs, 'font-family': C.mono });
+    lg.innerHTML = `<tspan fill="${FHEX.text}">○</tspan> text ${n.text}  <tspan fill="${FHEX.seeded}">◇</tspan> seeded ${n.seeded}  <tspan fill="${FHEX.taste}">◆</tspan> ★ref/best-of ${n.taste}`;
   }
 }
 function setN(n) { n = clampN(n); if (n === N) return; N = n; localStorage.setItem('wallN', n); reportN(n); buildGrid(); }
@@ -202,6 +225,7 @@ function refreshBadges() {
     const t = traceCache[i];
     const hasSrc = !!(t && (t.seed_image || (t.init_source && t.init_source !== 'pure')));
     srcs[i].classList.toggle('on', hasSrc);
+    if (hasSrc) srcs[i].style.color = FCOL[FAMILY(t.init_source)];   // ◇ cyan for seeded, white for ★ref/best-of
   }
   applyOrder();
 }
@@ -235,10 +259,15 @@ async function syncLive() {
       loadCell(prev);                        // the cell we just left finished
       loadTrace(prev).then(refreshBadges);  // trace/badge/caption may be new
       live = v - 1;
-      divs.forEach((d, i) => d.style.outline = (i === live) ? '3px solid #ff4d8d' : 'none');
       applyOrder();                          // the cell being painted moves to the end
     }
+    if (v >= 1 && v <= total) markLive();   // also covers the first poll, when live-slot already == slot 1
   } catch (e) {}
+}
+// the cell being painted: a 2px white outline (greyscale — it's state, not a data hue).
+// Other cells get '' (not 'none') so the CSS hover outline still works on them.
+function markLive() {
+  divs.forEach((d, i) => { d.style.outline = i === live ? '2px solid var(--hi)' : ''; d.style.outlineOffset = i === live ? '-2px' : ''; });
 }
 function pollLive() {                         // ONLY the live cell polls fast
   if (live >= total) return;
@@ -252,8 +281,10 @@ setInterval(pollLive, 250);
 
 // ── inspect + favorite ───────────────────────────────────────────────────────
 const ov = document.getElementById('ov'), ovimg = document.getElementById('ovimg'), ovmeta = document.getElementById('ovmeta');
-const row = (k, v) => (v == null || v === '') ? '' :
-  `<div style="margin:4px 0"><span style="color:#7bf0f9">${k}</span>&nbsp; <span>${esc(v)}</span></div>`;
+// aligned key/value rows; pass raw=true when v is already-escaped HTML
+const row = (k, v, raw) => (v == null || v === '') ? '' :
+  `<div class="irow"><span class="k">${k}</span><span>${raw ? v : esc(v)}</span></div>`;
+const favLabel = on => on ? '★ favorited' : '☆ favorite', downLabel = on => on ? '▼ not for me' : '▽ not for me';
 
 async function toggleFav(id) {
   if (!id) return;
@@ -264,7 +295,7 @@ async function toggleFav(id) {
     if (j.fav) favset.add(id); else favset.delete(id);
     refreshBadges();
     const b = document.getElementById('favbtn');
-    if (b) { b.textContent = j.fav ? '★ favorited' : '☆ favorite'; b.style.color = j.fav ? '#ff4d8d' : '#e8e8e8'; }
+    if (b) { b.textContent = favLabel(j.fav); b.classList.toggle('on', !!j.fav); }
   } catch (e) {}
 }
 
@@ -275,36 +306,38 @@ async function toggleDown(id) {
   if (on) downset.add(id); else downset.delete(id);
   refreshBadges();
   const b = document.getElementById('downbtn');
-  if (b) { b.textContent = on ? '▼ not for me' : '▽ not for me'; b.style.color = on ? '#7bf0f9' : '#e8e8e8'; }
+  if (b) { b.textContent = downLabel(on); b.classList.toggle('on', !!on); }
 }
 
 async function inspect(i) {
   if (cellIds[i]) sendEvent('type=inspect&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
   ovimg.src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
-  ovmeta.innerHTML = '<div style="color:#ff4d8d">◆ loading trace…</div>';
+  ovmeta.innerHTML = '<div class="dim">◆ loading trace…</div>';
   ov.style.display = 'flex';
   let t = traceCache[i];
   if (!t) { await loadTrace(i); t = traceCache[i]; }
-  if (!t) {
-    ovmeta.innerHTML = '<div style="color:#ff4d8d;font-size:18px">no trace for this cell yet</div>' +
-      '<div style="color:#888;font-size:13px;margin-top:8px">Traces attach as each cell re-renders — give it a cycle.</div>';
+  if (!t) {   // missing data = the one "needs attention" state → --warn
+    ovmeta.innerHTML = '<div class="warn" style="font-size:18px">no trace for this cell yet</div>' +
+      '<div class="dim" style="font-size:13px;margin-top:8px">Traces attach as each cell re-renders — give it a cycle.</div>';
     return;
   }
-  const src = esc(t.init_source) + (t.feedback_from_cell ? ' (from cell ' + esc(t.feedback_from_cell) + ')' : '');
+  const fam = FAMILY(t.init_source);
+  const src = `<span class="fam-${fam}">${FGLYPH[fam]}</span> ` + esc(t.init_source) +
+    (t.feedback_from_cell ? ' (from cell ' + esc(t.feedback_from_cell) + ')' : '');
   const str = (t.img2img_strength && t.img2img_strength !== 'none') ? t.img2img_strength : '—';
-  const faved = t.id && favset.has(t.id);
-  const downed = t.id && downset.has(t.id);
+  const faved = !!(t.id && favset.has(t.id));
+  const downed = !!(t.id && downset.has(t.id));
   ovmeta.innerHTML =
-    `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">` +
-      `<div style="color:#ff4d8d;font-size:21px;line-height:1.35;flex:1">${esc(t.prompt_subject)}</div>` +
+    `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">` +
+      `<div class="title">${esc(t.prompt_subject)}</div>` +
       `<div style="display:flex;flex-direction:column;gap:6px">` +
-        `<button id="favbtn" class="wbtn" style="white-space:nowrap;color:${faved ? '#ff4d8d' : '#e8e8e8'}">${faved ? '★ favorited' : '☆ favorite'}</button>` +
-        `<button id="downbtn" class="wbtn" style="white-space:nowrap;border-color:#16a6b6;color:${downed ? '#7bf0f9' : '#e8e8e8'}">${downed ? '▼ not for me' : '▽ not for me'}</button>` +
+        `<button id="favbtn" class="wbtn${faved ? ' on' : ''}">${favLabel(faved)}</button>` +
+        `<button id="downbtn" class="wbtn${downed ? ' on' : ''}">${downLabel(downed)}</button>` +
       `</div>` +
     `</div>` +
     row('cell', t.cell + ' / ' + total) +
-    row('when', String(t.ts || '').replace('T', ' ')) +
-    row('source', src) +
+    row('when', String(t.ts || '').replace('T', ' ') + (t.ts ? '  · ' + agoStr(t.ts) : '')) +
+    row('source', src, true) +
     row('size', t.size) +
     row('steps', t.steps) +
     row('img2img strength', str) +
@@ -313,12 +346,11 @@ async function inspect(i) {
     row('motif', t.source_motif) +
     row('mined from', t.mined_from) +
     (t.seed_image ?
-      `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #2a2a2a">` +
-        `<div style="color:#7bf0f9;font-size:12px;margin-bottom:6px">◇ seed image — what this cell was based on</div>` +
-        `<img src="wall_${i + 1}-init.png?t=${Date.now()}" style="max-width:240px;max-height:170px;border-radius:5px;border:1px solid #333;background:#000">` +
+      `<div class="sec"><span class="fam-${fam}">${FGLYPH[fam]}</span> seed image — what this cell was based on` +
+        `<img class="seedimg" src="wall_${i + 1}-init.png?t=${Date.now()}">` +
       `</div>` : '') +
-    `<div style="margin-top:16px;padding-top:12px;border-top:1px solid #2a2a2a;color:#7bf0f9;font-size:12px">full prompt sent to the model</div>` +
-    `<div style="color:#bbb;font-size:12px;line-height:1.5;margin-top:5px">${esc(t.prompt_full)}</div>`;
+    `<div class="sec">full prompt sent to the model</div>` +
+    `<div class="prompt">${esc(t.prompt_full)}</div>`;
   const b = document.getElementById('favbtn');
   if (b) b.onclick = () => toggleFav(t.id);
   const db = document.getElementById('downbtn');
