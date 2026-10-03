@@ -16,6 +16,8 @@
   --fam-text: #ff4d8d; --fam-seeded: #7bf0f9; --fam-taste: #ffffff;
   --warn: #ffb000;
   --mono: Consolas, Menlo, "DejaVu Sans Mono", monospace;
+  /* viewport-scaled dense text: opt in with font-size: var(--kit-fs) (screens may override) */
+  --kit-fs: clamp(10px, min(0.95vw, 0.82vh), 17px);
 }
 .kit, .kit body { background: var(--bg); color: var(--ink); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
@@ -28,6 +30,8 @@
 .p > .h { color: var(--hi); padding: .15em .5em .1em; font-weight: bold; letter-spacing: .06em; border-bottom: 1px solid var(--rule);
           display: flex; justify-content: space-between; gap: 1em; white-space: nowrap; }
 .p > .h span { font-weight: normal; color: var(--dim); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.p > .h span.warn, .p > .h .warn { color: var(--warn); }      /* amber badge in a header (beats the dim rule) */
+.p > .h span.hi { color: var(--hi); }
 .p > .b { padding: .25em .5em; min-height: 0; overflow: hidden; flex: 1; }   /* em: scales on the 4K kiosk */
 
 /* dense tables */
