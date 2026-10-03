@@ -25,10 +25,10 @@
 
 /* panels: a header line + a body that never scrolls */
 .p { background: var(--panel); border: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-.p > .h { color: var(--hi); padding: 2px 6px 1px; font-weight: bold; letter-spacing: .06em; border-bottom: 1px solid var(--rule);
+.p > .h { color: var(--hi); padding: .15em .5em .1em; font-weight: bold; letter-spacing: .06em; border-bottom: 1px solid var(--rule);
           display: flex; justify-content: space-between; gap: 1em; white-space: nowrap; }
 .p > .h span { font-weight: normal; color: var(--dim); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
-.p > .b { padding: 3px 6px; min-height: 0; overflow: hidden; flex: 1; }
+.p > .b { padding: .25em .5em; min-height: 0; overflow: hidden; flex: 1; }   /* em: scales on the 4K kiosk */
 
 /* dense tables */
 .kit table { width: 100%; border-collapse: collapse; }
@@ -48,6 +48,19 @@
 .kbar i.pos { background: #a9a9b0; }
 .kbar i.neg { border: 1px solid var(--dim); }
 
+.kbar b.tick { position: absolute; top: -2px; bottom: -2px; border-left: 1px solid var(--hi); }   /* threshold mark */
+
+/* fact list: label left, value right, one per line */
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 0 .8em; }
+.facts > :nth-child(odd) { color: var(--dim); }  .facts > :nth-child(even) { color: var(--hi); text-align: right; }
+
+/* labeled sparkline (KIT.sparkLabeled) */
+.kspark-l { display: flex; justify-content: space-between; color: var(--dim); font-size: .85em; }
+
+/* buttons: flat, thin rule, brighter on hover — no pills, no hue */
+.kbtn { background: transparent; color: var(--ink); border: 1px solid var(--faint); padding: .2em .6em; font: inherit; cursor: pointer; }
+.kbtn:hover { color: var(--hi); border-color: var(--dim); }
+
 /* tape rows: time · fields */
 .krow { display: flex; gap: .6em; white-space: nowrap; overflow: hidden; }
-.krow .t { color: var(--dim); flex: none; width: 4.1em; }
+.krow .t { color: var(--dim); flex: none; width: 7.6em; }   /* fits KIT.when: "Fri 22:41" */

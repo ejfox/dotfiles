@@ -52,7 +52,7 @@
 <div class="p" id="spark" style="grid-area:spark"><div class="h">THROUGHPUT 24H <span id="sparkmeta"></span></div><div class="b"></div></div>
 <script src="kit.js"></script>
 <script>
-const { esc, get, mins, ago, hhmm, stale, pct, FAMILY, FHEX, srcName, famSpan, bar, lin, spark } = KIT;
+const { esc, get, mins, ago, hhmm, when, stale, pct, FAMILY, FHEX, srcName, famSpan, bar, lin, spark } = KIT;
 const $ = s => document.querySelector(s);
 let D = null, SYS = null, RECENT = [], W = {}, starsShown = '';
 const fitRows = el => Math.max(3, Math.floor(el.clientHeight / (parseFloat(getComputedStyle(document.body).fontSize) * 1.28)) - 1);
@@ -151,7 +151,7 @@ function renderModel() {
 function renderSignals(text) {
   const ev = (text || '').trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(Boolean).reverse();
   const el = $('#sig .b'), G = { inspect: '◇ inspect', down: '▽ not for me', pair: '◆ pair pick', fav: '★ star' };
-  el.innerHTML = ev.slice(0, fitRows(el)).map(e => `<div class="krow"><span class="t">${hhmm(e.ts)}</span>` +
+  el.innerHTML = ev.slice(0, fitRows(el)).map(e => `<div class="krow"><span class="t">${when(e.ts)}</span>` +
       `<span class="${e.type === 'inspect' ? 'dim' : 'hi'}" style="flex:none;width:8.5em">${G[e.type] || esc(e.type)}</span>` +
       `<span class="dim">${esc(e.id || '')}${e.win ? ' · won ' + esc(e.win) : ''}</span></div>`).join('') ||
     `<div class="dim">no clicks yet — ★ / ▽ / inspect cells on the IMAGINE wall</div>`;
@@ -161,7 +161,7 @@ function renderWall() {
   el.innerHTML = RECENT.slice().reverse().slice(0, fitRows(el)).map(r => {
     const style = String(r.style || '').split(',')[0].trim().toLowerCase();
     const m = (W['style|' + style] || 1) * (W['sampler|' + r.sampler] || 1);
-    return `<div class="krow"><span class="t">${hhmm(r.ts)}</span><span style="width:5.6em;flex:none">${famSpan(r.src)}</span>` +
+    return `<div class="krow"><span class="t">${when(r.ts)}</span><span style="width:5.6em;flex:none">${famSpan(r.src)}</span>` +
       `<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(style || '—')}</span>` +
       `<span class="${m >= 1 ? 'hi' : 'dim'}" style="flex:none">×${m.toFixed(2)}</span>` +
       `<span class="dim" style="flex:none;width:3.4em;text-align:right">${r.ej == null ? '' : r.ej.toFixed(2)}</span>` +

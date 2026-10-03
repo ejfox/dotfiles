@@ -19,6 +19,16 @@
     return m < 1 ? 'now' : m < 60 ? Math.round(m) + 'm' : m < 1440 ? (m / 60).toFixed(m < 600 ? 1 : 0) + 'h' : Math.round(m / 1440) + 'd'; };
   const hhmm = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   const stale = (ts, seconds) => !ts || (Date.now() - new Date(ts).getTime()) / 1000 > seconds;
+  const agoText = ts => { const a = ago(ts); return a === 'now' ? 'now' : a + ' ago'; };
+  // clock time, with a weekday prefix when it isn't today ("12:41" vs "Fri 22:41"): tapes
+  // listing today 12:41 above yesterday 22:41 read like a sort bug without it
+  const when = ts => { const d = new Date(ts), now = new Date();
+    return (d.toDateString() === now.toDateString() ? '' : d.toLocaleDateString(undefined, { weekday: 'short' }) + ' ') + hhmm(ts); };
+  // CSS token -> literal value, for SVG/canvas attributes that can't take var()
+  const cssvar = name => getComputedStyle(document.documentElement).getPropertyValue(name.startsWith('--') ? name : '--' + name).trim();
+  // fixed-length rolling series for live sparklines: h = history(60); h.push(v); h.values
+  const history = (n, fill = null) => { const values = Array(n).fill(fill);
+    return { values, push(v) { values.push(v); values.shift(); }, get last() { return values[values.length - 1]; } }; };
   const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
 
   // THE source-family mapping (one place; the wall, ops, taste all use it)
@@ -38,10 +48,14 @@
   // bars: diverging log2 (weights ×0.5..×2: boosted solid, damped hollow) and linear 0..1
   const bar = w => { const l = Math.max(-1, Math.min(1, Math.log2(w))), p = Math.abs(l) * 50;
     return `<div class="kbar div"><i class="${l >= 0 ? 'pos' : 'neg'}" style="${l >= 0 ? 'left:50%' : 'right:50%'};width:${p}%"></i></div>`; };
-  const lin = (frac, color) => `<div class="kbar"><i class="pos" style="left:0;width:${Math.max(0, Math.min(1, frac)) * 100}%${color ? ';background:' + color : ''}"></i></div>`;
+  // linear bar 0..1; optional tick (0..1) marks a threshold, e.g. AUC ≥ 0.65
+  const lin = (frac, color, tick) => `<div class="kbar"><i class="pos" style="left:0;width:${Math.max(0, Math.min(1, frac)) * 100}%${color ? ';background:' + color : ''}"></i>` +
+    (tick != null ? `<b class="tick" style="left:${Math.max(0, Math.min(1, tick)) * 100}%"></b>` : '') + `</div>`;
 
   // sparkline: values -> inline SVG bars (or line). opts: {h, color, stack:[{values,color}], line:true}
   function spark(values, opts = {}) {
+    // nulls (an un-filled history) draw nothing; opts.label adds a direct max label (Tufte: label the data, not a legend)
+    values = values.map(v => v == null ? 0 : v);
     const n = values.length || 1, W = 100, H = 30;
     const stacks = opts.stack || [{ values, color: opts.color || '#a9a9b0' }];
     const tot = Array.from({ length: n }, (_, i) => stacks.reduce((a, s) => a + (s.values[i] || 0), 0));
@@ -62,5 +76,12 @@
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;width:100%;height:${opts.h || '2.6em'}">${out}</svg>`;
   }
 
-  window.KIT = { esc, get, mins, ago, hhmm, stale, pct, FAMILY, FCOL, FHEX, FGLYPH, SRCN, srcName, famSpan, bar, lin, spark };
+  // spark with a direct label strip: max on the left, last value on the right
+  const sparkLabeled = (values, opts = {}) => { const vs = values.filter(v => v != null);
+    const fmt = opts.fmt || (v => String(Math.round(v)));
+    return `<div class="kspark">${spark(values, opts)}<div class="kspark-l"><span>max ${vs.length ? fmt(Math.max(...vs)) : '—'}</span>` +
+      `<span class="hi">${vs.length ? fmt(vs[vs.length - 1]) : '—'}</span></div></div>`; };
+
+  window.KIT = { esc, get, mins, ago, agoText, when, hhmm, stale, pct, cssvar, history,
+                 FAMILY, FCOL, FHEX, FGLYPH, SRCN, srcName, famSpan, bar, lin, spark, sparkLabeled };
 })();
