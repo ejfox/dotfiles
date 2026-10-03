@@ -74,7 +74,9 @@ def ask_llm(notes, n):
     sys_p = ("Below is what I'm building (project READMEs) and thinking about (notes). "
         "INTERPRET the ideas and feelings in them into %d vivid, imaginative image "
         "prompts — metaphorical scenes that capture what these projects are ABOUT, "
-        "not their names. Each wildly different, %s. One sentence each, one per line. "
+        "not their names. Each wildly different, %s. Build each from concrete things a painter "
+        "could draw (objects, materials, creatures, places); avoid screens, dashboards, interfaces "
+        "and abstract words. One sentence each, one per line. "
         "/no_think" % (n, lens))
     user = "PROJECTS I'm building:\n" + project_readmes() + "\n\nNOTES:\n" + notes
     body = json.dumps({

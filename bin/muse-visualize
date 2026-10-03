@@ -1,0 +1,201 @@
+#!/usr/local/bin/python3
+"""muse-visualize — creatively translate EJ's NOTES into drawable image subjects, fresh each time.
+
+EJ 2026-10-03: "we need to do a better job translating the concepts in my notes into visual
+nouns and symbols", then "we shouldn't be hard-coding 60 concepts, we should be more
+creatively translating them out of the notes". So: no fixed concept list.
+
+Each refill samples random PASSAGES (paragraphs, not titles) from anywhere in both Obsidian
+vaults + project READMEs — weighted toward recent writing, with deep-archive pulls — and asks
+Claude Haiku (the `claude` CLI, EJ's subscription) to translate each passage into ONE scene a
+painter could draw. The code, not the model, assigns each passage a different visual-metaphor
+move, so variety is forced, not hoped for. Results go into a rolling VISUAL BANK
+(~/.cache/muse/visual-bank.jsonl); the wall CONSUMES subjects (each used once) and the bank
+refills itself in the background when it runs low. Nothing is cached per concept.
+
+  muse-visualize --take N        pop N subjects: "subject<TAB>note<TAB>passage snippet"
+                                 (instant; spawns a background --fill when the bank is low)
+  muse-visualize --fill [N]      add N fresh subjects now (default 36, one model call)
+  muse-visualize --peek [N]      show the next N subjects without consuming them
+"""
+import glob, json, math, os, random, re, subprocess, sys, time
+
+HOME = os.path.expanduser("~")
+BANK = f"{HOME}/.cache/muse/visual-bank.jsonl"
+LOCK = f"{HOME}/.cache/muse/visual-bank.lock"
+LEGACY = f"{HOME}/.cache/muse/visual-lexicon.json"            # old per-concept cards: emergency fallback only
+LOG = "/tmp/muse-taste.log"
+VAULTS = [f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
+          f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault"]
+CODE_DIRS = [f"{HOME}/code", f"{HOME}/dev", f"{HOME}/projects"]
+SKIP = re.compile(r"/(\.obsidian|\.trash|_archive/old|templates?|attachments?)/", re.I)
+CLAUDE = next((p for p in (f"{HOME}/.claude/local/claude", f"{HOME}/.local/bin/claude", "/usr/local/bin/claude",
+                           "/opt/homebrew/bin/claude") if os.path.exists(p)), "claude")
+MODEL = os.environ.get("MUSE_VISUALIZE_MODEL", "claude-haiku-4-5-20251001")
+LOW_WATER, FILL_N = 24, 36
+
+# visual-metaphor moves (Forceville's pictorial metaphor + classic surrealist operations);
+# one is assigned per passage so a batch can't collapse into one idea
+MOVES = {
+    "hybrid": "fuse two things into ONE object",
+    "juxtaposition": "set two things side by side so they rhyme",
+    "replacement": "swap one part of a familiar scene for something unexpected",
+    "scale shift": "make something tiny enormous, or something vast fit in a hand",
+    "personification": "give an object or place the posture of a living creature",
+    "material swap": "build a familiar thing from a surprising material",
+    "landscape": "turn the idea into a place you could walk through",
+    "still life": "arrange 3-5 objects on a surface so they tell it",
+}
+
+# a DISTANT source domain per passage (the core metaphor trick: carry the idea's structure
+# into an unrelated world). Without it the model drew the note's own setting — desks,
+# papers, cables, archives (first fill, 2026-10-03).
+DOMAINS = ["tidepools", "beekeeping", "glaciers", "orchards", "railways", "mycelium and mushrooms",
+           "medieval cartography", "blacksmithing", "deep sea", "astronomy", "migrating birds",
+           "foxes and their dens", "weather and storms", "tailoring and thread", "lighthouses",
+           "desert geology", "coral reefs", "night markets", "rivers and dams", "insect architecture",
+           "radio towers in fields", "old observatories", "seed vaults", "kites and wind",
+           "salt flats", "cathedral stonework", "moss and forest floor", "harbors and ships",
+           "volcanoes", "bioluminescence", "clockwork", "falconry", "snowfields", "printing presses",
+           "greenhouses", "caves", "tide clocks", "rope bridges", "beetle shells", "comets"]
+BANNED = re.compile(r"\b(screens?|monitors?|dashboards?|interfaces?|UI|text|words?|letters?|logos?|"
+                    r"data|metadata|charts?|graphs?|code|software|apps?|computers?|laptops?|desks?|"
+                    r"papers?|documents?|files?|spreadsheets?|cables?|network|system|workflow)\b", re.I)
+
+PROMPT = """You translate passages from an artist's private notes into subjects for an AI image model.
+For EACH numbered passage: read what it is really about, then write ONE image subject (max 22
+words) that a painter could draw, using the visual-metaphor MOVE and the SOURCE DOMAIN assigned
+to it: find the passage's idea (its tension, structure or feeling) INSIDE that domain's world.
+Never depict the passage's own literal setting (no desks, papers, files, offices, cables, computers).
+Rules:
+- Concrete, physical, drawable nouns only: objects, materials, textures, creatures, places, weather, light.
+- Translate the IDEA, not the words: never quote the passage, no names of people/products/apps.
+- Never: letters, words, text, logos, numbers, screens, monitors, dashboards, interfaces, code,
+  or abstract words (system, data, intelligence, workflow, network-as-a-word).
+- No style words (no "oil painting", "photo", "cinematic"): style is added later.
+Return ONLY a JSON array of strings, one subject per passage, in order.
+"""
+
+
+def passages(n):
+    """n random (note title, passage) pairs from anywhere EJ writes — recent-weighted."""
+    files = []
+    for v in VAULTS:
+        files += [f for f in glob.glob(f"{v}/**/*.md", recursive=True) if not SKIP.search(f)]
+    for base in CODE_DIRS:
+        files += glob.glob(f"{base}/*/README*.md")
+    now = time.time(); weighted = []
+    for f in files:
+        try:
+            age_d = (now - os.path.getmtime(f)) / 86400
+            if os.path.getsize(f) < 400:
+                continue
+        except OSError:
+            continue
+        weighted.append((f, 0.25 + math.exp(-age_d / 45)))       # recent writing favored, archive never zero
+    out, seen = [], set()
+    tries = 0
+    while len(out) < n and weighted and tries < n * 12:
+        tries += 1
+        f = random.choices([w[0] for w in weighted], [w[1] for w in weighted])[0]
+        try:
+            t = open(f, encoding="utf-8", errors="ignore").read()
+        except OSError:
+            continue
+        t = re.sub(r"^---\n.*?\n---\n", "", t, flags=re.S)                     # frontmatter
+        t = re.sub(r"```.*?```", "", t, flags=re.S)                             # code
+        t = re.sub(r"\[\[([^\]|]+)(\|([^\]]+))?\]\]", lambda m: m.group(3) or m.group(1), t)
+        t = re.sub(r"!\[[^\]]*\]\([^)]*\)|https?://\S+", "", t)
+        paras = [" ".join(p.split()) for p in re.split(r"\n\s*\n", t)]
+        paras = [p for p in paras if len(p) > 140 and not p.startswith(("|", ">", "#"))]
+        if not paras:
+            continue
+        p = random.choice(paras)
+        key = (f, p[:60])
+        if key in seen:
+            continue
+        seen.add(key)
+        title = os.path.splitext(os.path.basename(f))[0]
+        if title.lower().startswith("readme"):
+            title = os.path.basename(os.path.dirname(f))
+        out.append((title, p[:600]))
+    return out
+
+
+def fill(n=FILL_N):
+    if os.path.exists(LOCK) and time.time() - os.path.getmtime(LOCK) < 900:
+        return 0
+    open(LOCK, "w").close()
+    try:
+        ps = passages(n)
+        if not ps:
+            return 0
+        moves = [random.choice(list(MOVES)) for _ in ps]
+        doms = random.sample(DOMAINS, min(len(ps), len(DOMAINS))) + random.choices(DOMAINS, k=max(0, len(ps) - len(DOMAINS)))
+        body = PROMPT + "\nPASSAGES:\n" + "\n".join(
+            f"{i + 1}. [move: {m} — {MOVES[m]}] [domain: {d}] {p}"
+            for i, ((_, p), m, d) in enumerate(zip(ps, moves, doms)))
+        try:
+            r = subprocess.run([CLAUDE, "-p", "--model", MODEL, body], capture_output=True, text=True,
+                               timeout=300, cwd="/tmp")                     # /tmp: no workspace settings
+            txt = r.stdout
+            arr = json.loads(txt[txt.index("["): txt.rindex("]") + 1])
+        except Exception as e:
+            open(LOG, "a").write(f"{time.strftime('%T')} muse-visualize: fill failed: {str(e)[:200]}\n")
+            return 0
+        made = time.strftime("%Y-%m-%dT%H:%M")
+        rows = [{"subject": s.strip(), "note": t, "passage": p[:160], "move": m, "domain": d, "made": made}
+                for s, (t, p), m, d in zip(arr, ps, moves, doms)
+                if isinstance(s, str) and len(s.strip()) > 12 and not BANNED.search(s)]   # hard filter
+        os.makedirs(os.path.dirname(BANK), exist_ok=True)
+        with open(BANK, "a") as fh:
+            for row in rows:
+                fh.write(json.dumps(row) + "\n")
+        open(LOG, "a").write(f"{time.strftime('%T')} muse-visualize: +{len(rows)} fresh subjects from {len(set(t for t, _ in ps))} notes\n")
+        return len(rows)
+    finally:
+        try: os.remove(LOCK)
+        except OSError: pass
+
+
+def read_bank():
+    try:
+        return [json.loads(l) for l in open(BANK) if l.strip()]
+    except (OSError, ValueError):
+        return []
+
+
+def take(k):
+    rows = read_bank()
+    random.shuffle(rows)                                          # don't drain in note order
+    got, rest = rows[:k], rows[k:]
+    tmp = BANK + ".part"
+    with open(tmp, "w") as fh:
+        for r in rest:
+            fh.write(json.dumps(r) + "\n")
+    os.replace(tmp, BANK)
+    if len(rest) < LOW_WATER:                                     # top up in the background
+        subprocess.Popen([sys.executable, __file__, "--fill"], stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+    if len(got) < k:                                              # empty bank + model down: old cards
+        try:
+            cards = json.load(open(LEGACY))
+            for c, card in random.sample(list(cards.items()), min(k - len(got), len(cards))):
+                got.append({"subject": random.choice(card["subjects"]), "note": c, "passage": "(fallback card)"})
+        except (OSError, ValueError):
+            pass
+    for r in got:
+        print(f"{r['subject']}\t{r['note']}\t{r.get('passage', '')}")
+
+
+if __name__ == "__main__":
+    a = sys.argv[1:]
+    if a[:1] == ["--take"]:
+        take(int(a[1]) if len(a) > 1 else 12)
+    elif a[:1] == ["--fill"]:
+        print(f"added {fill(int(a[1]) if len(a) > 1 else FILL_N)}")
+    elif a[:1] == ["--peek"]:
+        for r in read_bank()[: int(a[1]) if len(a) > 1 else 10]:
+            print(f"[{r.get('move', '')} · {r.get('domain', '')}] {r['subject']}   ← {r['note']}")
+    else:
+        print(__doc__); sys.exit(1)

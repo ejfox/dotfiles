@@ -945,9 +945,13 @@ PYEOF
       # Mine fresh organic motifs from your world each wall (fast, no model).
       # --trace carries "motif<TAB>which note/wikilink it came from" for the wall trace.
       MOTIF=(); MOTIF_SRC=()
-      while IFS=$'\t' read -r _m _s; do
-        [ -n "$_m" ] && { MOTIF+=("$_m"); MOTIF_SRC+=("${_s:-your Obsidian vault}"); }
-      done < <(muse-ingredients --trace 2>/dev/null)
+      # VISUAL TRANSLATION (2026-10-03, EJ: "translate the concepts in my notes into visual nouns
+      # and symbols" + "don't hard-code 60 concepts, creatively translate them out of the notes"):
+      # motifs are FRESH subjects muse-visualize wrote from random note PASSAGES (assigned metaphor
+      # move + distant source domain), consumed once each; the bank refills itself in the background.
+      while IFS=$'\t' read -r _m _note _pass; do
+        [ -n "$_m" ] && { MOTIF+=("$_m"); MOTIF_SRC+=("note '${_note}': ${_pass:0:90}"); }
+      done < <(muse-visualize --take "${MUSE_MOTIF_TAKE:-24}" 2>/dev/null)
       if [ "${#MOTIF[@]}" -lt 6 ]; then
         MOTIF=("${MOTIF_FALLBACK[@]}"); MOTIF_SRC=()
         for _f in "${MOTIF_FALLBACK[@]}"; do MOTIF_SRC+=("built-in fallback motif"); done

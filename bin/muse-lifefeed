@@ -102,7 +102,9 @@ def ask(items):
         "You are a paranoid surveillance scanner turning a person's RECENT life into oblique "
         "dream-images. For EACH numbered item, invent ONE vivid, strange image prompt that "
         "METAPHORICALLY refracts it — never literal, never quote their words, no text/letters "
-        "in the image. Dark-scanner mood: memory, self-surveillance, things half-seen. Output "
+        "in the image. Dark-scanner mood: memory, self-surveillance, things half-seen. Build each "
+        "from concrete things a painter could draw (objects, materials, creatures, places); avoid "
+        "screens, dashboards, interfaces and abstract words. Output "
         "EXACTLY one line per item, SAME ORDER, one sentence each. /no_think")
     body = json.dumps({"messages": [{"role": "system", "content": sysp},
                                     {"role": "user", "content": labeled}],
