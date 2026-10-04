@@ -21,13 +21,14 @@ resize-overlay = never
 
 font-family = MonaspiceKr Nerd Font
 font-family-italic = MonaspiceRn Nerd Font
-font-size = 22
+# phone-readable: ~34 columns in the 9:16 window, ~65 in the 16:9 one
+font-size = 34
 adjust-cell-height = -6%
 bold-is-bright = false
 
 # breathing room so text never touches the key edge (helps the key + the crop later)
-window-padding-x = 56
-window-padding-y = 40
+window-padding-x = 36
+window-padding-y = 36
 window-padding-balance = true
 window-padding-color = background
 

@@ -2,6 +2,7 @@
 # studio: a Ghostty on a pure-green key, for recording terminal demos to composite later.
 #   studio [open]     open STUDIO vertical 9:16 (Reels/Shorts/TikTok), centered on the portrait screen
 #   studio wide       same window, 16:9, centered on the main screen (YouTube)
+#   (sized to fit every connected screen, so it can be dragged anywhere without resizing)
 #   studio rec [sec]  record the window itself (.mov), wherever you move it; optional time limit
 #   studio stop       stop recording; prints the file
 #   studio place      snap the window back to its rect
@@ -31,7 +32,13 @@ compute_rect() {
     local f = scr:frame()
     local w, h = 1920, 1080
     if tall then w, h = 1080, 1920 end
-    local k = math.min(1, f.w / w, f.h / h); w, h = math.floor(w * k), math.floor(h * k)
+    -- the largest size (ratio kept) that fits on EVERY screen, so dragging it to another
+    -- monitor never resizes it (a resize would make the terminal reflow mid-take)
+    local k = 1
+    for _, s in ipairs(hs.screen.allScreens()) do
+      local sf = s:frame(); k = math.min(k, sf.w / w, sf.h / h)
+    end
+    w, h = math.floor(w * k), math.floor(h * k)
     return string.format('%d,%d,%d,%d', f.x + (f.w - w) // 2, f.y + (f.h - h) // 2, w, h)
   " 2>/dev/null | tail -1
 }

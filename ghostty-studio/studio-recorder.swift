@@ -55,6 +55,10 @@ final class Recorder: NSObject, SCRecordingOutputDelegate, SCStreamDelegate {
         config.width = Int(window.frame.width * scale) / 2 * 2      // even dimensions for the encoder
         config.height = Int(window.frame.height * scale) / 2 * 2
         config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+        // if the window changes size mid-take (dragged to a smaller screen, ratio kept by
+        // the lock), scale it into the same output frame instead of shrinking into a corner
+        config.scalesToFit = true
+        config.preservesAspectRatio = true
         config.colorSpaceName = CGColorSpace.sRGB   // keep the key at true #00ff00, not display-profiled
         config.backgroundColor = keyGreen   // rounded corners -> key, not black
         config.showsCursor = false
