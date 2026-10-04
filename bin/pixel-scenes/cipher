@@ -1,56 +1,28 @@
-#!/usr/bin/env bash
-# CIPHER's daily oracle output on the pixel canvas.
-# Picks one line from $CIPHER_CACHE/daily.txt (today's only), displays it big.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+#!/usr/bin/env python3
+"""cipher — one line of today's CIPHER oracle (cipher-daily writes
+~/.cache/cipher/daily.txt each morning). Yesterday's oracle never shows."""
+import os, random, re, sys, time
 
-CIPHER_CACHE="${CIPHER_CACHE:-$HOME/.cache/cipher}"
-FILE="$CIPHER_CACHE/daily.txt"
-DATE_FILE="$CIPHER_CACHE/daily.date"
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect, skip
 
-[ -s "$FILE" ] || exit 0
-# Only show if it's today's oracle (not yesterday's)
-[ -s "$DATE_FILE" ] && [ "$(cat "$DATE_FILE")" = "$(date +%Y-%m-%d)" ] || exit 0
+CACHE = os.environ.get("CIPHER_CACHE", os.path.expanduser("~/.cache/cipher"))
+try:
+    day = open(os.path.join(CACHE, "daily.date")).read().strip()
+    lines = [l for l in open(os.path.join(CACHE, "daily.txt")).read().splitlines() if l.strip()]
+except OSError:
+    skip("no cipher-daily output (needs ANTHROPIC_API_KEY in ~/.env)")
+if day != time.strftime("%Y-%m-%d") or not lines:
+    skip(f"cipher oracle is from {day or '?'}")
+line = re.sub(r"^\d+\.\s*", "", random.choice(lines))  # drop "1. " numbering
 
-# Pick a random non-empty line, strip leading "N. " numbering
-LINE=$(grep -v "^$" "$FILE" | shuf -n 1 | sed 's/^[0-9]\+\.[[:space:]]*//')
-[ -z "$LINE" ] && exit 0
-
-enc() { echo "$1" | sed 's/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
-
-# Word-wrap to ~18 chars/line (size 2 → ~26 px width but use 18 for breathing room)
-wrap_text() {
-  local s="$1" max="$2"
-  while [ -n "$s" ]; do
-    if [ ${#s} -le "$max" ]; then
-      echo "$s"; break
-    fi
-    local chunk="${s:0:$max}" cut_at
-    cut_at=$(echo "$chunk" | awk '{for(i=length;i>0;i--) if(substr($0,i,1)==" "){print i-1; exit}}')
-    [ -z "$cut_at" ] || [ "$cut_at" -eq 0 ] && cut_at=$max
-    echo "${s:0:$cut_at}"
-    s="${s:$cut_at}"
-    s="${s# }"
-  done
-}
-
-px "clear"
-
-# Geometric CIPHER mark in top-left (matches his ◆ aesthetic)
-px "circle?x=18&y=18&radius=5&color=hotpink"
-px "circle?x=18&y=18&radius=2&color=black"
-px "text?msg=cipher&x=32&y=15&color=mauve&size=1"
-
-# The line — up to 7 lines at size 2, starting y=55, line height 24
-LINE_Y=55
-COUNT=0
-while IFS= read -r row; do
-  [ -z "$row" ] && continue
-  px "text?msg=$(enc "$row")&x=15&y=${LINE_Y}&color=pink&size=2"
-  LINE_Y=$((LINE_Y + 24))
-  COUNT=$((COUNT + 1))
-  [ "$COUNT" -ge 7 ] && break
-done < <(wrap_text "$LINE" 22)
-
-# Bottom diamond accents
-px "circle?x=160&y=230&radius=3&color=dustrose"
+cv = connect()
+cv.clear()
+cv.circle(18, 18, 5, "hotpink")
+cv.circle(18, 18, 2, "black")
+cv.text("cipher", 32, 15, color="mauve")
+cv.beat(0.3)
+cv.para(line, 15, 55, size=2, color="pink", max_lines=7, line_h=24,
+        style="print", secs=9)  # the oracle comes off the printer like a receipt
+cv.circle(160, 230, 3, "dustrose")
+sys.exit(0 if cv.ok else 1)

@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""credits — the day's opening titles, three cards like a film open. Every
+billing is real: today's date, your Things list, the brief's next step, the
+machines at the door, yesterday's agent sessions, the words you spoke to the
+machine. Last card stays up until the rotation moves on."""
+import os, sys, time
+from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect
+from briefdata import brief, things
+from rhythm import events
+
+cv = connect()
+b, t = brief(), things()
+
+# yesterday's numbers ("previously")
+yday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+cl = [e for e in events("claude", 1) if e["_t"].astimezone().strftime("%Y-%m-%d") == yday]
+sessions = len({e.get("session") for e in cl})
+prompts = sum(1 for e in cl if e.get("event") == "UserPromptSubmit")
+talon = [e for e in events("talon", 1) if e.get("evt") == "phrase"
+         and e["_t"].astimezone().strftime("%Y-%m-%d") == yday]
+words = sum(int(e.get("words", 0)) for e in talon)
+
+today_n = len(t.get("today") or [])
+action = ((b.get("action") or {}).get("text") or "").removeprefix("→ today:").strip().lower()
+door = sum(1 for i in b.get("ips") or [] if i.get("hits", 0) >= 25)
+
+def card(lines, hold):
+    cv.clear()
+    y = 120 - sum(8 * s + 8 for _, s, _ in lines) // 2
+    for msg, size, color in lines:
+        cv.decode(msg, y=y, size=size, color=color, align="center", secs=1.2)
+        y += 8 * size + 8
+    time.sleep(hold)
+
+card([("room 302 studio", 1, "mauve"), ("presents", 1, "mauve")], 2.2)
+card([("ej fox", 3, "white"), ("in", 1, "mauve"),
+      (datetime.now().strftime("%A").lower(), 3, "hotpink"),
+      (datetime.now().strftime("%B %-d, %Y").lower(), 1, "dustrose")], 3.0)
+
+cv.clear()
+rows = []
+if today_n:
+    rows.append(("with", f"{today_n} things to do"))
+if action:
+    rows.append(("and", action))
+if door:
+    rows.append(("featuring", f"{door} machines at the door"))
+if sessions:
+    rows.append(("previously", f"{sessions} sessions, {prompts} prompts"))
+if words:
+    rows.append(("dialogue", f"{words} words spoken to machines"))
+rows.append(("location", "hudson valley, ny"))
+rows.append(("reel", f"claude/{yday}.jsonl"))
+y = 120 - len(rows) * 13
+for role, who in rows:
+    cv.text(role, x=118, y=y, color="mauve", align="right")
+    cv.decode(who, 126, y, color="body", max_w=190, secs=0.6)
+    y += 26
+sys.exit(0 if cv.ok else 1)

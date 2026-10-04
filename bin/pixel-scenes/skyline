@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""skyline — your code as a night city. One tower per repo you touched in the
+last 30 days (height = commits), a lit window per commit in the last 24h, the
+tallest lit tower wears a neon sign. The sky is the real sky over the Hudson
+Valley right now (sun altitude, real moon phase), and every agent working at
+this moment is a light crossing it."""
+import hashlib, math, os, random, sys, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, dot, mix
+from pixelfx import rect_dots
+from rhythm import git_by_repo, moon_phase, robots_working, sun_altitude
+
+repos = git_by_repo(30)  # slow (~5s of git) — gather before the glass clears
+cv = connect()
+rng = random.Random(time.strftime("%Y-%m-%d"))
+H_GROUND = 214
+
+def h8(s):
+    return int(hashlib.md5(s.encode()).hexdigest(), 16)
+
+# ── sky, from the real sun ──────────────────────────────────────────────
+alt = sun_altitude()
+if alt > 8:
+    top, bot, phase = (18, 52, 70), (60, 120, 130), "day"
+elif alt > -6:
+    top, bot, phase = (40, 16, 48), (196, 69, 105), "golden hour" if alt > 0 else "dusk"
+elif alt > -12:
+    top, bot, phase = (12, 8, 22), (60, 22, 52), "blue hour"
+else:
+    top, bot, phase = (0, 0, 0), (22, 10, 24), "night"
+cv.clear()
+sky = []  # banded gradient as a 4px dot grid, so it can dither in
+for i in range(12):
+    sky += rect_dots(0, i * 18, 320, 18, mix(top, bot, i / 11), s=4)
+cv.enter(sky, style="dither", secs=5)
+
+if phase in ("night", "blue hour"):  # the stars come out
+    stars = []
+    for _ in range(90):
+        x, y = rng.randrange(0, 320), rng.randrange(0, 150)
+        v = rng.choice((70, 110, 160))
+        stars.append(dot(x, y, (v, v, v + 20)))
+    cv.enter(stars, style="sparkle", secs=2.5)
+
+# ── towers: rise left to right, then the lit windows switch on ─────────
+names = sorted(repos, key=h8)[:16]
+n = max(len(names), 1)
+slot = 320 / n
+dark, lights, sign = [], [], None
+for i, name in enumerate(names):
+    c30, c24 = repos[name]
+    w = int(min(slot - 3, 12 + h8(name) % 14))
+    x = int(i * slot + (slot - w) / 2)
+    h = int(min(170, 26 + math.log(c30 + 1) * 30))
+    y = H_GROUND - h
+    cv.grow(x, y, w, h, rgb=(16, 10, 20), secs=0.25)
+    cv.rect(x, y, w, 1, rgb=(60, 34, 56))          # roofline
+    lit = c24 * 2
+    cells = [(cx, cy) for cy in range(y + 5, H_GROUND - 4, 6) for cx in range(x + 2, x + w - 2, 4)]
+    r2 = random.Random(name + time.strftime("%Y-%m-%d"))
+    r2.shuffle(cells)
+    glow = mix(VULPES["orange"], VULPES["hotpink"], (h8(name) % 100) / 100)
+    for k, (cx, cy) in enumerate(cells):
+        (lights if k < lit else dark).append(dot(cx, cy, glow if k < lit else (34, 24, 40), 2))
+    if c24 and (sign is None or h > sign[3]):
+        sign = (name, x, w, h)
+cv.batch(dark)
+rng.shuffle(lights)  # whole city, random order: people getting home
+cv.enter(lights, style="sparkle", secs=4)
+
+cv.rect(0, H_GROUND, 320, 240 - H_GROUND, rgb=(10, 6, 12))
+if sign:  # neon sign: the busiest-today tower + its latest commit hash
+    name, x, w, h = sign
+    sha = ""
+    try:
+        import subprocess
+        sha = subprocess.run(["git", "-C", os.path.expanduser(f"~/code/{name}"), "log", "--all", "-1",
+                              "--format=%h"], capture_output=True, text=True, timeout=3).stdout.strip()
+    except Exception:
+        pass
+    sx = max(68, min(252, x + w // 2))  # keep the sign on screen over edge towers
+    cv.beat(0.3)  # then the neon sign flickers on
+    sky_at = lambda y: mix(top, bot, min(11, max(0, y // 18)) / 11)  # the sign sits on sky
+    sy = H_GROUND - h - 20
+    cv.decode(name.lower(), x=sx, y=sy, color="hotpink", align="center", max_w=130,
+              secs=1.2, bg=sky_at(sy))
+    if sha:
+        cv.decode(f"@{sha}", x=sx, y=sy + 9, color="teal", align="center",
+                  secs=1.0, bg=sky_at(sy + 9))
+
+# ── the real moon, on the side away from the neon sign ──────────────────
+if phase in ("night", "blue hour"):
+    ph = moon_phase()
+    lit = 1 - abs(ph - 0.5) * 2          # 0 new … 1 full
+    mx = 46 if sign and sign[1] + sign[2] // 2 > 160 else 274
+    if lit > 0.04:
+        cv.circle(mx, 30, 13, "body")
+        off = int((1 - lit) * 26) * (1 if ph < 0.5 else -1)
+        if off:
+            cv.circle(mx - off, 30, 13, "black")
+
+# ── agents in the air ───────────────────────────────────────────────────
+for k in range(min(robots_working(), 12)):
+    ax, ay = rng.randrange(20, 300), rng.randrange(14, 120)
+    cv.line(ax - 10, ay + 2, ax - 2, ay, "dkteal")
+    cv.circle(ax, ay, 1, "teal" if k % 2 else "pink")
+
+lit_total = sum(v[1] for v in repos.values())
+cv.text(f"{len(repos)} towers  {lit_total} lit", 4, 226, color="mauve")
+cv.text(phase, y=226, color="dustrose", align="right")
+sys.exit(0 if cv.ok else 1)

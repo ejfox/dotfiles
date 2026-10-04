@@ -65,12 +65,13 @@ else:
         n = len(vals)
         bw = w / n
         pts = []
-        for i, v in enumerate(vals):
+        for i, v in enumerate(vals):  # marks land left to right
+            cv.beat(1.2 / n)
             bh = max(1, int((v - lo) / span * h))
             x = x0 + i * bw
             color = "hotpink" if i in hi else "teal"
             if kind == "bars":
-                cv.rect(x + 1, y0 + h - bh, max(1, bw - 2), bh, color=color)
+                cv.grow(x + 1, y0 + h - bh, max(1, bw - 2), bh, color=color, secs=0.08)
             else:
                 cx, cy = x + bw / 2, y0 + h - bh
                 if kind == "line" and pts:
@@ -81,6 +82,7 @@ else:
         if label:
             cv.text(label, x0, y0 + h + 4, color="dustrose", max_w=w)
     finding = s.get("finding") or s.get("slug", "")
+    cv.beat(0.3)
     if vals:
         for i, line in enumerate(whole_sentences(finding, 50, 3)):
             cv.text(line, 10, 160 + i * 12, color="body", max_w=300)

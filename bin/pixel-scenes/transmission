@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""transmission — something you actually said out loud to the machine (Talon
+dictation, last 14 days), decoded like an intercept: each line arrives as
+static, then resolves into your words. Picks a different phrase each hour;
+only phrases of 8+ words. Silent days show an empty band."""
+import os, random, string, sys, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect, wrap
+from rhythm import events
+
+cv = connect()
+# long phrases are real narration; short ones are mostly misheard commands
+phr = [e for e in events("talon", 14) if e.get("evt") == "phrase" and int(e.get("words", 0)) >= 12]
+cv.clear()
+cv.text("intercept", 6, 6, color="hotpink", size=2)
+
+if not phr:
+    cv.text("no transmissions in 14 days", y=116, color="dustrose", align="center")
+    sys.exit(0 if cv.ok else 1)
+
+rng = random.Random(time.strftime("%Y-%m-%d-%H"))
+e = rng.choice(phr[-40:])
+when = e["_t"].astimezone()
+cv.text(when.strftime("%a %b %-d  %H:%M").lower(), y=8, color="mauve", align="right")
+cv.text(f"source: your voice  via {e.get('app', '?').lower()}", 6, 28, color="dustrose")
+
+# signal bars = words in the phrase
+for k in range(min(int(e.get("words", 0)), 30)):
+    h = 3 + (k * 7 % 11)
+    cv.rect(6 + k * 4, 52 - h, 2, h, color="dkteal" if k % 3 else "teal")
+
+lines = wrap(e["text"].lower(), 25)[:7]
+size = 2 if len(lines) <= 7 else 1
+y = 64
+noise = string.ascii_lowercase + "#%&/\\|<>{}=+*"
+for ln in lines:
+    junk = "".join(rng.choice(noise) if ch != " " else " " for ch in ln)
+    cv.text(junk, 6, y, size=size, color="dkpink")
+    time.sleep(0.25)
+    cv.rect(0, y, 320, 8 * size, color="black")
+    cv.text(ln, 6, y, size=size, color="white")
+    y += 8 * size + 6
+cv.text(f"talon/{when.strftime('%Y-%m-%d')}.jsonl", 6, 228, color="mauve")
+cv.text("decoded", y=228, color="teal", align="right")
+sys.exit(0 if cv.ok else 1)

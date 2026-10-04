@@ -5,7 +5,7 @@ white tip = latest. Empty morning = bare center; shipping day = flower."""
 import math, os, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import VULPES, connect, hue_for, mix, sh
+from pixelkit import VULPES, connect, dot, hue_for, mix, sh
 
 cv = connect()
 CODE = os.path.expanduser("~/code")
@@ -29,7 +29,7 @@ C = 4.2 if n < 500 else 3.4
 cv.clear()
 cv.text("shipped today", 10, 15, color="mauve")
 
-dots, chunks = [], []
+dots = []
 for i, (ts, repo) in enumerate(commits):
     r = C * math.sqrt(i)
     a = i * GOLDEN
@@ -41,14 +41,8 @@ for i, (ts, repo) in enumerate(commits):
     if tip <= 3:
         col = mix(col, WHITE, (4 - tip) / 4.0)
     s = 4 if tip <= 10 else 3
-    dots.append({"x": x - s // 2, "y": y - s // 2, "s": s,
-                 "r": col[0], "g": col[1], "b": col[2]})
-    if len(dots) >= 80:
-        chunks.append(dots); dots = []
-if dots:
-    chunks.append(dots)
-for c in chunks:
-    cv.batch(c)
+    dots.append(dot(x - s // 2, y - s // 2, col, s))
+cv.enter(dots, style="implode", secs=12)  # the day's commits fly in and assemble the flower
 
 if n == 0:
     cv.text("nothing shipped yet", y=118, color="dustrose", align="center")

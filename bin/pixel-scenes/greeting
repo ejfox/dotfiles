@@ -1,34 +1,29 @@
-#!/usr/bin/env bash
-# Time-aware greeting. For MOTD / terminal opens.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+#!/usr/bin/env python3
+"""greeting — time-of-day hello, with a weekend tag."""
+import os, sys, time
 
-HOUR=$(date +%-H)
-DOW=$(date +%u)  # 1=Mon, 7=Sun
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect
 
-if [ "$HOUR" -lt 5 ]; then
-  MSG="up%20late"; ACCENT="ansiblue"
-elif [ "$HOUR" -lt 12 ]; then
-  MSG="morning"; ACCENT="orange"
-elif [ "$HOUR" -lt 17 ]; then
-  MSG="afternoon"; ACCENT="teal"
-elif [ "$HOUR" -lt 21 ]; then
-  MSG="evening"; ACCENT="hotpink"
-else
-  MSG="night"; ACCENT="ansiblue"
-fi
+now = time.localtime()
+h = now.tm_hour
+if h < 5:
+    msg, accent = "up late", "ansiblue"
+elif h < 12:
+    msg, accent = "morning", "orange"
+elif h < 17:
+    msg, accent = "afternoon", "teal"
+elif h < 21:
+    msg, accent = "evening", "hotpink"
+else:
+    msg, accent = "night", "ansiblue"
+weekend = {5: "saturday", 6: "sunday"}.get(now.tm_wday)
 
-# Sunday gets special weekend tag
-[ "$DOW" = "7" ] && SUB="sunday" || SUB=""
-[ "$DOW" = "6" ] && SUB="saturday"
-
-px "clear"
-# Big greeting
-px "text?msg=${MSG}&x=50&y=80&color=pink&size=4"
-# ej. underneath
-px "text?msg=ej.&x=140&y=140&color=${ACCENT}&size=3"
-# Weekend tag, small
-[ -n "$SUB" ] && px "text?msg=${SUB}&x=130&y=200&color=mauve&size=1"
-
-# Accent corner
-px "circle?x=300&y=20&radius=6&color=${ACCENT}"
+cv = connect()
+cv.clear()
+cv.circle(300, 20, 6, accent)
+cv.enter_text(msg, y=80, size=4, color="pink", align="center", style="sparkle", secs=7)
+cv.enter_text("ej.", y=140, size=3, color=accent, align="center", style="rain", secs=4)
+if weekend:
+    cv.type(weekend, y=200, color="mauve", align="center")
+sys.exit(0 if cv.ok else 1)

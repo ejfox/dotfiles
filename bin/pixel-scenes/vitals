@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""vitals — the operator's last 24 hours on a hospital monitor. Each beat is
+a prompt you sent an agent (10-minute bins); the line flatlines where the
+presence log says you were away. Header numbers are real: prompts in the
+last hour, hours awake, longest flatline."""
+import os, sys
+from datetime import datetime, timedelta, timezone
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, mix
+from rhythm import awake_hours, claude_last, events, since
+
+cv = connect()
+now = datetime.now(timezone.utc)
+BINS, BIN_MIN = 144, 10
+X0, X1, BASE = 8, 312, 150
+
+prompts = [e for e in claude_last(24) if e.get("event") == "UserPromptSubmit"]
+pres = since(events("presence", 2), 24)
+
+beats = [0] * BINS
+for e in prompts:
+    i = BINS - 1 - int((now - e["_t"]).total_seconds() // (BIN_MIN * 60))
+    if 0 <= i < BINS:
+        beats[i] += 1
+away = [True] * BINS
+for e in pres:
+    i = BINS - 1 - int((now - e["_t"]).total_seconds() // (BIN_MIN * 60))
+    if 0 <= i < BINS and e.get("idle_s", 9999) < 600:
+        away[i] = False
+for i, b in enumerate(beats):
+    if b:
+        away[i] = False
+
+# longest flatline
+best = cur = 0
+for a in away:
+    cur = cur + 1 if a else 0
+    best = max(best, cur)
+
+cv.clear()
+cv.decode("operator vitals", 6, 4, color="mauve", secs=0.8)
+last_hr = sum(1 for e in prompts if (now - e["_t"]).total_seconds() < 3600)
+cv.decode(str(last_hr), 8, 20, color="teal", size=4, secs=0.8)
+cv.text("prompts / last hr", 8 + len(str(last_hr)) * 24 + 6, 34, color="mauve")
+aw = awake_hours()
+cv.text(f"awake {aw:.0f}h" if aw is not None else "awake ?", y=20, color="body", align="right")
+cv.text(f"flatline {best * BIN_MIN // 60}h{best * BIN_MIN % 60:02d}", y=32, color="dustrose", align="right")
+
+# grid
+dots = []
+for gx in range(X0, X1, 13):
+    for gy in range(70, 216, 4):
+        dots.append({"x": gx, "y": gy, "s": 1, "r": 18, "g": 40, "b": 44})
+cv.enter(dots, style="crt", secs=3)  # the monitor powers on
+
+# the trace — sweeps left to right like a monitor, ending on now
+dots = []
+step = (X1 - X0) / BINS
+mx = max(beats + [1])
+green, dim = VULPES["teal"], (40, 70, 74)
+for i in range(BINS):
+    x = X0 + i * step
+    col = dim if away[i] else mix(green, VULPES["white"], 1.0 if i == BINS - 1 else 0.0)
+    if beats[i]:
+        amp = 12 + 56 * beats[i] / mx
+        pts = [(x, BASE), (x + step * .3, BASE - amp), (x + step * .55, BASE + amp * .35), (x + step, BASE)]
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            n = max(3, int(abs(by - ay) / 1.5))  # solid strokes, not dotted
+            for t in range(n):
+                f = t / n
+                dots.append({"x": int(ax + (bx - ax) * f), "y": int(ay + (by - ay) * f), "s": 2,
+                             "r": col[0], "g": col[1], "b": col[2]})
+    else:
+        for t in range(3):
+            dots.append({"x": int(x + step * t / 3), "y": BASE, "s": 2 if not away[i] else 1,
+                         "r": col[0], "g": col[1], "b": col[2]})
+cv.enter(dots, style="order", secs=10)
+cv.circle(X1, BASE, 3, "white")
+
+# hour ticks every 6h, local time
+for h in (24, 18, 12, 6):
+    t = (datetime.now() - timedelta(hours=h)).strftime("%-I%p").lower()
+    cv.text(t, x=max(18, int(X1 - h * 6 * step)), y=222, color="mauve", align="center")
+cv.text("now", y=222, color="teal", align="right")
+cv.text("usage-logs/claude + presence", y=4, color="mauve", align="right")
+sys.exit(0 if cv.ok else 1)

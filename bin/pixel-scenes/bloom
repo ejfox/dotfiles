@@ -4,7 +4,7 @@ golden-angle spiral: teal dawn shades to pink dusk, white tip = now."""
 import math, os, sys, time
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import VULPES, connect, mix
+from pixelkit import VULPES, connect, dot, mix
 
 cv = connect()
 TEAL, PINK, WHITE = VULPES["teal"], VULPES["pink"], VULPES["white"]
@@ -16,7 +16,8 @@ minutes = lt.tm_hour * 60 + lt.tm_min
 n_seeds = max(1, minutes // 2)
 
 cv.clear()
-dots, chunks = [], []
+cv.text("today", 10, 15, color="mauve")
+dots = []
 for n in range(n_seeds):
     r = C * math.sqrt(n)
     a = n * GOLDEN
@@ -28,16 +29,9 @@ for n in range(n_seeds):
     if tip <= 6:
         col = mix(col, WHITE, (7 - tip) / 7.0)
     s = 3 if tip <= 40 else 2
-    dots.append({"x": x - s // 2, "y": y - s // 2, "s": s,
-                 "r": col[0], "g": col[1], "b": col[2]})
-    if len(dots) >= 80:
-        chunks.append(dots); dots = []
-if dots:
-    chunks.append(dots)
-for c in chunks:
-    cv.batch(c)
+    dots.append(dot(x - s // 2, y - s // 2, col, s))
+cv.enter(dots, style="order", secs=14)  # the day replays from midnight out to now
 
-cv.text("today", 10, 15, color="mauve")
 cv.text(f"{lt.tm_hour:02d}:{lt.tm_min:02d}  {int(minutes / 1440 * 100)}%",
         10, 222, color="dustrose")
 

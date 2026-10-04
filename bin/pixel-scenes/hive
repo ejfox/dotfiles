@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""hive — the last 24 hours of your Claude sessions as a swarm. Each session
+is a node on a ring (size = events); its tool calls orbit it in teal, the
+subagents it spawned orbit further out in pink, failed tool calls are red.
+A session active in the last 10 minutes wears a white halo."""
+import hashlib, math, os, random, sys
+from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, hue_for
+from rhythm import claude_last
+
+cv = connect()
+ev = claude_last(24)
+now = datetime.now(timezone.utc)
+by = {}
+for e in ev:
+    by.setdefault(e.get("session") or "?", []).append(e)
+sess = sorted(by.items(), key=lambda kv: kv[1][0]["_t"])[-14:]
+
+CX, CY, RING = 160, 124, 78
+cv.clear()
+cv.text("the hive", 6, 4, color="mauve")
+
+dots = []
+rng = random.Random(len(ev))
+nodes = []
+for i, (sid, es) in enumerate(sess):
+    a = 2 * math.pi * i / max(len(sess), 1) - math.pi / 2
+    x, y = CX + RING * math.cos(a), CY + RING * 0.82 * math.sin(a)
+    tools = sum(1 for e in es if e.get("event") == "PostToolUse")
+    subs = sum(1 for e in es if e.get("event") == "SubagentStop")
+    fails = sum(1 for e in es if e.get("event") == "PostToolUseFailure")
+    size = 3 + min(9, int(math.log(len(es) + 1) * 1.6))
+    for kind, n, r0, col in (("tool", tools, size + 4, VULPES["teal"]),
+                             ("sub", subs, size + 12, VULPES["hotpink"]),
+                             ("fail", fails, size + 7, VULPES["red"])):
+        for _ in range(min(n, 70)):
+            ang = rng.uniform(0, 2 * math.pi)
+            rr = r0 + rng.uniform(0, 6)
+            px, py = int(x + rr * math.cos(ang)), int(y + rr * math.sin(ang))
+            if 12 <= py < 214:
+                dots.append({"x": px, "y": py, "s": 1 if kind == "tool" else 2,
+                             "r": col[0], "g": col[1], "b": col[2]})
+    live = (now - es[-1]["_t"]).total_seconds() < 600
+    cwd = os.path.basename((es[-1].get("cwd") or "").rstrip("/")) or "?"
+    nodes.append((x, y, size, live, sid, cwd, len(es)))
+cv.enter(dots, style="implode", secs=10)  # the swarm collapses onto its sessions
+for x, y, size, live, sid, cwd, n in nodes:
+    if live:
+        cv.circle(x, y, size + 2, "white")
+    cv.circle(x, y, size, "pink" if live else "dustrose")
+# lookup codes: session id + where it ran, for the live ones and the biggest
+tagged = sorted(nodes, key=lambda nd: (not nd[3], -nd[6]))[:5]
+for x, y, size, live, sid, cwd, n in tagged:
+    right = x > CX
+    tx = x + size + 16 if right else x - size - 16
+    cv.decode(sid[:8], x=int(tx), y=int(y) - 8, color="white" if live else "body", secs=0.7,
+            align="left" if right else "right", max_w=70)
+    cv.text(cwd.lower(), x=int(tx), y=int(y) + 1, color="mauve",
+            align="left" if right else "right", max_w=70)
+
+total = lambda k: sum(1 for e in ev if e.get("event") == k)
+hours = {}
+for e in ev:
+    h = e["_t"].astimezone().hour
+    hours[h] = hours.get(h, 0) + 1
+peak = max(hours, key=hours.get) if hours else None
+cv.text(f"{len(by)} sessions", x=CX, y=CY - 10, color="body", align="center")
+cv.text(f"{total('UserPromptSubmit')} prompts", x=CX, y=CY + 2, color="mauve", align="center")
+cv.text(f"{total('PostToolUse')} tools  {total('SubagentStop')} subagents  {total('PostToolUseFailure')} failed",
+        4, 228, color="mauve", max_w=230)
+if peak is not None:
+    cv.text(f"peak {peak:02d}:00", y=228, color="teal", align="right")
+sys.exit(0 if cv.ok else 1)

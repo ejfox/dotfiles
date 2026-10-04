@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""wilt — Things projects as a garden. Stem height = open to-dos, droop and
+fade = days since you last finished anything in it, a green bud = something
+done in the last 30 days. Reads the local things-bridge export (no network)."""
+import math, os, re, sys
+from datetime import datetime
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, mix
+from briefdata import things
+
+cv = connect()
+t = things()
+now = datetime.now()
+
+def days_since(s):
+    try:
+        return (now - datetime.strptime(s[:19], "%Y-%m-%d %H:%M:%S")).days
+    except Exception:
+        return 365
+
+def label(title):
+    return re.sub(r"[^\x20-\x7e]", "", title).strip().lower() or "?"
+
+projects = [p for p in (t.get("projects") or []) if p.get("open", 0) >= 2][:10]
+projects.sort(key=lambda p: label(p["title"]))
+n = len(projects)
+BASE = 196
+
+cv.clear()
+cv.text("goals", 6, 4, color="mauve")
+
+dots, buds, worst, never = [], [], None, 0
+slot = (304 / max(n, 1))
+for i, p in enumerate(projects):
+    has_done = bool(p.get("last_done"))
+    d = days_since(p.get("last_done") or "")
+    if not has_done:
+        never += 1
+    elif p.get("open", 0) >= 5 and (worst is None or d > worst[1]):
+        worst = (label(p["title"]), d)
+    h = 24 + min(p.get("open", 0), 30) * 4.5
+    # upright stem that only bends near the top: a wilt, not an arch
+    droop = math.radians(min(d, 180) / 180 * 75)
+    col = mix(VULPES["teal"], VULPES["dustrose"], min(1.0, d / 120))
+    x, y, ang = 8 + slot * (i + 0.5), float(BASE), 0.0
+    steps = int(h / 2)
+    lean = 1  # one wind direction, so it reads as a field and not arches
+    for s in range(steps):
+        ang = droop * (s / steps) ** 4 * lean
+        x += 2 * math.sin(ang)
+        y -= 2 * math.cos(ang)
+        dots.append({"x": int(x), "y": int(y), "s": 2, "r": col[0], "g": col[1], "b": col[2]})
+    tip = (x, y)
+    if p.get("done30", 0) > 0:
+        buds.append(tip)  # bloom after the stems have grown
+    else:
+        dots.append({"x": int(tip[0]) - 1, "y": int(tip[1]) - 1, "s": 3,
+                     "r": col[0], "g": col[1], "b": col[2]})
+    lbl = label(p["title"])[: max(3, int(slot // 6))]
+    cv.text(lbl, x=int(8 + slot * (i + 0.5)), y=BASE + 6, color="body" if d < 30 else "mauve", align="center", max_w=int(slot))
+cv.enter(dots, style="rise", secs=8)  # the whole field grows at once
+for bx, by in buds:
+    cv.circle(bx, by, 4, "green")
+    cv.beat(0.15)
+
+if not projects:
+    cv.text("no things export yet", y=116, color="dustrose", align="center")
+else:
+    msg = f"{worst[0]}: {worst[1]}d since done" if worst else ""
+    if never:
+        msg += f"{' · ' if msg else ''}{never} never finished"
+    cv.text(msg, 6, 228, color="dustrose", max_w=230)
+wk = t.get("completions_by_week") or []
+if wk:
+    cv.text(" ".join(str(w["done"]) for w in wk[-4:]), y=228, color="teal", align="right")
+sys.exit(0 if cv.ok else 1)

@@ -1,34 +1,17 @@
-#!/usr/bin/env bash
-# Generative drifting dot field. Pure ambient art, no info.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+#!/usr/bin/env python3
+"""ambient-dots — vulpes squares falling out of the sky and settling where
+they land. Pure ambient art, no info."""
+import os, random, sys
 
-px "clear"
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, dot
 
-# Build a batch of ~40 dots in vulpes palette
-COLORS=(
-  "230,0,103"      # pink
-  "110,237,247"    # teal
-  "115,88,101"     # mauve
-  "196,69,105"     # dustrose
-  "168,123,181"    # ansiblue
-  "94,196,196"     # ansicyan
-)
+MAUVE = (0x73, 0x58, 0x65)
+COLORS = [VULPES[c] for c in ("pink", "teal", "dustrose", "ansiblue", "ansicyan")] + [MAUVE]
 
-JSON="["
-FIRST=1
-for i in $(seq 1 45); do
-  X=$((RANDOM % 300 + 10))
-  Y=$((RANDOM % 220 + 10))
-  S=$(( (RANDOM % 6) + 2 ))
-  C="${COLORS[$((RANDOM % ${#COLORS[@]}))]}"
-  R=$(echo "$C" | cut -d, -f1)
-  G=$(echo "$C" | cut -d, -f2)
-  B=$(echo "$C" | cut -d, -f3)
-  [ $FIRST -eq 0 ] && JSON="${JSON},"
-  JSON="${JSON}{\"x\":${X},\"y\":${Y},\"r\":${R},\"g\":${G},\"b\":${B},\"s\":${S}}"
-  FIRST=0
-done
-JSON="${JSON}]"
-
-px_batch "$JSON"
+cv = connect()
+cv.clear()
+cv.enter([dot(random.randrange(10, 310), random.randrange(10, 230),
+              random.choice(COLORS), s=random.randrange(2, 8)) for _ in range(45)],
+         style="rain", secs=12)
+sys.exit(0 if cv.ok else 1)

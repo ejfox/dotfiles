@@ -38,7 +38,8 @@ cv.clear()
 cv.text("sent this morning", 10, 16, color="mauve")
 
 # the number, as big as it'll go
-cv.text(str(count), y=52, size=8, color=color, align="center")
+cv.enter_text(str(count), y=52, size=8, color=color, align="center",
+              style="glitch", secs=6)  # the count tears in, unstable, then locks
 cv.text(flavor, y=150, color=color, align="center")
 
 # a row of ticks, one per email (cap the row so it never overflows)
@@ -46,7 +47,8 @@ if count:
     shown = min(count, 12)
     step = 300 // max(shown, 1)
     x0 = (320 - step * (shown - 1)) // 2 if shown > 1 else 160
-    for i in range(shown):
+    for i in range(shown):  # counted up, one tick per email
+        cv.beat(0.3)
         cv.rect(x0 + i * step - 3, 178, 6, 6, color=color)
 
 cv.rect(10, 200, 300, 1, color="dustrose")

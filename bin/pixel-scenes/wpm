@@ -1,35 +1,23 @@
-#!/usr/bin/env bash
-# Typing flex: best WPM, recent test, # of tests
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
-command -v jq >/dev/null || exit 0
+#!/usr/bin/env python3
+"""wpm — Monkeytype flex: best WPM huge, average + test count below."""
+import os, sys
 
-CACHE=$(~/.dotfiles/bin/pixel-scenes/.stats-fetch) || exit 0
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect, skip
+from sitestats import dig, stats
 
-BEST=$(jq -r '.monkeyType.typingStats.bestWPM // 0' "$CACHE")
-AVG=$(jq -r '.monkeyType.typingStats.averageWpm // 0' "$CACHE")
-TESTS=$(jq -r '.monkeyType.typingStats.testsCompleted // 0' "$CACHE")
-RECENT=$(jq -r '.monkeyType.typingStats.recentTests[0].wpm // 0' "$CACHE")
+t = dig(stats(), "monkeyType", "typingStats") or {}
+best = round(float(t.get("bestWPM") or 0))
+if not best:
+    skip("no monkeytype stats")
 
-[ "$BEST" = "0" ] || [ "$BEST" = "null" ] && exit 0
-
-# Round to int
-BEST_INT=$(printf "%.0f" "$BEST")
-AVG_INT=$(printf "%.0f" "$AVG")
-RECENT_INT=$(printf "%.0f" "$RECENT")
-
-enc() { echo "$1" | sed 's/ /%20/g'; }
-
-px "clear"
-# Label
-px "text?msg=best%20wpm&x=10&y=15&color=mauve&size=1"
-
-# THE NUMBER. Huge.
-px "text?msg=${BEST_INT}&x=80&y=70&color=pink&size=8"
-
-# Stats row at bottom
-px "text?msg=$(enc "avg ${AVG_INT}")&x=20&y=200&color=teal&size=2"
-px "text?msg=$(enc "${TESTS} tests")&x=180&y=200&color=teal&size=2"
-
-# Hairline
-px "rect?x=10&y=185&w=300&h=1&color=dustrose"
+cv = connect()
+cv.clear()
+cv.text("best wpm", 10, 15, color="mauve")
+cv.grow(10, 185, 300, 1, color="dustrose", frm="left")
+# the number rains down in MICR E-13B, the magnetic-ink digits on a check
+cv.enter_text(str(best), y=60, size=5, color="pink", align="center", font="micr",
+              style="rain", secs=10)
+cv.type(f"avg {round(float(t.get('averageWpm') or 0))}", 20, 200, size=2, color="teal")
+cv.type(f"{t.get('testsCompleted') or 0} tests", 180, 200, size=2, color="teal")
+sys.exit(0 if cv.ok else 1)

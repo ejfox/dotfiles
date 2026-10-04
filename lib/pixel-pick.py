@@ -21,6 +21,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 SCENES_DIR = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser(
     "~/.dotfiles/bin/pixel-scenes")
@@ -95,32 +96,55 @@ def brief_boosts():
     return out
 
 
+def log_pick(scene, weights, why):
+    """One line per pick in the pixel usage-log stream: what won, its share of
+    the tickets, and which signals boosted it. `pixel log` reads these."""
+    total = sum(weights.values()) or 1.0
+    top = sorted(weights.items(), key=lambda kv: -kv[1])[:5]
+    e = {"ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+         "src": "pixel", "evt": "pick", "scene": scene,
+         "odds": round(weights.get(scene, 0) / total, 3),
+         "why": why.get(scene, []),
+         "top": {s: round(w, 1) for s, w in top}}
+    d = os.environ.get("PIXEL_LOG_DIR") or os.path.join(HOME, ".local/share/usage-logs/pixel")
+    try:
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, time.strftime("%Y-%m-%d") + ".jsonl"), "a") as f:
+            f.write(json.dumps(e) + "\n")
+    except OSError:
+        pass
+
+
 def main():
     pool = scenes()
     if not pool:
         return
     hour = time.localtime().tm_hour
     weights = {s: 1.0 for s in pool}  # base ticket each
+    why = {}
+
+    def boost(s, n, reason):
+        if s in weights:
+            weights[s] += n
+            why.setdefault(s, []).append(f"{reason} +{n:g}")
 
     # time of day
-    for s, boost in time_affinity(hour).items():
-        if s in weights:
-            weights[s] += boost
+    for s, n in time_affinity(hour).items():
+        boost(s, n, "time")
 
     # the brief's facts: new scanners, someone found you, silent goals, old blocks
-    for s, boost in brief_boosts().items():
-        if s in weights:
-            weights[s] += boost
+    for s, n in brief_boosts().items():
+        boost(s, n, "brief")
 
     # an agent needs you -> pull up the fleet
     counts = sh([os.path.join(HOME, ".dotfiles/bin/robots"), "-t"])
-    if "◇" in counts and "fleet" in weights:
+    if "◇" in counts:
         try:
             needs = int(counts.split("◇")[1].split()[0].lstrip("◆●"))
         except Exception:
             needs = 1
         if needs > 0:
-            weights["fleet"] += 8  # loud signal, wins most of the time
+            boost("fleet", 8, f"{needs} agent needs you")  # loud signal, wins most of the time
 
     # chart-desk making slot is open (from slot start until `desk shipped`) -> the bench
     # takes over. Louder than fleet; the never-repeat rule still interleaves others.
@@ -128,8 +152,8 @@ def main():
         with open(os.path.join(HOME, ".local/state/chart-desk/bench.json")) as f:
             b = json.load(f)
         if b.get("date") == time.strftime("%Y-%m-%d") and b.get("dir") and not b.get("shipped_today") \
-                and time.strftime("%H:%M") >= b.get("slot_start", "09:00") and "bench" in weights:
-            weights["bench"] += 12
+                and time.strftime("%H:%M") >= b.get("slot_start", "09:00"):
+            boost("bench", 12, "making slot open")
     except Exception:
         pass
 
@@ -137,17 +161,15 @@ def main():
     try:
         with open(os.path.join(HOME, ".local/state/pixel/email.json")) as f:
             d = json.load(f)
-        if d.get("date") == time.strftime("%Y-%m-%d") and int(d.get("count", 0)) > 0 \
-                and "email" in weights:
-            weights["email"] += 3
+        if d.get("date") == time.strftime("%Y-%m-%d") and int(d.get("count", 0)) > 0:
+            boost("email", 3, f"{d['count']} sent today")
     except Exception:
         pass
 
     # music playing -> now-playing (process check only, never launches an app)
     if "now-playing" in weights:
-        procs = sh(["pgrep", "-x", "Spotify"]) or sh(["pgrep", "-x", "Music"])
-        if procs:
-            weights["now-playing"] += 3
+        if sh(["pgrep", "-x", "Spotify"]) or sh(["pgrep", "-x", "Music"]):
+            boost("now-playing", 3, "music app open")
 
     # .favorites bonus tickets (existing mechanism)
     fav = os.path.join(SCENES_DIR, ".favorites")
@@ -155,12 +177,12 @@ def main():
         try:
             for line in open(fav):
                 line = line.strip()
-                if line and not line.startswith("#") and line in weights:
-                    weights[line] += 1.5
+                if line and not line.startswith("#"):
+                    boost(line, 1.5, "favorite")
         except OSError:
             pass
 
-    # never repeat the immediately-previous scene
+    # never repeat the immediately-previous scene (or the one that just skipped)
     try:
         last = open(LAST_FILE).read().strip()
         if last in weights and len(weights) > 1:
@@ -182,6 +204,7 @@ def main():
             f.write(pick)
     except OSError:
         pass
+    log_pick(pick, weights, why)
     print(pick)
 
 

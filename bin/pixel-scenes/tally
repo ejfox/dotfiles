@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""tally — every kanban card blocked on you, one prison-wall tally mark per
+day it has waited (four strokes and a slash per five). Rotating one token
+takes a whole row off the wall. Reads ~/.local/state/pixel/brief.json."""
+import os, sys
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, mix
+from briefdata import brief, stamp
+
+cv = connect()
+b = brief()
+cards = sorted(b.get("kanban_blocked") or [], key=lambda c: -c.get("days", 0))[:4]
+
+X0, X1 = 8, 312
+MARK_H, PITCH, GROUP_GAP, ROW_H = 7, 3, 5, 10
+GROUP_W = 4 * PITCH + GROUP_GAP
+
+cv.clear()
+cv.text("blocked on you", 6, 4, color="mauve")
+total = sum(c.get("days", 0) for c in cards)
+cv.text(f"{total} days waiting", y=4, color="dustrose", align="right")
+
+dots, y = [], 22
+for c in cards:
+    days = int(c.get("days", 0))
+    col = mix(VULPES["dustrose"], VULPES["pink"], min(1.0, days / 120))
+    cv.text(f"{days}d", 6, y, color="pink" if days >= 90 else "body")
+    cv.text(c.get("title", "").lower(), 34, y, color="body")
+    y += 12
+    x, n = X0, 0
+    while n < days:
+        g = min(5, days - n)
+        for k in range(min(g, 4)):  # verticals
+            for dy in range(MARK_H):
+                dots.append({"x": x + k * PITCH, "y": y + dy, "s": 1,
+                             "r": col[0], "g": col[1], "b": col[2]})
+        if g == 5:  # the slash across the four
+            for dy in range(MARK_H):
+                dots.append({"x": x - 1 + int(dy * (3 * PITCH + 2) / (MARK_H - 1)),
+                             "y": y + MARK_H - 1 - dy, "s": 1,
+                             "r": col[0], "g": col[1], "b": col[2]})
+        n += g
+        x += GROUP_W
+        if x + GROUP_W > X1 and n < days:
+            x = X0
+            y += ROW_H
+    y += ROW_H + 8
+cv.enter(dots, style="order", secs=10)  # counted out, mark by mark
+
+if not cards:
+    cv.text("nothing blocked on you", y=116, color="teal", align="center")
+cv.text(stamp(b), y=228, color="mauve", align="right")
+sys.exit(0 if cv.ok else 1)

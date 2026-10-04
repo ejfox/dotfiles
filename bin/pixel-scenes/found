@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""found — who found you: stars, forks, new referring sites and mentions as
+bright stars over a dim sky that's seeded by the date (same sky all day).
+A quiet day is an honestly empty sky. Reads ~/.local/state/pixel/brief.json."""
+import hashlib, math, os, random, sys, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect
+from briefdata import brief, stamp
+
+cv = connect()
+b = brief()
+f = b.get("found") or {}
+rng = random.Random(time.strftime("%Y-%m-%d"))
+
+cv.clear()
+cv.text("found you", 6, 4, color="mauve")
+
+# dim background sky
+dots = [{"x": rng.randrange(0, 320), "y": rng.randrange(16, 214), "s": 1,
+         "r": 70, "g": 50, "b": 62} for _ in range(140)]
+# each search visit = a faint teal speck
+for _ in range(min(int(f.get("search_visits") or 0), 60)):
+    dots.append({"x": rng.randrange(0, 320), "y": rng.randrange(16, 214), "s": 1,
+                 "r": 60, "g": 140, "b": 150})
+cv.enter(dots, style="sparkle", secs=6)  # the sky comes out, then who found you
+
+def place(key):
+    n = int(hashlib.md5(key.encode()).hexdigest(), 16)
+    return 20 + n % 280, 24 + (n // 280) % 180
+
+events = []
+for s in f.get("stars") or []:
+    events.append(("teal", f"star {s.get('user','?')} > {s.get('repo','')}", s.get("url", "")))
+for s in f.get("forks") or []:
+    events.append(("pink", f"fork {s.get('user','?')} > {s.get('repo','')}", s.get("url", "")))
+for r in f.get("referrers_new") or []:
+    events.append(("cyan", f"link from {r.get('domain','?')}", r.get("domain", "")))
+for m in f.get("mentions") or []:
+    events.append(("white", f"{m.get('source','')}: {m.get('title','')}", m.get("url", "")))
+
+for color, label, key in events:
+    x, y = place(key or label)
+    cv.circle(x, y, 3, color)
+    cv.line(x - 6, y, x + 6, y, color)
+    cv.line(x, y - 6, x, y + 6, color)
+
+ly = 228 - 10 * min(len(events), 4)
+for color, label, _ in events[:4]:
+    cv.rect(6, ly + 1, 5, 5, color=color)
+    cv.decode(label.lower(), 14, ly, color="body", max_w=300, secs=0.9)
+    ly += 10
+
+if not events:
+    cv.text("nobody new found you today", y=104, color="dustrose", align="center")
+    bits = []
+    if f.get("forks_7d") is not None:
+        bits.append(f"{f['forks_7d']} fork 7d")
+    if f.get("stars_7d") is not None:
+        bits.append(f"{f['stars_7d']} stars 7d")
+    if f.get("search_visits") is not None:
+        bits.append(f"{f['search_visits']} searches")
+    cv.text("  ".join(bits), y=118, color="mauve", align="center")
+dsp = f.get("days_since_post")
+if dsp is not None:
+    cv.text(f"{dsp}d since last post", y=4, color="pink" if dsp > 60 else "teal", align="right")
+else:
+    cv.text(stamp(b), y=4, color="mauve", align="right")
+sys.exit(0 if cv.ok else 1)

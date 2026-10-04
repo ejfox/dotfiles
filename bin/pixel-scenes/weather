@@ -1,35 +1,24 @@
-#!/usr/bin/env bash
-# Pull weather from wttr.in. Show temp + condition icon-ish.
-set -u
-: "${PIXEL_BASE:?must be invoked via pixel wrapper}"
+#!/usr/bin/env python3
+"""weather — temperature + condition from wttr.in, accent colored by sky."""
+import os, re, sys
 
-# wttr format: "+47°F Clear"
-W=$(curl -s --connect-timeout 2 --max-time 4 "wttr.in/?format=%t+%C" 2>/dev/null)
-[ -z "$W" ] && exit 0
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import connect, fetch, skip
 
-TEMP=$(echo "$W" | awk '{print $1}' | tr -d '+°FfCc')
-COND=$(echo "$W" | cut -d' ' -f2-)
-[ -z "$TEMP" ] && exit 0
+raw = fetch("https://wttr.in/?format=%t+%C", timeout=4) or skip("wttr.in unreachable")  # "+69°F Sunny"
+m = re.match(r"\s*([+-]?\d+)\s*°?[FC]?\s+(.+)", raw)
+if not m:
+    skip(f"wttr.in said {raw[:40]!r}")
+temp, cond = m.group(1).lstrip("+"), m.group(2).strip().lower()
 
-# Pick accent color by condition
-COLOR="teal"
-echo "$COND" | grep -iq "sun\|clear" && COLOR="orange"
-echo "$COND" | grep -iq "rain\|drizz\|shower" && COLOR="ansiblue"
-echo "$COND" | grep -iq "snow\|ice" && COLOR="cyan"
-echo "$COND" | grep -iq "cloud\|overcast" && COLOR="mauve"
-echo "$COND" | grep -iq "fog\|mist" && COLOR="ansicyan"
-echo "$COND" | grep -iq "storm\|thunder" && COLOR="hotpink"
+ACCENTS = [("storm|thunder", "hotpink"), ("fog|mist", "ansicyan"),
+           ("cloud|overcast", "mauve"), ("snow|ice", "cyan"),
+           ("rain|drizz|shower", "ansiblue"), ("sun|clear", "orange")]
+color = next((c for pat, c in ACCENTS if re.search(pat, cond)), "teal")
 
-px "clear"
-
-# Big temp
-px "text?msg=${TEMP}F&x=80&y=70&color=pink&size=5"
-
-# Condition word in accent color, lowercased
-COND_LOWER=$(echo "$COND" | tr '[:upper:]' '[:lower:]' | tr -d ',;')
-# Truncate to 20 chars, then URL-encode spaces
-COND_TRUNC=$(echo "$COND_LOWER" | cut -c1-20 | sed 's/[[:space:]]*$//; s/ /%20/g')
-px "text?msg=${COND_TRUNC}&x=80&y=160&color=${COLOR}&size=2"
-
-# Decorative circle as 'sun/moon/cloud' indicator
-px "circle?x=40&y=120&radius=14&color=${COLOR}"
+cv = connect()
+cv.clear()
+cv.circle(40, 120, 14, color)
+cv.enter_text(f"{temp}F", 80, 70, size=5, color="pink", style="dither", secs=8)
+cv.type(re.sub(r"[,;]", "", cond), 80, 160, size=2, color=color, per_word=0.25)
+sys.exit(0 if cv.ok else 1)

@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""held — what the brief's filters kept away from you today, so the silence
+is visible: one row per filter, a dot per item held back, and why.
+Reads ~/.local/state/pixel/brief.json."""
+import os, sys
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect
+from briefdata import brief, stamp
+
+cv = connect()
+b = brief()
+held = sorted(b.get("held") or [], key=lambda h: -h.get("count", 0))[:9]
+
+cv.clear()
+cv.text("held back", 6, 4, color="mauve")
+total = sum(h.get("count", 0) for h in held)
+cv.text(f"{total} things kept quiet", y=4, color="dustrose", align="right")
+
+dots, y = [], 24
+for h in held:
+    n = int(h.get("count", 0))
+    cv.text(h.get("filter", "?").lower(), 6, y, color="body", max_w=64)
+    for k in range(min(n, 30)):
+        dots.append({"x": 74 + k * 5, "y": y + 2, "s": 3,
+                     "r": VULPES["dustrose"][0], "g": VULPES["dustrose"][1], "b": VULPES["dustrose"][2]})
+    if n > 30:
+        cv.text(f"+{n - 30}", 226, y, color="mauve")
+    cv.text((h.get("reason") or "").lower(), 74, y + 10, color="mauve", max_w=240)
+    y += 23
+cv.enter(dots, style="scanline", secs=6)  # the filters' catch, scanned in
+
+if not held:
+    cv.text("nothing held back", y=116, color="teal", align="center")
+cv.text(stamp(b), y=228, color="mauve", align="right")
+sys.exit(0 if cv.ok else 1)

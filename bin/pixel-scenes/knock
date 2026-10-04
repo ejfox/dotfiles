@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""knock — who hit the server 25+ times in the last day, as a radar.
+Angle = owning network (same ASN, same bearing, so a provider sending two IPs
+lands as a pair), closer to center = more hits, pink = secret-hunting scanner,
+teal = a real visitor, hotpink ring = honeypot regular, white core = new this
+week. Reads ~/.local/state/pixel/brief.json (the VPS brief's facts)."""
+import math, os, sys
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import VULPES, connect, mix
+from briefdata import brief, ring, stamp
+import hashlib
+
+cv = connect()
+b = brief()
+ips = b.get("ips") or []
+CX, CY, R = 108, 126, 100
+DK = (26, 61, 66)
+
+def bearing(ip):
+    key = ip.get("asn") or ip.get("org") or ip["ip"]
+    return int(hashlib.md5(key.encode()).hexdigest(), 16) % 360
+
+cv.clear()
+cv.text("knocking", 6, 4, color="mauve")
+cv.text(f"{sum(1 for i in ips if i.get('hits', 0) >= 25)} ips >=25 hits", y=4, color="dustrose", align="right")
+
+dots = []
+for r in (R // 3, 2 * R // 3, R):
+    dots += ring(CX, CY, r, DK, step_deg=5)
+for a in (0, 90, 180, 270):  # crosshair ticks
+    for k in range(4, R, 6):
+        x, y = int(CX + k * math.cos(math.radians(a))), int(CY + k * math.sin(math.radians(a)))
+        dots.append({"x": x, "y": y, "s": 1, "r": DK[0], "g": DK[1], "b": DK[2]})
+cv.enter(dots, style="spiral", secs=4)  # the scope powers up
+
+loud = [i.get("hits", 0) for i in ips if i.get("hits", 0) >= 25]
+lo, hi = math.log(min(loud or [25])), math.log(max(loud or [26]))
+span = max(hi - lo, 0.01)
+per_blip = 5.0 / max(len(ips), 1)
+for ip in sorted(ips, key=bearing):  # the sweep finds them clockwise
+    cv.beat(per_blip)
+    hits = max(1, ip.get("hits", 1))
+    if hits >= 25:  # loudest at the center, quietest of the 25+ near the rim
+        k = (math.log(hits) - lo) / span
+        dist = 16 + (1 - k) * (R - 30)
+        size = 3 + int(4 * k)
+    else:           # honeypot regulars etc: few hits, ride the outer ring
+        dist, size = R, 3
+    a = math.radians(bearing(ip))
+    x, y = CX + dist * math.cos(a), CY + dist * math.sin(a)
+    if ip.get("honeypot"):
+        cv.circle(x, y, size + 3, "hotpink")
+        cv.circle(x, y, size + 1, "black")
+    cv.circle(x, y, size, "teal" if ip.get("kind") == "visitor" else "pink")
+    if ip.get("new") and ip.get("kind") != "visitor":
+        cv.circle(x, y, 1, "white")
+
+# legend: the loudest scanners, what they wanted
+cv.beat(0.3)
+ly = 22
+scanners = [i for i in ips if i.get("kind") == "scanner" and not i.get("honeypot")]
+for ip in sorted(scanners, key=lambda i: -i.get("hits", 0))[:4]:
+    # "OMEGATECH-AS - Omegatech LTD, SC" → "omegatech ltd"
+    org = (ip.get("org") or ip["ip"]).split(" - ")[-1].split(",")[0].lower()
+    cc = f" {ip['cc'].lower()}" if ip.get("cc") else ""
+    cv.rect(214, ly + 1, 5, 5, color="pink")
+    cv.decode(f"{ip['hits']} {org}{cc}", 222, ly, color="body", max_w=95, secs=0.6)
+    path = (ip.get("paths") or [""])[0]
+    cv.text(path, 222, ly + 10, color="dustrose", max_w=95)
+    ly += 26
+for h in (b.get("honeypot_repeats") or [])[:2]:
+    cv.rect(214, ly + 1, 5, 5, color="hotpink")
+    uas = ">".join(u.lower() for u in h.get("uas", [])[:2])
+    cv.text(f"{h['ip']} {h['count']}x", 222, ly, color="body", max_w=95)
+    if uas:
+        cv.text(uas, 222, ly + 10, color="dustrose", max_w=95)
+    ly += 26 if uas else 14
+
+if not ips:
+    cv.text("no facts yet", x=CX, y=CY - 4, color="dustrose", align="center")
+f2b = b.get("fail2ban_banned")
+cv.text(f"f2b {f2b} banned" if f2b is not None else "", 6, 228, color="mauve")
+cv.text(stamp(b), y=228, color="mauve", align="right")
+sys.exit(0 if cv.ok else 1)

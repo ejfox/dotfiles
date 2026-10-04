@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""action — today's one 10-minute next step from the morning brief, big, with
+a bar of the hours left before the 21:00 wind-down brief. Reads
+~/.local/state/pixel/brief.json; falls back to the top Things Today item."""
+import os, re, sys, time
+
+sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
+from pixelkit import ascii, connect, wrap
+from briefdata import brief, things
+
+cv = connect()
+a = (brief().get("action") or {})
+text = (a.get("text") or "").strip()
+goal = a.get("goal") or ""
+if not text:
+    today = things().get("today") or []
+    text = today[0]["title"] if today else "nothing queued"
+    goal = "things today"
+text = ascii(re.sub(r"\s*\[[^\]]*\]\s*$", "", text.removeprefix("→ today:"))).lower()
+goal = ascii(goal)
+
+cv.clear()
+cv.decode("> today", 10, 14, color="hotpink", size=2, secs=0.8)
+lines = wrap(text, 25)
+size = 2 if len(lines) <= 5 else 1
+if size == 1:
+    lines = wrap(text, 50)
+y = 52
+for ln in lines[:7]:
+    cv.type(ln, 10, y, color="white", size=size)
+    y += 10 * size + 4
+
+if goal:
+    cv.text(goal.lower(), 10, 186, color="pink" if a.get("nudge") == "loud" else "teal")
+
+# hours left in the working day (08:00 -> 21:00)
+h = time.localtime().tm_hour + time.localtime().tm_min / 60
+left = max(0.0, min(1.0, (21 - h) / 13))
+cv.rect(10, 206, 300, 6, color="dkpink")
+if left > 0:
+    cv.rect(10, 206, int(300 * left), 6, color="teal")
+if h < 8:
+    note = "day starts at 8"
+elif left > 0:
+    note = f"{21 - h:.0f}h till the 9pm wind-down"
+else:
+    note = "after hours. tomorrow, then"
+cv.text(note, 10, 220, color="mauve")
+sys.exit(0 if cv.ok else 1)

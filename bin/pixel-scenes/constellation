@@ -5,7 +5,7 @@ Pink = active window, hotpink = a claude agent lives there."""
 import os, sys
 
 sys.path.insert(0, os.path.expanduser("~/.dotfiles/lib"))
-from pixelkit import W, connect, sh
+from pixelkit import W, connect, sh, skip
 
 cv = connect()
 
@@ -19,7 +19,7 @@ for l in sh(["tmux", "list-panes", "-a", "-F",
     if "claude" in cmd:
         claude_wins.add(loc)
 if not wins:
-    sys.exit(0)
+    skip("no tmux server")
 
 sessions = {}
 for l in wins:
@@ -31,10 +31,11 @@ cv.clear()
 cv.text("tmux", 10, 15, color="mauve")
 
 names = sorted(sessions)[:6]
-row_h = 196 // max(1, len(names))
+row_h = 184 // max(1, len(names))  # last row's window label clears the footer at y=225
 STAR_X0, MAX_R = 84, 8
 y = 34
-for name in names:
+for name in names:  # one session at a time, top to bottom
+    cv.beat(0.15)
     ws = sorted(sessions[name])
     cv.text(name, 10, y, color="teal", max_w=STAR_X0 - 16)
     sy = y + 16

@@ -10,6 +10,7 @@
 #   pixel raw <endpoint>     # raw GET request (e.g. `pixel raw "text?msg=hi&x=10&y=10"`)
 #   pixel say "message"      # ad-hoc wrapped text on the glass
 #   pixel find               # sweep the LAN for the device, cache its IP
+#   pixel log [today|week|N] # what the canvas showed and why (usage-logs/pixel)
 #
 # Silent + graceful if the device is offline. Safe to run from MOTD or launchd.
 
@@ -99,11 +100,12 @@ case "$cmd" in
     [ -z "$MSG" ] && { echo "pixel say: need a message" >&2; exit 1; }
     pixel_ping || exit 0
     printf '%s' "$MSG" > /tmp/pixel-last-say.txt 2>/dev/null
+    "$HOME/.dotfiles/bin/usage-log" pixel say text="$MSG" 2>/dev/null
 
     # URL-encode helper
     enc() { printf '%s' "$1" | sed 's/%/%25/g; s/&/%26/g; s/?/%3F/g; s/+/%2B/g; s/ /%20/g; s/=/%3D/g; s/#/%23/g; s/'\''/%27/g; s/:/%3A/g; s/,/%2C/g; s/"/%22/g'; }
 
-    # Word-wrap to ~26 chars/line at size 2
+    # Word-wrap to 25 chars/line at size 2 (12px/char from x=15 → ends at x=315)
     wrap_text() {
       local s="$1" max="$2"
       while [ -n "$s" ]; do
@@ -133,11 +135,16 @@ case "$cmd" in
       LINE_Y=$((LINE_Y + 24))
       COUNT=$((COUNT + 1))
       [ "$COUNT" -ge 7 ] && break
-    done < <(wrap_text "$MSG" 26)
+    done < <(wrap_text "$MSG" 25)
 
     # Bottom hairline
     px "rect?x=10&y=225&w=300&h=1&color=dustrose"
     exit 0
+    ;;
+  log)
+    # pixel log [today|week|N]  — what the canvas showed, and why
+    shift
+    exec python3 "$HOME/.dotfiles/lib/pixel-log.py" "$@"
     ;;
   random|"")
     pixel_ping || exit 0
@@ -145,21 +152,31 @@ case "$cmd" in
     # Context-weighted pick: pixel-pick.py scores scenes by the moment (time of
     # day, an agent needing you, emails sent today, music playing, .favorites)
     # and never repeats the last one. Falls back to a flat shuffle if it fails.
-    name=$(python3 "$HOME/.dotfiles/lib/pixel-pick.py" "$SCENES_DIR" 2>/dev/null)
-    if [ -n "$name" ] && [ -x "$SCENES_DIR/$name" ]; then
-      exec "$SCENES_DIR/$name"
-    fi
-    scene=$( {
-      find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*'
-      [ -f "$SCENES_DIR/.favorites" ] && grep -Ev '^#|^[[:space:]]*$' "$SCENES_DIR/.favorites" \
-        | while IFS= read -r f; do [ -f "$SCENES_DIR/$f" ] && [ -x "$SCENES_DIR/$f" ] && echo "$SCENES_DIR/$f"; done
-    } | shuf -n 1 )
-    [ -n "$scene" ] && exec "$scene"
+    # A scene with nothing to show exits 3 (pixelkit SKIP): re-pick, up to 3
+    # tries, so a dead data source never wastes a rotation slot.
+    export PIXEL_VIA="${PIXEL_VIA:-rotation}"
+    for _ in 1 2 3; do
+      name=$(python3 "$HOME/.dotfiles/lib/pixel-pick.py" "$SCENES_DIR" 2>/dev/null)
+      if [ -n "$name" ] && [ -x "$SCENES_DIR/$name" ]; then
+        scene="$SCENES_DIR/$name"
+      else
+        scene=$( {
+          find "$SCENES_DIR" -maxdepth 1 -type f -perm -u+x ! -name '.*'
+          [ -f "$SCENES_DIR/.favorites" ] && grep -Ev '^#|^[[:space:]]*$' "$SCENES_DIR/.favorites" \
+            | while IFS= read -r f; do [ -f "$SCENES_DIR/$f" ] && [ -x "$SCENES_DIR/$f" ] && echo "$SCENES_DIR/$f"; done
+        } | shuf -n 1 )
+      fi
+      [ -n "$scene" ] || exit 0
+      "$scene"; rc=$?
+      [ "$rc" -eq 3 ] || exit "$rc"
+    done
+    exit 0
     ;;
   *)
     # named scene
     pixel_ping || exit 0
     if [ -x "$SCENES_DIR/$cmd" ]; then
+      export PIXEL_VIA="${PIXEL_VIA:-named}"
       exec "$SCENES_DIR/$cmd"
     else
       echo "pixel: unknown scene '$cmd'" >&2
