@@ -794,3 +794,22 @@ body = [
   { k = "touch ~/.config/chart-desk-disabled", d = "pause the daily run" },
   { o = "knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/*.md" },
 ]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Studio — record terminal demos on green"
+open = true
+body = [
+  { n = 'a separate Ghostty on a pure **#00ff00** key, size-locked, recorded as a window. key it out later.' },
+  { k = "studio", d = "open STUDIO 9:16 (Reels/Shorts) on the portrait screen", hl = true },
+  { k = "studio wide", d = "same window, 16:9 on the main screen (YouTube)" },
+  { k = "studio rec [sec]", d = "record the window wherever you drag it -> ~/Movies/studio", hl = true },
+  { k = "studio stop", d = "finish + print the file", hl = true },
+  { k = "studio place", d = "snap it back to center" },
+  { o = "drag by the top strip · size is locked (hammerspoon/studio.lua) · run rec/stop from your MAIN terminal · cmd+k clears" },
+  { lbl = "secrets without pasting" },
+  { k = "gh-secret-from-clipboard NAME owner/repo", d = "click COPY -> GitHub Actions secret, clipboard cleared" },
+  { k = "env-from-clipboard KEY path/.env", d = "click COPY -> KEY=value in an .env (backed up)" },
+]

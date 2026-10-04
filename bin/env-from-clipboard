@@ -1,0 +1,20 @@
+#!/bin/bash
+# One click, no typing: watches the clipboard while EJ clicks a dashboard's COPY button,
+# then writes KEY=<value> into an .env file (replacing an existing KEY line), backs the
+# file up first, and clears the clipboard. Nothing is echoed or logged.
+#   env-from-clipboard BLUESKY_APP_PASSWORD ~/code/website-dispatch/.env
+set -euo pipefail
+KEY="$1"; FILE="$2"
+[ -f "$FILE" ] || { echo "no such file: $FILE"; exit 1; }
+
+before="$(pbpaste)"
+echo "Click the COPY button for ${KEY}..."
+until [ "$(pbpaste)" != "$before" ] && [ -n "$(pbpaste)" ]; do sleep 0.4; done
+cp "$FILE" "$FILE.bak-$(date +%s)"
+tmp="$(mktemp)"
+grep -v "^${KEY}=" "$FILE" > "$tmp" || true
+printf '%s=%s\n' "$KEY" "$(pbpaste | tr -d '\n')" >> "$tmp"
+cat "$tmp" > "$FILE"
+rm -f "$tmp"
+printf '' | pbcopy
+echo "  ${KEY} saved to ${FILE} (clipboard cleared)"

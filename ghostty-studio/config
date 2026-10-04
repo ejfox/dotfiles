@@ -1,0 +1,66 @@
+# Ghostty STUDIO: a separate instance for recording demos, keyed out later.
+# Launched by `studio` with --config-default-files=false, so nothing from the main
+# ~/.config/ghostty/config leaks in. Window is placed at an exact 16:9 rect by `studio`.
+#
+# Key color: pure #00ff00. The vulpes palette has no greens at all (pinks, reds,
+# greys), so keying on green never eats text. Anything a program paints with its OWN
+# background (nvim colorschemes, tmux status bar) stays opaque; that's often what you want.
+
+# blank title: the transparent titlebar is recorded, so no text there
+# (the lock + recorder find this window by its pid, in ~/.cache/studio/pid)
+title = " "
+# a transparent titlebar = a green drag strip along the top (no buttons); the window
+# size is locked by hammerspoon/studio.lua, so dragging it moves it as one unit
+macos-titlebar-style = transparent
+macos-window-buttons = hidden
+macos-titlebar-proxy-icon = hidden
+window-save-state = never
+confirm-close-surface = false
+quit-after-last-window-closed = true
+resize-overlay = never
+
+font-family = MonaspiceKr Nerd Font
+font-family-italic = MonaspiceRn Nerd Font
+font-size = 22
+adjust-cell-height = -6%
+bold-is-bright = false
+
+# breathing room so text never touches the key edge (helps the key + the crop later)
+window-padding-x = 56
+window-padding-y = 40
+window-padding-balance = true
+window-padding-color = background
+
+cursor-style = block
+cursor-style-blink = false
+mouse-hide-while-typing = true
+shell-integration = zsh
+clipboard-read = allow
+clipboard-write = allow
+clipboard-paste-protection = false
+
+# vulpes-reddishnovember-dark, with the background swapped for the key color
+background = #00ff00
+background-opacity = 1.0
+foreground = #f2cfdf
+cursor-color = #e60067
+selection-background = #ff0022
+selection-foreground = #000000
+palette = 0=#1a1a1a
+palette = 1=#e60058
+palette = 2=#d4a5bf
+palette = 3=#ff1a90
+palette = 4=#ff0095
+palette = 5=#ff10ab
+palette = 6=#ff0040
+palette = 7=#b3b3b3
+palette = 8=#595959
+palette = 9=#ff3381
+palette = 10=#e8b8d0
+palette = 11=#ff66b5
+palette = 12=#ff4db5
+palette = 13=#ff57c4
+palette = 14=#ff4d79
+palette = 15=#f2f2f2
+
+keybind = cmd+k=clear_screen
