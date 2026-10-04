@@ -1,0 +1,123 @@
+#!/usr/local/bin/python3
+"""studio-words — the vocabulary the 1-bit Blender studio writes INTO its pieces.
+
+EJ 2026-10-04: "loving the radically dope 1bit stuff… especially when text / labels echo my
+work and projects". So the studio's annotation layer labels its forms with EJ's own words,
+fresh each sync (no fixed list):
+  projects   repos under ~/code, most recently committed first
+  commits    recent commit subjects (14 days), conventional-commit prefixes stripped
+  notes      titles of notes touched in the last 45 days (both Obsidian vaults)
+Writes ~/code/blender-math/datasets/words.json; blender-sync pushes it to the PC every 15 min
+(only when changed). Credential-looking strings are dropped.
+
+  studio-words            regenerate, print counts
+  studio-words --show     regenerate, print a sample of each list
+"""
+import glob, json, os, re, subprocess, sys, time
+
+HOME = os.path.expanduser("~")
+OUT = f"{HOME}/code/blender-math/datasets/words.json"
+VAULTS = [f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
+          f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault"]
+SKIP = re.compile(r"/(\.obsidian|\.trash|_archive|templates?|attachments?)/", re.I)
+SECRET = re.compile(r"(passw|token|secret|api[ _-]?key|ssn|credential|\bkey\b|sk-|@\w+\.\w)", re.I)
+NOW = time.time()
+
+
+def ok(s, n):
+    s = " ".join(str(s).split()).strip(" -_.:")
+    if len(s) > n:                                                # cut at a word boundary, never mid-word
+        s = s[:n].rsplit(" ", 1)[0] if " " in s[:n] else s[:n]
+        s = s.strip(" -_.:,—(+&>")
+    return s if 2 < len(s) and not SECRET.search(s) else None
+
+
+def git(repo, *a):
+    try:
+        return subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, timeout=8).stdout
+    except Exception:
+        return ""
+
+
+repos = []
+for g in glob.glob(f"{HOME}/code/*/.git"):
+    r = os.path.dirname(g)
+    t = git(r, "log", "-1", "--format=%ct").strip()
+    if t.isdigit():
+        repos.append((int(t), r))
+repos.sort(reverse=True)
+
+projects = [p for p in (ok(os.path.basename(r), 28) for _, r in repos[:60]) if p]
+
+commits = []
+for _, r in repos[:30]:
+    for line in git(r, "log", "--since=14.days", "--no-merges", "--format=%s", "-12").splitlines():
+        line = re.sub(r"^\w+(\([^)]*\))?!?:\s*", "", line)          # feat(x): …
+        s = ok(line, 44)
+        if s and s.lower() not in (c.lower() for c in commits):
+            commits.append(s)
+
+notes = []
+for v in VAULTS:
+    for f in glob.glob(f"{v}/**/*.md", recursive=True):
+        if SKIP.search(f):
+            continue
+        try:
+            age = (NOW - os.path.getmtime(f)) / 86400
+        except OSError:
+            continue
+        if age <= 45:
+            s = ok(os.path.splitext(os.path.basename(f))[0].lstrip("!_"), 40)
+            if s:
+                notes.append((age, s))
+notes = [s for _, s in sorted(set(notes))][:120]
+
+# real recent DIFFS for the code_diff scene ("a 3D diff": added lines stand, deleted lines'
+# characters fall as rigid bodies and melt). Small/medium commits, text files only.
+NOFILE = re.compile(r"(\.lock|lock\.json|package-lock|\.min\.|\.svg$|\.map$|\.env|\.pem|\.key$|\.ipynb$|\.csv$|\.json$)", re.I)
+diffs = []
+for _, r in repos[:20]:
+    for line in git(r, "log", "--since=21.days", "--no-merges", "--format=%H\t%s", "-15").splitlines():
+        if len(diffs) >= 10:
+            break
+        h, _, subj = line.partition("\t")
+        body = git(r, "show", "--format=", "--unified=1", "--no-color", "--no-ext-diff", h)
+        rows, cur, skip = [], None, False
+        for l in body.splitlines():
+            if l.startswith("diff --git"):
+                cur = l.split(" b/")[-1]; skip = bool(NOFILE.search(cur)); continue
+            if skip or l.startswith(("index ", "--- ", "+++ ", "@@", "new file", "deleted file", "Binary", "similarity", "rename")):
+                continue
+            op, txt = (l[:1], l[1:]) if l[:1] in "+- " else (" ", l)
+            txt = txt.expandtabs(2).rstrip()
+            if SECRET.search(txt):
+                continue
+            rows.append([op, txt[:64]])
+        changed = sum(1 for o, _ in rows if o in "+-")
+        dels = sum(1 for o, _ in rows if o == "-")
+        if 8 <= changed <= 140 and dels >= 3:
+            diffs.append({"repo": os.path.basename(r), "subject": ok(re.sub(r"^\w+(\([^)]*\))?!?:\s*", "", subj), 60) or "",
+                          "lines": rows[:56]})
+
+data = {"made": time.strftime("%Y-%m-%dT%H:%M"), "projects": projects, "commits": commits[:120], "notes": notes,
+        "diffs": diffs}
+old = None
+try:
+    old = json.load(open(OUT))
+except (OSError, ValueError):
+    pass
+KEYS = ("projects", "commits", "notes", "diffs")
+if not old or {k: old.get(k) for k in KEYS} != {k: data[k] for k in KEYS}:
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    json.dump(data, open(OUT + ".part", "w"), indent=0)
+    os.replace(OUT + ".part", OUT)
+    changed = True
+else:
+    changed = False
+print(f"{'◆ wrote' if changed else '○ unchanged'} {OUT}: {len(projects)} projects · {len(commits[:120])} commits · "
+      f"{len(notes)} notes · {len(diffs)} diffs")
+if "--show" in sys.argv:
+    for k in ("projects", "commits", "notes"):
+        print(f"  {k}: " + " | ".join(data[k][:10]))
+    for d in diffs:
+        print(f"  diff {d['repo']}: {d['subject']} ({sum(o == '+' for o, _ in d['lines'])}+ {sum(o == '-' for o, _ in d['lines'])}-)")

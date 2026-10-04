@@ -47,4 +47,10 @@ fi
 # while the PC is awake, pre-fetch the morning DM's wall-art pick (brief-pictures; the PC
 # is usually asleep at 08:02). Silent, no DMs; no-op when the pick hasn't changed.
 [ -n "$remote" ] && /usr/local/bin/python3 "$HOME/.dotfiles/bin/brief-pictures" --prefetch >/dev/null 2>&1
+# the studio's words (projects / commits / note titles / real diffs) — what its annotation
+# layer and the code_diff scene write into pieces. Pushed only when they changed.
+W="$HOME/code/blender-math/datasets/words.json"
+if [ -n "$remote" ] && /usr/local/bin/python3 "$HOME/.dotfiles/bin/studio-words" 2>/dev/null | grep -q "wrote"; then
+  scp -q -o ConnectTimeout=8 "$W" "$H:C:/dev/computah/renders/mathblend/datasets/words.json" 2>/dev/null
+fi
 exit 0
