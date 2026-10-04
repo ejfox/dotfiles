@@ -911,15 +911,17 @@
 </details>
 
 <details class="accent" open data-tool="both">
-  <summary>Studio — record terminal demos on green</summary>
+  <summary>Studio — record terminal demos (black or greenscreen)</summary>
   <div class="c">
-    <div class="n">a separate Ghostty on a pure <b>#00ff00</b> key, size-locked, recorded as a window. key it out later.</div>
-    <div class="r dd"><kbd>studio</kbd><span class="d">open STUDIO 9:16 (Reels/Shorts) on the portrait screen</span></div>
-    <div class="r"><kbd>studio wide</kbd><span class="d">same window, 16:9 on the main screen (YouTube)</span></div>
+    <div class="n">a separate size-locked Ghostty with vulpes glow + scanlines, <b>random vulpes month</b> each launch, recorded as a window.</div>
+    <div class="r dd"><kbd>studio</kbd><span class="d">open STUDIO 9:16 (Reels/Shorts), plain black</span></div>
+    <div class="r"><kbd>studio wide</kbd><span class="d">same window, 16:9 (YouTube)</span></div>
+    <div class="r dd"><kbd>studio greenscreen [wide]</kbd><span class="d">on a #00ff00 key: stop also writes &lt;take&gt;-alpha.mov</span></div>
+    <div class="r"><kbd>studio theme [month]</kbd><span class="d">reroll the vulpes month (june, august, ...)</span></div>
     <div class="r dd"><kbd>studio rec [sec]</kbd><span class="d">record the window wherever you drag it -&gt; ~/Movies/studio</span></div>
-    <div class="r dd"><kbd>studio stop</kbd><span class="d">finish + print the file</span></div>
-    <div class="r"><kbd>studio place</kbd><span class="d">snap it back to center</span></div>
-    <div class="o">drag by the top strip · size is locked (hammerspoon/studio.lua) · run rec/stop from your MAIN terminal · cmd+k clears</div>
+    <div class="r dd"><kbd>studio stop</kbd><span class="d">finish; greenscreen -&gt; real alpha .mov in the background</span></div>
+    <div class="r"><kbd>studio alpha take.mov</kbd><span class="d">(re)make the alpha .mov (qtrle, or --codec prores)</span></div>
+    <div class="o">drag by the top strip · size locked, fits every monitor · run rec/stop from your MAIN terminal · cmd+k clears</div>
     <div class="lbl">secrets without pasting</div>
     <div class="r"><kbd>gh-secret-from-clipboard NAME owner/repo</kbd><span class="d">click COPY -&gt; GitHub Actions secret, clipboard cleared</span></div>
     <div class="r"><kbd>env-from-clipboard KEY path/.env</kbd><span class="d">click COPY -&gt; KEY=value in an .env (backed up)</span></div>

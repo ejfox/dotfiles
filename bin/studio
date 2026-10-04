@@ -1,28 +1,36 @@
 #!/bin/bash
-# studio: a Ghostty on a pure-green key, for recording terminal demos to composite later.
-#   studio [open]     open STUDIO vertical 9:16 (Reels/Shorts/TikTok), centered on the portrait screen
-#   studio wide       same window, 16:9, centered on the main screen (YouTube)
-#   (sized to fit every connected screen, so it can be dragged anywhere without resizing)
-#   studio rec [sec]  record the window itself (.mov), wherever you move it; optional time limit
-#   studio stop       stop recording; prints the file
-#   studio place      snap the window back to its rect
-#   studio where      the rect + the recordings folder
+# studio: a size-locked vulpes Ghostty for recording terminal demos.
+#   studio                   open it: 9:16 (Reels/Shorts/TikTok) on the portrait screen, plain black
+#   studio wide              16:9 (YouTube) on the main screen
+#   studio greenscreen [wide]  same, on a pure green key; `stop` then makes a real alpha .mov
+#   studio theme [month]     reopen in another vulpes monthly variant (random each launch anyway)
+#   studio rec [sec]         record the window itself (follows it when dragged); optional time limit
+#   studio stop              finish; on greenscreen also writes <take>-alpha.mov in the background
+#   studio alpha <take.mov>  (re)make the alpha .mov from a greenscreen take
+#   studio place | where     snap it back to center | rect, mode + recordings folder
+# Sized to fit every connected screen, so it drags between monitors without resizing.
 # Run rec/stop from your MAIN terminal so the commands aren't in the shot.
 set -euo pipefail
 
-CONFIG="$HOME/.dotfiles/ghostty-studio/config"
-RECORDER="$HOME/.cache/studio/studio-recorder"   # built on demand from the swift source below
-RECORDER_SRC="$HOME/.dotfiles/ghostty-studio/studio-recorder.swift"
+HERE="$HOME/.dotfiles/ghostty-studio"
+CONFIG="$HERE/config"
+RECORDER_SRC="$HERE/studio-recorder.swift"
+ALPHA="$HERE/studio-alpha"
+CACHE="$HOME/.cache/studio"
+RECORDER="$CACHE/studio-recorder"   # built on demand from RECORDER_SRC
+RECT_FILE="$CACHE/rect"             # "x,y,w,h"; hammerspoon/studio.lua locks the window to its w,h
+MODE_FILE="$CACHE/mode"             # black | green
 OUT="${STUDIO_OUT:-$HOME/Movies/studio}"
 STATE="${TMPDIR:-/tmp}/studio-rec.pid"
-RECT_FILE="$HOME/.cache/studio/rect"   # "x,y,w,h" of the current layout; hammerspoon/studio.lua locks to its w,h
-mkdir -p "$(dirname "$RECT_FILE")"
+mkdir -p "$CACHE"
 
 studio_pid() { pgrep -f "ghostty.*--config-file=$CONFIG" | head -1; }
+mode() { cat "$MODE_FILE" 2>/dev/null || echo black; }
 
-# The layout's rect in global points, computed from the live displays:
-#   tall: 1080x1920 (9:16) on the portrait screen (else as big as fits on the main one)
-#   wide: 1920x1080 (16:9) on the main screen
+# The layout's rect in global points, computed from the live displays: the largest 9:16
+# (tall) or 16:9 (wide) that fits on EVERY screen, so dragging it to another monitor never
+# resizes it (a resize makes the terminal reflow mid-take). Centered on the portrait
+# screen for tall, the main screen for wide.
 compute_rect() {
   hs -t 3 -c "
     local tall = '$1' == 'tall'
@@ -32,8 +40,6 @@ compute_rect() {
     local f = scr:frame()
     local w, h = 1920, 1080
     if tall then w, h = 1080, 1920 end
-    -- the largest size (ratio kept) that fits on EVERY screen, so dragging it to another
-    -- monitor never resizes it (a resize would make the terminal reflow mid-take)
     local k = 1
     for _, s in ipairs(hs.screen.allScreens()) do
       local sf = s:frame(); k = math.min(k, sf.w / w, sf.h / h)
@@ -58,33 +64,69 @@ place() {
   echo "couldn't place the window (Hammerspoon not answering?)"; exit 1
 }
 
+# open_layout tall|wide black|green
 open_layout() {
+  local rect pid theme_month="${3:-}" relaunch="${4:-}"
   rect="$(compute_rect "$1")"
   [[ "$rect" =~ ^-?[0-9]+,-?[0-9]+,[0-9]+,[0-9]+$ ]] || { echo "couldn't read the displays (Hammerspoon?)"; exit 1; }
   echo "$rect" > "$RECT_FILE"
-  if [ -z "$(studio_pid)" ]; then
-    open -na Ghostty.app --args --config-default-files=false --config-file="$CONFIG"
+  echo "$1" > "$CACHE/layout"
+  pid="$(studio_pid)"
+  if [ -n "$pid" ] && { [ "$(mode)" != "$2" ] || [ -n "$relaunch" ]; }; then
+    echo "reopening the STUDIO window ($2)"
+    kill "$pid"; for _ in $(seq 1 25); do [ -z "$(studio_pid)" ] && break; sleep 0.2; done
+    pid=""
+  fi
+  if [ -z "$pid" ]; then
+    # a vulpes monthly variant each launch (greenscreen: only months with no green in them)
+    local keyflag=(); [ "$2" = green ] && keyflag=(--key)
+    "$HERE/studio-theme" ${keyflag[@]+"${keyflag[@]}"} $theme_month > "$CACHE/theme" || exit 1
+    local extra=(--config-file="$CACHE/theme.conf")
+    [ "$2" = green ] && extra+=(--config-file="$HERE/greenscreen.conf")
+    open -na Ghostty.app --args --config-default-files=false --config-file="$CONFIG" "${extra[@]}"
     for _ in $(seq 1 30); do [ -n "$(studio_pid)" ] && break; sleep 0.2; done
   fi
-  studio_pid > "$(dirname "$RECT_FILE")/pid"   # hammerspoon/studio.lua locks this pid's window
-  place && echo "STUDIO $1 at $rect (x,y,w,h in points)"
+  echo "$2" > "$MODE_FILE"
+  studio_pid > "$CACHE/pid"   # hammerspoon/studio.lua locks this pid's window
+  place && echo "STUDIO $1 $2 $(cut -d' ' -f1 "$CACHE/theme") at $rect (x,y,w,h in points)"
 }
 
+# after a take: on greenscreen, make the alpha .mov in the background (it appears when done)
+finish_take() {
+  local file="$1"
+  [ -s "$file" ] || { echo "no file written"; return 1; }
+  echo "saved $file ($(du -h "$file" | cut -f1))"
+  if [ "$(mode)" = green ]; then
+    # the glow takes the theme's cursor color (recorded at launch in $CACHE/theme)
+    nohup "$ALPHA" "$file" --tint "$(cut -d' ' -f2 "$CACHE/theme")" > "${file%.mov}-alpha.log" 2>&1 &
+    echo "alpha -> ${file%.mov}-alpha.mov (converting in the background, about 2x the take's length)"
+  fi
+}
+
+layout() { [ "${1:-}" = wide ] && echo wide || echo tall; }
+
 case "${1:-open}" in
-  open|tall) open_layout tall ;;
-  wide) open_layout wide ;;
+  open|tall) open_layout tall black ;;
+  wide) open_layout wide black ;;
+  greenscreen|green) open_layout "$(layout "${2:-}")" green ;;
+  theme) open_layout "$(cat "$CACHE/layout" 2>/dev/null || echo tall)" "$(mode)" "${2:-}" relaunch ;;
   place) place ;;
   rec)
     [ -f "$STATE" ] && kill -0 "$(cat "$STATE")" 2>/dev/null && { echo "already recording"; exit 1; }
-    [ -n "$(studio_pid)" ] && [ -f "$RECT_FILE" ] || open_layout tall
+    [ -n "$(studio_pid)" ] && [ -f "$RECT_FILE" ] || open_layout tall black
     mkdir -p "$OUT"
     if [ ! -x "$RECORDER" ] || [ "$RECORDER_SRC" -nt "$RECORDER" ]; then
       echo "building studio-recorder..."; swiftc -O -o "$RECORDER" "$RECORDER_SRC" || exit 1
     fi
-    file="$OUT/studio-$(date +%Y%m%d-%H%M%S).mov"
+    file="$OUT/studio-$(date +%Y%m%d-%H%M%S)$([ "$(mode)" = green ] && echo -green).mov"
+    keyed=(); [ "$(mode)" = green ] && keyed=(STUDIO_KEY=1)
     # studio-recorder captures the WINDOW (ScreenCaptureKit), so it follows it when moved
     # and ignores anything on top of it; it finalizes the file on SIGINT
-    "$RECORDER" "$(studio_pid)" "$file" ${2:-} < /dev/null > "$STATE.log" 2>&1 &
+    if [ -n "${2:-}" ]; then   # time-limited take: just wait for it
+      env ${keyed[@]+"${keyed[@]}"} "$RECORDER" "$(studio_pid)" "$file" "$2" < /dev/null
+      finish_take "$file"; exit
+    fi
+    env ${keyed[@]+"${keyed[@]}"} "$RECORDER" "$(studio_pid)" "$file" < /dev/null > "$STATE.log" 2>&1 &
     echo $! > "$STATE"; echo "$file" > "$STATE.file"
     sleep 1.5
     kill -0 "$(cat "$STATE")" 2>/dev/null || { cat "$STATE.log"; rm -f "$STATE" "$STATE.file"; exit 1; }
@@ -96,8 +138,9 @@ case "${1:-open}" in
     kill -INT "$pid" 2>/dev/null || true
     for _ in $(seq 1 75); do kill -0 "$pid" 2>/dev/null || break; sleep 0.2; done
     file="$(cat "$STATE.file")"; rm -f "$STATE" "$STATE.file" "$STATE.log"
-    [ -s "$file" ] && echo "saved $file ($(du -h "$file" | cut -f1))" || echo "no file written"
+    finish_take "$file"
     ;;
-  where) echo "rect $(cat "$RECT_FILE" 2>/dev/null || echo '(not open)')   recordings: $OUT" ;;
-  *) sed -n 2,9p "$0" ;;
+  alpha) shift; "$ALPHA" "$@" ;;
+  where) echo "rect $(cat "$RECT_FILE" 2>/dev/null || echo '(not open)')  mode $(mode)  theme $(cut -d' ' -f1 "$CACHE/theme" 2>/dev/null)  recordings: $OUT" ;;
+  *) sed -n 2,12p "$0" ;;
 esac

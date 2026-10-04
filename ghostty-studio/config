@@ -1,15 +1,16 @@
-# Ghostty STUDIO: a separate instance for recording demos, keyed out later.
+# Ghostty STUDIO: a separate instance for recording terminal demos.
 # Launched by `studio` with --config-default-files=false, so nothing from the main
-# ~/.config/ghostty/config leaks in. Window is placed at an exact 16:9 rect by `studio`.
+# ~/.config/ghostty/config leaks in. `studio` sizes + places the window (9:16 or 16:9).
 #
-# Key color: pure #00ff00. The vulpes palette has no greens at all (pinks, reds,
-# greys), so keying on green never eats text. Anything a program paints with its OWN
-# background (nvim colorschemes, tmux status bar) stays opaque; that's often what you want.
+# Plain vulpes black by default. `studio greenscreen` relaunches it on pure #00ff00 and
+# `studio stop` turns that into a real alpha .mov (studio-alpha). The vulpes palette has
+# no greens (pinks, reds, greys), so the key never eats text. Anything a program paints
+# with its OWN background (nvim colorschemes, tmux status bar) stays opaque.
 
 # blank title: the transparent titlebar is recorded, so no text there
 # (the lock + recorder find this window by its pid, in ~/.cache/studio/pid)
 title = " "
-# a transparent titlebar = a green drag strip along the top (no buttons); the window
+# a transparent titlebar = a background-colored drag strip along the top (no buttons); the window
 # size is locked by hammerspoon/studio.lua, so dragging it moves it as one unit
 macos-titlebar-style = transparent
 macos-window-buttons = hidden
@@ -40,8 +41,9 @@ clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
 
-# vulpes-reddishnovember-dark, with the background swapped for the key color
-background = #00ff00
+# vulpes-reddishnovember-dark. `studio greenscreen` also loads greenscreen.conf, which
+# swaps this for the #00ff00 key (vulpes has no greens, so text never keys out)
+background = #000000
 background-opacity = 1.0
 foreground = #f2cfdf
 cursor-color = #e60067
@@ -65,3 +67,9 @@ palette = 14=#ff4d79
 palette = 15=#f2f2f2
 
 keybind = cmd+k=clear_screen
+
+# vulpes effects (studio-vulpes.glsl): glow/scanlines/fringe on the text only, so the
+# background stays flat (exact key on greenscreen), then the hot pink cursor trail
+custom-shader-animation = true
+custom-shader = ~/.dotfiles/ghostty-studio/studio-vulpes.glsl
+custom-shader = ~/.dotfiles/ghostty-studio/studio-cursor.glsl

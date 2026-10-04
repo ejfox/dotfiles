@@ -799,16 +799,18 @@ body = [
 tone = "accent"
 tool = "both"
 badge = ""
-title = "Studio — record terminal demos on green"
+title = "Studio — record terminal demos (black or greenscreen)"
 open = true
 body = [
-  { n = 'a separate Ghostty on a pure **#00ff00** key, size-locked, recorded as a window. key it out later.' },
-  { k = "studio", d = "open STUDIO 9:16 (Reels/Shorts) on the portrait screen", hl = true },
-  { k = "studio wide", d = "same window, 16:9 on the main screen (YouTube)" },
+  { n = 'a separate size-locked Ghostty with vulpes glow + scanlines, **random vulpes month** each launch, recorded as a window.' },
+  { k = "studio", d = "open STUDIO 9:16 (Reels/Shorts), plain black", hl = true },
+  { k = "studio wide", d = "same window, 16:9 (YouTube)" },
+  { k = "studio greenscreen [wide]", d = "on a #00ff00 key: stop also writes <take>-alpha.mov", hl = true },
+  { k = "studio theme [month]", d = "reroll the vulpes month (june, august, ...)" },
   { k = "studio rec [sec]", d = "record the window wherever you drag it -> ~/Movies/studio", hl = true },
-  { k = "studio stop", d = "finish + print the file", hl = true },
-  { k = "studio place", d = "snap it back to center" },
-  { o = "drag by the top strip · size is locked (hammerspoon/studio.lua) · run rec/stop from your MAIN terminal · cmd+k clears" },
+  { k = "studio stop", d = "finish; greenscreen -> real alpha .mov in the background", hl = true },
+  { k = "studio alpha take.mov", d = "(re)make the alpha .mov (qtrle, or --codec prores)" },
+  { o = "drag by the top strip · size locked, fits every monitor · run rec/stop from your MAIN terminal · cmd+k clears" },
   { lbl = "secrets without pasting" },
   { k = "gh-secret-from-clipboard NAME owner/repo", d = "click COPY -> GitHub Actions secret, clipboard cleared" },
   { k = "env-from-clipboard KEY path/.env", d = "click COPY -> KEY=value in an .env (backed up)" },

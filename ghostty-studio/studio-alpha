@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""studio-alpha: green-key studio recording -> a .mov with a real alpha channel.
+
+  studio-alpha in.mov [out.mov] [--fps 30] [--codec qtrle|prores] [--tint #rrggbb]
+
+Not a chroma keyer. We know the exact background color, so each pixel is unmixed: how
+much "extra green" it has over its other channels says how transparent it is, and the
+background is subtracted back out of the color. Soft glow and anti-aliased edges become
+true partial transparency instead of a green-tinted fringe. Works because the vulpes
+palette has no greens. Output is straight (unpremultiplied) alpha, which editors expect.
+"""
+import json
+import os
+import subprocess
+import sys
+
+import numpy as np
+
+
+def probe(path):
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                          "stream=width,height", "-of", "json", path],
+                         capture_output=True, text=True, check=True).stdout
+    s = json.loads(out)["streams"][0]
+    return s["width"], s["height"]
+
+
+# qtrle (QuickTime Animation): lossless, only stores what changed between frames, so a
+# mostly-still terminal is fast and small. ProRes 4444 if an editor wants it instead.
+CODECS = {
+    "qtrle": ["-c:v", "qtrle", "-pix_fmt", "argb"],
+    "prores": ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le",
+               "-alpha_bits", "16", "-vendor", "apl0"],
+}
+
+
+GLOW_TINT = np.array([1.0, 0.16, 0.55], np.float32)   # default hot pink; --tint = the take's theme cursor color
+GLOW_GAIN = 1.6
+GLOW_MAX = 0.75
+
+
+def box_blur(x, r):
+    """Separable box blur via cumulative sums (2 passes ~ a soft gaussian)."""
+    for axis in (0, 1):
+        pad = [(0, 0)] * x.ndim
+        pad[axis] = (r + 1, r)
+        c = np.cumsum(np.pad(x, pad, mode="edge"), axis=axis)
+        x = (np.take(c, range(2 * r + 1, c.shape[axis]), axis=axis)
+             - np.take(c, range(0, c.shape[axis] - 2 * r - 1), axis=axis)) / (2 * r + 1)
+    return x
+
+
+def add_glow(fg, a):
+    """Neon halo from the saturated ink, composited UNDER the ink as real partial
+    transparency. Blurred at 1/4 size, so it's cheap and soft."""
+    h, w = a.shape
+    warm = a * np.clip(fg.max(axis=2) - fg.min(axis=2), 0.0, 1.0)   # saturation: any hue glows
+    hs, ws = h // 4 * 4, w // 4 * 4
+    small = warm[:hs, :ws].reshape(hs // 4, 4, ws // 4, 4).mean(axis=(1, 3))
+    small = box_blur(box_blur(small, 3), 3)
+    g = np.zeros_like(a)
+    g[:hs, :ws] = np.repeat(np.repeat(small, 4, axis=0), 4, axis=1)
+    g = np.clip(g * GLOW_GAIN, 0.0, GLOW_MAX) * (1.0 - a)        # only where the ink isn't
+    out_a = a + g
+    rgb = (fg * a[..., None] + GLOW_TINT * g[..., None]) / np.maximum(out_a, 1e-3)[..., None]
+    return np.clip(rgb, 0.0, 1.0), out_a
+
+
+def flag(args, name, default):
+    if name in args:
+        i = args.index(name); v = args[i + 1]; del args[i:i + 2]
+        return v
+    return default
+
+
+def main():
+    args = sys.argv[1:]
+    global GLOW_TINT
+    fps = flag(args, "--fps", "30")
+    codec = flag(args, "--codec", "qtrle")
+    tint = flag(args, "--tint", None)
+    if tint:
+        GLOW_TINT = np.array([int(tint.lstrip("#")[i:i + 2], 16) / 255 for i in (0, 2, 4)], np.float32)
+    if not args:
+        sys.exit(__doc__)
+    src = args[0]
+    dst = args[1] if len(args) > 1 else src.rsplit(".", 1)[0] + "-alpha.mov"
+    part = dst[:-4] + ".part.mov"   # written here, renamed when complete: dst only ever exists whole
+    w, h = probe(src)
+    frame_bytes = w * h * 3
+
+    dec = subprocess.Popen(["ffmpeg", "-v", "error", "-i", src, "-vf", f"fps={fps}",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba",
+                            "-s", f"{w}x{h}", "-r", fps, "-i", "-",
+                            *CODECS[codec], part], stdin=subprocess.PIPE)
+
+    key = None
+    last_in, last_out, n = None, None, 0
+    while True:
+        raw = dec.stdout.read(frame_bytes)
+        if len(raw) < frame_bytes:
+            break
+        n += 1
+        if raw == last_in:                  # terminal video: most frames repeat exactly
+            enc.stdin.write(last_out)
+            continue
+        c = np.frombuffer(raw, np.uint8).reshape(h, w, 3).astype(np.float32) / 255.0
+        if key is None:                     # the key, read from the frame's border (always background)
+            border = np.concatenate([c[:8].reshape(-1, 3), c[-8:].reshape(-1, 3)])
+            key = np.median(border, axis=0)
+            key_excess = key[1] - max(key[0], key[2])
+            if key_excess < 0.5:
+                sys.exit(f"border isn't a green key ({(key * 255).round()}); was this recorded with `studio greenscreen`?")
+        excess = c[..., 1] - np.maximum(c[..., 0], c[..., 2])
+        a = 1.0 - np.clip(excess / key_excess, 0.0, 1.0)
+        a = np.clip((a - 0.04) / 0.92, 0.0, 1.0)          # crush codec noise at both ends
+        fg = (c - (1.0 - a)[..., None] * key) / np.maximum(a, 1e-3)[..., None]
+        fg = np.clip(fg, 0.0, 1.0) * (a[..., None] > 0)
+        # despill: vulpes has no greens, so green above the red/blue average is key residue
+        fg[..., 1] = np.minimum(fg[..., 1], (fg[..., 0] + fg[..., 2]) * 0.5)
+        fg, a = add_glow(fg, a)
+        out = np.dstack([fg, a]) * 255.0 + 0.5
+        last_in, last_out = raw, out.astype(np.uint8).tobytes()
+        enc.stdin.write(last_out)
+
+    enc.stdin.close()
+    enc.wait(); dec.wait()
+    if enc.returncode != 0 or n == 0:
+        sys.exit("encode failed")
+    os.replace(part, dst)
+    print(f"{dst}  ({n} frames @ {fps}fps, {codec} + alpha)")
+
+
+if __name__ == "__main__":
+    main()
