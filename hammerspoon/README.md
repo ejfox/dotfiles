@@ -51,6 +51,21 @@ Things, 1Password…), and skips windows already at their home slot.
 - **Audit**: placements log as `trigger:"autoplace"` in
   `~/.local/share/usage-logs/windows/*.jsonl`
 
+## OBS reveal — finished recordings pop up on the Dell (added 2026-10-04)
+
+**If Finder just opened `~/Movies` at the bottom of the Dell — this is why.**
+When OBS finishes a recording in `~/Movies` (record stop, replay-buffer save,
+Aitum `-vertical`), Finder reveals the new file, selected, in the bottom 30%
+of the portrait DELL. "Finished" = an OBS-named file (`2026-10-04 10-43-09.mov`,
+`Replay …`, `…-vertical…`) that hasn't been written to for 4s; when the main
+and `-vertical` files finish together you get one window, on the main file.
+`-synced` copies, clipper output and `obs-synccheck` test takes never trigger
+it, and reloading the config never re-reveals an old take.
+
+- **Disable instantly**: `touch ~/.config/obs-reveal-disabled` (rm to re-enable)
+- **Trigger by hand**: `hs -c "obsReveal('/Users/ejfox/Movies/<file>.mov')"`
+- Dell unplugged → Finder still reveals the file, just doesn't get moved
+
 ## Keyboard note (Ergodox / Voyager)
 
 The leader matches **option or control** + space. Your ZSA boards must have a

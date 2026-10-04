@@ -402,6 +402,115 @@ autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
   hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
 end)
 
+-- ── OBS reveal: a finished recording pops up in Finder on the Dell ──────────
+-- Added 2026-10-04 (EJ asked). When OBS finishes writing a recording into
+-- ~/Movies (record stop, replay-buffer save, Aitum -vertical), Finder reveals
+-- it — selected — in the bottom 30% of the portrait DELL.
+--
+-- "Finished" = an OBS-named video (2026-10-04 10-43-09.mov, Replay …,
+-- …-vertical…) whose mtime is ≥4s old: OBS writes continuously while
+-- recording, so a quiet file means it's closed. When the main and -vertical
+-- files land together, the main one is revealed. obs-synccheck moves its test
+-- recording out of ~/Movies first, so it never fires; -synced copies and
+-- other tools' files don't match the name.
+--
+-- TO DISABLE: touch ~/.config/obs-reveal-disabled   (rm to re-enable)
+-- BY HAND:    hs -c "obsReveal('/Users/ejfox/Movies/<file>.mov')"
+local OBS_REVEAL_DISABLE_FILE = os.getenv("HOME") .. "/.config/obs-reveal-disabled"
+local MOVIES = os.getenv("HOME") .. "/Movies/"
+local OBS_REVEAL_UNIT = { x = 0, y = 0.7, w = 1, h = 0.3 }  -- bottom 30%
+local OBS_QUIET_SECS = 4   -- no writes for this long = OBS closed the file
+local OBS_PAIR_SECS = 15   -- main + -vertical finishing this close = one take
+
+local OBS_EXTS = { mov = true, mp4 = true, mkv = true }
+
+local function isObsRecording(name)
+  local stem, ext = name:match("^(.+)%.(%w+)$")
+  if not stem or not OBS_EXTS[ext] then return false end
+  stem = stem:gsub("^Replay ", ""):gsub("%.hybrid$", ""):gsub("%-vertical$", "")
+  return stem:match("^%d%d%d%d%-%d%d%-%d%d %d%d%-%d%d%-%d%d$") ~= nil
+end
+
+local function isVertical(name) return name:find("-vertical", 1, true) ~= nil end
+
+-- Only files written after this point can trigger a reveal: starts at config
+-- load (no surprise reveals of old takes on reload), advances with each reveal.
+local obsRevealWatermark = os.time()
+local obsRevealTimer = nil
+
+-- The take to reveal: the newest finished OBS file past the watermark,
+-- preferring the main file over a -vertical that finished alongside it.
+-- busy = some OBS file is still being written.
+local function finishedTake()
+  local best, bestT, busy = nil, 0, false
+  local now = os.time()
+  for name in hs.fs.dir(MOVIES) do
+    if isObsRecording(name) then
+      local a = hs.fs.attributes(MOVIES .. name)
+      local t = a and a.modification or 0
+      if t > obsRevealWatermark then
+        if now - t < OBS_QUIET_SECS then
+          busy = true
+        else
+          if not best or (t > bestT + OBS_PAIR_SECS)
+              or (math.abs(t - bestT) <= OBS_PAIR_SECS and isVertical(best) and not isVertical(name)) then
+            best, bestT = MOVIES .. name, t
+          end
+        end
+      end
+    end
+  end
+  return best, busy
+end
+
+local function placeFinderOnDell(tries)
+  local dell = autoplaceScreen("DELL")
+  if not dell then return end                          -- Dell unplugged: leave Finder be
+  local finder = hs.application.get("com.apple.finder")
+  local win = nil  -- by title: focusedWindow() can be the Desktop pseudo-window
+  for _, w in ipairs(finder and finder:allWindows() or {}) do
+    if w:isStandard() and w:title() == "Movies" then win = w break end
+  end
+  if not win then  -- reveal not on screen yet
+    if tries > 0 then hs.timer.doAfter(0.25, function() placeFinderOnDell(tries - 1) end) end
+    return
+  end
+  win:setFrame(snapRectFor(dell, OBS_REVEAL_UNIT), 0)
+  hs.timer.doAfter(0.3, function() pcall(logWindowSnapshot, "obs-reveal") end)
+end
+
+function obsReveal(path)  -- global so `hs -c` can reach it
+  local a = hs.fs.attributes(path)
+  if a then obsRevealWatermark = math.max(obsRevealWatermark, a.modification) end
+  hs.task.new("/usr/bin/open", nil, { "-R", path }):start()
+  hs.timer.doAfter(0.3, function() placeFinderOnDell(8) end)
+end
+
+local obsRevealCheck
+local function scheduleObsRevealCheck()
+  if obsRevealTimer then obsRevealTimer:stop() end
+  obsRevealTimer = hs.timer.doAfter(OBS_QUIET_SECS + 1, obsRevealCheck)
+end
+
+obsRevealCheck = function()
+  obsRevealTimer = nil
+  if hs.fs.attributes(OBS_REVEAL_DISABLE_FILE) then return end
+  local path, busy = finishedTake()
+  if busy then return scheduleObsRevealCheck() end  -- still recording: look again later
+  if path then
+    obsReveal(path)
+    -- everything finished by now was part of this take (its -vertical twin too)
+    obsRevealWatermark = math.max(obsRevealWatermark, os.time() - OBS_QUIET_SECS)
+  end
+end
+
+if obsRevealWatcher then obsRevealWatcher:stop() end
+obsRevealWatcher = hs.pathwatcher.new(MOVIES, function(paths)
+  for _, p in ipairs(paths) do
+    if isObsRecording(p:match("[^/]+$") or "") then return scheduleObsRevealCheck() end
+  end
+end):start()
+
 -- ── Cheatsheet: floating translucent panel (⌥Space ?) ────────────────────────
 -- Added 2026-07-15. Shows ~/.dotfiles/.config/cheatsheet.html in a floating,
 -- translucent webview — no titlebar chrome, draggable by its top edge,
