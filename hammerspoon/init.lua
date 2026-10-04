@@ -3,6 +3,7 @@
 
 require("hs.ipc")  -- enables `hs -c "..."` CLI for debugging
 _G.computah_audio = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/computah-audio.lua"))  -- menu bar PC-audio control (guarded)
+_G.studio_lock = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/studio.lua"))  -- `studio` recording window keeps its size (guarded)
 
 -- ── Config ──────────────────────────────────────────────────────────────
 local STREAK_GAP = 0.8       -- seconds of silence that resets streak
