@@ -1026,6 +1026,14 @@ PYEOF
       # re-resolve the PC every cell (LAN first): it was resolved ONCE at loop start, so one
       # slow 1-second probe pinned a day-long loop to the Tailscale relay (2026-10-03)
       if nc -z -G 2 "$LAN_IP" 22 2>/dev/null; then h="$LAN_IP"; else h=$(host); fi
+      # PC asleep / off: wait instead of failing every cell. Without this, a night of sleep
+      # logged ~400 straight "render hiccup"s (2026-10-03 21:25 → 10-04 11:46).
+      if [ "$h" != "$LAN_IP" ] && ! nc -z -G 4 "$h" 22 2>/dev/null; then
+        [ "${pc_away:-0}" -eq 0 ] && echo "  ○ PC asleep/unreachable since $(date +%H:%M) — waiting"
+        pc_away=1; sleep 60; slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue
+      fi
+      [ "${pc_away:-0}" -eq 1 ] && echo "  ◆ PC back at $(date +%H:%M) — resuming"
+      pc_away=0
       # Follow the wall UI's grid size at the top of each sweep (unless WALL_N pins
       # it). Cheap: one read per full sweep, not per cell. Shrinks fast / grows to
       # fill so display & generator stay in lockstep.
