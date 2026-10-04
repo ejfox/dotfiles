@@ -46,7 +46,6 @@ MONITORS = [
     ("unauthorizedobjects.com",    "https://unauthorizedobjects.com",                 KEYWORD, "UNAUTHORIZED OBJECTS"),
     ("vestibulequarterly.com",     "https://vestibulequarterly.com",                  KEYWORD, "Vestibule Quarterly"),
     ("vestibuleresources.com",     "https://vestibuleresources.com",                  KEYWORD, "Vestibule Resources"),
-    ("hudsonline.studio",          "https://hudsonline.studio",                       HTTP,    None),
     ("arena-bridge.com",           "https://arena-bridge.com",                        KEYWORD, "Arena Bridge"),
     ("tellmeaboutyourcult.com",    "https://tellmeaboutyourcult.com",                 KEYWORD, "Tell Me About Your Cult"),
     # not yet: coachartiebot.com + spacepunkgame.com (502), goodneighborkingston.com +
