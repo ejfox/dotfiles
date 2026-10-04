@@ -1,0 +1,66 @@
+#!/bin/bash
+# things-export — read Things 3's SQLite (read-only) and emit the brief's TODO block as JSON.
+#
+# Runs on the Mac (Things has no server). Intended for a LaunchAgent every 30 min:
+#   things-export.sh | ssh vps 'cat > /data2/owntracks/things-today.json'
+# then morning-brief-smart.sh reads the file the way it reads location-context.json.
+# Only titles, project names and dates leave the machine — no notes, no checklists.
+#
+# Verified 2026-10-02 against ThingsData-D51MU: 380 open, 7 in Today, 357 Anytime,
+# 2 deadlines, 2 completions in ISO week 39 vs 27 in week 36.
+#
+# Things date columns pack y/m/d into an int: (year<<16) | (month<<12) | (day<<7).
+# type: 0 task, 1 project. status: 0 open, 3 done. start: 0 inbox, 1 anytime/today, 2 someday.
+set -euo pipefail
+DB="$(ls "$HOME/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-"*/"Things Database.thingsdatabase/main.sqlite" 2>/dev/null | head -1)"
+[ -f "$DB" ] || { echo '{"error":"things db not found"}'; exit 0; }
+# sqlite3 -json prints nothing (not "[]") for zero rows, so normalise.
+Q() { local out; out=$(sqlite3 -json "file:$DB?mode=ro" "$1" 2>/dev/null) || out=''; [ -n "$out" ] && printf '%s\n' "$out" || echo '[]'; }
+# SQL expression decoding a packed Things date column into YYYY-MM-DD.
+dec() { echo "printf('%d-%02d-%02d', $1>>16, ($1>>12)&15, ($1>>7)&31)"; }
+
+# SQLite gives << and | the same precedence, so every shift is parenthesised.
+TODAY_INT="((CAST(strftime('%Y','now','localtime') AS INT)<<16) | (CAST(strftime('%m','now','localtime') AS INT)<<12) | (CAST(strftime('%d','now','localtime') AS INT)<<7))"
+
+# Per Today item: project + its area (goal detection), `since` (when it entered Today), `created`
+# (creationDate — "new today" is a fact, not inferred from since), `due`, and `agent` = the title
+# carries a prefix the agents use (◆, CONSIDER:, FIX:, VERIFY:), so the brief can park those.
+AGENT_PREFIX="(t.title LIKE '◆%' OR t.title LIKE 'CONSIDER:%' OR t.title LIKE 'FIX:%' OR t.title LIKE 'VERIFY:%')"
+today=$(Q "SELECT t.title, COALESCE(p.title,'') AS project, COALESCE(a.title, a2.title, '') AS area,
+  $(dec t.startDate) AS since,
+  date(t.creationDate,'unixepoch','localtime') AS created,
+  CASE WHEN t.deadline IS NULL THEN NULL ELSE $(dec t.deadline) END AS due,
+  CASE WHEN $AGENT_PREFIX THEN 1 ELSE 0 END AS agent
+  FROM TMTask t LEFT JOIN TMTask p ON p.uuid=t.project LEFT JOIN TMArea a ON a.uuid=p.area LEFT JOIN TMArea a2 ON a2.uuid=t.area
+  WHERE t.type=0 AND t.status=0 AND t.trashed=0 AND t.start=1 AND t.startDate IS NOT NULL AND t.startDate <= $TODAY_INT
+  ORDER BY t.todayIndex LIMIT 20")
+today=$(printf '%s' "$today" | jq 'map(.agent = (.agent == 1))')
+deadlines=$(Q "SELECT title, $(dec deadline) AS due FROM TMTask
+  WHERE type=0 AND status=0 AND trashed=0 AND deadline IS NOT NULL AND deadline >= $TODAY_INT ORDER BY deadline LIMIT 5")
+overdue=$(Q "SELECT title, $(dec deadline) AS due FROM TMTask
+  WHERE type=0 AND status=0 AND trashed=0 AND deadline IS NOT NULL AND deadline < $TODAY_INT ORDER BY deadline LIMIT 5")
+# Momentum: completions per ISO week, last 8 weeks, plus yesterday's.
+weeks=$(Q "SELECT strftime('%Y-W%W', stopDate, 'unixepoch', 'localtime') AS week, COUNT(*) AS done
+  FROM TMTask WHERE type=0 AND status=3 AND trashed=0 AND stopDate > strftime('%s','now')-56*86400 GROUP BY 1 ORDER BY 1")
+yesterday=$(Q "SELECT title, datetime(stopDate,'unixepoch','localtime') AS at FROM TMTask
+  WHERE type=0 AND status=3 AND trashed=0 AND stopDate > strftime('%s','now')-86400 ORDER BY stopDate DESC LIMIT 6")
+# Goal-shaped projects: open count + 30-day completions, so a project with 21 open and 0 done
+# in 30 days (🎬 Video Output on 2026-10-02) is a computed silence, not an opinion.
+projects=$(Q "SELECT p.title, COALESCE(a.title,'') AS area,
+  (SELECT COUNT(*) FROM TMTask t WHERE t.project=p.uuid AND t.type=0 AND t.status=0 AND t.trashed=0) AS open,
+  (SELECT COUNT(*) FROM TMTask t WHERE t.project=p.uuid AND t.type=0 AND t.status=3 AND t.stopDate > strftime('%s','now')-30*86400) AS done30,
+  (SELECT COUNT(*) FROM TMTask t WHERE t.project=p.uuid AND t.type=0 AND t.status=3 AND t.stopDate > strftime('%s','now')-7*86400) AS done7,
+  (SELECT MAX(datetime(t.stopDate,'unixepoch','localtime')) FROM TMTask t WHERE t.project=p.uuid AND t.type=0 AND t.status=3) AS last_done,
+  (SELECT t.title FROM TMTask t WHERE t.project=p.uuid AND t.type=0 AND t.status=0 AND t.trashed=0 ORDER BY t.\"index\" LIMIT 1) AS next
+  FROM TMTask p LEFT JOIN TMArea a ON a.uuid=p.area
+  WHERE p.type=1 AND p.status=0 AND p.trashed=0 ORDER BY open DESC LIMIT 25")
+counts=$(Q "SELECT
+  (SELECT COUNT(*) FROM TMTask WHERE type=0 AND status=0 AND trashed=0) AS open,
+  (SELECT COUNT(*) FROM TMTask WHERE type=0 AND status=0 AND trashed=0 AND start=1 AND startDate IS NOT NULL AND startDate <= $TODAY_INT) AS today,
+  (SELECT COUNT(*) FROM TMTask WHERE type=0 AND status=0 AND trashed=0 AND start=0) AS inbox,
+  (SELECT COUNT(*) FROM TMTask WHERE type=0 AND status=0 AND trashed=0 AND start=1 AND startDate IS NULL) AS anytime")
+
+jq -n --argjson today "$today" --argjson deadlines "$deadlines" --argjson overdue "$overdue" \
+      --argjson weeks "$weeks" --argjson yesterday "$yesterday" --argjson projects "$projects" --argjson counts "$counts" \
+      '{exported_at: (now|todate), counts: $counts[0], today: $today, deadlines: $deadlines, overdue: $overdue,
+        completed_yesterday: $yesterday, completions_by_week: $weeks, projects: $projects}'

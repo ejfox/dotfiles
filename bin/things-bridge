@@ -1,0 +1,26 @@
+#!/bin/bash
+# things-bridge — push the Things 3 brief snapshot to the VPS for the morning brief.
+# Run by ~/Library/LaunchAgents/com.ejfox.things-bridge.plist every 30 min while the Mac is awake.
+# Only titles, project names, dates and counts leave the machine (see things-export).
+set -euo pipefail
+export PATH="/Users/ejfox/.dotfiles/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+OUT="$HOME/.local/share/things-bridge"
+mkdir -p "$OUT"
+things-export > "$OUT/things.json.tmp"
+jq -e '.exported_at' "$OUT/things.json.tmp" >/dev/null   # refuse to push an error/empty export
+mv "$OUT/things.json.tmp" "$OUT/things.json"
+scp -q -o BatchMode=yes -o ConnectTimeout=10 "$OUT/things.json" vps:/home/debian/briefs/things.json.tmp
+ssh -o BatchMode=yes -o ConnectTimeout=10 vps 'mv /home/debian/briefs/things.json.tmp /home/debian/briefs/things.json'
+echo "$(date -u +%FT%TZ) pushed $(wc -c < "$OUT/things.json") bytes"
+
+# Same trip back: pull the brief's facts for the pixel scenes (knock, tally, found, held, action).
+# Only replace the local copy with a valid file; a missing remote file leaves it alone.
+STATE="$HOME/.local/state/pixel"
+mkdir -p "$STATE"
+if scp -q -o BatchMode=yes -o ConnectTimeout=10 vps:/home/debian/briefs/facts.json "$STATE/brief.json.tmp" 2>/dev/null \
+   && jq -e '.generated_at' "$STATE/brief.json.tmp" >/dev/null 2>&1; then
+  mv "$STATE/brief.json.tmp" "$STATE/brief.json"
+  echo "$(date -u +%FT%TZ) pulled brief facts"
+else
+  rm -f "$STATE/brief.json.tmp"
+fi

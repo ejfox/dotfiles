@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""obs-synccheck — measure the real audio/video offset of the OBS rig.
+
+Flashes the screen white + beeps at the same instant (5x, 2s apart) while OBS
+records. The camera sees the room light up, the mic hears the beep; the gap
+between the two in the recording is the true A/V offset of camera vs mic.
+
+  obs-synccheck            measure and report
+  obs-synccheck --apply    measure, then set the mic's sync offset to cancel it
+  obs-synccheck --file X   analyze an existing recording made with the stimulus
+
+During the test it temporarily: switches to a camera-only scene, disables the
+mic's denoise/expander/gate filters (they erase beeps), raises system volume if
+it is low. Everything is restored afterwards. The test recording is moved out
+of ~/Movies into ~/.cache/obs-synccheck/.
+"""
+import argparse, base64, hashlib, json, os, shutil, subprocess, sys, time
+import numpy as np
+
+WS_CONFIG = os.path.expanduser('~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json')
+CACHE = os.path.expanduser('~/.cache/obs-synccheck')
+MIC = 'SM7dB'
+SCENE = '🎙️ Yapping'            # camera-only scene (no screen capture in frame)
+FLASHES = [2.0, 4.0, 6.0, 8.0, 10.0]
+FLASH_LEN = 0.12
+STIM_DUR = 11.5
+QUIET_FILTERS = ('noise_suppress_filter', 'noise_suppress_filter_v2', 'expander_filter', 'noise_gate_filter')
+
+
+# ── OBS websocket ─────────────────────────────────────────────────────────────
+class OBS:
+    def __init__(self):
+        import websocket
+        cfg = json.load(open(WS_CONFIG))
+        try:
+            self.ws = websocket.create_connection(f"ws://127.0.0.1:{cfg.get('server_port', 4455)}", timeout=10)
+        except OSError:
+            sys.exit('◇ OBS is not running (or its websocket server is off). Open OBS first.')
+        hello = json.loads(self.ws.recv())['d']
+        ident = {'rpcVersion': 1}
+        auth = hello.get('authentication')
+        if auth:
+            secret = base64.b64encode(hashlib.sha256((cfg['server_password'] + auth['salt']).encode()).digest()).decode()
+            ident['authentication'] = base64.b64encode(hashlib.sha256((secret + auth['challenge']).encode()).digest()).decode()
+        self.ws.send(json.dumps({'op': 1, 'd': ident}))
+        json.loads(self.ws.recv())
+
+    def req(self, kind, data=None):
+        self.ws.send(json.dumps({'op': 6, 'd': {'requestType': kind, 'requestId': kind, 'requestData': data or {}}}))
+        while True:
+            m = json.loads(self.ws.recv())
+            if m['op'] == 7 and m['d']['requestId'] == kind:
+                if not m['d']['requestStatus']['result']:
+                    raise RuntimeError(f"{kind}: {m['d']['requestStatus'].get('comment')}")
+                return m['d'].get('responseData') or {}
+
+
+# ── stimulus ──────────────────────────────────────────────────────────────────
+def stimulus():
+    path = os.path.join(CACHE, 'stimulus.mp4')
+    if os.path.exists(path):
+        return path
+    on = '+'.join(f'between(t,{t},{t + FLASH_LEN})' for t in FLASHES)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y',
+                    '-f', 'lavfi', '-i', f'color=black:s=1280x720:r=60:d={STIM_DUR}',
+                    '-f', 'lavfi', '-i', f"aevalsrc='if({on},0.8*sin(2*PI*1000*t),0)':s=48000:d={STIM_DUR}",
+                    '-vf', f"drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='{on}'",
+                    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', path], check=True)
+    return path
+
+
+def osa(script):
+    return subprocess.run(['osascript', '-e', script], capture_output=True, text=True).stdout.strip()
+
+
+# ── analysis ──────────────────────────────────────────────────────────────────
+def onsets(signal, rate, min_gap):
+    """Times where signal rises past halfway between its floor and peak, with linear sub-sample interpolation."""
+    lo, hi = np.percentile(signal, 20), np.percentile(signal, 99.5)
+    thr = lo + 0.5 * (hi - lo)
+    above = signal > thr
+    out, last = [], -1e9
+    for i in np.flatnonzero(above[1:] & ~above[:-1]) + 1:
+        t = (i - 1 + (thr - signal[i - 1]) / (signal[i] - signal[i - 1])) / rate
+        if t - last >= min_gap:
+            out.append(t)
+            last = t
+    return np.array(out), hi - lo
+
+
+def analyze(path):
+    # audio: 1 kHz quadrature envelope at 1 ms resolution
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-vn', '-ac', '1', '-ar', '48000', '-f', 's16le', '-'],
+                         capture_output=True, check=True).stdout
+    a = np.frombuffer(raw, np.int16).astype(np.float64)
+    t = np.arange(len(a)) / 48000
+    iq = a * np.exp(-2j * np.pi * 1000 * t)
+    k = 48  # 1 ms boxcar
+    env = np.abs(np.convolve(iq, np.ones(k) / k, 'same'))[::k]
+    a_on, a_rise = onsets(env, 1000, 1.0)
+
+    # video: mean luminance of each frame
+    probe = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries',
+                                       'stream=r_frame_rate,start_time', '-of', 'json', path],
+                                      capture_output=True, text=True, check=True).stdout)['streams'][0]
+    num, den = map(int, probe['r_frame_rate'].split('/'))
+    fps = num / den
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-vf', 'scale=64:36,format=gray', '-f', 'rawvideo', '-'],
+                         capture_output=True, check=True).stdout
+    lum = np.frombuffer(raw, np.uint8).reshape(-1, 36 * 64).mean(axis=1)
+    v_on, v_rise = onsets(lum, fps, 1.0)
+    v_on = v_on + float(probe.get('start_time') or 0)
+
+    pairs = []
+    for at in a_on:
+        if len(v_on):
+            vt = v_on[np.argmin(np.abs(v_on - at))]
+            if abs(at - vt) < 1.0:
+                pairs.append((vt, at, (at - vt) * 1000))
+    return pairs, len(a_on), len(v_on), fps, v_rise
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
+def main():
+    ap = argparse.ArgumentParser(description='Measure the OBS camera-vs-mic offset with a flash+beep stimulus.')
+    ap.add_argument('--apply', action='store_true', help="set the mic's sync offset to cancel the measured offset")
+    ap.add_argument('--file', help='analyze an existing recording instead of running a test')
+    ap.add_argument('--scene', default=SCENE)
+    ap.add_argument('--mic', default=MIC)
+    args = ap.parse_args()
+    os.makedirs(CACHE, exist_ok=True)
+
+    obs = None
+    path = args.file
+    if not path:
+        stim = stimulus()
+        obs = OBS()
+        if obs.req('GetRecordStatus')['outputActive']:
+            sys.exit('◇ OBS is already recording; stop it first.')
+        prev_scene = obs.req('GetCurrentProgramScene')['currentProgramSceneName']
+        filters = [f for f in obs.req('GetSourceFilterList', {'sourceName': args.mic})['filters']
+                   if f['filterKind'] in QUIET_FILTERS and f['filterEnabled']]
+        vol = osa('output volume of (get volume settings)')
+        muted = osa('output muted of (get volume settings)')
+        try:
+            obs.req('SetCurrentProgramScene', {'sceneName': args.scene})
+            for f in filters:
+                obs.req('SetSourceFilterEnabled', {'sourceName': args.mic, 'filterName': f['filterName'], 'filterEnabled': False})
+            if muted == 'true' or (vol.isdigit() and int(vol) < 35):
+                osa('set volume output volume 45 without output muted')
+            print('◆ recording — keep the camera pointed at you/the room; 5 flashes + beeps incoming')
+            obs.req('StartRecord')
+            time.sleep(1.5)
+            subprocess.run(['ffplay', '-fs', '-autoexit', '-loglevel', 'quiet', stim])
+            time.sleep(1.0)
+            path = obs.req('StopRecord')['outputPath']
+        finally:
+            for f in filters:
+                obs.req('SetSourceFilterEnabled', {'sourceName': args.mic, 'filterName': f['filterName'], 'filterEnabled': True})
+            obs.req('SetCurrentProgramScene', {'sceneName': prev_scene})
+            if vol.isdigit():
+                osa(f'set volume output volume {vol}' + (' with output muted' if muted == 'true' else ''))
+        time.sleep(1.0)
+        kept = os.path.join(CACHE, 'last-test' + os.path.splitext(path)[1])
+        shutil.move(path, kept)
+        path = kept
+
+    pairs, n_a, n_v, fps, v_rise = analyze(path)
+    print(f'○ {os.path.basename(path)}  ·  {fps:.0f} fps  ·  beeps heard {n_a}  ·  flashes seen {n_v}')
+    if len(pairs) < 3:
+        hint = []
+        if n_a < 3: hint.append('mic did not hear the beeps (speakers too quiet, or headphones in?)')
+        if n_v < 3: hint.append('camera did not see the flashes (room too bright, or screen not facing the room?)')
+        sys.exit('◇ not enough flash/beep pairs to measure. ' + '; '.join(hint))
+    offs = np.array([p[2] for p in pairs])
+    for vt, at, ms in pairs:
+        print(f'  flash @ {vt:6.3f}s   beep @ {at:6.3f}s   {ms:+6.0f} ms')
+    med, spread = float(np.median(offs)), float(offs.max() - offs.min())
+    frame = 1000 / fps
+    side = 'audio LATE (voice after lips)' if med > 0 else 'audio EARLY (voice before lips)'
+    print(f'◆ offset {med:+.0f} ms  ({side})  ·  spread {spread:.0f} ms  ·  1 frame = {frame:.0f} ms')
+    if abs(med) <= max(20, frame / 2):
+        print('◆ in sync — within a frame. Nothing to change.')
+        return
+    # Unbuffered cameras show each frame on arrival, so readings jitter by a frame or two.
+    # Centering on the median keeps every reading within ~±50 ms, under what people notice.
+    if spread > 100:
+        print('◇ readings disagree by more than 100 ms — the camera delay is not steady. Fix that before applying an offset.')
+        return
+    obs = obs or OBS()
+    cur = obs.req('GetInputAudioSyncOffset', {'inputName': args.mic})['inputAudioSyncOffset']
+    new = int(round(cur - med))
+    if args.apply:
+        obs.req('SetInputAudioSyncOffset', {'inputName': args.mic, 'inputAudioSyncOffset': new})
+        print(f'◆ {args.mic} sync offset {cur} → {new} ms. Run obs-synccheck again to confirm.')
+    else:
+        print(f'○ fix: {args.mic} sync offset {cur} → {new} ms   (obs-synccheck --apply does it)')
+
+
+if __name__ == '__main__':
+    main()
