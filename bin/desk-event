@@ -50,7 +50,7 @@ case "$KIND" in
                 LABEL=$(printf '%s' "$KIND" | tr '[:lower:]' '[:upper:]') ;;
 esac
 # Caption accent = the same grammar color the lights use, resolved to raw r/g/b
-# (the pixel firmware only knows a fixed name list — no "yellow" — but always
+# (the firmware's name list can lag the grammar's colors, but it always
 # honours explicit r&g&b; see firmware parseColor). One accessor, one source.
 CRGB=$(grammar_rgb_query "$EVENT")
 
@@ -132,6 +132,7 @@ px "text?msg=$(enc "$LABEL")&x=8&y=222&size=1&${CRGB}"
 x=$(( 8 + (${#LABEL} + 1) * 6 ))
 [ -n "$msg" ] && px "text?msg=$(enc "$msg")&x=${x}&y=222&size=1&color=body"
 px "text?msg=$(enc "$ts")&x=284&y=222&size=1&color=dustrose"
+"$HOME/.dotfiles/bin/usage-log" pixel caption kind="$KIND" text="$LABEL $msg" 2>/dev/null
 
 # Washaway: repaint later unless a newer caption superseded us.
 # Claude events wash into the fleet scene so the glass keeps showing
@@ -143,7 +144,7 @@ esac
 (
   sleep 75
   cur=$(stat -f %m "$STAMP" 2>/dev/null || echo 0)
-  [ "$cur" -le "$now" ] && "$HOME/.dotfiles/bin/pixel" "$WASH" >/dev/null 2>&1
+  [ "$cur" -le "$now" ] && PIXEL_VIA=washaway "$HOME/.dotfiles/bin/pixel" "$WASH" >/dev/null 2>&1
 ) &
 disown 2>/dev/null || true
 exit 0
