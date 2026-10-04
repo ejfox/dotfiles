@@ -45,6 +45,10 @@ for f in "$TP7_ROOT"/*/recordings/*.wav "$TP7_ROOT"/*/recordings/*.WAV; do
     [[ "$riff" -eq 4294967295 ]] && continue  # RF64/streaming sentinel — can't judge
     declared=$(( riff + 8 ))
   fi
+  # exactly 8 bytes "short" = a writer that stored the file size (not size-8) in the RIFF field. The file is
+  # complete; quarantining it caused an endless re-pull loop (2026-10-04). tp7-pull now verifies every download
+  # against the device's size, so this check is a second line of defense for real truncations only.
+  [[ $(( declared - actual )) -eq 8 ]] && continue
   if [[ "$actual" -lt "$declared" ]]; then
     mkdir -p "$QUAR"
     mv "$f" "$QUAR/"

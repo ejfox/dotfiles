@@ -87,6 +87,12 @@ sudo -n "$SH/tp7-root-pull.sh" "$DEST" 2>>"$LOG" | while IFS= read -r line; do
     STOP\ diskfloor*)   # tp7-pull stopped itself before filling the disk (newest recordings came first)
       notify "stopped early: disk almost full — free up space, then reconnect for the rest"
       jlog pull_diskfloor ;;
+    STOP\ device\ lost*)
+      notify "TP-7 disconnected mid-pull — reconnect to resume (nothing lost)"
+      jlog pull_device_lost ;;
+    LISTFAIL*)
+      notify "couldn't read the TP-7's file list — power-cycle it (hold STOP) and reconnect"
+      jlog pull_listfail ;;
     END*) log "pull end: $line" ;;
   esac
 done
