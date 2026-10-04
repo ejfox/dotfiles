@@ -336,8 +336,9 @@ generate_pomodoros() {
 
     echo -e "${CYAN}◆ CIPHER contemplates your trajectory...${NC}\n" >&2
 
-    # Timeout after 30s to prevent hanging (e.g., if called from within Claude Code)
-    timeout 30 claude --output-format text <<EOF
+    # -p = print mode (one-shot, no TUI). From /tmp so a project's .claude/
+    # settings don't add trust warnings. Timeout so it can never hang the shell.
+    (cd /tmp && timeout 90 claude -p --model claude-sonnet-5 --output-format text) <<EOF
 $persona
 
 You are analyzing a hacker-journalist's morning context to suggest pomodoro sessions (25-min focused work blocks).
@@ -388,16 +389,19 @@ EOF
 }
 
 # Parse and format for fzf
+# Trim surrounding whitespace. (Was `| xargs`, which dies on any apostrophe:
+# "unterminated quote" dropped 11 of 12 pomodoros.)
+trim() { sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'; }
+
 format_for_fzf() {
     local raw_output="$1"
 
     # Simple: just grep for POMODORO lines, then get the WHY line after each
-    local line_num=0
     while IFS= read -r line; do
         if [[ "$line" == POMODORO_* ]]; then
             # Extract number and title
             num=$(echo "$line" | cut -d_ -f2 | cut -d: -f1)
-            title=$(echo "$line" | cut -d: -f2- | xargs)
+            title=$(echo "$line" | cut -d: -f2- | trim)
 
             # Format number with leading zero
             if [ "$num" -lt 10 ]; then
@@ -408,7 +412,7 @@ format_for_fzf() {
 
             # Next line should be WHY
             read -r why_line
-            why=$(echo "$why_line" | cut -d: -f2- | xargs)
+            why=$(echo "$why_line" | cut -d: -f2- | trim)
 
             echo "${display_num} ${title} ◆ ${why}"
         fi
@@ -419,14 +423,19 @@ format_for_fzf() {
 add_to_things() {
     local task="$1"
 
-    # Extract just the title (after #XX, before ◆)
-    # Strip the priority number (#01, #02, etc)
-    local title=$(echo "$task" | sed 's/^#[0-9]\+ //' | cut -d'◆' -f1 | xargs)
+    # Just the title: drop the "#01 " rank and everything from " ◆ " on.
+    # (BSD sed has no \+ and cut can't split on a multibyte ◆, so the old
+    # version kept both.)
+    local title="${task%% ◆*}"
+    title=$(printf '%s' "$title" | sed -E 's/^#[0-9]+ //' | trim)
 
-    osascript <<EOF
-tell application "Things3"
-    set newTodo to make new to do with properties {name:"$title", due date:current date}
-end tell
+    # title as an argument, never spliced into the script: quotes stay text
+    osascript - "$title" <<'EOF'
+on run argv
+    tell application "Things3"
+        make new to do with properties {name:(item 1 of argv), due date:(current date)}
+    end tell
+end run
 EOF
 
     echo -e "${CYAN}◆ Added to Things: ${title}${NC}" >&2
@@ -434,8 +443,10 @@ EOF
 
 # Main flow
 main() {
-    check_is_morning
-    check_already_run
+    if [ "${1:-}" != "--force" ]; then  # --force: any hour, even if already run today
+        check_is_morning
+        check_already_run
+    fi
 
     # Gather context
     local context=$(gather_all_context)
@@ -457,6 +468,10 @@ main() {
         echo -e "${GRAY}  (Timeout or API error - try again or run manually)${NC}" >&2
         exit 1
     fi
+
+    # Seen = done for today, whether you pick or Ctrl-C (otherwise every new
+    # terminal before noon would ask again)
+    date +%Y-%m-%d > "$LAST_RUN"
 
     echo -e "\n${CYAN}◆ CIPHER ranked 12 trajectories by priority. Pick your top 3:${NC}\n" >&2
 
@@ -482,10 +497,7 @@ main() {
         add_to_things "$task"
     done
 
-    # Mark as run today
-    date +%Y-%m-%d > "$LAST_RUN"
-
     echo -e "\n${CYAN}◆ CIPHER has spoken. Your trajectory is set.${NC}\n" >&2
 }
 
-main
+main "$@"

@@ -12,8 +12,14 @@
 set +e  # Don't exit on error - graceful degradation
 exec 2>/dev/null  # Silence all stderr (remove for debugging)
 
-# Skip if zen mode active
-[ -f "/tmp/.zen-mode-state" ] && exit 0
+# PRECACHE MODE (STARTUP_PRECACHE=1, launchd com.ejfox.motd-precache): warm
+# every cache — fetchers, the mirror line, today's CIPHER oracle — silently,
+# and skip the interactive side effects (morning ritual, watchers, pixel).
+PRECACHE="${STARTUP_PRECACHE:-}"
+[ -n "$PRECACHE" ] && exec >/dev/null
+
+# Skip if zen mode active (the display, not the cache warming)
+[ -z "$PRECACHE" ] && [ -f "/tmp/.zen-mode-state" ] && exit 0
 
 # Ctrl-C to skip
 trap 'exit 0' INT
@@ -218,22 +224,12 @@ show_section "$CACHE_DIR/calendar" "SCHEDULE"
 ################################################################################
 # MIRROR - Ambient observation (25% chance, always late night)
 ################################################################################
-surface_mirror() {
-  local hour=$(date +%H)
-  hour=$((10#$hour))
-
-  # Probability: 25% normally, 100% late night
-  local chance=4
-  [ "$hour" -ge 23 ] || [ "$hour" -lt 5 ] && chance=1
-  [ $((RANDOM % chance)) -ne 0 ] && return 0
-
-  # Check cache first
-  if cache_ok "$CACHE_DIR/mirror" $TTL_MIRROR; then
-    echo -e "\033[38;5;95m(mirror) $(safe_read "$CACHE_DIR/mirror")\033[0m"
-    echo ""
-    return 0
-  fi
-
+# make_mirror writes the line to the cache; the shell only ever DISPLAYS the
+# cache. Generating goes through the claude CLI (~5s+), so an interactive shell
+# kicks it off in the background for the next terminal and precache mode runs
+# it inline. (Was a raw-API call on ANTHROPIC_API_KEY, which ~/.env no longer
+# has, so the mirror had been silently blank.)
+make_mirror() {
   # Need rich context (cipher-daily caches it as a side effect of running).
   # Skip if context is stale — cipher-daily runs daily, so >24h means something
   # failed and the mirror would otherwise riff on yesterday's reality.
@@ -242,10 +238,8 @@ surface_mirror() {
   local context_age=$(( ($(date +%s) - $(stat -f %m "$cipher_context_file" 2>/dev/null || echo 0)) / 3600 ))
   [ "$context_age" -gt 24 ] && return 0
 
-  # Need API key
-  [ -z "$ANTHROPIC_API_KEY" ] && [ -f ~/.env ] && \
-    ANTHROPIC_API_KEY=$(grep -m1 'ANTHROPIC_API_KEY' ~/.env 2>/dev/null | cut -d'"' -f2)
-  [ -z "$ANTHROPIC_API_KEY" ] && return 0
+  local claude_bin=$(command -v claude || echo "$HOME/.claude/local/claude")
+  [ -x "$claude_bin" ] || return 0
 
   local rich_context=$(safe_read "$cipher_context_file")
   local prompt="You are CIPHER, the ambient voice in this terminal. Think Spider Jerusalem with a Unix shell: gonzo, observant, allergic to bullshit, weirdly affectionate toward the human at the keyboard.
@@ -258,16 +252,39 @@ $rich_context
 
 ONE line. Land it."
 
-  local wisdom=$(timeout 5 curl -s https://api.anthropic.com/v1/messages \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
-    -H "anthropic-version: 2023-06-01" \
-    -H "content-type: application/json" \
-    -d "$(jq -n --arg p "$prompt" '{model:"claude-haiku-4-5",max_tokens:80,messages:[{role:"user",content:$p}]}')" \
-    2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null | head -1 | sed 's/\*\*//g; s/`//g; s/[[:space:]]*$//')
+  local wisdom=$(cd /tmp && printf '%s' "$prompt" | \
+    timeout 45 "$claude_bin" -p --model claude-haiku-4-5-20251001 --output-format text 2>/dev/null | \
+    grep -v '^[[:space:]]*$' | head -1 | sed 's/\*\*//g; s/`//g; s/[[:space:]]*$//')
 
-  [ -n "$wisdom" ] && {
-    atomic_write "$CACHE_DIR/mirror" "$wisdom"
-    echo -e "\033[38;5;95m(mirror) $wisdom\033[0m"
+  [ -n "$wisdom" ] && atomic_write "$CACHE_DIR/mirror" "$wisdom"
+}
+
+surface_mirror() {
+  if ! cache_ok "$CACHE_DIR/mirror" $TTL_MIRROR; then
+    # one generator at a time (mkdir is atomic); stale lock = >2 min
+    local lock="$CACHE_DIR/mirror.lock"
+    find "$lock" -maxdepth 0 -mmin +2 -exec rmdir {} \; 2>/dev/null
+    if mkdir "$lock" 2>/dev/null; then
+      if [ -n "$PRECACHE" ]; then
+        make_mirror; rmdir "$lock"
+      else
+        ( make_mirror; rmdir "$lock" ) >/dev/null 2>&1 &
+        disown 2>/dev/null
+      fi
+    fi
+  fi
+  [ -n "$PRECACHE" ] && return 0
+
+  local hour=$(date +%H)
+  hour=$((10#$hour))
+
+  # Probability: 25% normally, 100% late night
+  local chance=4
+  [ "$hour" -ge 23 ] || [ "$hour" -lt 5 ] && chance=1
+  [ $((RANDOM % chance)) -ne 0 ] && return 0
+
+  cache_ok "$CACHE_DIR/mirror" 120 && {   # a few-hours-old observation still lands
+    echo -e "\033[38;5;95m(mirror) $(safe_read "$CACHE_DIR/mirror")\033[0m"
     echo ""
   }
 }
@@ -280,9 +297,11 @@ today=$(date +%Y-%m-%d)
 cipher_file="$CIPHER_CACHE/daily.txt"
 cipher_date="$CIPHER_CACHE/daily.date"
 
-# Generate if missing (laptop was asleep at 7am)
-if [ "$(safe_read "$cipher_date")" != "$today" ]; then
-  command -v cipher-daily >/dev/null && cipher-daily &>/dev/null &
+# Generate if missing (laptop was asleep at 7am). Inline in precache mode:
+# launchd kills a job's leftover background children when it exits.
+if [ "$(safe_read "$cipher_date")" != "$today" ] && command -v cipher-daily >/dev/null; then
+  if [ -n "$PRECACHE" ]; then cipher-daily &>/dev/null
+  else cipher-daily &>/dev/null & fi
 fi
 
 # Display if available
@@ -292,6 +311,31 @@ if [ -s "$cipher_file" ] && [ "$(safe_read "$cipher_date")" = "$today" ]; then
     [ -n "$line" ] && echo -e "\033[38;5;245m  $line\033[0m"
   done < "$cipher_file"
   echo ""
+fi
+
+# Precache mode stops here: everything below is for a human at a terminal.
+[ -n "$PRECACHE" ] && exit 0
+
+################################################################################
+# MORNING RITUAL - CIPHER's 12 ranked pomodoros, pick 3 (bin/morning-ritual)
+################################################################################
+# First terminal of the day, before noon, asks first. Enter = run it; any
+# other key = skip today; no answer in 8s = ask again at the next terminal.
+# Its UI goes to stderr, which this script silences, so point it at the tty.
+ritual_mark="/tmp/morning_ritual/last_run"
+if [ -t 0 ] && [ -t 1 ] && [ "$((10#$(date +%H)))" -lt 12 ] \
+    && [ "$(safe_read "$ritual_mark")" != "$today" ] && command -v morning-ritual >/dev/null; then
+  printf '\033[38;5;131m◆ CIPHER morning ritual?\033[0m \033[2m[enter] go · [any key] not today · 8s\033[0m '
+  if read -r -s -n 1 -t 8 key; then
+    echo ""
+    if [ -z "$key" ]; then
+      morning-ritual 2>/dev/tty
+    else
+      mkdir -p "${ritual_mark%/*}" && echo "$today" > "$ritual_mark"
+    fi
+  else
+    echo ""
+  fi
 fi
 
 ################################################################################

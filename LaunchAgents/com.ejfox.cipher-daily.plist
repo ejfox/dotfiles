@@ -2,26 +2,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>com.ejfox.cipher-daily</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>-l</string>
-        <string>/Users/ejfox/.dotfiles/bin/cipher-daily</string>
-    </array>
-    <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>7</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>/tmp/cipher-daily.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/cipher-daily.err</string>
-    <key>RunAtLoad</key>
-    <false/>
+  <!-- 07:00 CIPHER oracle: 3 focus priorities → ~/.cache/cipher/daily.txt
+       (MOTD + the pixel canvas `cipher` scene). .startup.sh regenerates it
+       if the Mac slept through 7am. Uses the claude CLI (no API key). -->
+  <key>Label</key>
+  <string>com.ejfox.cipher-daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-l</string>
+    <string>/Users/ejfox/.dotfiles/bin/cipher-daily</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/ejfox/.claude/local:/Users/ejfox/.dotfiles/bin:/Users/ejfox/bin:/Users/ejfox/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>7</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/tmp/cipher-daily.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/cipher-daily.err</string>
 </dict>
 </plist>

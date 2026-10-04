@@ -2,34 +2,36 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key>
-    <string>com.ejfox.motd-precache</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>-l</string>
-        <string>/Users/ejfox/.dotfiles/.startup.sh</string>
-    </array>
-    <key>StartCalendarInterval</key>
-    <array>
-        <dict>
-            <key>Hour</key>
-            <integer>9</integer>
-            <key>Minute</key>
-            <integer>0</integer>
-        </dict>
-        <dict>
-            <key>Hour</key>
-            <integer>10</integer>
-            <key>Minute</key>
-            <integer>0</integer>
-        </dict>
-    </array>
-    <key>StandardOutPath</key>
-    <string>/tmp/motd-precache.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/motd-precache.err</string>
-    <key>RunAtLoad</key>
-    <false/>
+  <!-- Every 30 min: run .startup.sh in PRECACHE mode — warm the MOTD caches
+       (stats, tasks, calendar, mirror line, today's CIPHER oracle) silently,
+       so opening a terminal never waits on a fetch or an LLM call. Precache
+       mode skips everything interactive (morning ritual, watchers, pixel). -->
+  <key>Label</key>
+  <string>com.ejfox.motd-precache</string>
+  <!-- hard 5-min ceiling: a normal warm takes ~25s (mostly the mirror's
+       claude call); one test run stalled 8 min on something one-off -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/timeout</string>
+    <string>300</string>
+    <string>/bin/bash</string>
+    <string>-l</string>
+    <string>/Users/ejfox/.dotfiles/.startup.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>STARTUP_PRECACHE</key>
+    <string>1</string>
+    <key>PATH</key>
+    <string>/Users/ejfox/.claude/local:/Users/ejfox/.dotfiles/bin:/Users/ejfox/bin:/Users/ejfox/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/motd-precache.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/motd-precache.err</string>
 </dict>
 </plist>

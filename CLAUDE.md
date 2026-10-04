@@ -416,10 +416,20 @@ morning-ritual  # Force run even if already run today
 rm /tmp/morning_ritual/last_run && morning-ritual  # Reset today's run
 ```
 
-**Integration with .startup.sh**:
-NONE currently — the May 2026 startup rewrite dropped the morning-ritual hook.
-The script still works as a manual command; re-add a call in `.startup.sh` if
-the daily auto-run is wanted again.
+**Integration with .startup.sh** (re-wired 2026-10-04): the first non-tmux
+terminal before noon asks `◆ CIPHER morning ritual? [enter] go · [any key] not
+today · 8s`. Enter runs it; another key skips the day; no answer asks again at
+the next terminal. Seeing the list counts as done (picking or Ctrl-C).
+`morning-ritual --force` runs it any time. LLM call = `claude -p --model
+claude-sonnet-5` from /tmp (the CLI, no API key).
+
+**CIPHER oracle + mirror** (same date): `bin/cipher-daily` (launchd
+`com.ejfox.cipher-daily`, 07:00) and the `.startup.sh` mirror line both use the
+claude CLI with Haiku — `~/.env` has no `ANTHROPIC_API_KEY`, so their old
+raw-API calls had silently produced nothing since ~May 2026. The mirror is
+generated in the background (or by `com.ejfox.motd-precache`, which runs
+`.startup.sh` with `STARTUP_PRECACHE=1` every 30 min: caches only, no output,
+no ritual/pixel/watchers); the shell only ever displays the cache.
 
 **Why this is next-level**:
 - Analyzes your ACTUAL work context, not generic task lists
