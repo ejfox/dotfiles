@@ -4,6 +4,16 @@ $root    = 'C:\dev\computah\farm\sd'
 $gallery = 'C:\dev\computah\renders\muse-gallery'
 $favdir  = 'C:\dev\computah\renders\favorites'
 $downdir = 'C:\dev\computah\renders\downvotes'
+$studiodir = 'C:\dev\computah\renders\mathblend\masterpieces'
+
+# A new favorite also goes to EJ's Discord channel (2026-10-05). Fire-and-forget: the
+# poster runs hidden and logs to logs\fave-post.log; the wall never waits on Discord.
+function Post-Fave($png, $kind) {
+  if (-not (Test-Path $png)) { return }
+  if (-not (Test-Path 'C:\dev\computah\farm\sd\discord-faves.url')) { return }
+  Start-Process -WindowStyle Hidden -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\python.exe' `
+    -ArgumentList @('C:\dev\computah\bin\fave_post.py', "`"$png`"", "`"$([IO.Path]::ChangeExtension($png, '.json'))`"", $kind) -EA 0
+}
 $prefix = 'http://+:7861/'
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($prefix)
@@ -40,12 +50,36 @@ while ($listener.IsListening) {
             $src = Join-Path $gallery ("muse-$id.$ext")
             if (Test-Path $src) { Copy-Item $src (Join-Path $favdir ("muse-$id.$ext")) -Force -EA 0 }
           }
+          Post-Fave (Join-Path $favdir ("muse-$id.png")) 'wall'
         } elseif ($on -eq '0') {
           Get-ChildItem (Join-Path $favdir ("muse-$id.*")) -EA 0 | Remove-Item -Force -EA 0
         }
       }
       $state = [bool]($id -and (Test-Path (Join-Path $favdir ("muse-$id.png"))))
       Send-Json $resp @{ fav = $state }
+      continue
+    }
+    if ($path -eq 'studiofav') {                 # star a Blender studio piece (2026-10-05)
+      $name = [IO.Path]::GetFileName([string]$q['name']); $on = $q['on']   # bare file name only
+      $sdir = Join-Path $favdir 'studio'
+      New-Item -ItemType Directory -Force -Path $sdir | Out-Null
+      if ($name) {
+        if ($on -eq '1') {
+          foreach ($ext in @('png','json')) {
+            $src = Join-Path $studiodir ("$name.$ext")
+            if (Test-Path $src) { Copy-Item $src (Join-Path $sdir ("$name.$ext")) -Force -EA 0 }
+          }
+          Post-Fave (Join-Path $sdir ("$name.png")) 'studio'
+        } elseif ($on -eq '0') {
+          Get-ChildItem (Join-Path $sdir ("$name.*")) -EA 0 | Remove-Item -Force -EA 0
+        }
+      }
+      Send-Json $resp @{ fav = [bool]($name -and (Test-Path (Join-Path $sdir ("$name.png")))) }
+      continue
+    }
+    if ($path -eq 'studiofavlist') {
+      $ids = @(Get-ChildItem (Join-Path (Join-Path $favdir 'studio') '*.png') -EA 0 | ForEach-Object { $_.BaseName })
+      Send-Json $resp @{ ids = $ids }
       continue
     }
     if ($path -eq 'favlist') {                   # ids currently favorited

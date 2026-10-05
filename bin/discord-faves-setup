@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# discord-faves-setup -- hand the studio-favorites Discord webhook to computah with two clicks.
+# You copy the webhook URL in Discord; this watches the clipboard, pipes it to the PC's
+# set-discord-webhook.ps1 (which stores it user-only and posts a test line), then clears
+# the clipboard. The URL never hits the screen, a file on the Mac, or anyone's chat.
+set -uo pipefail
+PC=ejfox@10.0.0.169
+re='^https://(ptb\.|canary\.)?(discord|discordapp)\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$'
+
+echo "◆ studio favorites → Discord"
+echo "  In Discord: the channel → Edit Channel → Integrations → Webhooks → New Webhook"
+echo "  → (name it, e.g. 'computah') → Copy Webhook URL"
+echo "  waiting for the URL on your clipboard… (ctrl-c to cancel)"
+before=$(pbpaste 2>/dev/null | head -c 300)
+while :; do
+  now=$(pbpaste 2>/dev/null | head -c 300 | tr -d '\r\n')
+  if [ "$now" != "$before" ] && [[ "$now" =~ $re ]]; then break; fi
+  sleep 0.5
+done
+echo "  ◇ got it, sending to computah…"
+printf '%s\n' "$now" | ssh -o ConnectTimeout=8 "$PC" "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\set-discord-webhook.ps1"
+rc=$?
+printf '' | pbcopy
+now=""
+[ $rc -eq 0 ] && echo "  ◆ done. Fave anything on the wall (★) or a studio piece and it posts there." \
+              || echo "  ○ something went wrong (clipboard cleared). Run it again."
+exit $rc

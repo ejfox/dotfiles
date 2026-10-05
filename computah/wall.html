@@ -189,8 +189,14 @@ async function studioInspect(j) {
   ovimg.style.imageRendering = it.name.includes('_color_') ? 'auto' : 'pixelated';
   let r = null; try { r = await (await fetch('masterpieces/' + encodeURIComponent(it.name) + '.json?t=' + Date.now(), { cache: 'no-store' })).json(); } catch (e) {}
   const k = (r && r.knobs) || {};
-  // no ★ / ▽ here on purpose: those train the WALL's taste model on img2img renders
-  ovmeta.innerHTML = `<div class="title">■ studio piece</div>` +
+  // the wall's ★ / ▽ train its taste model on img2img renders, so studio pieces get their own
+  // ★ (studiofav: favorites\studio + EJ's Discord channel, 2026-10-05), and no ▽
+  let sfav = false;
+  try { sfav = ((await (await fetch('studiofavlist?t=' + Date.now(), { cache: 'no-store' })).json()).ids || []).includes(it.name); } catch (e) {}
+  const sLabel = on => on ? '★ favorited' : '☆ favorite';
+  ovmeta.innerHTML = `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">` +
+      `<div class="title">■ studio piece</div>` +
+      `<div class="btns"><button id="sfavbtn" class="kbtn${sfav ? ' on' : ''}">${sLabel(sfav)}</button></div></div>` +
     [['made', `${new Date(studioTs(it.name)).toLocaleString()} · ${agoText(new Date(studioTs(it.name)))}`],
      ['recipe', studioTag(it.name).replace(/_/g, ' · ')], ['scene', r && r.scene], ['data', r && (r.dataset || r.place)],
      ['signal', r && r.signal], ['dither', r && r.dither], ['lens', k.lens ? `${k.lens}mm ${k.lensy || ''}` : null],
@@ -201,6 +207,13 @@ async function studioInspect(j) {
       `<img class="wireimg" src="masterpieces/wire/${encodeURIComponent(it.name)}.png" style="display:block;width:100%;margin-top:6px;border:1px solid var(--rule)"` +
       ` onload="document.getElementById('wiresec').style.display='block'"></div>` +
     `<div class="sec">every studio piece: the renders page (\`renders\` on the Mac) · reproduce: studio-dev pin seed=${esc(r && r.seed)}</div>`;
+  const sb = document.getElementById('sfavbtn');
+  if (sb) sb.onclick = async () => {
+    try {
+      const j = await (await fetch('studiofav?name=' + encodeURIComponent(it.name) + '&on=' + (sfav ? 0 : 1), { cache: 'no-store' })).json();
+      sfav = !!j.fav; sb.textContent = sLabel(sfav); sb.classList.toggle('on', sfav);
+    } catch (e) {}
+  };
   ov.style.display = 'flex';
 }
 
