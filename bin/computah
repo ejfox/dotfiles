@@ -1223,7 +1223,10 @@ PYEOF
       # BENCH (2026-10-02): during EJ's chart-desk making slot (09:00 until `desk shipped`),
       # MUSE_BENCH_PCT of cells seed from today's chart, so the wall reinterprets the story
       # he's making. `desk bench --png` prints the chart path only while the slot is open.
-      _bench=""; [ "${MUSE_BENCH_PCT:-25}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_BENCH_PCT:-25}" ] \
+      # 2026-10-04: the slot never closes until `desk shipped`, so an unshipped day meant
+      # bar-chart cells until midnight (EJ hated it). Bench seeds stop at MUSE_BENCH_UNTIL (hour).
+      _bench=""; [ "${MUSE_BENCH_PCT:-25}" -gt 0 ] && [ $((10#$(date +%H))) -lt "${MUSE_BENCH_UNTIL:-12}" ] \
+        && [ $((RANDOM % 100)) -lt "${MUSE_BENCH_PCT:-25}" ] \
         && _bench=$("$HOME/.local/bin/desk" bench --png 2>/dev/null)
       # STUDIO (2026-10-02): MUSE_STUDIO_PCT of cells seed from a recent 1-bit Blender
       # studio piece, so the wall reinterprets the studio while the studio already eats
