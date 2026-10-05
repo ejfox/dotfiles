@@ -114,6 +114,14 @@ while ($listener.IsListening) {
       Send-Json $resp @{ n = $n }
       continue
     }
+    if ($path -eq 'setmode') {                    # wall source toggle: flux | mix | blender
+      $m = [string]$q['m']                          # the Mac muse-loop reads wall-mode.txt
+      if (@('flux','mix','blender') -contains $m) {
+        Set-Content -Path (Join-Path $root 'wall-mode.txt') -Value $m -Encoding ascii -EA 0
+      }
+      Send-Json $resp @{ m = $m }
+      continue
+    }
     if ([string]::IsNullOrEmpty($path)) { $path = 'preview.html' }
     $file = Join-Path $root $path
     $resp.Headers.Add('Cache-Control', 'no-store, no-cache, must-revalidate')

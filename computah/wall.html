@@ -20,6 +20,7 @@
   #ctl:hover { opacity: 1; }
   #ctl .sep { width: 1px; align-self: stretch; background: var(--faint); margin: 0 2px; }
   #ctl .lbl { color: var(--dim); font-size: 11px; }
+  #ctl .kbtn.mode.on { color: var(--hi); border-color: var(--dim); }
   .down { right: 6px; font-size: 14px; color: var(--ink); }
   /* daily pair pick: two cells outlined, one click = which one EJ prefers */
   #wall > div.pairpick { outline: 2px dashed var(--hi) !important; outline-offset: -2px; }
@@ -71,6 +72,12 @@
   <span id="nlabel" style="color:var(--ink);min-width:50px;text-align:center"></span>
   <button class="kbtn" onclick="stepN(1)">+</button>
   <button class="kbtn" id="fitbtn" onclick="toggleFit()"></button>
+  <!-- source toggle (EJ 2026-10-04): shared via the server, so every screen + the generator follow -->
+  <span class="sep"></span>
+  <span class="lbl">show</span>
+  <button class="kbtn mode" data-m="flux" onclick="setMode('flux')" title="key 1">○ flux</button>
+  <button class="kbtn mode" data-m="mix" onclick="setMode('mix')" title="key 2">◇ both</button>
+  <button class="kbtn mode" data-m="blender" onclick="setMode('blender')" title="key 3">■ blender</button>
   <!-- folder buttons live here too (were bottom-right, where they covered a caption) -->
   <span class="sep"></span>
   <button class="kbtn" onclick="openFolder('gallery')">◆ all renders</button>
@@ -138,7 +145,8 @@ function buildGrid() {
   // STUDIO cells (EJ 2026-10-03: "include the latest blender renders too"): the newest ~10%
   // of the grid are the 1-bit Blender studio's latest pieces, merged into the SAME timeline;
   // applyOrder() shows the newest N×N items and hides the oldest wall cells to make room.
-  SN = Math.max(1, Math.round(total * 0.1));
+  // MODE (2026-10-04): flux = no studio cells, blender = the whole grid is studio pieces.
+  SN = MODE === 'flux' ? 0 : MODE === 'blender' ? total : Math.max(1, Math.round(total * 0.1));
   sdivs = []; for (let j = 0; j < SN; j++) {
     const d = document.createElement('div'); d.className = 'studio';
     const img = document.createElement('img');
@@ -194,6 +202,19 @@ async function studioInspect(j) {
 function updateCtl() {
   document.getElementById('nlabel').textContent = `${N}×${N} · ${N * N}`;
   document.getElementById('fitbtn').textContent = fitMode === 'cover' ? '▦ fill' : '▢ fit';
+  document.querySelectorAll('#ctl .mode').forEach(b => b.classList.toggle('on', b.dataset.m === MODE));
+}
+
+// ── source mode: flux | mix | blender ─────────────────────────────────────────
+// The server's wall-mode.txt is the one truth: a click on ANY screen flips every wall
+// within ~2s, and the Mac muse-loop stops sending FLUX jobs while it says "blender".
+let MODE = 'mix';
+const okMode = m => ['flux', 'mix', 'blender'].includes(m);
+function applyMode(m) { if (!okMode(m) || m === MODE) return; MODE = m; if (divs) buildGrid(); else updateCtl(); }
+function setMode(m) { if (!okMode(m)) return; fetch('setmode?m=' + m, { cache: 'no-store' }).catch(() => {}); applyMode(m); }
+async function syncMode() {
+  try { const r = await fetch('wall-mode.txt?t=' + Date.now(), { cache: 'no-store' });
+        if (r.ok) applyMode((await r.text()).trim()); } catch (e) {}
 }
 
 // ── per-cell caption + edge tick, 2h timeline ─────────────────────────────────
@@ -232,7 +253,7 @@ function drawTimeline() {
   const tickTop = H * .16, tickH = H * .44, tw = Math.max(1.5, Math.min(3, W / 900));
   // newest render age: if the loop has gone quiet, "now" turns amber and says how long (the only amber on the wall)
   const newest = RECENT.reduce((m, r) => Math.max(m, new Date(r.ts).getTime() || 0), 0);
-  const quietM = newest ? (now - newest) / 60000 : Infinity, stale = quietM > 20;
+  const quietM = newest ? (now - newest) / 60000 : Infinity, stale = quietM > 20 && MODE !== 'blender';   // paused on purpose ≠ broken
   for (let h = 0; h <= 4; h++) { const x = xAt(h * 1800e3);
     mk('line', { x1: x, x2: x, y1: tickTop, y2: tickTop + tickH, stroke: C.rule });
     const t = mk('text', { x, y: H - 2, 'text-anchor': h === 0 ? 'end' : 'middle', fill: h === 0 && stale ? C.warn : C.dim, 'font-size': fs, 'font-family': C.mono });
@@ -289,7 +310,8 @@ function refreshBadges() {
 // rows getting older downward, OLDEST BOTTOM-LEFT (EJ's call).
 function applyOrder() {
   // one timeline: wall cells (by trace ts; the live cell first) + the newest studio pieces
-  const items = Array.from({ length: total }, (_, i) => ({ el: divs[i],
+  if (MODE === 'blender') divs.forEach(d => d.style.display = 'none');           // studio pieces only
+  const items = MODE === 'blender' ? [] : Array.from({ length: total }, (_, i) => ({ el: divs[i],
     t: i === live ? Infinity : (traceCache[i] && traceCache[i].ts ? new Date(traceCache[i].ts).getTime() : 0) }));
   (sdivs || []).forEach(s => { if (s.item) items.push({ el: s.d, t: studioTs(s.item.name) }); else s.d.style.display = 'none'; });
   items.sort((a, b) => b.t - a.t)                                                 // newest first
@@ -302,7 +324,8 @@ function applyOrder() {
     });
 }
 
-(async () => { await loadFavs(); buildGrid(); loadWeights(); loadRecent(); })();
+(async () => { await loadFavs(); await syncMode(); buildGrid(); loadWeights(); loadRecent(); })();
+setInterval(syncMode, 2000);
 setInterval(loadRecent, 30000);
 setInterval(loadStudio, 60000);                     // studio pieces land every ~2-5 min
 setInterval(loadWeights, 10 * 60 * 1000);
@@ -424,7 +447,7 @@ async function inspect(i) {
 // prefer. Pairwise picks are far more label-efficient than stars. Cells are
 // picked at random positions, so there's no fixed left/right bias.
 async function maybePair() {
-  if (pair || ov.style.display === 'flex' || document.hidden) return;
+  if (pair || ov.style.display === 'flex' || document.hidden || MODE === 'blender') return;
   if (localStorage.getItem('pairSkip') === new Date().toISOString().slice(0, 10)) return;
   try { if (!(await (await fetch('pairstate?t=' + Date.now(), { cache: 'no-store' })).json()).due) return; } catch (e) { return; }
   const ok = [];
@@ -449,7 +472,8 @@ function endPair(skipped) {
 setInterval(maybePair, 5 * 60 * 1000);
 setTimeout(maybePair, 20 * 1000);
 ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none';
+  const m = { 1: 'flux', 2: 'mix', 3: 'blender' }[e.key]; if (m && !e.metaKey && !e.ctrlKey) setMode(m); });
 
 function openFolder(which) { fetch('open?which=' + which, { cache: 'no-store' }).catch(() => {}); }
 </script>

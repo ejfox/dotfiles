@@ -1096,7 +1096,29 @@ PYEOF
       # game keeps its own display awake, and we must never inject SHIFT mid-match).
       # Windows' display timeout keys off keyboard/mouse idle, NOT GPU load. A SHIFT
       # tap counts as input with no side effects (no character, no cursor move).
-      rssh "powershell -NoProfile -Command \"Add-Type 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\\\"user32.dll\\\")]public static extern void keybd_event(byte k,byte s,uint f,IntPtr e);}'; [K]::keybd_event(0x10,0,0,[IntPtr]::Zero); [K]::keybd_event(0x10,0,2,[IntPtr]::Zero)\"" >/dev/null 2>&1 || true
+      _keepawake() { rssh "powershell -NoProfile -Command \"Add-Type 'using System;using System.Runtime.InteropServices;public class K{[DllImport(\\\"user32.dll\\\")]public static extern void keybd_event(byte k,byte s,uint f,IntPtr e);}'; [K]::keybd_event(0x10,0,0,[IntPtr]::Zero); [K]::keybd_event(0x10,0,2,[IntPtr]::Zero)\"" >/dev/null 2>&1 || true; }
+      _keepawake
+      # WALL MODE (2026-10-04): the wall's flux / both / blender toggle writes
+      # farm\sd\wall-mode.txt via preview-server /setmode. "blender" = the wall shows only
+      # studio pieces, so stop sending FLUX jobs (GPU idles; FLUX stays loaded so switching
+      # back is instant). Wait here, keep the monitor awake, never tap during a game.
+      # A failed read keeps the last known mode: the single-threaded preview-server can be
+      # busy (a kiosk reload = 100+ requests) and "no answer" must not mean "render".
+      _wall_mode() { local m; m=$(curl -s -m 5 "http://$h:7861/wall-mode.txt" 2>/dev/null | tr -dc 'a-z')
+                     case "$m" in flux|mix|blender) _wm_last=$m ;; esac; echo "${_wm_last:-mix}"; }
+      if [ "$(_wall_mode)" = "blender" ]; then
+        echo "  ○ wall set to blender only at $(date +%H:%M) — FLUX idle"
+        _wk=0
+        while [ "$(_wall_mode)" = "blender" ]; do
+          sleep 20; _wk=$((_wk + 1))
+          if [ $((_wk % 6)) -eq 0 ]; then
+            _gs=$(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\farm\sd\game-detect.ps1" 2>/dev/null | tr -cd 'A-Za-z')
+            [ "$_gs" != "GAME" ] && _keepawake
+          fi
+        done
+        echo "  ◆ wall left blender only at $(date +%H:%M) — FLUX resuming"
+        slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue   # re-run the guards first
+      fi
 
       # refill the batch (fresh notes) whenever we've used them all
       [ "$pidx" -ge "${#prompts[@]}" ] && refill_prompts
