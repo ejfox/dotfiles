@@ -175,6 +175,7 @@ async function loadStudio() {
     if (!it) return;
     const src = 'masterpieces/' + encodeURIComponent(it.name) + '.png';
     if (s.img.dataset.name !== it.name) { s.img.src = src; s.img.dataset.name = it.name; }
+    s.img.style.imageRendering = it.name.includes('_color_') ? 'auto' : 'pixelated';   // color pieces aren't 1-bit
     const tag = studioTag(it.name), hero = tag.startsWith('HERO_');
     const recipe = (hero ? tag.slice(5) : tag).replace(/_/g, ' ');           // scene names keep their words
     s.cp.innerHTML = `<span class="l1"><span class="fam-studio">■</span> <b>studio</b> ${hero ? '<b>hero</b> ' : ''}${esc(recipe)}</span>` +
@@ -185,7 +186,7 @@ async function loadStudio() {
 async function studioInspect(j) {
   const it = sdivs[j] && sdivs[j].item; if (!it) return;
   ovimg.src = 'masterpieces/' + encodeURIComponent(it.name) + '.png';
-  ovimg.style.imageRendering = 'pixelated';
+  ovimg.style.imageRendering = it.name.includes('_color_') ? 'auto' : 'pixelated';
   let r = null; try { r = await (await fetch('masterpieces/' + encodeURIComponent(it.name) + '.json?t=' + Date.now(), { cache: 'no-store' })).json(); } catch (e) {}
   const k = (r && r.knobs) || {};
   // no ★ / ▽ here on purpose: those train the WALL's taste model on img2img renders
