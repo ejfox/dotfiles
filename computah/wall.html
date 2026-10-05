@@ -195,6 +195,10 @@ async function studioInspect(j) {
      ['signal', r && r.signal], ['dither', r && r.dither], ['lens', k.lens ? `${k.lens}mm ${k.lensy || ''}` : null],
      ['backdrop ★', r && r.wall_src], ['seed', r && r.seed], ['size', it.mb + ' MB']]
       .filter(([, v]) => v != null && v !== '').map(([a, b]) => `<div class="irow"><span class="k">${esc(a)}</span><span>${esc(b)}</span></div>`).join('') +
+    // EVIDENCE (2026-10-04): the bare 3D scene before bitmapping, same camera (pieces from now on)
+    `<div class="sec" id="wiresec" style="display:none">evidence — the 3D scene before bitmapping, same camera` +
+      `<img class="wireimg" src="masterpieces/wire/${encodeURIComponent(it.name)}.png" style="display:block;width:100%;margin-top:6px;border:1px solid var(--rule)"` +
+      ` onload="document.getElementById('wiresec').style.display='block'"></div>` +
     `<div class="sec">every studio piece: the renders page (\`renders\` on the Mac) · reproduce: studio-dev pin seed=${esc(r && r.seed)}</div>`;
   ov.style.display = 'flex';
 }
