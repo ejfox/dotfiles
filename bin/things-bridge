@@ -12,6 +12,8 @@ mv "$OUT/things.json.tmp" "$OUT/things.json"
 scp -q -o BatchMode=yes -o ConnectTimeout=10 "$OUT/things.json" vps:/home/debian/briefs/things.json.tmp
 ssh -o BatchMode=yes -o ConnectTimeout=10 vps 'mv /home/debian/briefs/things.json.tmp /home/debian/briefs/things.json'
 echo "$(date -u +%FT%TZ) pushed $(wc -c < "$OUT/things.json") bytes"
+# Heartbeat: Kuma push monitor "push: things-bridge" (only reached when the push above succeeded)
+/Users/ejfox/.dotfiles/bin/kuma-push ad629f7b9e2d7645655e4f29fc31493e up "pushed $(wc -c < "$OUT/things.json") bytes"
 
 # Same trip back: pull the brief's facts for the pixel scenes (knock, tally, found, held, action).
 # Only replace the local copy with a valid file; a missing remote file leaves it alone.

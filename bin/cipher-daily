@@ -176,6 +176,8 @@ if [ -n "$response" ] && [ ${#response} -gt 20 ]; then
   tmp="$CACHE_FILE.tmp.$$"
   echo "$cleaned" > "$tmp" 2>/dev/null && mv "$tmp" "$CACHE_FILE" 2>/dev/null
   date +%Y-%m-%d > "$CACHE_DATE"
+  # Heartbeat: Kuma push monitor "push: cipher-daily" (this job failed silently May→Oct 2026)
+  /Users/ejfox/.dotfiles/bin/kuma-push 753fcc141a7495f3b2cf70cbe7d95d5e up "oracle cached (${#cleaned} chars)"
 
   rm -f "$tmp" 2>/dev/null
 fi

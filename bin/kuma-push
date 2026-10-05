@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# kuma-push — report a scheduled job's heartbeat to Uptime Kuma (push monitor).
+#
+#   kuma-push <token> [up|down] [message]
+#
+# Call it only after the job really succeeded; Kuma marks the job down when the
+# heartbeat stops arriving. Never fails the caller: network errors are swallowed.
+# Tokens + schedules: agent-vault projects/standing-watch (Kuma push monitors).
+tok="${1:?usage: kuma-push <token> [up|down] [message]}"
+st="${2:-up}"
+msg="${3:-OK}"
+curl -fsS -m 10 --retry 2 -G "https://status.tools.ejfox.com/api/push/$tok" \
+  --data-urlencode "status=$st" --data-urlencode "msg=$msg" >/dev/null 2>&1 || true
