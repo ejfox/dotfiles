@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# owner-login — open an owner-only VPS app in the browser, logged in.
+#
+# fitness, health-webhook and egoscan answer 404 to anyone off the box unless
+# they carry the owner cookie. This opens the app once with ?key=<token>; the app
+# sets a 1-year cookie and redirects to the clean URL. The token lives only on the
+# VPS (~/.config/owner-token) and in each app's .env; it never touches disk here.
+#
+#   owner-login            fitness
+#   owner-login egoscan    any owner-gated app
+set -euo pipefail
+app="${1:-fitness}"
+owner_key=$(ssh vps cat .config/owner-token)
+[ -n "$owner_key" ] || { echo "owner-login: no token on vps (~/.config/owner-token)" >&2; exit 1; }
+open "https://${app}.tools.ejfox.com/?key=${owner_key}"
