@@ -799,6 +799,35 @@ body = [
 tone = "accent"
 tool = "both"
 badge = ""
+title = "VPS — owner-only apps"
+open = false
+body = [
+  { n = 'fitness, health-webhook and egoscan answer **404** to the internet. on-box callers still get through.' },
+  { k = "owner-login", d = "open fitness logged in (1-year cookie)", hl = true },
+  { k = "owner-login egoscan", d = "same for any owner-gated app" },
+  { o = "token: vps ~/.config/owner-token + each app's .env as OWNER_TOKEN" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
+title = "Canary tokens — know when a file gets opened"
+open = false
+body = [
+  { n = 'plant a 1px beacon; opening the file pings the honeypot → **critical** alert "canary tripped: <label>".' },
+  { k = 'canary new "label" "where planted"', d = "mint a token: prints obsidian/md/html lines", hl = true },
+  { k = "canary list / canary hits <id>", d = "tokens + who opened them", hl = true },
+  { k = "canary mute <id> <min>", d = "learning window: your devices' IPs get trusted" },
+  { k = "canary docx <id> decoy.docx", d = "Word doc whose picture is the beacon" },
+  { k = "canary retire <id>", d = "turn it off (404 from then on)" },
+  { o = "open the planted file from each device within 15 min of minting, or it'll trip on you" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = ""
 title = "Studio — record terminal demos (black or greenscreen)"
 open = true
 body = [

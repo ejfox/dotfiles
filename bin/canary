@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""canary — document beacons that phone home through the VPS honeypot.
+
+Plant a token in a file you care about (a note, a draft, a decoy). When anyone opens
+it, their app fetches https://honeypot.tools.ejfox.com/c/<id>.png and the honeypot
+raises a critical anomalywatch alert ("canary tripped: <label>").
+
+  canary new "<label>" "<where planted>" [--test] [--arm-min 15]
+  canary list                      tokens, hits, last hit
+  canary hits <id>                 every hit for a token (ip, country, ua, alerted?)
+  canary mute <id> <minutes>       open a learning window (your IPs get trusted)
+  canary retire <id>               deactivate (beacon returns 404 from then on)
+  canary docx <id> <out.docx>      a Word doc whose embedded image is the beacon
+
+False positives: YOU opening the file trips it too. Hits during the first --arm-min
+minutes (default 15) or a `canary mute` window quietly trust the requester's IP; after
+that only untrusted IPs alert. Open the planted file once inside the window from each
+device you use. A --test token alerts in anomalywatch test_mode (never pages).
+
+Rows live in vps:/smallweb-db/honeypot/canary.db (written over ssh, parameterized).
+"""
+import base64, json, secrets, subprocess, sys, zipfile
+from datetime import datetime, timedelta, timezone
+
+BASE = "https://honeypot.tools.ejfox.com/c"
+DB = "/smallweb-db/honeypot/canary.db"
+
+# Runs on the VPS as `python3 - <base64 op>` (script on stdin, so no shell quoting).
+# Prints JSON. Parameterized SQL only.
+REMOTE = r'''
+import base64, json, sqlite3, sys
+op = json.loads(base64.b64decode(sys.argv[1]))
+con = sqlite3.connect(op["db"]); con.row_factory = sqlite3.Row
+con.execute("PRAGMA busy_timeout=5000")
+k = op["op"]
+if k == "new":
+    con.execute("INSERT INTO tokens (id,label,where_planted,armed_after,test) VALUES (?,?,?,?,?)",
+                (op["id"], op["label"], op["where"], op["armed_after"], op["test"]))
+elif k == "mute":
+    con.execute("UPDATE tokens SET muted_until=? WHERE id=?", (op["until"], op["id"]))
+elif k == "retire":
+    con.execute("UPDATE tokens SET active=0 WHERE id=?", (op["id"],))
+con.commit()
+if k == "hits":
+    rows = con.execute("SELECT at,ip,country,alerted,reason,ua FROM hits WHERE token_id=? ORDER BY id DESC LIMIT 50", (op["id"],))
+elif k in ("list", "new", "mute", "retire"):
+    rows = con.execute("SELECT id,label,where_planted,created_at,armed_after,muted_until,test,active,hits,last_hit_at,trusted_ips FROM tokens ORDER BY created_at DESC")
+print(json.dumps([dict(r) for r in rows]))
+'''
+
+
+def remote(op):
+    op["db"] = DB
+    arg = base64.b64encode(json.dumps(op).encode()).decode()
+    out = subprocess.run(["ssh", "vps", f"python3 - {arg}"], input=REMOTE, capture_output=True, text=True)
+    if out.returncode:
+        sys.exit(f"canary: remote error: {out.stderr.strip()[-400:]}")
+    return json.loads(out.stdout or "[]")
+
+
+def iso(dt):
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def show(rows):
+    if not rows:
+        print("○ no tokens yet: canary new \"<label>\" \"<where planted>\"")
+    for r in rows:
+        state = "◇ retired" if not r["active"] else ("○ test" if r["test"] else "● armed")
+        print(f"{state}  {r['id']}  {r['label']}\n   planted: {r['where_planted'] or '?'} · hits {r['hits']}"
+              f" · last {r['last_hit_at'] or 'never'} · trusted {len(json.loads(r['trusted_ips']))} ip(s)")
+
+
+def docx(token_id, path):
+    """Minimal .docx whose picture is an EXTERNAL linked image (r:link, TargetMode=External)."""
+    url = f"{BASE}/{token_id}.png"
+    ct = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+          '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+          '<Default Extension="xml" ContentType="application/xml"/>'
+          '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+    rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
+    doc_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                f'<Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{url}" TargetMode="External"/></Relationships>')
+    doc = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+           '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+           'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+           'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+           'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+           'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>'
+           '<w:p><w:r><w:t>Internal draft. Not for distribution.</w:t></w:r></w:p>'
+           '<w:p><w:r><w:drawing><wp:inline><wp:extent cx="9525" cy="9525"/><wp:docPr id="1" name="p"/>'
+           '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>'
+           '<pic:nvPicPr><pic:cNvPr id="1" name="p"/><pic:cNvPicPr/></pic:nvPicPr>'
+           '<pic:blipFill><a:blip r:link="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+           '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="9525" cy="9525"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+           '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:body></w:document>')
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", ct)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("word/_rels/document.xml.rels", doc_rels)
+        z.writestr("word/document.xml", doc)
+    print(f"● wrote {path}: its 1px picture is linked to {url}")
+    print("  Word fetches linked pictures on open in most setups; Protected View / 'block external content' can suppress it.")
+
+
+def main(a):
+    if not a or a[0] in ("-h", "--help", "help"):
+        print(__doc__.strip()); return
+    cmd = a[0]
+    if cmd == "new":
+        test = "--test" in a
+        arm = 15
+        if "--arm-min" in a:
+            arm = int(a[a.index("--arm-min") + 1])
+        pos = [x for i, x in enumerate(a[1:], 1) if not x.startswith("--") and a[i - 1] != "--arm-min"]
+        if len(pos) < 2:
+            sys.exit('usage: canary new "<label>" "<where planted>" [--test] [--arm-min N]')
+        tid = secrets.token_hex(12)
+        armed = iso(datetime.now(timezone.utc) + timedelta(minutes=arm))
+        remote({"op": "new", "id": tid, "label": pos[0], "where": pos[1], "armed_after": armed, "test": 1 if test else 0})
+        url = f"{BASE}/{tid}.png"
+        print(f"{'○ TEST token' if test else '● token'} {tid}  ({pos[0]})")
+        print(f"  armed after {armed} (open the planted file from each of your devices before then)\n")
+        print(f"  url:       {url}")
+        print(f"  obsidian:  ![]({url})")
+        print(f"  html/md:   <img src=\"{url}\" width=\"1\" height=\"1\" alt=\"\">")
+        print(f"  beacon.md: printf '%s\\n' '# notes' '' '![]({url})' > beacon.md")
+        print(f"  docx:      canary docx {tid} decoy.docx")
+    elif cmd == "list":
+        show(remote({"op": "list"}))
+    elif cmd == "hits" and len(a) == 2:
+        for h in remote({"op": "hits", "id": a[1]}):
+            mark = "●" if h["alerted"] else "○"
+            print(f"{mark} {h['at']}  {h['ip']} ({h['country'] or '?'})  {h['reason']}  {(h['ua'] or '')[:70]}")
+    elif cmd == "mute" and len(a) == 3:
+        until = iso(datetime.now(timezone.utc) + timedelta(minutes=int(a[2])))
+        remote({"op": "mute", "id": a[1], "until": until})
+        print(f"◇ {a[1]} learning until {until}: open it now from any device to trust that IP")
+    elif cmd == "retire" and len(a) == 2:
+        remote({"op": "retire", "id": a[1]})
+        print(f"◇ {a[1]} retired (404 from now on)")
+    elif cmd == "docx" and len(a) == 3:
+        docx(a[1], a[2])
+    else:
+        sys.exit("canary: unknown command. canary --help")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
