@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# studio-turntable -- render a 360-degree turntable video of a finished Blender studio piece,
+# through the same 1-bit pipeline, on computah (background job; the studio keeps running).
+#
+#   studio-turntable [piece|latest] [seconds=8] [res=1080]
+#   studio-turntable 20261005-132013_archive_avalanche-notes-semantic_own_bayer8_b8_px2_wall-reflect_glow3_inv_fog
+#   studio-turntable latest 12 720
+#   studio-turntable status            # what's rendering, how far along
+#
+# A piece name is a masterpieces file name without .png (it's in the wall's inspect card and
+# the renders page). Output: C:\dev\computah\renders\turntables\<piece>\turntable.mp4.
+# Each frame is a full render: ~10-30 s a frame, so 8 s at 24 fps is ~30-90 min.
+# PC side: C:\dev\computah\bin\turntable.ps1 (~/code/computah-telemetry/pc/turntable.ps1).
+set -uo pipefail
+PC=ejfox@10.0.0.169
+PS='powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\turntable.ps1'
+if [ "${1:-}" = "status" ]; then
+  ssh -o ConnectTimeout=8 "$PC" "$PS -Status"; exit $?
+fi
+piece="${1:-latest}"; secs="${2:-8}"; res="${3:-1080}"
+case "$piece$secs$res" in *[!A-Za-z0-9_.+-]*) echo "odd characters in: $piece $secs $res" >&2; exit 2;; esac
+ssh -o ConnectTimeout=8 "$PC" "$PS -Piece $piece -Frames $(( secs * 24 )) -Res $res" || exit 1
+echo "◆ turntable: $piece · ${secs}s · $(( secs * 24 )) frames at ${res}p"
+echo "  → C:\\dev\\computah\\renders\\turntables\\<piece>\\turntable.mp4   (studio-turntable status)"
