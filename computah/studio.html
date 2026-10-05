@@ -1,79 +1,194 @@
 <!doctype html>
 <!-- studio.html: the Blender studio's window, served by preview-server (:7861) from
-     farm\sd. The studio renders HEADLESS (blender -b, svc "studio") because the old
-     in-window progressive render leaked dwm VRAM (~600 MB/min) and starved FLUX.
-     This page shows the newest finished still (farm\sd\studio\latest.png) and redraws
-     only when it changes. Source of truth: ~/.dotfiles/computah/studio.html -->
+     farm\sd. The studio renders HEADLESS (blender -b, svc "studio"): the old in-window
+     progressive render leaked dwm VRAM (~600 MB/min) and starved FLUX.
+     LIVE HUD (EJ 2026-10-05: "showed a wireframe first of whatever is being rendered,
+     showed a LOT more in-progress frames, a super cyberpunk feel"): the engine publishes
+     each stage of the piece being made to farm\sd\studio\live\ (state.json + wire / pass1 /
+     pass2 / gray / bits .png) and its breadcrumbs to live-progress.txt. This page cuts
+     between them as they land; between pieces it replays the last one, so it never sits still.
+     Source of truth: ~/.dotfiles/computah/studio.html -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Studio</title>
 <style>
-  :root { --bg: #000; --ink: #f2f2f5; --muted: #8a8a96; --hot: #ff4d8d; --cool: #7bf0f9; }
+  :root { --bg: #000; --ink: #f2f2f5; --muted: #8a8a96; --faint: #2c2c33; --rule: #1f1f24;
+          --hot: #ff4d8d; --cool: #7bf0f9; --fs: clamp(11px, min(1vw, 1.5vh), 18px); }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
-               font: 13px/1.35 Menlo, Consolas, monospace; overflow: hidden; }
-  .stage { position: fixed; inset: 0; }
-  .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
-               opacity: 0; transition: opacity 2.5s ease; }
-  .stage img.on { opacity: 1; }
-  .cap { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 2em;
-         justify-content: space-between; align-items: baseline; padding: 10px 16px;
-         background: linear-gradient(transparent, rgba(0,0,0,.78)); }
-  .cap b { color: var(--hot); font-weight: normal; }
-  .cap .now { color: var(--cool); text-align: right; }
-  .cap span { color: var(--muted); }
-  [hidden] { display: none !important; }   /* .cap/.empty set display, which beats the attribute */
-  .empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); }
-  /* small windows: image only (EJ, 2026-09-30) */
-  @media (max-width: 640px), (max-height: 420px) { .cap { display: none; } }
+               font: var(--fs)/1.35 Menlo, Consolas, monospace; overflow: hidden; }
+  [hidden] { display: none !important; }
+  .grid { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr minmax(260px, 27vw);
+          grid-template-rows: 1fr auto; gap: 0; }
+  /* ── viewer ─────────────────────────────────────────────────────────── */
+  .view { position: relative; overflow: hidden; border-right: 1px solid var(--rule); }
+  .view img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .view img.rough { image-rendering: pixelated; }
+  .view img.glitch { animation: glitch .55s steps(2) 1; }
+  @keyframes glitch {
+    0%   { clip-path: inset(10% 0 70% 0); transform: translate(-1.5%, 0); filter: invert(1); }
+    20%  { clip-path: inset(55% 0 20% 0); transform: translate(1.2%, 0); }
+    40%  { clip-path: inset(30% 0 45% 0); transform: translate(-.8%, 0); filter: none; }
+    60%  { clip-path: inset(80% 0 5% 0);  transform: translate(.6%, 0); }
+    80%  { clip-path: inset(0 0 0 0);     transform: translate(-.3%, 0); }
+    100% { clip-path: inset(0 0 0 0);     transform: none; }
+  }
+  .sweep { position: absolute; left: 0; right: 0; height: 18%; top: -20%; pointer-events: none;
+           background: linear-gradient(transparent, rgba(123,240,249,.14), transparent); }
+  .sweep.go { animation: sweep 1.1s linear 1; }
+  @keyframes sweep { to { top: 105%; } }
+  .chip { position: absolute; left: 14px; top: 12px; padding: 4px 10px; background: rgba(0,0,0,.72);
+          border: 1px solid var(--faint); letter-spacing: .12em; }
+  .chip b { color: var(--hot); font-weight: normal; }
+  .chip .cur { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .timer { position: absolute; right: 14px; top: 12px; color: var(--cool); background: rgba(0,0,0,.72);
+           padding: 4px 10px; border: 1px solid var(--faint); }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+  /* ── side panel ─────────────────────────────────────────────────────── */
+  .side { display: flex; flex-direction: column; min-height: 0; padding: 12px 14px; gap: 12px; }
+  .hd { display: flex; justify-content: space-between; letter-spacing: .14em; color: var(--muted); }
+  .hd b { color: var(--ink); font-weight: normal; }
+  .state { color: var(--cool); }
+  .state.busy::before { content: "● "; color: var(--hot); animation: blink 1s steps(1) infinite; }
+  .sec { color: var(--muted); letter-spacing: .14em; border-top: 1px solid var(--rule); padding-top: 8px; }
+  .tl { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .tl div { border: 1px solid var(--faint); padding: 3px 0; text-align: center; color: var(--muted); font-size: .85em; }
+  .tl div.done { color: var(--ink); border-color: var(--muted); }
+  .tl div.on { color: #000; background: var(--hot); border-color: var(--hot); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .kv span:nth-child(even) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+         color: var(--muted); }
+  .log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log div:last-child { color: var(--ink); }
+  .log div:last-child::after { content: "▌"; color: var(--hot); animation: blink 1s steps(1) infinite; }
+  .film { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .film img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #0a0a0c;
+              border: 1px solid var(--faint); image-rendering: pixelated; }
+  .film img.on { border-color: var(--hot); }
+  /* ── recent strip ───────────────────────────────────────────────────── */
+  .recent { grid-column: 1 / -1; display: flex; gap: 4px; padding: 4px; border-top: 1px solid var(--rule);
+            height: 11vh; overflow: hidden; }
+  .recent img { height: 100%; aspect-ratio: 16/9; object-fit: cover; image-rendering: pixelated;
+                opacity: .7; border: 1px solid var(--faint); }
+  .recent img:first-child { opacity: 1; border-color: var(--muted); }
+  /* scanlines + vignette over everything */
+  .crt { position: fixed; inset: 0; pointer-events: none;
+         background: repeating-linear-gradient(to bottom, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+                     radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.55)); }
+  /* small windows (the studio window is ~1/4 screen on computah): the viewer full-bleed with a
+     compact HUD laid over its bottom: state, stage timeline, the last few log lines */
+  @media (max-width: 1000px), (max-height: 600px) {
+    .grid { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .recent { display: none; }
+    .side { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 12px; gap: 5px; z-index: 5;
+            background: linear-gradient(transparent, rgba(0,0,0,.86) 30%); pointer-events: none; }
+    .side .sec, .side .kv, .side .film, .side .hd { display: none; }
+    .side .log { flex: none; max-height: 5.4em; }
+    :root { --fs: clamp(10px, 1.6vw, 15px); }
+  }
 </style>
 </head>
 <body>
-<div class="stage"><img id="a" alt=""><img id="b" alt=""></div>
-<div class="empty" id="empty">waiting for the first finished render</div>
-<div class="cap" id="cap" hidden>
-  <div id="what"></div>
-  <div class="now" id="now"></div>
+<div class="grid">
+  <div class="view" id="view">
+    <img id="a" alt=""><img id="b" alt="">
+    <div class="sweep" id="sweep"></div>
+    <div class="chip" id="chip"><b>▸</b> <span id="stage">BOOT</span><span class="cur">_</span></div>
+    <div class="timer" id="timer"></div>
+    <div class="empty" id="empty">waiting for the studio</div>
+  </div>
+  <div class="side">
+    <div class="hd"><b>STUDIO // LIVE</b><span id="clock"></span></div>
+    <div class="state" id="state">…</div>
+    <div class="tl" id="tl"></div>
+    <div class="sec">RECIPE</div>
+    <div class="kv" id="kv"></div>
+    <div class="sec">THIS PIECE</div>
+    <div class="film" id="film"></div>
+    <div class="sec">RENDER LOG</div>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="recent" id="recent"></div>
 </div>
+<div class="crt"></div>
 <script>
 const $ = id => document.getElementById(id);
-let shown = null, front = $("a"), back = $("b"), now = null;
+const STAGES = [["wire", "WIRE"], ["pass1", "PASS 1"], ["pass2", "PASS 2"], ["render", "RENDER"], ["gray", "GRAY"], ["bits", "1-BIT"]];
+const LABEL = { wire: "WIREFRAME", pass1: "PASS 1 · ROUGH", pass2: "PASS 2 · RESOLVING", gray: "RAW RENDER",
+                bits: "1-BIT · FINAL", render: "RENDERING" };
+const KEYS = ["scene", "look", "place", "dataset", "signal", "dither", "px", "world", "quality", "mask", "contours",
+              "wall_self", "projector", "hero"];
+let front = $("a"), back = $("b"), showing = "", live = null, now = null, replayAt = 0, replayIdx = 0;
 
-const ago = s => {   // "20261002-104512" -> minutes since
-  const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/.exec(s || "");
-  if (!m) return "";
-  const t = new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
-  const min = Math.round((Date.now() - t) / 60000);
-  return min < 1 ? "just now" : min < 60 ? `${min} min ago` : `${Math.floor(min / 60)}h ${min % 60}m ago`;
-};
-const fmt = tag => (tag || "").replace(/_/g, " · ");
-
-async function get(path) {
-  try { const r = await fetch(`${path}?t=${Date.now()}`, { cache: "no-store" }); return r.ok ? r.json() : null; }
+const get = async (p, text) => {
+  try { const r = await fetch(`${p}?t=${Date.now()}`, { cache: "no-store" }); return r.ok ? (text ? r.text() : r.json()) : null; }
   catch { return null; }
+};
+
+function show(kind, src) {             // cut to a new frame: glitch + scanline sweep
+  if (src === showing) return;
+  const img = new Image();
+  img.onload = () => {
+    back.src = img.src; back.className = (kind === "pass1" || kind === "pass2") ? "rough glitch" : "glitch";
+    back.style.zIndex = 2; front.style.zIndex = 1;
+    [front, back] = [back, front]; showing = src; $("empty").hidden = true;
+    const s = $("sweep"); s.classList.remove("go"); void s.offsetWidth; s.classList.add("go");
+  };
+  img.src = src;
+  $("stage").textContent = LABEL[kind] || kind.toUpperCase();
 }
 
-async function tick() {
-  const [latest, status] = await Promise.all([get("studio/latest.json"), get("studio/now.json")]);
-  now = status;
-  if (latest && latest.name !== shown) {
-    const img = new Image();
-    img.onload = () => {
-      back.src = img.src; back.classList.add("on"); front.classList.remove("on");
-      [front, back] = [back, front]; shown = latest.name; $("empty").hidden = true; $("cap").hidden = false;
-    };
-    img.src = `studio/latest.png?n=${encodeURIComponent(latest.name)}`;
+const frameSrc = (f) => `studio/live/${f.kind}.png?v=${encodeURIComponent((live.started || "") + "-" + f.t)}`;
+
+function paint() {
+  const busy = now && /rendering/.test(now.state || "");
+  $("state").textContent = now ? (now.state || "") : "";
+  $("state").className = "state" + (busy ? " busy" : "");
+  const frames = (live && live.frames) || [];
+  const have = new Set(frames.map(f => f.kind));
+  const last = frames.length ? frames[frames.length - 1].kind : null;
+  const activeIdx = !busy ? -1 : last === "pass2" ? 3 : STAGES.findIndex(([k]) => k === last) + 1;
+  $("tl").innerHTML = STAGES.map(([k, l], i) =>
+    `<div class="${i === activeIdx ? "on" : have.has(k) || (k === "render" && have.has("gray")) ? "done" : ""}">${l}</div>`).join("");
+  const r = (live && live.recipe) || {};
+  $("kv").innerHTML = KEYS.filter(k => r[k] !== undefined && r[k] !== "" && r[k] !== false)
+    .map(k => `<span>${k}</span><span>${String(r[k]).replace(/^OSM: /, "")}</span>`).join("");
+  $("film").innerHTML = ["wire", "pass1", "pass2", "gray", "bits"].map(k => {
+    const f = frames.filter(x => x.kind === k).pop();
+    return f ? `<img src="${frameSrc(f)}" class="${showing.startsWith(`studio/live/${k}.`) ? "on" : ""}">` : `<img alt="">`;
+  }).join("");
+  if (busy && frames.length) {                         // live: always the newest stage
+    const f = frames[frames.length - 1]; show(f.kind, frameSrc(f));
+    if (f.kind === "pass2") $("stage").textContent = LABEL.render;
+  } else if (frames.length && Date.now() > replayAt) { // resting: replay the last piece, slowly
+    const f = frames[replayIdx % frames.length]; show(f.kind, frameSrc(f));
+    replayIdx++; replayAt = Date.now() + (f.kind === "bits" ? 9000 : 3200);
   }
-  if (latest) {
-    $("what").innerHTML = `<b>${fmt(latest.tag)}</b> <span>${latest.res} · ${latest.samples} spp · ` +
-      `${Math.round(latest.render_s / 60)} min render · finished ${ago(latest.finished)}</span>`;
-  }
-  $("now").textContent = !now ? "" :
-    now.state === "rendering" ? `next: ${fmt((now.name || "").replace(/^\d{8}-\d{6}_/, ""))} · started ${ago(now.started)}` :
-    now.state;
+  const t0 = now && now.started && /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)$/.exec(now.started);
+  $("timer").textContent = busy && t0 ?
+    `T+${Math.max(0, Math.round((Date.now() - new Date(+t0[1], t0[2] - 1, +t0[3], +t0[4], +t0[5], +t0[6])) / 1000))}s` : "";
+  $("clock").textContent = new Date().toTimeString().slice(0, 8);
 }
-tick(); setInterval(tick, 10000);
+
+async function fast() {
+  const [st, log] = await Promise.all([get("studio/live/state.json"), get("studio/live-progress.txt", true)]);
+  if (st) { if (!live || st.started !== live.started) replayIdx = 0; live = st; }
+  if (log !== null) $("log").innerHTML = log.trim().split("\n").slice(-40)
+    .map(l => `<div>${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</div>`).join("");
+  paint();
+}
+async function slow() {
+  now = await get("studio/now.json");
+  const idx = await get("studio/index.json");
+  if (idx && idx.items) $("recent").innerHTML = idx.items.slice(0, 14)
+    .map(i => `<img src="studio/thumbs/${encodeURIComponent(i.name)}.jpg" alt="">`).join("");
+}
+slow(); fast();
+setInterval(fast, 1000); setInterval(slow, 4000);
 </script>
 </body>
 </html>
