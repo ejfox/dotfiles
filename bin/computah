@@ -439,11 +439,157 @@ PYEOF
     endpoint="txt2img"; init="${IMAGINE_INIT_LOCAL:-}"
     { [ -n "$init" ] && [ -s "$init" ]; } && endpoint="img2img"
     echo "→ sd-server $endpoint (FLUX.2-klein, ${W}x${H}, ${steps} steps, ${sampler} cfg${cfg}, seed $seed${init:+, img2img s=$strength})"
+    # EARLY-PREVIEW capture (log-only) runs for wall cells; MUSE_NO_EARLY=1 off,
+    # IMAGINE_EARLY=1 forces it for a manual imagine. Writes ./early.png + ./early.json
+    # (deliberately NOT imagine-*.png: muse-loop globs that to detect a fresh render).
+    early_on=""
+    { [ -n "${IMAGINE_WALL_SLOT:-}" ] || [ "${IMAGINE_EARLY:-}" = 1 ]; } && [ -z "${MUSE_NO_EARLY:-}" ] && early_on=1
+    rm -f ./early.png ./early.json
     if ! HOST="$h" PROMPT="$prompt" IW="$W" IH="$H" ISTEPS="$steps" ISEED="$seed" \
          ISTRENGTH="$strength" ENDPOINT="$endpoint" INIT="$init" OUT="./$out" \
-         ISAMPLER="$sampler" ICFG="$cfg" python3 - <<'PYEOF'
+         ISAMPLER="$sampler" ICFG="$cfg" IEARLY="$early_on" python3 - <<'PYEOF'
 import os, sys, json, base64, urllib.request
 h = os.environ["HOST"]; ep = os.environ["ENDPOINT"]
+
+# ── EARLY-PREVIEW GATE, LOG-ONLY (2026-10-06, EJ: "use my taste as frame-by-frame
+#    feedback as flux generates"). Per-step gradient guidance isn't possible in
+#    stable-diffusion.cpp, but composition mostly settles in the first ~25% of the
+#    denoise, and sd-server (bin-previews build, --preview-path --preview-interval 1)
+#    already writes a TAE-decoded farm\sd\preview.png EVERY STEP for the wall's live
+#    resolve. So while the POST blocks, a thread watches OUR progress bar in
+#    sd-server.log over the :7861 HTTP server, grabs preview.png the moment we hit
+#    the early step (~25% of the sampled steps, min 4), and scores it —
+#    all overlapped with the remaining GPU steps. After the render: score the final
+#    + early→final composition correlation → ./early.json → muse-loop folds it into
+#    the cell trace under "early". CHANGES NOTHING about which image wins.
+#
+#  BRANCHING PLAN (NOT built — only once p_like_early is shown to predict
+#  p_like_final / ★ on real cells):
+#    where: here, in imagine, around the POST. Fire N seeds of the same prompt one
+#      after another (sd-server is single-GPU, serial), each watched to step k.
+#    abort: sd-server has no cancel endpoint, and killing it costs a ~5 min model
+#      reload — so NOT by killing anything. Options, best first: (a) a 2-phase
+#      render: POST steps=k for each candidate (k steps on the full schedule is a
+#      different sigma ramp than the first k of an N-step run, so the preview
+#      differs — check correlation first), then re-POST only the winner at full
+#      steps with the same seed; (b) patch our sd.cpp build (we already ship a
+#      custom bin-previews build) to honour a cancel flag file checked in the step
+#      callback (sd_progress_cb) → returns early, server stays hot; (c) sd-cli
+#      one-shot per candidate killed by PID at step k — but sd-cli reloads the
+#      model (~1-2 s from cache, Defender-excluded) and fights sd-server for VRAM,
+#      so only with sd-server stopped. (a) needs zero C++ and is the first try.
+#    cost per cell: step ≈ 0.5-1 s at 512-640 px (7.5 s/it for ref/1280 cells;
+#      exclude those), plus ~1-3 s text-encode per POST (CPU; cache-able only by
+#      reusing the same prompt). N=4 at k=4: 4×(enc 2 s + 4 steps ≈ 3 s) ≈ +20 s
+#      on a ~20 s cell → ~2x wall time, or ~+5 s/candidate. Cheaper: k=3, N=3 → ~+12 s.
+early = None
+if os.environ.get("IEARLY") == "1":
+    import threading, hashlib, time, re, subprocess
+    T0 = time.time()
+    _py = "/usr/local/bin/python3" if os.path.exists("/usr/local/bin/python3") else sys.executable
+    _STATS = r'''
+import sys, json, numpy as np
+from PIL import Image
+g = lambda p, s: np.asarray(Image.open(p).convert("L").resize((s, s)), dtype=np.float32) / 255.0
+a = g(sys.argv[1], 256)
+gy, gx = np.gradient(a)
+bd = np.concatenate([a[:8].ravel(), a[-8:].ravel(), a[:, :8].ravel(), a[:, -8:].ravel()])
+o = {"mean": a.mean(), "contrast": a.std(), "edge_density": (np.hypot(gx, gy) > 0.08).mean(),
+     "occupancy": (np.abs(a - np.median(bd)) > 0.15).mean()}
+if len(sys.argv) > 2 and sys.argv[2]:
+    x, y = g(sys.argv[1], 32).ravel(), g(sys.argv[2], 32).ravel()
+    o["comp_corr_vs_early"] = np.corrcoef(x, y)[0, 1] if x.std() > 0 and y.std() > 0 else 0.0
+try:   # EJ-taste v1, same z-scale as the trace's render_ejtaste (muse-taste-seed score), in-process
+    import os, importlib.machinery, importlib.util
+    L = importlib.machinery.SourceFileLoader("mts", os.path.expanduser("~/.dotfiles/bin/muse-taste-seed"))
+    m = importlib.util.module_from_spec(importlib.util.spec_from_loader("mts", L)); L.exec_module(m)
+    sys.path.insert(0, m.REPO); from taste import metrics
+    st = m.stats(); c, t, sy, sg, ce = metrics(sys.argv[1]); me = {"c": c, "t": t, "sy": sy, "sgce": sg * ce}
+    o["ejtaste"] = sum(m.W[q] * (me[q] - st["mu"][q]) / st["sd"][q] for q in me)
+except Exception as e:
+    print("ejtaste:", e, file=sys.stderr)
+print(json.dumps({k: round(float(v), 4) for k, v in o.items()}))
+'''
+    def _score(path, vs=""):
+        """cheap stats + EJ-taste v1 in ONE subprocess (~0.3 s idle); never raises."""
+        s = {}
+        try:
+            s = json.loads(subprocess.run([_py, "-c", _STATS, path, vs], capture_output=True,
+                                          text=True, timeout=5).stdout or "{}")
+        except Exception as e:
+            s["stats_err"] = str(e)[:80]
+        # TASTE_JUDGE_HOOK: a learned P(EJ likes it) goes here → s["p_like"]. Contract:
+        # `taste-judge score <img>` on the PC (C:\Users\ejfox\farm\taste\) printing a
+        # probability; it wasn't built yet on 2026-10-06, so p_like stays null. When it
+        # lands: early frame here in the thread (free — overlaps the GPU), final frame
+        # via the same call after the POST; keep a hard ~1.5 s timeout either way.
+        s["p_like"] = None
+        return s
+    def _get(p, t=3):
+        return urllib.request.urlopen(f"http://{h}:7861/{p}", timeout=t).read()
+    _ok = lambda b: len(b) > 64 and b[:4] == b"\x89PNG" and b[-8:-4] == b"IEND"   # skip half-written frames
+    steps = int(os.environ["ISTEPS"])
+    # img2img samples only the tail of the schedule: ~int(steps*strength)+1 steps (seen in the log)
+    eff = steps if ep == "txt2img" else max(1, int(steps * float(os.environ["ISTRENGTH"])) + 1)
+    k = min(max(int(os.environ.get("MUSE_EARLY_MIN", "4")), round(eff * float(os.environ.get("MUSE_EARLY_FRAC", "0.25")))), max(1, eff - 1))
+    early = {"captured": False, "target_step": k, "steps": steps, "est_sampling_steps": eff}
+    # STEP CLOCK = sd-server.log (served by :7861), NOT counting preview.png changes:
+    # sd-server is shared (wall-solo, muse-bestof, other agents' experiments) and a
+    # request can queue behind someone else's render, whose frames a counter would
+    # mistake for ours (bit the first test, 2026-10-06). So: only log text written
+    # AFTER this request started, after OUR "seed N" line, counts.
+    _PROG = re.compile(r"\|\s*(\d+)/(\d+) -")
+    _SEED = re.compile(r"generating image: \d+/\d+ - seed %s(?!\d)" % re.escape(os.environ["ISEED"]))
+    try:
+        _base = len(_get("sd-server.log", 3))
+    except Exception:
+        _base = None
+    _stop = threading.Event()
+    def _mine():
+        """(step, total) of OUR sampling progress, or None if we haven't started."""
+        t = _get("sd-server.log", 4)
+        t = t[_base:] if len(t) >= _base else t   # shorter = log rotated on a restart
+        t = t.decode("utf-8", "replace")
+        s = list(_SEED.finditer(t))
+        if not s:
+            return None, len(t)
+        m = _PROG.findall(t[s[-1].end():])
+        return ((int(m[-1][0]), int(m[-1][1])) if m else (0, 0)), len(t)
+    def _watch():
+        try:
+            while not _stop.is_set():
+                try:
+                    st, n = _mine()
+                except Exception:
+                    _stop.wait(0.5); continue
+                if st and st[0] >= k:
+                    b = b""
+                    for _ in range(4):   # skip a half-written frame
+                        try:
+                            b = _get("preview.png")
+                        except Exception:
+                            b = b""
+                        if _ok(b):
+                            break
+                        time.sleep(0.1)
+                    if not _ok(b):
+                        early["watch_err"] = "no complete preview frame"; return
+                    open("./early.png", "wb").write(b)
+                    early.update(captured=True, capture_s=round(time.time() - T0, 2),
+                                 step=st[0], sampling_steps=st[1])
+                    try:   # the frame is from step `step` or the one after (bracketed)
+                        st2, _n = _mine()
+                        early["step_after_fetch"] = st2[0] if st2 else None
+                    except Exception:
+                        pass
+                    early["early"] = _score("./early.png")
+                    return
+                _stop.wait(0.4 if n < 4_000_000 else 1.0)
+        except Exception as e:
+            early["watch_err"] = str(e)[:120]
+    if _base is None:
+        early["watch_err"] = "sd-server.log unreachable on :7861"; _stop.set()
+    _th = threading.Thread(target=_watch, daemon=True); _th.start()
 body = {"prompt": os.environ["PROMPT"], "steps": int(os.environ["ISTEPS"]),
         "cfg_scale": float(os.environ.get("ICFG", "1.0")),
         "width": int(os.environ["IW"]), "height": int(os.environ["IH"]),
@@ -470,10 +616,26 @@ try:
     r = json.load(urllib.request.urlopen(req, timeout=300))
 except Exception as e:
     print("sd-server error:", e, file=sys.stderr); sys.exit(1)
+finally:
+    if early is not None:
+        _stop.set()
 imgs = r.get("images") or []
 if not imgs:
     print("sd-server returned no image", file=sys.stderr); sys.exit(1)
 open(os.environ["OUT"], "wb").write(base64.b64decode(imgs[0]))
+if early is not None:
+    # log-only bookkeeping; any failure here is swallowed — the render already landed.
+    try:
+        t_post = time.time()
+        early["post_s"] = round(t_post - T0, 2)
+        _th.join(2.0)   # early scoring overlaps the GPU; at most ~2 s of wait here
+        early["final"] = _score(os.environ["OUT"], "./early.png" if early.get("captured") else "")
+        early["p_like_early"] = (early.get("early") or {}).get("p_like")
+        early["p_like_final"] = early["final"].get("p_like")
+        early["overhead_s"] = round(time.time() - t_post, 2)
+        json.dump(early, open("./early.json", "w"), indent=1)
+    except Exception as e:
+        print("early-preview log skipped:", e, file=sys.stderr)
 PYEOF
     then
       echo "render failed — sd-server unreachable or errored (is it up? 'computah sd-server')"; exit 1
@@ -503,6 +665,10 @@ PYEOF
     # muse-loop makes; wall_<slot>.png is what the live HTTP wall displays.
     scp -q "./$out" "$REMOTE_USER@$h:C:/dev/computah/farm/imagine.png" 2>/dev/null || true
     [ -n "${IMAGINE_WALL_SLOT:-}" ] && scp -q "./$out" "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_${IMAGINE_WALL_SLOT}.png" 2>/dev/null || true
+    # early-preview frame next to its cell (log-only; wall.html doesn't read it)
+    if [ -n "${IMAGINE_WALL_SLOT:-}" ] && [ -s ./early.png ]; then
+      scp -q ./early.png "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_${IMAGINE_WALL_SLOT}-early.png" 2>/dev/null || true
+    fi
     rssh "copy /y $FARM\imagine.png C:\Users\\$REMOTE_USER\muse-td\finals\td-$(date +%H%M%S).png" >/dev/null 2>&1 || true
     echo "done: ./$out"
     # Auto-open is OPT-IN (MUSE_OPEN=1) — don't hijack Preview by default. Use
@@ -1496,13 +1662,23 @@ rec={"id":g("TR_ID"),"ts":datetime.datetime.now().isoformat(timespec="seconds"),
  "seed_ejtaste":float(g("TR_SEEDTASTE")) if g("TR_SEEDTASTE") else None,
  "render_ejtaste":float(g("TR_RENDERTASTE")) if g("TR_RENDERTASTE") else None,
  "ref_from":g("TR_REF") or None,"studio_piece":g("TR_STU") or None}
+# early-preview gate, LOG-ONLY (imagine writes early.json): target/true step, frames,
+# stats + ejtaste of the early frame and the final, p_like_* (null until a judge is hooked)
+try:
+    e=json.load(open("/tmp/muse/early.json"))
+    if e.get("captured"): e["early_png"]="muse-%s-early.png" % g("TR_ID")
+    rec["early"]=e
+    rec["p_like_early"]=e.get("p_like_early"); rec["p_like_final"]=e.get("p_like_final")
+except Exception:
+    pass
 print(json.dumps(rec,indent=2))
 PYT
       rssh "copy /y $FARM\imagine.png C:\dev\computah\renders\muse-gallery\muse-$id.png" >/dev/null 2>&1 || true
       scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:C:/dev/computah/renders/muse-gallery/muse-$id.json" 2>/dev/null || true
       # also drop the trace next to the live wall cell so the wall can pop it up on click
       scp -q /tmp/muse-trace.json "$REMOTE_USER@$h:C:/dev/computah/farm/sd/wall_$slot.json" 2>/dev/null || true
-      rm -f /tmp/muse/imagine-*.png
+      [ -s /tmp/muse/early.png ] && scp -q /tmp/muse/early.png "$REMOTE_USER@$h:C:/dev/computah/renders/muse-gallery/muse-$id-early.png" 2>/dev/null || true
+      rm -f /tmp/muse/imagine-*.png /tmp/muse/early.png /tmp/muse/early.json
       sleep "$gap"
     done
     ;;
