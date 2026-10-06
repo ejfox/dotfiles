@@ -188,12 +188,12 @@ def render_subject(rid):
 
 # ------------------------------------------------------------------ river (riverwatch imagery)
 RIVER_REMOTE = "/data2/riverwatch-images"   # rendered 07:30 on the VPS by riverwatch/imagery/river_imagery.py
-RIVER_ORDER = {"map": 0, "card": 1, "stills": 2, "timelapse": 3}
+RIVER_ORDER = {"map": 0, "valley": 1, "card": 2, "stills": 3, "timelapse": 4}
 
 def river_section():
     """Today's river pictures (private: they only ever travel in this DM). Pulls the VPS render dir
-    to ~/Pictures/Brief/<date>/river/ and returns one DM per picture, in order map, ship cards,
-    cam stills, timelapse. Off switch for just this section: ~/.config/brief-pictures-river-disabled"""
+    to ~/Pictures/Brief/<date>/river/ and returns one DM per picture, in order map, valley (only
+    when it has enough tracks), ship cards, cam stills, timelapse. Off switch for just this section: ~/.config/brief-pictures-river-disabled"""
     if os.path.exists(f"{HOME}/.config/brief-pictures-river-disabled"):
         return []
     local = f"{OUT}/river"
