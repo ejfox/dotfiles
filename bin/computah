@@ -18,6 +18,8 @@
 #   computah whisper <file>  transcribe audio/video → .srt + .txt beside it
 #   computah demucs <file>   split stems on the PC → ~/Music/ACAPELLAS/<name>/
 #   computah llm [on|off]    OpenAI-compatible LLM server on the PC (:8085)
+#   computah scanner-worker [on|off|status]  drain the VPS scanner queue (whisper turbo on radio
+#                            calls); idles during games + 22:00-09:00, never wakes the PC
 #   computah ask "<prompt>"  ask the PC's local Qwen3-14B — frees the GPU (pauses
 #                            the wall), answers, then restores the wall. Reuses a
 #                            held LLM if one's already up; won't steal the GPU mid-game.
@@ -387,6 +389,29 @@ PYEOF
       echo "(LLM still held — 'computah llm off && computah sd-server start' to resume the wall)" >&2
     fi
     exit $rc
+    ;;
+
+  scanner-worker)
+    # Drains the VPS scanner queue (scannerd api 100.111.103.120:10112): whisper large-v3-turbo on
+    # radio calls, results posted back to riverwatch's scanner.db. Runs under svc (services.json
+    # "scanner-worker", logon task with NO wake trigger). The worker itself claims nothing while
+    # game-detect says GAME (and kills an in-flight batch if a game starts) or 22:00-09:00.
+    # off = flag file farm\keeper\scanner-worker.off + stop; on = remove flag + restart.
+    case "${2:-status}" in
+      on|start)
+        rssh "if exist C:\dev\computah\farm\keeper\scanner-worker.off del C:\dev\computah\farm\keeper\scanner-worker.off"
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 restart scanner-worker"
+        echo "scanner-worker on (starts after its 120s delay)" ;;
+      off|stop)
+        rssh "type nul > C:\dev\computah\farm\keeper\scanner-worker.off"
+        rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 stop scanner-worker"
+        echo "scanner-worker off (VPS keeps transcribing on its CPU tier)" ;;
+      status|*)
+        rssh "if exist C:\dev\computah\farm\keeper\scanner-worker.off (echo switch: OFF) else (echo switch: on)" 2>/dev/null | tr -d '\r'
+        rssh "powershell -NoProfile -Command \"Get-Content C:\dev\computah\logs\scanner-worker.log -Tail 3 -EA 0\"" 2>/dev/null | tr -d '\r'
+        ssh -o ConnectTimeout=8 vps "sqlite3 -readonly /data2/smallweb-db/scanner/scanner.db \"SELECT 'queue: ' || group_concat(status || ' ' || n, ', ') FROM (SELECT status, count(*) n FROM jobs GROUP BY status); SELECT 'heartbeat: ' || v FROM meta WHERE k='computah_heartbeat';\"" 2>/dev/null
+        ;;
+    esac
     ;;
 
   sd-server)
