@@ -1383,9 +1383,11 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
         # studio (1-bit) seeds: past cells at ≤0.47 came back as the same stark b/w
         # piece (FLUX keeps the dither), at 0.96 the piece vanished; ~0.52–0.90 kept the
         # layout and repainted it. So draw fresh, uniform in the band (a clamp would
-        # pile half the cells on the floor value).
+        # pile half the cells on the floor value). Narrowed 0.55–0.85 → 0.60–0.78 after
+        # 18 live cells (2026-10-06): 0.58 on a sparse seed echoed its dither, ≥0.8 mostly
+        # ignored the seed, 0.60–0.75 repainted the structure.
         if [ "${src%%+*}" = studio ]; then
-          strength=$(awk -v r=$((RANDOM % 1000)) -v lo="${MUSE_STUDIO_STR_LO:-0.55}" -v hi="${MUSE_STUDIO_STR_HI:-0.85}" \
+          strength=$(awk -v r=$((RANDOM % 1000)) -v lo="${MUSE_STUDIO_STR_LO:-0.60}" -v hi="${MUSE_STUDIO_STR_HI:-0.78}" \
             'BEGIN{printf "%.2f", lo + (hi - lo) * r / 999}')
         fi
         if sips -Z 640 /tmp/muse-init.png --out /tmp/muse-init-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-init-sm.png ]; then
