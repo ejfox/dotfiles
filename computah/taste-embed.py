@@ -3,6 +3,9 @@
   python taste-embed.py embed
       CLIP-embed every muse-gallery render → render-embeds.npz (ids, vecs float16).
       Resumable, IDLE CPU priority, stops itself if a game/anti-cheat starts.
+  python taste-embed.py embed-studio
+      Same for the Blender studio pieces (masterpieces + favorites\\studio)
+      → studio-embeds.npz, ids = file stem. Used by taste-judge.py.
   python taste-embed.py score <probe.npz> <img> [<img> ...]
       For best-of-N: JSON per candidate {file, probe, maxsim, pick}. probe =
       preference-model logit; maxsim = highest cosine similarity to the cells
@@ -19,6 +22,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GALLERY = r"C:\dev\computah\renders\muse-gallery"
 WALL = r"C:\dev\computah\farm\sd"
 OUT = os.path.join(HERE, "render-embeds.npz")
+STUDIO = r"C:\dev\computah\renders\mathblend\masterpieces"
+STUDIO_FAVS = r"C:\dev\computah\renders\favorites\studio"
+STUDIO_OUT = os.path.join(HERE, "studio-embeds.npz")
 GAME = ("fortniteclient", "easyanticheat", "beservice", "battleye")
 LAMBDA = float(os.environ.get("MUSE_BON_LAMBDA", "4.0"))
 
@@ -48,33 +54,52 @@ def embed_files(m, pre, paths):
         f = m.encode_image(torch.stack(xs)).float()
     return ok, (f / f.norm(dim=-1, keepdim=True)).numpy()
 
-def embed_all():
+def gallery_files():
+    """FLUX wall renders → {id: path} (id = muse-<id>.png)."""
+    return {os.path.basename(f)[5:-4]: f for f in glob.glob(os.path.join(GALLERY, "muse-*.png"))
+            if not f.endswith("-init.png")}
+
+def studio_files():
+    """Blender studio pieces → {stem: path}: every masterpiece + any starred piece
+    (favorites\\studio is a copy of a masterpiece; same stem, so it dedupes)."""
+    out = {}
+    for d in (STUDIO_FAVS, STUDIO):
+        for f in glob.glob(os.path.join(d, "*.png")):
+            out.setdefault(os.path.basename(f)[:-4], f)
+    return out
+
+def embed_all(files=gallery_files, out=OUT, batch=64):
+    """Resumable: keeps what's in `out`, embeds only new ids, saves every ~20 batches."""
     import numpy as np
     try:
         ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x40)  # IDLE
     except Exception:
         pass
     ids, vecs = [], []
-    if os.path.exists(OUT):
-        z = np.load(OUT)
+    if os.path.exists(out):
+        z = np.load(out)
         ids, vecs = list(z["ids"]), [z["vecs"]]
     have = set(ids)
-    todo = sorted(f for f in glob.glob(os.path.join(GALLERY, "muse-*.png")) if not f.endswith("-init.png")
-                  and os.path.basename(f)[5:-4] not in have)
+    todo = sorted((i, p) for i, p in files().items() if i not in have)
+    if not todo:
+        print(f"nothing new — {len(ids)} embedded"); return 0
     if gaming():
         print("game running — not embedding"); return 3
     m, pre = model()
-    for k in range(0, len(todo), 64):
+    for k in range(0, len(todo), batch):
         if gaming():
             print("game started — stopping (resumable)"); break
-        ok, v = embed_files(m, pre, todo[k:k + 64])
+        chunk = dict(todo[k:k + batch])
+        ok, v = embed_files(m, pre, list(chunk.values()))
         if v is not None:
-            ids += [os.path.basename(p)[5:-4] for p in ok]; vecs.append(v.astype("float16"))
-        if (k // 64) % 20 == 0:
-            np.savez(OUT, ids=np.array(ids), vecs=np.concatenate(vecs))
+            back = {p: i for i, p in chunk.items()}
+            ids += [back[p] for p in ok]; vecs.append(v.astype("float16"))
+        if (k // batch) % 20 == 0 and vecs:
+            np.savez(out, ids=np.array(ids), vecs=np.concatenate(vecs))
             print(f"embedded {len(ids)} / {len(have) + len(todo)}", flush=True)
-    np.savez(OUT, ids=np.array(ids), vecs=np.concatenate(vecs))
-    print(f"done — {len(ids)} renders embedded", flush=True)
+    if vecs:
+        np.savez(out, ids=np.array(ids), vecs=np.concatenate(vecs))
+    print(f"done — {len(ids)} embedded → {os.path.basename(out)}", flush=True)
     return 0
 
 def score(probe_path, files):
@@ -97,8 +122,14 @@ def score(probe_path, files):
     return 0
 
 if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")  # PC console is cp1252
+    except Exception:
+        pass
     if len(sys.argv) > 1 and sys.argv[1] == "embed":
         sys.exit(embed_all())
+    if len(sys.argv) > 1 and sys.argv[1] == "embed-studio":
+        sys.exit(embed_all(studio_files, STUDIO_OUT, batch=16))  # 4K PNGs: smaller batches
     if len(sys.argv) > 3 and sys.argv[1] == "score":
         sys.exit(score(sys.argv[2], sys.argv[3:]))
     print(__doc__); sys.exit(2)
