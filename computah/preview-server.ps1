@@ -14,6 +14,14 @@ function Post-Fave($png, $kind) {
   Start-Process -WindowStyle Hidden -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\python.exe' `
     -ArgumentList @('C:\dev\computah\bin\fave_post.py', "`"$png`"", "`"$([IO.Path]::ChangeExtension($png, '.json'))`"", $kind) -EA 0
 }
+# A star also goes to 417am.party after a 10-min grace (fave_post.py spawns post_417am.py).
+# An un-star cancels a pending one or removes the post (2026-10-06). Same fire-and-forget.
+function Unpost-417($kind, $id) {
+  if (-not $id) { return }
+  if (-not (Test-Path 'C:\dev\computah\farm\sd\417am-token.txt')) { return }
+  Start-Process -WindowStyle Hidden -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\python.exe' `
+    -ArgumentList @('C:\dev\computah\bin\post_417am.py', 'unstar', $kind, "`"$id`"") -EA 0
+}
 $prefix = 'http://+:7861/'
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($prefix)
@@ -94,6 +102,7 @@ while ($listener.IsListening) {
           Post-Fave (Join-Path $favdir ("muse-$id.png")) 'wall'
         } elseif ($on -eq '0') {
           Get-ChildItem (Join-Path $favdir ("muse-$id.*")) -EA 0 | Remove-Item -Force -EA 0
+          Unpost-417 'flux' $id
         }
       }
       $state = [bool]($id -and (Test-Path (Join-Path $favdir ("muse-$id.png"))))
@@ -113,6 +122,7 @@ while ($listener.IsListening) {
           Post-Fave (Join-Path $sdir ("$name.png")) 'studio'
         } elseif ($on -eq '0') {
           Get-ChildItem (Join-Path $sdir ("$name.*")) -EA 0 | Remove-Item -Force -EA 0
+          Unpost-417 'studio' $name
         }
       }
       Send-Json $resp @{ fav = [bool]($name -and (Test-Path (Join-Path $sdir ("$name.png")))) }
