@@ -60,6 +60,51 @@
   #ovmeta .kbtn { white-space: nowrap; text-align: left; }
   #ovmeta .kbtn.on { color: var(--hi); border-color: var(--dim); }
   @media (max-width: 700px) { #card { flex-direction: column; overflow: auto; } #ovimg { width: 100%; } }
+  #ovimg { cursor: zoom-in; }
+  /* NO SCROLLBARS (EJ 2026-10-06): the card grows to fit the image at its own size instead of
+     squeezing it into 44% of 1120px; meta takes what's left. Wheel/trackpad still scroll long
+     prompts, the bars just aren't drawn. The 1:1 view (#px) keeps its bars: they're the map. */
+  #card { width: auto; max-width: 96vw; max-height: 92vh; }
+  #ovimg { width: auto; height: auto; max-width: 62vw; max-height: calc(92vh - 40px); flex: none; }
+  #ovmeta { flex: 1 1 30em; min-width: 24em; max-width: 44em; }
+  #ovmeta .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  #ovmeta .pair .sec { margin-top: 14px; }
+  #ovmeta, #card, #ctl { scrollbar-width: none; }
+  #ovmeta::-webkit-scrollbar, #card::-webkit-scrollbar, #ctl::-webkit-scrollbar { display: none; }
+  @media (max-width: 700px) { #ovimg { width: 100%; max-width: 100%; max-height: none; } #ovmeta { min-width: 0; max-width: none; } }
+  /* 1:1 (EJ 2026-10-06: "100% full-view pixel-real, no smallifying"): one image pixel = one
+     screen pixel. CSS width = natural / devicePixelRatio so Windows 125/150% scaling doesn't
+     blow it up either. Bigger than the screen → scroll/drag to pan; never scaled to fit. */
+  #px { position: fixed; inset: 0; background: #000; z-index: 20; display: none; overflow: auto; cursor: grab; }
+  #px.on { display: flex; }
+  #px img { margin: auto; flex: none; display: block; image-rendering: pixelated; }
+  #px.drag { cursor: grabbing; user-select: none; }
+  #pxlbl { position: fixed; left: 8px; bottom: 6px; z-index: 21; font: 12px var(--mono); color: var(--dim); pointer-events: none; display: none; }
+  #px.on + #pxlbl { display: block; }
+  /* close buttons (EJ 2026-10-06): same top-right spot on the card and on the 1:1 view */
+  .xbtn { position: fixed; top: 12px; right: 12px; background: var(--bg); font: 14px var(--mono); padding: .3em .8em; }
+  #ov .xbtn { z-index: 11; }
+  #pxclose { z-index: 22; display: none; }
+  #px.on ~ #pxclose { display: block; }
+  /* MOTION (EJ 2026-10-06 polish pass): the piece itself travels — cell → card → 1:1 and back
+     (View Transitions shared element 'piece'); the rest of the page crossfades underneath.
+     One ease everywhere: fast out of the gate, long soft landing. prefers-reduced-motion = none. */
+  :root { --ease: cubic-bezier(.2, .8, .2, 1); }
+  ::view-transition-group(piece) { animation-duration: .46s; animation-timing-function: var(--ease); }
+  ::view-transition-old(piece), ::view-transition-new(piece) { width: 100%; height: 100%; object-fit: cover; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  #ovmeta.enter > * { animation: rise .5s var(--ease) both; animation-delay: calc(90ms + min(var(--i, 0), 10) * 26ms); }
+  #wall > div { outline: 1px solid transparent; outline-offset: -1px; transition: outline-color .35s var(--ease); }
+  #wall > div > img { transition: transform 1.1s var(--ease); }
+  #wall > div:hover > img { transform: scale(1.02); }
+  .kbtn { transition: color .15s, border-color .15s; }
+  #pxlbl { transition: opacity .3s; }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+    #ovmeta.enter > *, #wall > div, #wall > div > img, .kbtn { animation: none !important; transition: none !important; }
+    #wall > div:hover > img { transform: none; }
+  }
 </style>
 </head>
 <body style="margin:0;overflow:hidden">
@@ -90,11 +135,16 @@
 
 <!-- click-to-inspect overlay -->
 <div id="ov">
+  <button class="kbtn xbtn" title="esc" onclick="closeCard()">× close</button>
   <div id="card">
     <img id="ovimg">
     <div id="ovmeta"></div>
   </div>
 </div>
+<!-- 1:1 pixel view: click the inspect image (or shift-click a cell) -->
+<div id="px"><img id="pximg"></div>
+<div id="pxlbl"></div>
+<button class="kbtn xbtn" id="pxclose" title="esc" onclick="pxClose()">× close</button>
 
 <script src="kit.js"></script>
 <script>
@@ -121,8 +171,35 @@ let total, divs, cells, stars, srcs, downs, caps, ticks, cellIds, traceCache, li
 // taste signals → preview-server /event → taste\events.jsonl (learned from on the Mac)
 const sendEvent = qs => { try { fetch('event?' + qs + '&t=' + Date.now(), { cache: 'no-store' }); } catch (e) {} };
 
+// ── motion ───────────────────────────────────────────────────────────────────
+const MOTION = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = 'cubic-bezier(.2, .8, .2, 1)';
+const shown = el => !!(el && el.isConnected && el.getClientRects().length);
+// shared-element morph: `from` becomes `to` across the DOM change `update`. Anything the
+// browser can't do (no View Transitions, element hidden) just runs `update` instantly.
+function morph(from, to, update) {
+  if (!MOTION || !document.startViewTransition || document.hidden || !shown(from)) { update(); return; }
+  from.style.viewTransitionName = 'piece';
+  const vt = document.startViewTransition(async () => {
+    from.style.viewTransitionName = '';
+    await update();
+    if (shown(to)) to.style.viewTransitionName = 'piece';
+  });
+  vt.ready.catch(() => {});                                   // a skipped transition still applies `update`
+  vt.finished.finally(() => { if (to) to.style.viewTransitionName = ''; });
+}
+// swap an <img> to a new src with a crossfade: the old frame stays painted underneath
+function fadeSwap(img, src, delay) {
+  const old = img.getAttribute('src');
+  if (MOTION && old) img.parentNode.style.background = `var(--panel) url("${old}") center / ${fitMode} no-repeat`;
+  img.src = src;
+  if (!MOTION) return;
+  img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: old ? 900 : 600, delay: delay || 0, easing: 'ease-out', fill: 'backwards' })
+    .finished.then(() => { img.parentNode.style.background = ''; }, () => {});
+}
+
 function buildGrid() {
-  total = N * N; live = 0;
+  total = N * N; live = 0; builtAt = performance.now();
   wall.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
   wall.style.gridTemplateRows = `repeat(${N}, 1fr)`;
   wall.innerHTML = '';
@@ -138,7 +215,8 @@ function buildGrid() {
     const cp = document.createElement('div'); cp.className = 'cap';
     const tk = document.createElement('div'); tk.className = 'tick';
     d.appendChild(img); d.appendChild(st); d.appendChild(sc); d.appendChild(dn); d.appendChild(cp); d.appendChild(tk);
-    d.addEventListener('click', () => (pair && pair.includes(i)) ? pickPair(i) : inspect(i));
+    d.addEventListener('click', e => e.shiftKey ? pixelView(img.getAttribute('src') || 'wall_' + (i + 1) + '.png?t=' + Date.now(), false, img)
+      : (pair && pair.includes(i)) ? pickPair(i) : inspect(i));
     wall.appendChild(d);
     divs.push(d); cells.push(img); stars.push(st); srcs.push(sc); downs.push(dn); caps.push(cp); ticks.push(tk);
   }
@@ -154,7 +232,11 @@ function buildGrid() {
     const cp = document.createElement('div'); cp.className = 'cap';
     const tk = document.createElement('div'); tk.className = 'tick'; tk.style.background = 'var(--fam-studio)';
     d.appendChild(img); d.appendChild(cp); d.appendChild(tk); d.style.display = 'none';
-    d.addEventListener('click', () => studioInspect(j));
+    d.addEventListener('click', e => {
+      const it = sdivs[j] && sdivs[j].item;
+      if (e.shiftKey && it) pixelView('masterpieces/' + encodeURIComponent(it.name) + '.png', !it.name.includes('_color_'), img);
+      else studioInspect(j);
+    });
     wall.appendChild(d); sdivs.push({ d, img, cp, item: null });
   }
   for (let i = 0; i < total; i++) loadCell(i);
@@ -174,7 +256,7 @@ async function loadStudio() {
     const it = STUDIO[j]; s.item = it || null;
     if (!it) return;
     const src = 'masterpieces/' + encodeURIComponent(it.name) + '.png';
-    if (s.img.dataset.name !== it.name) { s.img.src = src; s.img.dataset.name = it.name; }
+    if (s.img.dataset.name !== it.name) { fadeSwap(s.img, src); s.img.dataset.name = it.name; }
     s.img.style.imageRendering = it.name.includes('_color_') ? 'auto' : 'pixelated';   // color pieces aren't 1-bit
     const tag = studioTag(it.name), hero = tag.startsWith('HERO_');
     const recipe = (hero ? tag.slice(5) : tag).replace(/_/g, ' ');           // scene names keep their words
@@ -203,13 +285,14 @@ async function studioInspect(j) {
      ['backdrop ★', r && r.wall_src], ['seed', r && r.seed], ['size', it.mb + ' MB']]
       .filter(([, v]) => v != null && v !== '').map(([a, b]) => `<div class="irow"><span class="k">${esc(a)}</span><span>${esc(b)}</span></div>`).join('') +
     // RAW (2026-10-05): the lit render before the dither, kept for every piece from now on
-    `<div class="sec" id="rawsec" style="display:none">raw — the render before the dither` +
+    // raw + evidence sit side by side (2026-10-06) so the card fits without scrolling
+    `<div class="pair"><div class="sec" id="rawsec" style="display:none">raw — the render before the dither` +
       `<img src="masterpieces/raw/${encodeURIComponent(it.name)}.jpg" style="display:block;width:100%;margin-top:6px;border:1px solid var(--rule)"` +
       ` onload="document.getElementById('rawsec').style.display='block'"></div>` +
     // EVIDENCE (2026-10-04): the bare 3D scene before bitmapping, same camera (pieces from now on)
     `<div class="sec" id="wiresec" style="display:none">evidence — the 3D scene before bitmapping, same camera` +
       `<img class="wireimg" src="masterpieces/wire/${encodeURIComponent(it.name)}.png" style="display:block;width:100%;margin-top:6px;border:1px solid var(--rule)"` +
-      ` onload="document.getElementById('wiresec').style.display='block'"></div>` +
+      ` onload="document.getElementById('wiresec').style.display='block'"></div></div>` +
     `<div class="sec">every studio piece: the renders page (\`renders\` on the Mac) · reproduce: studio-dev pin seed=${esc(r && r.seed)}</div>`;
   const sb = document.getElementById('sfavbtn');
   if (sb) sb.onclick = async () => {
@@ -218,7 +301,22 @@ async function studioInspect(j) {
       sfav = !!j.fav; sb.textContent = sLabel(sfav); sb.classList.toggle('on', sfav);
     } catch (e) {}
   };
-  ov.style.display = 'flex';
+  openCard(sdivs[j].img);
+}
+
+// the card grows out of the cell you clicked and flies back into it on close
+let cardFrom = null;
+async function openCard(from) {
+  try { await ovimg.decode(); } catch (e) {}
+  cardFrom = from;
+  [...ovmeta.children].forEach((c, k) => c.style.setProperty('--i', k));
+  ovmeta.classList.remove('enter'); void ovmeta.offsetWidth; ovmeta.classList.add('enter');   // replay the settle-in
+  if (ov.style.display === 'flex') return;                                          // already open: content just swapped
+  morph(from, ovimg, () => { ov.style.display = 'flex'; });
+}
+function closeCard() {
+  if (ov.style.display !== 'flex') return;
+  morph(ovimg, cardFrom, () => { ov.style.display = 'none'; });
 }
 
 function updateCtl() {
@@ -301,7 +399,8 @@ function toggleFit() { fitMode = fitMode === 'cover' ? 'contain' : 'cover'; loca
 function loadCell(i) {                       // load a finished cell's image once
   const src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
   const probe = new Image();
-  probe.onload = () => { cells[i].src = src; };
+  // first fill cascades in across the grid; a finished render crossfades over the old one
+  probe.onload = () => { if (cells[i]) fadeSwap(cells[i], src, cells[i].getAttribute('src') ? 0 : Math.min(i, 40) * 22); };
   probe.src = src;
 }
 async function loadTrace(i) {                 // cache the trace + id (for inspect + badge + date)
@@ -330,7 +429,25 @@ function refreshBadges() {
 // nothing about time. Cells keep their slot index (inspect/pair/badges use it); only the
 // VISUAL order changes: NEWEST TOP-RIGHT (the cell being painted), each row read right→left,
 // rows getting older downward, OLDEST BOTTOM-LEFT (EJ's call).
+// FLIP: when the timeline reshuffles (a render lands, a studio piece arrives, the mode flips),
+// every cell glides from where it was to where it now belongs instead of teleporting.
+let builtAt = 0;
 function applyOrder() {
+  const els = [...(divs || []), ...(sdivs || []).map(s => s.d)];
+  const flip = MOTION && performance.now() - builtAt > 1500;          // not during the first fill
+  const before = flip ? new Map(els.filter(shown).map(e => [e, e.getBoundingClientRect()])) : null;
+  applyOrderNow();
+  if (!before) return;
+  els.forEach(e => {
+    if (!shown(e)) return;
+    const a = before.get(e);
+    if (!a) { e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' }); return; }   // newly shown
+    const b = e.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+    if (Math.abs(dx) + Math.abs(dy) < 1) return;
+    e.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 700, easing: EASE });
+  });
+}
+function applyOrderNow() {
   // one timeline: wall cells (by trace ts; the live cell first) + the newest studio pieces
   if (MODE === 'blender') divs.forEach(d => d.style.display = 'none');           // studio pieces only
   const items = MODE === 'blender' ? [] : Array.from({ length: total }, (_, i) => ({ el: divs[i],
@@ -418,14 +535,13 @@ async function toggleDown(id) {
 async function inspect(i) {
   ovimg.style.imageRendering = '';                   // studioInspect sets pixelated for 1-bit art
   if (cellIds[i]) sendEvent('type=inspect&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
-  ovimg.src = 'wall_' + (i + 1) + '.png?t=' + Date.now();
-  ovmeta.innerHTML = '<div class="dim">◆ loading trace…</div>';
-  ov.style.display = 'flex';
+  ovimg.src = cells[i].getAttribute('src') || 'wall_' + (i + 1) + '.png?t=' + Date.now();   // exactly the frame you clicked
   let t = traceCache[i];
   if (!t) { await loadTrace(i); t = traceCache[i]; }
   if (!t) {   // missing data = the one "needs attention" state → --warn
     ovmeta.innerHTML = '<div class="warn" style="font-size:18px">no trace for this cell yet</div>' +
       '<div class="dim" style="font-size:13px;margin-top:8px">Traces attach as each cell re-renders — give it a cycle.</div>';
+    openCard(cells[i]);
     return;
   }
   const fam = FAMILY(t.init_source);
@@ -462,6 +578,7 @@ async function inspect(i) {
   if (b) b.onclick = () => toggleFav(t.id);
   const db = document.getElementById('downbtn');
   if (db) db.onclick = () => toggleDown(t.id);
+  openCard(cells[i]);
 }
 
 // ── daily pair pick ──────────────────────────────────────────────────────────
@@ -493,8 +610,40 @@ function endPair(skipped) {
 }
 setInterval(maybePair, 5 * 60 * 1000);
 setTimeout(maybePair, 20 * 1000);
-ov.addEventListener('click', e => { if (e.target === ov) ov.style.display = 'none'; });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none';
+ov.addEventListener('click', e => { if (e.target === ov) closeCard(); });
+
+// ── 1:1 pixel view ───────────────────────────────────────────────────────────
+const px = document.getElementById('px'), pximg = document.getElementById('pximg'), pxlbl = document.getElementById('pxlbl');
+let pxFrom = null;
+async function pixelView(src, pixelated, from) {
+  pximg.style.imageRendering = pixelated === false ? 'auto' : '';
+  pximg.src = src;
+  try { await pximg.decode(); } catch (e) {}                 // size it before it's shown, so the morph lands true
+  const w = pximg.naturalWidth, h = pximg.naturalHeight, dpr = window.devicePixelRatio || 1;
+  pximg.style.width = (w / dpr) + 'px'; pximg.style.height = (h / dpr) + 'px';
+  pxlbl.textContent = `1:1 · ${w}×${h} px` + (w / dpr > innerWidth || h / dpr > innerHeight ? ' · drag to pan' : '') + ' · click / esc to close';
+  pxFrom = from;
+  morph(from, pximg, () => {
+    px.classList.add('on');
+    px.scrollLeft = (px.scrollWidth - px.clientWidth) / 2; px.scrollTop = (px.scrollHeight - px.clientHeight) / 2;
+  });
+}
+function pxClose() { if (px.classList.contains('on')) morph(pximg, pxFrom, () => px.classList.remove('on')); }
+ovimg.addEventListener('click', () => pixelView(ovimg.src, ovimg.style.imageRendering !== 'auto', ovimg));
+// drag pans; a click without a drag closes
+let pxDrag = null;
+px.addEventListener('mousedown', e => { pxDrag = { x: e.clientX, y: e.clientY, l: px.scrollLeft, t: px.scrollTop, moved: false }; e.preventDefault(); });
+addEventListener('mousemove', e => {
+  if (!pxDrag) return;
+  const dx = e.clientX - pxDrag.x, dy = e.clientY - pxDrag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 4) { pxDrag.moved = true; px.classList.add('drag'); }
+  px.scrollLeft = pxDrag.l - dx; px.scrollTop = pxDrag.t - dy;
+});
+addEventListener('mouseup', () => { if (pxDrag && !pxDrag.moved && px.classList.contains('on')) pxClose(); pxDrag = null; px.classList.remove('drag'); });
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && px.classList.contains('on')) { pxClose(); return; }   // esc peels one layer at a time
+  if (e.key === 'Escape') closeCard();
   const m = { 1: 'flux', 2: 'mix', 3: 'blender' }[e.key]; if (m && !e.metaKey && !e.ctrlKey) setMode(m); });
 
 function openFolder(which) { fetch('open?which=' + which, { cache: 'no-store' }).catch(() => {}); }
