@@ -10,6 +10,7 @@
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
+#   computah obs [start|rec|stop|status]  OBS on the PC (off by default; Fortnite matches still auto-open it)
 #   computah rgb [wave|breathe|pulse|screen|hue|off]  PC case+DualSense RGB (hue = opt-in desk mirror)
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
 #   computah sleep           put it to sleep
@@ -95,6 +96,13 @@ EOF
 }
 
 case "${1:-ssh}" in
+  obs)
+    # OBS on the PC: start (tray, not recording) | rec (start + record now) | stop [--force] |
+    # status. Off by default since 2026-10-06: idling it held ~35% GPU 3D and tripped the wall's
+    # game guard. fn-recorder still opens it by itself when a Fortnite match starts.
+    shift
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\obs-ctl.ps1 ${*:-status}"
+    ;;
   ssh)
     exec ssh "$REMOTE_USER@$(host)"
     ;;
@@ -1252,12 +1260,25 @@ PYEOF
       # STUDIO (2026-10-02): MUSE_STUDIO_PCT of cells seed from a recent 1-bit Blender
       # studio piece, so the wall reinterprets the studio while the studio already eats
       # wall renders as textures/backdrops (studio_engine.py) — a two-way loop.
-      _stu=""; [ -z "$_bench" ] && [ "${MUSE_STUDIO_PCT:-10}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_STUDIO_PCT:-10}" ] \
-        && _stu=$(curl -s -m 5 "http://$h:7861/studio/index.json" 2>/dev/null | /usr/local/bin/python3 -c \
-             'import json,random,sys; i=json.load(sys.stdin)["items"][:60]; print(random.choice(i)["name"] if i else "")' 2>/dev/null)
+      # 2026-10-06 (EJ: re-feed the blender renders as base images "maybe 60% of the
+      # time"): default 10 → 60, checked BEFORE the screen/arena/photo/ref rolls, so
+      # those share the other 40%. No crew sets it. Pick: MUSE_STUDIO_FAV_PCT (25) from
+      # EJ's studio ★ (/studiofavlist), else the newest 60, linearly weighted to newer.
+      # Seed = the full-res masterpiece PNG (sips shrinks it to 640, which melts the
+      # dither into grey tone FLUX can read); the 480px thumb is the fallback.
+      _stu=""; [ -z "$_bench" ] && [ "${MUSE_STUDIO_PCT:-60}" -gt 0 ] && [ $((RANDOM % 100)) -lt "${MUSE_STUDIO_PCT:-60}" ] \
+        && _stu=$(H="$h" FAVPCT="${MUSE_STUDIO_FAV_PCT:-25}" /usr/local/bin/python3 -c '
+import json,os,random,urllib.request as u
+b="http://%s:7861/" % os.environ["H"]; g=lambda p: json.load(u.urlopen(b + p, timeout=6))
+try: f=g("studiofavlist").get("ids") or []
+except Exception: f=[]
+if f and random.randrange(100) < int(os.environ["FAVPCT"]): print(random.choice(f)); raise SystemExit
+i=[x["name"] for x in g("studio/index.json")["items"][:60]]
+print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/null)
       if [ -n "$_bench" ] && [ -s "$_bench" ]; then
         cp "$_bench" /tmp/muse-init.png 2>/dev/null && [ -s /tmp/muse-init.png ] && src="bench"
-      elif [ -n "$_stu" ] && curl -sf -m 20 -o /tmp/muse-init.png "http://$h:7861/studio/thumbs/$_stu.jpg" 2>/dev/null \
+      elif [ -n "$_stu" ] && { curl -sf -m 30 -o /tmp/muse-init.png "http://$h:7861/masterpieces/$_stu.png" \
+           || curl -sf -m 20 -o /tmp/muse-init.png "http://$h:7861/studio/thumbs/$_stu.jpg"; } 2>/dev/null \
            && [ -s /tmp/muse-init.png ]; then
         src="studio"
       elif [ "$roll" -lt "$scr" ] && command -v screencapture >/dev/null 2>&1; then
@@ -1359,6 +1380,14 @@ PYEOF
           strength=$(awk -v s="$strength" -v lo="${MUSE_BENCH_STR_LO:-0.40}" -v hi="${MUSE_BENCH_STR_HI:-0.62}" \
             'BEGIN{if(s<lo)s=lo; if(s>hi)s=hi; printf "%.2f", s}')
         fi
+        # studio (1-bit) seeds: past cells at ≤0.47 came back as the same stark b/w
+        # piece (FLUX keeps the dither), at 0.96 the piece vanished; ~0.52–0.90 kept the
+        # layout and repainted it. So draw fresh, uniform in the band (a clamp would
+        # pile half the cells on the floor value).
+        if [ "${src%%+*}" = studio ]; then
+          strength=$(awk -v r=$((RANDOM % 1000)) -v lo="${MUSE_STUDIO_STR_LO:-0.55}" -v hi="${MUSE_STUDIO_STR_HI:-0.85}" \
+            'BEGIN{printf "%.2f", lo + (hi - lo) * r / 999}')
+        fi
         if sips -Z 640 /tmp/muse-init.png --out /tmp/muse-init-sm.png >/dev/null 2>&1 && [ -s /tmp/muse-init-sm.png ]; then
           export IMAGINE_INIT_LOCAL=/tmp/muse-init-sm.png; export IMAGINE_STRENGTH="$strength"
           tag=" s=$strength"
@@ -1428,6 +1457,7 @@ PYEOF
       TR_PSRC="$prompt_origin" TR_BATCH="$batch_source" TR_ID="$id" \
       TR_SEED="$cellseed" TR_MOTIF="$source_motif" TR_MINED="$source_mined" TR_INIT="$inited" \
       TR_STYLE="$cell_style" TR_SAMPLER="${IMAGINE_SAMPLER:-euler}" TR_CFG="${IMAGINE_CFG:-1.0}" TR_REF="$ref_from" \
+      TR_STU="$([ "${src%%+*}" = studio ] && printf '%s' "$_stu")" \
       python3 - > /tmp/muse-trace.json 2>/dev/null <<'PYT'
 import json, os, datetime
 g=lambda k: os.environ.get(k,"")
@@ -1443,7 +1473,7 @@ rec={"id":g("TR_ID"),"ts":datetime.datetime.now().isoformat(timespec="seconds"),
  "source_motif":g("TR_MOTIF") or None,"mined_from":g("TR_MINED") or None,
  "seed_ejtaste":float(g("TR_SEEDTASTE")) if g("TR_SEEDTASTE") else None,
  "render_ejtaste":float(g("TR_RENDERTASTE")) if g("TR_RENDERTASTE") else None,
- "ref_from":g("TR_REF") or None}
+ "ref_from":g("TR_REF") or None,"studio_piece":g("TR_STU") or None}
 print(json.dumps(rec,indent=2))
 PYT
       rssh "copy /y $FARM\imagine.png C:\dev\computah\renders\muse-gallery\muse-$id.png" >/dev/null 2>&1 || true
