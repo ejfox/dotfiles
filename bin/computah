@@ -400,6 +400,19 @@ PYEOF
       # taskkill from SSH can't stop it ("no running instance of the task"), and a raw
       # `schtasks /run` doesn't go through the supervisor — always use svc.ps1.
       start|up|on)
+        # GPU LEASES (2026-10-06): paperize/CRT renders (EJ: "higher priority than the image
+        # wall") hold the card via ~/code/paperize/gpulease, which stops sd-server. Every path
+        # that revives FLUX (ask's restore, game-over, the muse self-heal) comes through here,
+        # so refuse while any lease is held. The last `gpulease release` starts it again (it
+        # runs after removing its own file). A lease older than 6h is treated as a crashed
+        # holder and ignored, so a forgotten file can't park the wall forever.
+        if [ "${3:-}" != "--force" ]; then
+          _lz=$(find "$HOME/.cache/paperize-gpulease" -type f -mmin -360 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')
+          if [ -n "$_lz" ]; then
+            echo "sd-server NOT started: GPU leased by ${_lz% } (gpulease status; 'computah sd-server start --force' overrides)"
+            exit 0
+          fi
+        fi
         rssh "tasklist | findstr /i sd-server.exe >nul && echo already-running || powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 restart sd-server"
         echo "loading model… (first render waits for it); endpoint http://$h:1234/sdapi/v1/{txt2img,img2img}"
         ;;
@@ -1321,6 +1334,27 @@ PYEOF
         done
         echo "  ◆ wall left blender only at $(date +%H:%M) — FLUX resuming"
         slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue   # re-run the guards first
+      fi
+      # SELF-HEAL FLUX (2026-10-06): sd-server died mid-request (a reference-image EDIT job,
+      # no OOM, no crash event) and nothing restarted it outside the game-over path, so the
+      # wall logged "render hiccup" on every cell for ~45 min. Here we're past the game and
+      # blender-only guards, so FLUX is supposed to be up: if :1234 doesn't answer, start it,
+      # at most once per 2 min so a crash loop can't hammer the GPU.
+      # ...unless paperize/CRT holds a GPU lease (see `sd-server start`): then FLUX stays off
+      # on purpose, so idle here like blender-only instead of logging a hiccup per cell.
+      _leased() { find "$HOME/.cache/paperize-gpulease" -type f -mmin -360 2>/dev/null | grep -q .; }
+      if _leased; then
+        echo "  ○ GPU leased to paperize/CRT at $(date +%H:%M) — FLUX idle"
+        while _leased; do sleep 30; done
+        echo "  ◆ GPU lease released at $(date +%H:%M) — FLUX resuming"
+        slot=$((slot - 1)); [ "$slot" -lt 0 ] && slot=0; continue   # re-run the guards first
+      fi
+      if [ "$(curl -s -m 4 -o /dev/null -w '%{http_code}' "http://$h:1234/" 2>/dev/null)" != "200" ]; then
+        if [ $(( $(date +%s) - ${_sd_heal_at:-0} )) -ge 120 ]; then
+          _sd_heal_at=$(date +%s)
+          echo "  ◇ sd-server not answering — restarting it ($(date +%H:%M))"
+          "$0" sd-server start >/dev/null 2>&1 || true
+        fi
       fi
 
       # refill the batch (fresh notes) whenever we've used them all
