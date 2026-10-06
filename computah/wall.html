@@ -23,7 +23,9 @@
   #ctl .kbtn.mode.on { color: var(--hi); border-color: var(--dim); }
   .down { right: 6px; font-size: 14px; color: var(--ink); }
   /* daily pair pick: two cells outlined, one click = which one EJ prefers */
-  #wall > div.pairpick { outline: 2px dashed var(--hi) !important; outline-offset: -2px; }
+  /* black frame + white dashes inside it: reads on white 1-bit studio pieces and on dark renders alike */
+  #wall > div.pairpick::after { content: ''; position: absolute; inset: 0; border: 4px solid var(--bg); outline: 2px dashed var(--hi);
+                                outline-offset: -6px; pointer-events: none; z-index: 3; }
   /* DENSE MODE (2026-09-30): caption strip + source edge tick per cell, 2h timeline */
   /* captions scale with the CELL (container queries), not the window: an 8x8 grid
      on a laptop and a 3x3 on a 4K panel both read right. */
@@ -46,6 +48,16 @@
   @media (max-width: 520px) { #ctl { flex-wrap: wrap; max-width: calc(100vw - 22px); } #ctl { font-size: 11px; } }
   #pairbar { position: fixed; top: 7px; left: 50%; transform: translateX(-50%); z-index: 7; display: none; gap: 10px; align-items: center;
              background: var(--bg); border: 1px solid var(--faint); padding: 5px 10px; color: var(--ink); font-size: 12px; }
+  /* SAY-WHY (2026-10-06): after a ★ / ▼ / pair pick, an optional one-line reason. Same spot as
+     the pair bar, above the inspect card. Enter saves, Esc drops it, ignoring it lets it go. */
+  #why { position: fixed; top: 7px; left: 50%; transform: translateX(-50%); z-index: 12; display: none; gap: 8px; align-items: center;
+         background: var(--bg); border: 1px solid var(--faint); padding: 5px 10px; color: var(--ink); font-size: 12px;
+         max-width: calc(100vw - 32px); box-sizing: border-box; }
+  #why.on { display: flex; }
+  #why input { background: transparent; border: none; outline: none; color: var(--hi); font: inherit; width: 26em; max-width: 52vw; padding: 0; }
+  #why input::placeholder { color: var(--dim); }
+  #why .hint { color: var(--dim); white-space: nowrap; }
+  @media (max-width: 520px) { #why .hint { display: none; } #why input { max-width: none; flex: 1; } }
   /* inspect overlay */
   #ov { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; z-index: 10; align-items: center; justify-content: center; cursor: zoom-out; }
   #card { display: flex; gap: 22px; max-width: 1120px; width: 92vw; max-height: 88vh; padding: 20px; box-sizing: border-box; background: var(--bg); border: 1px solid var(--rule); cursor: auto; }
@@ -130,8 +142,10 @@
 </div>
 <svg id="tl" aria-label="last 2 hours of renders"></svg>
 
-<!-- daily pair pick prompt -->
-<div id="pairbar"><span class="hi">◆</span> which of the two outlined cells do you like more? <button class="kbtn" onclick="endPair(true)">skip today</button></div>
+<!-- pair pick prompt (~10 a day, 60-90 min apart, only while EJ is around) -->
+<div id="pairbar"><span class="hi">◆</span> which of the two outlined do you like more? <button class="kbtn" title="fewer for a while" onclick="endPair('skip')">skip</button></div>
+<!-- optional reason after a verdict -->
+<div id="why"><span id="whyg" class="hi">◆</span><input id="whyin" maxlength="200" placeholder="why? (optional)" autocomplete="off" spellcheck="false"><span class="hint">enter saves · esc</span></div>
 
 <!-- click-to-inspect overlay -->
 <div id="ov">
@@ -165,7 +179,8 @@ const { FAMILY, FCOL, FHEX, FGLYPH, esc } = KIT;
 // SVG presentation attributes can't take var(): read the kit's greys once
 const { cssvar, agoText } = KIT;
 const C = { hi: cssvar('--hi') || '#fff', dim: cssvar('--dim') || '#6f6f78', rule: cssvar('--rule') || '#1f1f24', warn: cssvar('--warn') || '#ffb000', mono: cssvar('--mono') || 'monospace' };
-let pair = null;   // [i, j] while today's pair pick is showing
+let pair = null;   // { a, b, t0 } while a pair pick is showing; a side = { kind, i | j, id, el }
+let sfavset = new Set(), sdownset = new Set();             // studio piece names starred / thumbs-downed
 
 let total, divs, cells, stars, srcs, downs, caps, ticks, cellIds, traceCache, live = 0;
 // taste signals → preview-server /event → taste\events.jsonl (learned from on the Mac)
@@ -199,12 +214,12 @@ function fadeSwap(img, src, delay) {
 }
 
 function buildGrid() {
+  if (pair) endPair('interrupted');                          // the cells are about to be replaced
   total = N * N; live = 0; builtAt = performance.now();
   wall.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
   wall.style.gridTemplateRows = `repeat(${N}, 1fr)`;
   wall.innerHTML = '';
-  divs = []; cells = []; stars = []; srcs = []; downs = []; caps = []; ticks = []; cellIds = []; traceCache = []; pair = null;
-  const pb = document.getElementById('pairbar'); if (pb) pb.style.display = 'none';
+  divs = []; cells = []; stars = []; srcs = []; downs = []; caps = []; ticks = []; cellIds = []; traceCache = [];
   for (let i = 0; i < total; i++) {
     const d = document.createElement('div');
     const img = document.createElement('img');
@@ -216,7 +231,7 @@ function buildGrid() {
     const tk = document.createElement('div'); tk.className = 'tick';
     d.appendChild(img); d.appendChild(st); d.appendChild(sc); d.appendChild(dn); d.appendChild(cp); d.appendChild(tk);
     d.addEventListener('click', e => e.shiftKey ? pixelView(img.getAttribute('src') || 'wall_' + (i + 1) + '.png?t=' + Date.now(), false, img)
-      : (pair && pair.includes(i)) ? pickPair(i) : inspect(i));
+      : pairSide('flux', i) ? pickPair(pairSide('flux', i)) : inspect(i));
     wall.appendChild(d);
     divs.push(d); cells.push(img); stars.push(st); srcs.push(sc); downs.push(dn); caps.push(cp); ticks.push(tk);
   }
@@ -235,6 +250,7 @@ function buildGrid() {
     d.addEventListener('click', e => {
       const it = sdivs[j] && sdivs[j].item;
       if (e.shiftKey && it) pixelView('masterpieces/' + encodeURIComponent(it.name) + '.png', !it.name.includes('_color_'), img);
+      else if (pairSide('studio', j)) pickPair(pairSide('studio', j));
       else studioInspect(j);
     });
     wall.appendChild(d); sdivs.push({ d, img, cp, item: null });
@@ -263,6 +279,15 @@ async function loadStudio() {
     s.cp.innerHTML = `<span class="l1"><span class="fam-studio">■</span> <b>studio</b> ${hero ? '<b>hero</b> ' : ''}${esc(recipe)}</span>` +
       `<span class="l2"><span class="m">${agoText(new Date(studioTs(it.name)))} · 1-bit Blender · click for recipe</span></span>`;
   });
+  // a new piece shifts every studio slot by one: the pair outline follows its piece to the new slot
+  if (pair) {
+    const sides = [pair.a, pair.b], slot = p => sdivs.findIndex(s => s.item && s.item.name === p.id);
+    if (sides.some(p => p.kind === 'studio' && slot(p) < 0)) endPair('interrupted');   // piece left the index
+    else {
+      sides.forEach(p => p.el.classList.remove('pairpick'));
+      sides.forEach(p => { if (p.kind === 'studio') { p.j = slot(p); p.el = sdivs[p.j].d; } p.el.classList.add('pairpick'); });
+    }
+  }
   applyOrder(); drawTimeline();
 }
 async function studioInspect(j) {
@@ -271,14 +296,18 @@ async function studioInspect(j) {
   ovimg.style.imageRendering = it.name.includes('_color_') ? 'auto' : 'pixelated';
   let r = null; try { r = await (await fetch('masterpieces/' + encodeURIComponent(it.name) + '.json?t=' + Date.now(), { cache: 'no-store' })).json(); } catch (e) {}
   const k = (r && r.knobs) || {};
-  // the wall's ★ / ▽ train its taste model on img2img renders, so studio pieces get their own
-  // ★ (studiofav: favorites\studio + EJ's Discord channel, 2026-10-05), and no ▽
-  let sfav = false;
+  // studio ★ keeps its own folder (studiofav: favorites\studio + EJ's Discord channel, 2026-10-05).
+  // 2026-10-06: ★, ▽ and the look itself ALSO land in taste\events.jsonl with kind=studio, so the
+  // preference model sees Blender pieces next to FLUX renders.
+  sendEvent('type=inspect&kind=studio&id=' + encodeURIComponent(it.name));
+  let sfav = false, sdown = sdownset.has(it.name);
   try { sfav = ((await (await fetch('studiofavlist?t=' + Date.now(), { cache: 'no-store' })).json()).ids || []).includes(it.name); } catch (e) {}
+  if (sfav) sfavset.add(it.name); else sfavset.delete(it.name);
   const sLabel = on => on ? '★ favorited' : '☆ favorite';
   ovmeta.innerHTML = `<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">` +
       `<div class="title">■ studio piece</div>` +
-      `<div class="btns"><button id="sfavbtn" class="kbtn${sfav ? ' on' : ''}">${sLabel(sfav)}</button></div></div>` +
+      `<div class="btns" style="display:flex;flex-direction:column;gap:6px"><button id="sfavbtn" class="kbtn${sfav ? ' on' : ''}">${sLabel(sfav)}</button>` +
+      `<button id="sdownbtn" class="kbtn${sdown ? ' on' : ''}">${downLabel(sdown)}</button></div></div>` +
     [['made', `${new Date(studioTs(it.name)).toLocaleString()} · ${agoText(new Date(studioTs(it.name)))}`],
      ['recipe', studioTag(it.name).replace(/_/g, ' · ')], ['scene', r && r.scene], ['data', r && (r.dataset || r.place)],
      ['signal', r && r.signal], ['dither', r && r.dither], ['lens', k.lens ? `${k.lens}mm ${k.lensy || ''}` : null],
@@ -299,7 +328,18 @@ async function studioInspect(j) {
     try {
       const j = await (await fetch('studiofav?name=' + encodeURIComponent(it.name) + '&on=' + (sfav ? 0 : 1), { cache: 'no-store' })).json();
       sfav = !!j.fav; sb.textContent = sLabel(sfav); sb.classList.toggle('on', sfav);
+      if (sfav) sfavset.add(it.name); else sfavset.delete(it.name);
+      sendEvent('type=fav&kind=studio&id=' + encodeURIComponent(it.name) + '&on=' + (sfav ? 1 : 0));
+      if (sfav) offerWhy({ id: it.name, kind: 'studio', verdict: 'star' });
     } catch (e) {}
+  };
+  const sdb = document.getElementById('sdownbtn');
+  if (sdb) sdb.onclick = () => {
+    sdown = !sdown;
+    sendEvent('type=down&kind=studio&id=' + encodeURIComponent(it.name) + '&on=' + (sdown ? 1 : 0));
+    if (sdown) sdownset.add(it.name); else sdownset.delete(it.name);
+    sdb.textContent = downLabel(sdown); sdb.classList.toggle('on', sdown);
+    if (sdown) offerWhy({ id: it.name, kind: 'studio', verdict: 'down' });
   };
   openCard(sdivs[j].img);
 }
@@ -412,6 +452,8 @@ async function loadTrace(i) {                 // cache the trace + id (for inspe
 async function loadFavs() {
   try { const r = await fetch('favlist?t=' + Date.now(), { cache: 'no-store' }); favset = new Set((await r.json()).ids || []); } catch (e) {}
   try { const r = await fetch('downlist?t=' + Date.now(), { cache: 'no-store' }); downset = new Set((await r.json()).ids || []); } catch (e) {}
+  try { const r = await fetch('studiofavlist?t=' + Date.now(), { cache: 'no-store' }); sfavset = new Set((await r.json()).ids || []); } catch (e) {}
+  try { const r = await fetch('studiodownlist?t=' + Date.now(), { cache: 'no-store' }); sdownset = new Set((await r.json()).ids || []); } catch (e) {}
 }
 function refreshBadges() {
   for (let i = 0; i < total; i++) {
@@ -461,6 +503,8 @@ function applyOrderNow() {
       const row = Math.floor(k / N), col = N - 1 - (k % N);                       // right → left
       it.el.style.order = row * N + col;
     });
+  // a newer item pushed a pair cell off the grid: drop it and offer two that are on screen
+  if (pair && [pair.a, pair.b].some(p => p.el.style.display === 'none')) endPair('interrupted');
 }
 
 (async () => { await loadFavs(); await syncMode(); buildGrid(); loadWeights(); loadRecent(); })();
@@ -478,7 +522,7 @@ async function syncLive() {
     const v = parseInt((await r.text()).trim());
     if (v >= 1 && v <= total && (v - 1) !== live) {
       const prev = live;
-      if (pair && pair.includes(v - 1)) endPair(false);   // a pair cell is being repainted — retry later
+      if (pairSide('flux', v - 1)) endPair('interrupted');   // a pair cell is being repainted: re-offer another
       loadCell(prev);                        // the cell we just left finished
       loadTrace(prev).then(refreshBadges);  // trace/badge/caption may be new
       live = v - 1;
@@ -519,22 +563,24 @@ async function toggleFav(id) {
     refreshBadges();
     const b = document.getElementById('favbtn');
     if (b) { b.textContent = favLabel(j.fav); b.classList.toggle('on', !!j.fav); }
+    if (on && j.fav) offerWhy({ id, kind: 'flux', verdict: 'star' });
   } catch (e) {}
 }
 
 async function toggleDown(id) {
   if (!id) return;
   const on = downset.has(id) ? 0 : 1;
-  sendEvent('type=down&id=' + encodeURIComponent(id) + '&on=' + on);
+  sendEvent('type=down&kind=flux&id=' + encodeURIComponent(id) + '&on=' + on);
   if (on) downset.add(id); else downset.delete(id);
   refreshBadges();
   const b = document.getElementById('downbtn');
   if (b) { b.textContent = downLabel(on); b.classList.toggle('on', !!on); }
+  if (on) offerWhy({ id, kind: 'flux', verdict: 'down' });
 }
 
 async function inspect(i) {
   ovimg.style.imageRendering = '';                   // studioInspect sets pixelated for 1-bit art
-  if (cellIds[i]) sendEvent('type=inspect&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
+  if (cellIds[i]) sendEvent('type=inspect&kind=flux&id=' + encodeURIComponent(cellIds[i]));   // a look ≈ half a star
   ovimg.src = cells[i].getAttribute('src') || 'wall_' + (i + 1) + '.png?t=' + Date.now();   // exactly the frame you clicked
   let t = traceCache[i];
   if (!t) { await loadTrace(i); t = traceCache[i]; }
@@ -581,35 +627,122 @@ async function inspect(i) {
   openCard(cells[i]);
 }
 
-// ── daily pair pick ──────────────────────────────────────────────────────────
-// Once a day two finished cells get a dashed outline; one click says which you
-// prefer. Pairwise picks are far more label-efficient than stars. Cells are
-// picked at random positions, so there's no fixed left/right bias.
-async function maybePair() {
-  if (pair || ov.style.display === 'flex' || document.hidden || MODE === 'blender') return;
-  if (localStorage.getItem('pairSkip') === new Date().toISOString().slice(0, 10)) return;
-  try { if (!(await (await fetch('pairstate?t=' + Date.now(), { cache: 'no-store' })).json()).due) return; } catch (e) { return; }
-  const ok = [];
-  for (let i = 0; i < total; i++) if (i !== live && cellIds[i] && !favset.has(cellIds[i]) && !downset.has(cellIds[i])) ok.push(i);
-  if (ok.length < 2) return;
-  const a = ok.splice(Math.floor(Math.random() * ok.length), 1)[0], b = ok[Math.floor(Math.random() * ok.length)];
-  pair = [a, b];
-  pair.forEach(i => divs[i].classList.add('pairpick'));
+// ── pair picks (~10 a day) ───────────────────────────────────────────────────
+// Two cells get a dashed outline; one click on either says which you prefer. Pairwise
+// picks are far more label-efficient than stars. 2026-10-06: was once a day, now the
+// server paces it (preview-server pairstate/pairmark): one offer every 60-90 min, max 12
+// a day, shared across every open wall. A skip backs off 1.5h → 3h → 6h → 12h; a pick
+// resets that. An offer only goes up while EJ is around (Mac HID idle < 10 min via
+// taste/sys.json, or the pointer moved on this page), the page is visible and nothing
+// is open on top. Unanswered after 8 min it quietly goes away. Sides can be FLUX cells
+// or STUDIO pieces: flux-flux, mixed or studio-studio.
+const PAIR_POLL = 2 * 60e3, PAIR_TTL = 8 * 60e3, PRESENT_IDLE_S = 600;
+let pairTimer = 0, lastPointer = 0;
+addEventListener('pointermove', e => { if (e.movementX || e.movementY) lastPointer = Date.now(); }, { passive: true });
+addEventListener('pointerdown', () => { lastPointer = Date.now(); }, { passive: true });
+async function present() {
+  if (Date.now() - lastPointer < 10 * 60e3) return true;
+  try {
+    const s = await (await fetch('taste/sys.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    if (s && s.idle_s != null && Date.now() - new Date(s.ts).getTime() < 5 * 60e3) return s.idle_s < PRESENT_IDLE_S;
+  } catch (e) {}
+  return new Date().getHours() >= 9;                       // presence unknown: waking hours only
+}
+function pairSide(kind, idx) {
+  if (!pair) return null;
+  for (const s of ['a', 'b']) { const p = pair[s]; if (p.kind === kind && (kind === 'flux' ? p.i : p.j) === idx) return s; }
+  return null;
+}
+function pairPool() {
+  let flux = [];
+  if (MODE !== 'blender') for (let i = 0; i < total; i++) {
+    const id = cellIds[i];
+    if (i !== live && id && shown(divs[i]) && !favset.has(id) && !downset.has(id)) flux.push({ kind: 'flux', i, id, el: divs[i] });
+  }
+  // the generator repaints round-robin: prefer the just-finished half, so the pair survives
+  const fresh = flux.filter(p => (live - p.i + total) % total <= total / 2);
+  if (fresh.length >= 2) flux = fresh;
+  const studio = [];
+  sdivs.forEach((s, j) => { const n = s.item && s.item.name;
+    if (n && shown(s.d) && !sfavset.has(n) && !sdownset.has(n)) studio.push({ kind: 'studio', j, id: n, el: s.d }); });
+  return { flux, studio };
+}
+function choosePair() {
+  const { flux, studio } = pairPool(), take = arr => arr.splice(Math.floor(Math.random() * arr.length), 1)[0];
+  const combos = [];                                       // [kindA, kindB, weight]
+  if (flux.length >= 2) combos.push(['flux', 'flux', 2]);
+  if (flux.length && studio.length) combos.push(['flux', 'studio', 1]);
+  if (studio.length >= 2) combos.push(['studio', 'studio', 1]);
+  if (!combos.length) return null;
+  let r = Math.random() * combos.reduce((a, c) => a + c[2], 0), c = combos[0];
+  for (const x of combos) { if ((r -= x[2]) < 0) { c = x; break; } }
+  const pools = { flux, studio }, two = [take(pools[c[0]]), take(pools[c[1]])];
+  return Math.random() < .5 ? two : two.reverse();
+}
+const overlayOpen = () => ov.style.display === 'flex' || px.classList.contains('on') || !!whyCtx;
+async function maybePair(reoffer) {
+  if (pair || overlayOpen() || document.hidden) return;
+  if (!(await present())) return;
+  if (!reoffer) {                                          // a re-offer after an interruption doesn't count again
+    try { if (!(await (await fetch('pairstate?t=' + Date.now(), { cache: 'no-store' })).json()).due) return; } catch (e) { return; }
+  }
+  if (pair || overlayOpen() || document.hidden) return;   // things moved while we waited
+  const two = choosePair(); if (!two) return;
+  if (!reoffer) fetch('pairmark?what=offer&t=' + Date.now(), { cache: 'no-store' }).catch(() => {});
+  pair = { a: two[0], b: two[1], t0: Date.now() };
+  [pair.a, pair.b].forEach(p => p.el.classList.add('pairpick'));
   document.getElementById('pairbar').style.display = 'flex';
+  clearTimeout(pairTimer); pairTimer = setTimeout(() => endPair('timeout'), PAIR_TTL);
 }
-function pickPair(i) {
-  const [a, b] = pair, lose = i === a ? b : a;
-  sendEvent('type=pair&win=' + encodeURIComponent(cellIds[i]) + '&lose=' + encodeURIComponent(cellIds[lose]));
-  endPair(false);
+function pickPair(side) {
+  if (!pair) return;
+  const win = pair[side], lose = pair[side === 'a' ? 'b' : 'a'], e = encodeURIComponent;
+  sendEvent(`type=pair&win=${e(win.id)}&lose=${e(lose.id)}&win_kind=${win.kind}&lose_kind=${lose.kind}&ms=${Date.now() - pair.t0}`);
+  endPair('picked');
+  offerWhy({ id: win.id, kind: win.kind, verdict: 'pair', lose: lose.id, lose_kind: lose.kind });
 }
-function endPair(skipped) {
-  if (skipped) localStorage.setItem('pairSkip', new Date().toISOString().slice(0, 10));
-  if (pair) pair.forEach(i => divs[i] && divs[i].classList.remove('pairpick'));
+// how: picked | skip | timeout | interrupted (a side got repainted / shifted / hidden → offer two others)
+function endPair(how) {
+  clearTimeout(pairTimer);
+  const had = !!pair;
+  if (pair) [pair.a, pair.b].forEach(p => p.el.classList.remove('pairpick'));
   pair = null;
   document.getElementById('pairbar').style.display = 'none';
+  if (how === 'skip') fetch('pairmark?what=skip&t=' + Date.now(), { cache: 'no-store' }).catch(() => {});
+  if (how === 'interrupted' && had) setTimeout(() => maybePair(true), 4000);
 }
-setInterval(maybePair, 5 * 60 * 1000);
+setInterval(maybePair, PAIR_POLL);
 setTimeout(maybePair, 20 * 1000);
+
+// ── say-why ──────────────────────────────────────────────────────────────────
+// After a ★, a ▼ or a pair pick, an optional one-line reason (event type=why). The verdict is
+// already saved before this shows. Enter saves, Esc drops it; left alone it closes itself
+// (20 s untouched, 60 s after the last keystroke), keeping anything typed. A new verdict
+// replaces it the same way.
+const whyEl = document.getElementById('why'), whyIn = document.getElementById('whyin'), whyG = document.getElementById('whyg');
+let whyCtx = null, whyTimer = 0;
+function offerWhy(ctx) {
+  if (whyCtx) closeWhy(true);
+  whyCtx = ctx;
+  whyG.textContent = { star: '★', down: '▼', pair: '◆' }[ctx.verdict] || '◆';
+  whyIn.value = ''; whyEl.classList.add('on');
+  try { whyIn.focus({ preventScroll: true }); } catch (e) {}
+  armWhy();
+}
+function armWhy() { clearTimeout(whyTimer); whyTimer = setTimeout(() => closeWhy(true), whyIn.value.trim() ? 60e3 : 20e3); }
+function closeWhy(save) {
+  clearTimeout(whyTimer);
+  const c = whyCtx, txt = whyIn.value.trim(), e = encodeURIComponent;
+  whyCtx = null; whyEl.classList.remove('on'); whyIn.value = '';
+  if (document.activeElement === whyIn) whyIn.blur();
+  if (save && c && txt) sendEvent(`type=why&id=${e(c.id)}&kind=${c.kind}&verdict=${c.verdict}&text=${e(txt)}` +
+    (c.lose ? `&lose=${e(c.lose)}&lose_kind=${c.lose_kind}` : ''));
+}
+whyIn.addEventListener('keydown', e => {
+  e.stopPropagation();                                     // typing "2" must not flip the wall mode
+  if (e.key === 'Enter') closeWhy(true); else if (e.key === 'Escape') closeWhy(false);
+});
+whyIn.addEventListener('input', armWhy);
 ov.addEventListener('click', e => { if (e.target === ov) closeCard(); });
 
 // ── 1:1 pixel view ───────────────────────────────────────────────────────────

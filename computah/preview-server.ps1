@@ -22,6 +22,47 @@ try { $listener.Start() } catch { 'listener failed: ' + $_; exit 1 }
 
 $mime = @{ '.html'='text/html'; '.png'='image/png'; '.js'='application/javascript'; '.css'='text/css'; '.txt'='text/plain'; '.log'='text/plain'; '.json'='application/json' }
 
+# Query values decoded as UTF-8 from the raw URL. HttpListener's QueryString decodes with
+# the system ANSI codepage, which turns typed "why" text (accents, dashes) into mojibake.
+function Get-QS([string]$raw, [string]$name) {
+  $i = $raw.IndexOf('?'); if ($i -lt 0) { return '' }
+  foreach ($kv in $raw.Substring($i + 1).Split('&')) {
+    $p = $kv.Split([char[]]'=', 2)
+    if ($p.Count -eq 2 -and $p[0] -eq $name) { try { return [Uri]::UnescapeDataString($p[1].Replace('+', ' ')) } catch { return '' } }
+  }
+  return ''
+}
+
+# -- pair-pick cadence (2026-10-06): ~10 offers a day instead of 1. Shared by every open
+#    wall through taste\pair-state.json, so two screens never both ask. offer = a pair was
+#    shown (next offer 60-90 min later); skip = back off 90/180/360/720 min; a pick resets it.
+$pairGapLo = 60; $pairGapHi = 90; $pairCap = 12
+function Read-PairState {
+  $f = Join-Path $root 'taste\pair-state.json'
+  $day = (Get-Date).ToString('yyyy-MM-dd')
+  $o = [ordered]@{ day = $day; offers = 0; picks = 0; next = ''; hold = ''; streak = 0 }
+  if (Test-Path $f) {
+    try {
+      $s = [IO.File]::ReadAllText($f) | ConvertFrom-Json
+      $o.next = [string]$s.next; $o.hold = [string]$s.hold
+      if ($s.day -eq $day) { $o.offers = [int]$s.offers; $o.picks = [int]$s.picks; $o.streak = [int]$s.streak }
+    } catch {}
+  }
+  return $o
+}
+function Write-PairState($o) {
+  $f = Join-Path $root 'taste\pair-state.json'
+  New-Item -ItemType Directory -Force -Path (Split-Path $f) | Out-Null
+  [IO.File]::WriteAllText($f, ($o | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding $false))
+}
+function Test-PairDue($o) {
+  $now = Get-Date
+  foreach ($k in @('next', 'hold')) {
+    if ($o[$k]) { try { if ($now -lt [datetime]::Parse($o[$k], [Globalization.CultureInfo]::InvariantCulture)) { return $false } } catch {} }
+  }
+  return ($o.offers -lt $pairCap)
+}
+
 function Send-Json($resp, $obj) {
   $json = ($obj | ConvertTo-Json -Compress)
   $b = [Text.Encoding]::UTF8.GetBytes($json)
@@ -91,16 +132,46 @@ while ($listener.IsListening) {
     # -- taste signals (2026-09-30): thumbs-down, inspect clicks, daily pair pick.
     #    Every event appends one JSON line to taste\events.jsonl; the Mac pulls it
     #    (muse-taste-backfill) and muse-taste-weights learns from SEEN renders only.
+    # 2026-10-06: + kind (flux = wall render trace id | studio = Blender piece name) on every
+    #   event; pair adds win_kind/lose_kind/ms; new types fav (studio stars) and why (the
+    #   optional one-line reason typed after a star / down / pair pick: verdict + text).
     if ($path -eq 'event') {
       $type = $q['type']
-      $ok = $type -in @('inspect','down','pair')
+      $ok = $type -in @('inspect','down','pair','fav','why')
+      $raw = $ctx.Request.RawUrl
+      $kindOf = { param($v) if (@('flux','studio') -contains $v) { $v } else { '' } }
+      $kind = & $kindOf $q['kind']
+      if ($type -eq 'why') { $ok = (@('star','down','pair') -contains $q['verdict']) -and $q['id'] -and (Get-QS $raw 'text').Trim() }
       if ($ok) {
         $evdir = Join-Path $root 'taste'
         New-Item -ItemType Directory -Force -Path $evdir | Out-Null
         $ev = [ordered]@{ ts = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss'); type = $type }
-        if ($type -eq 'pair') { $ev.win = $q['win']; $ev.lose = $q['lose'] }
-        else { $ev.id = $q['id'] }
-        if ($type -eq 'down') {
+        if ($type -eq 'pair') {
+          $ev.win = $q['win']; $ev.lose = $q['lose']
+          $wk = & $kindOf $q['win_kind']; $lk = & $kindOf $q['lose_kind']
+          if ($wk) { $ev.win_kind = $wk }; if ($lk) { $ev.lose_kind = $lk }
+          $ms = 0; if ([int]::TryParse([string]$q['ms'], [ref]$ms) -and $ms -gt 0) { $ev.ms = $ms }
+        }
+        else { $ev.id = $q['id']; if ($kind) { $ev.kind = $kind } }
+        if ($type -eq 'fav') { $ev.on = ($q['on'] -ne '0') }
+        if ($type -eq 'why') {
+          $ev.verdict = $q['verdict']
+          $t = (Get-QS $raw 'text').Trim(); if ($t.Length -gt 300) { $t = $t.Substring(0, 300) }
+          $ev.text = $t
+          if ($q['lose']) { $ev.lose = $q['lose']; $lk = & $kindOf $q['lose_kind']; if ($lk) { $ev.lose_kind = $lk } }
+        }
+        if ($type -eq 'down' -and $kind -eq 'studio') {   # studio pieces: downvotes\studio\<name>.*
+          $ev.on = ($q['on'] -ne '0')
+          $name = [IO.Path]::GetFileName([string]$q['id']); $sd = Join-Path $downdir 'studio'
+          New-Item -ItemType Directory -Force -Path $sd | Out-Null
+          if ($name -and $ev.on) {
+            foreach ($ext in @('png','json')) {
+              $src = Join-Path $studiodir ("$name.$ext")
+              if (Test-Path $src) { Copy-Item $src (Join-Path $sd ("$name.$ext")) -Force -EA 0 }
+            }
+          } elseif ($name) { Get-ChildItem (Join-Path $sd ("$name.*")) -EA 0 | Remove-Item -Force -EA 0 }
+        }
+        elseif ($type -eq 'down') {
           $ev.on = ($q['on'] -ne '0')
           New-Item -ItemType Directory -Force -Path $downdir | Out-Null
           $id = $q['id']
@@ -115,9 +186,14 @@ while ($listener.IsListening) {
         }
         $line = ($ev | ConvertTo-Json -Compress) + "`n"
         [System.IO.File]::AppendAllText((Join-Path $evdir 'events.jsonl'), $line, (New-Object System.Text.UTF8Encoding $false))
-        if ($type -eq 'pair') { Set-Content -Path (Join-Path $evdir 'pair-last.txt') -Value (Get-Date).ToString('yyyy-MM-dd') -Encoding ascii -EA 0 }
+        if ($type -eq 'pair') { $ps = Read-PairState; $ps.picks++; $ps.streak = 0; $ps.hold = ''; Write-PairState $ps }
       }
-      Send-Json $resp @{ ok = $ok }
+      Send-Json $resp @{ ok = [bool]$ok }
+      continue
+    }
+    if ($path -eq 'studiodownlist') {            # studio pieces currently thumbs-downed
+      $ids = @(Get-ChildItem (Join-Path (Join-Path $downdir 'studio') '*.png') -EA 0 | ForEach-Object { $_.BaseName })
+      Send-Json $resp @{ ids = $ids }
       continue
     }
     if ($path -eq 'downlist') {                  # ids currently thumbs-downed
@@ -126,10 +202,25 @@ while ($listener.IsListening) {
       Send-Json $resp @{ ids = $ids }
       continue
     }
-    if ($path -eq 'pairstate') {                 # is today's pair pick still due?
-      $f = Join-Path $root 'taste\pair-last.txt'
-      $last = if (Test-Path $f) { (Get-Content $f -EA 0 | Select-Object -First 1) } else { '' }
-      Send-Json $resp @{ due = ($last -ne (Get-Date).ToString('yyyy-MM-dd')) }
+    if ($path -eq 'pairstate') {                 # is a pair pick due? (gap, skip back-off, daily cap)
+      $ps = Read-PairState
+      $ps.due = Test-PairDue $ps
+      Send-Json $resp $ps
+      continue
+    }
+    if ($path -eq 'pairmark') {                  # offer | skip, reported by whichever wall showed it
+      $ps = Read-PairState; $now = Get-Date
+      if ($q['what'] -eq 'offer') {
+        $ps.offers++
+        $ps.next = $now.AddMinutes((Get-Random -Minimum $pairGapLo -Maximum ($pairGapHi + 1))).ToString('s')
+        Write-PairState $ps
+      } elseif ($q['what'] -eq 'skip') {
+        $ps.streak++
+        $ps.hold = $now.AddMinutes([Math]::Min(720, 90 * [Math]::Pow(2, $ps.streak - 1))).ToString('s')
+        Write-PairState $ps
+      }
+      $ps.due = Test-PairDue $ps
+      Send-Json $resp $ps
       continue
     }
     if ($path -eq 'open') {                       # pop a folder in Explorer (via /it task)
