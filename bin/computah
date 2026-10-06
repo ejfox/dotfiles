@@ -606,6 +606,15 @@ if os.environ.get("IMAGINE_LORA"):
 if os.environ.get("IMAGINE_REF_LOCAL") and os.path.exists(os.environ["IMAGINE_REF_LOCAL"]):
     with open(os.environ["IMAGINE_REF_LOCAL"], "rb") as f:
         body["extra_images"] = [base64.b64encode(f.read()).decode()]
+# STEERING EXPERIMENTS (bin/muse-steer, 2026-10-06): IMAGINE_REF_LOCALS = several refs
+# (colon-separated local paths; klein takes up to ~4), and IMAGINE_SDCPP_EXTRA = a JSON
+# object of native sd.cpp params (e.g. sample_params.custom_sigmas for the particle
+# continuation) passed through sdapi's <sd_cpp_extra_args> prompt extension.
+for _rp in [p for p in os.environ.get("IMAGINE_REF_LOCALS", "").split(":") if p and os.path.exists(p)]:
+    with open(_rp, "rb") as f:
+        body.setdefault("extra_images", []).append(base64.b64encode(f.read()).decode())
+if os.environ.get("IMAGINE_SDCPP_EXTRA"):
+    body["prompt"] += "<sd_cpp_extra_args>%s</sd_cpp_extra_args>" % os.environ["IMAGINE_SDCPP_EXTRA"]
 if ep == "img2img":
     with open(os.environ["INIT"], "rb") as f:
         body["init_images"] = [base64.b64encode(f.read()).decode()]
@@ -1332,7 +1341,13 @@ PYEOF
       export IMAGINE_SEED=$cellseed
 
       export IMAGINE_WALL_SLOT=$slot
-      unset IMAGINE_INIT_LOCAL IMAGINE_STRENGTH IMAGINE_REF_LOCAL
+      unset IMAGINE_INIT_LOCAL IMAGINE_STRENGTH IMAGINE_REF_LOCAL IMAGINE_REF_LOCALS IMAGINE_SDCPP_EXTRA \
+            STEER_ON STEER_STEPS_FINAL STEER_REF0 STEER_REF_IDS
+      rm -f /tmp/muse/steer.json /tmp/muse/steer.env
+      # STEERING EXPERIMENTS (2026-10-06): bin/muse-steer rolls per-cell arms (refs /
+      # best-of-N / particles, each with a random-pick control) — MUSE_EXP_OFF=1 = the
+      # old behavior exactly (incl. the legacy 12% ref roll + the dormant best-of below).
+      _exp=1; [ "${MUSE_EXP_OFF:-0}" = 1 ] && _exp=""
 
       # ─────────────── VARIATION ENGINE (randomize everything per cell) ───────
       # Controls, dialed light → heavy at random each cell:
@@ -1508,8 +1523,10 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
       #    Training-free, and it carries the painterly look his stars point at — what
       #    the photo LoRA couldn't. ~3x render cost, so a modest share. The reference is
       #    shown as the cell's seed inset. Knob: MUSE_REF_PCT (0 = off).
+      # 2026-10-06: superseded by the REF experiment arm (muse-steer, any cell, 0-2 refs)
+      # unless MUSE_EXP_OFF=1.
       ref_from=""
-      if [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_REF_PCT:-12}" ]; then
+      if [ -z "$_exp" ] && [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_REF_PCT:-12}" ]; then
         # retry the ★ list once (the single-threaded preview-server can be slow), and LOG
         # every miss: ref silently fired 0 of 876 pure cells on 10-02/03 with no trace why
         _rid=""; for _try in 1 2; do
@@ -1590,7 +1607,7 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
       #    as img2img at full size. DORMANT until muse-taste-probe marks the probe
       #    ready (enough positive labels + honest leave-one-out AUC). A rerank, never a
       #    gate. Knobs: MUSE_BON_PCT (share of pure cells), MUSE_BON_STR, MUSE_BON_FORCE=1.
-      if [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_BON_PCT:-25}" ] && \
+      if [ -z "$_exp" ] && [ "$src" = pure ] && [ $((RANDOM % 100)) -lt "${MUSE_BON_PCT:-25}" ] && \
          { [ "${MUSE_BON_FORCE:-}" = 1 ] || /usr/local/bin/python3 -c \
            'import json,os,sys; sys.exit(0 if json.load(open(os.path.expanduser("~/.cache/muse/probe-stats.json"))).get("ready") else 1)' 2>/dev/null; }; then
         if _pick=$(muse-bestof "$full" "$h" 2>>/tmp/muse-taste.log) && [ -s "$_pick" ] \
@@ -1600,10 +1617,34 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
           echo "  ◇ best-of-${MUSE_BON_N:-4}: probe picked a sketch"
         fi
       fi
+      # ── STEERING EXPERIMENT ARMS (bin/muse-steer; knobs MUSE_EXP_*, see its header).
+      #    plan = roll ref / best-of / particles independently, fetch refs, and run the
+      #    particle phase 1 (K x0 predictions at ~25% of the schedule → scorer or random
+      #    pick). steer.env then points the normal render below at the refs and, for a
+      #    particle cell, at the winner's x0 + the schedule tail. Best-of extras render
+      #    AFTER it (finish, below). The trace keeps the cell's own steps/strength;
+      #    what the arms changed lands under "arms".
+      _cell_str="${IMAGINE_STRENGTH:-none}"; _steps_final="$steps"
+      if [ -n "$_exp" ]; then
+        H="$h" STEER_PROMPT="$full" STEER_SIZE="$size" STEER_STEPS="$steps" STEER_SAMPLER="${IMAGINE_SAMPLER:-euler}" \
+        STEER_CFG="${IMAGINE_CFG:-1.0}" STEER_SEED="$cellseed" STEER_SRC="$src" STEER_INIT="${IMAGINE_INIT_LOCAL:-}" \
+        STEER_STRENGTH="${IMAGINE_STRENGTH:-}" STEER_SLOT="$slot" "$HOME/.dotfiles/bin/muse-steer" plan
+        if [ -s /tmp/muse/steer.env ]; then
+          . /tmp/muse/steer.env
+          _steps_final="${STEER_STEPS_FINAL:-$steps}"
+          [ -n "${STEER_STEPS_FINAL:-}" ] && tag="$tag →particle"
+          if [ -n "${STEER_REF0:-}" ] && [ -s "$STEER_REF0" ]; then
+            ref_from="$STEER_REF_IDS"; tag="$tag +ref"
+            # a pure cell with refs reads as a "ref" cell, inset = its first reference
+            # (same as the legacy ref roll); img2img cells keep their seed + inset
+            [ "$src" = pure ] && { src="ref"; cp "$STEER_REF0" /tmp/muse-init-sm.png; }
+          fi
+        fi
+      fi
       echo "── #$n cell $slot/$total [$src ${size} ${steps}st$tag ${IMAGINE_SAMPLER} seed=$cellseed]: ${subject:0:55}"
       rssh "echo $slot > $FARM\sd\live-slot.txt" >/dev/null 2>&1 || true
       mkdir -p /tmp/muse && cd /tmp/muse
-      STEPS="$steps" "$0" imagine "$full" "$size" >/dev/null 2>&1 || echo "  (render hiccup)"
+      STEPS="$_steps_final" "$0" imagine "$full" "$size" >/dev/null 2>&1 || echo "  (render hiccup)"
       # No fresh render (sd-server error, or the dead-frame gate rejected it) → archive
       # NOTHING. The gallery step below copies the PC's imagine.png, which is the LAST
       # GOOD render — so every failed cell used to file a duplicate under a new id
@@ -1612,6 +1653,11 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
         sleep "$gap"; continue
       fi
       id="$(date +%Y%m%d-%H%M%S)-c${slot}"
+      # best-of extras (N-1 more seeds, same params) → judge or random pick; a non-zero
+      # winner replaces the local output + the wall slot + imagine.png before archiving
+      if [ -n "$_exp" ] && [ -s /tmp/muse/steer.json ]; then
+        H="$h" "$HOME/.dotfiles/bin/muse-steer" finish "$(ls -t /tmp/muse/imagine-*.png | head -1)" "$id"
+      fi
       # Save the SEED IMAGE (exactly what fed this cell — the screenshot/photo/past-cell)
       # next to the cell + in the gallery, so the wall can show you what it was based on.
       # Pure text2img cells clear any stale seed image left at this slot.
@@ -1641,7 +1687,7 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
       #    named to match the archived PNG. Browse the gallery, each .png has a .json.
       TR_SEEDTASTE="$seed_taste" TR_RENDERTASTE="$render_taste" \
       TR_N="$n" TR_SLOT="$slot" TR_SRC="$src" TR_FB="${fb:-}" TR_SIZE="$size" \
-      TR_STEPS="$steps" TR_STR="${IMAGINE_STRENGTH:-none}" TR_SUBJ="$subject" TR_FULL="$full" \
+      TR_STEPS="$steps" TR_STR="$_cell_str" TR_SUBJ="$subject" TR_FULL="$full" \
       TR_PSRC="$prompt_origin" TR_BATCH="$batch_source" TR_ID="$id" \
       TR_SEED="$cellseed" TR_MOTIF="$source_motif" TR_MINED="$source_mined" TR_INIT="$inited" \
       TR_STYLE="$cell_style" TR_SAMPLER="${IMAGINE_SAMPLER:-euler}" TR_CFG="${IMAGINE_CFG:-1.0}" TR_REF="$ref_from" \
@@ -1669,6 +1715,17 @@ try:
     if e.get("captured"): e["early_png"]="muse-%s-early.png" % g("TR_ID")
     rec["early"]=e
     rec["p_like_early"]=e.get("p_like_early"); rec["p_like_final"]=e.get("p_like_final")
+except Exception:
+    pass
+# steering experiment arms (bin/muse-steer): every factor's level, refs, candidate
+# scores, winners, timings. If best-of swapped in another candidate, the early frame
+# above still belongs to candidate 0 (the render the wall resolved live).
+try:
+    a=json.load(open("/tmp/muse/steer.json"))["arms"]
+    rec["arms"]=a
+    w=(a.get("bestof_detail") or {}).get("winner")
+    if "early" in rec and w not in (None, 0):
+        rec["early"]["of_candidate"]=0; rec["early"]["winner_candidate"]=w
 except Exception:
     pass
 print(json.dumps(rec,indent=2))

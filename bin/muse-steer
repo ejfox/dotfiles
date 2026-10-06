@@ -1,0 +1,520 @@
+#!/usr/local/bin/python3
+"""muse-steer: FLUX steering EXPERIMENT ARMS for the IMAGINE wall (2026-10-06).
+
+EJ: "implement as much of [the FLUX steering research] as you can, each with
+knobs/levers to independently test their impact later, like scientists."
+
+Every wall cell independently rolls three factors (a factorial design), and the
+cell's trace JSON records what it got under `arms`, so exp-report.py can compare
+★/▽/pair/inspect rates per arm later:
+
+  REF        0|1|2 reference images (FLUX.2-klein native multi-reference
+             conditioning, sd-server `extra_images`) drawn from EJ's ★ — FLUX
+             favorites + studio ★, rotated (cooldown) so no one look locks in.
+             Combines with img2img seeds too (the studio 60% path).
+  BEST-OF-N  the normal render is candidate 0; N-1 more seeds of the SAME
+             params render after it; one wins. pick = "judge" (highest score)
+             or "random" (CONTROL, same compute: a uniformly random candidate).
+  PARTICLES  FK-steering-lite (arXiv 2501.06848), one resampling checkpoint:
+             K particles run to step k (~25%) of the cell's own sigma schedule
+             with a terminal 0 appended, so each job returns its x0 prediction
+             at sigma_k (full-VAE quality); the scorer (or the random CONTROL)
+             picks one, and the final render continues it: img2img from that
+             x0, strength 1.0, custom sigmas = the schedule's tail from sigma_k.
+             Same seed by default (reproduces the particle's trajectory, verified
+             2026-10-06); MUSE_EXP_PARTICLES_FRESH_PCT re-noises with a fresh seed
+             ("cycle back to an intermediate noise level", arXiv 2605.19317).
+
+The scorer is UNVALIDATED as a predictor of ★ (that's the point of the random
+controls): taste-judge (C:\\Users\\ejfox\\farm\\taste\\taste-judge.cmd) if
+deployed, else the CLIP preference probe (taste-embed.py score probe.npz →
+"probe-v0"), else a contrast/occupancy placeholder. Candidates are scored in
+BOTH pick modes, so judge-vs-random is a clean comparison and the log also shows
+what the judge would have picked.
+
+  muse-steer plan                  roll arms, fetch refs, run particle phase 1;
+                                   writes /tmp/muse/steer.json + steer.env (the loop
+                                   sources it before `computah imagine`)
+  muse-steer finish <png> <cellid> best-of extras after the normal render; swaps
+                                   the winner into <png>, the wall slot + imagine.png
+  muse-steer score <img>...        debug: run the scorer on local images
+
+Plan inputs (env, set by muse-loop): H, STEER_PROMPT, STEER_SIZE (WxH), STEER_STEPS,
+STEER_SAMPLER, STEER_CFG, STEER_SEED, STEER_SRC, STEER_INIT (local path or ""),
+STEER_STRENGTH, STEER_SLOT, IMAGINE_LORA.
+
+KNOBS (env; MUSE_EXP_OFF=1 turns the whole thing off → old behavior exactly):
+  MUSE_EXP_REF_PCT=30         share of cells that get refs
+  MUSE_EXP_REF_N=2            max refs (a ref cell draws 1..N uniformly)
+  MUSE_EXP_REF_STUDIO_PCT=25  each ref is a studio ★ with this chance, else a FLUX ★
+  MUSE_EXP_REF_COOLDOWN=12    a ref can't recur within this many ref picks
+  MUSE_EXP_BESTOF_PCT=10      share of cells that run best-of-N
+  MUSE_EXP_BESTOF_N=4
+  MUSE_EXP_PARTICLES_PCT=12   share of cells that run particles
+  MUSE_EXP_PARTICLES_K=4
+  MUSE_EXP_PARTICLES_FRAC=0.25  checkpoint at this fraction of the cell's steps (min 2)
+  MUSE_EXP_PARTICLES_FRESH_PCT=0  continue the winner with a fresh seed instead
+  MUSE_EXP_PICK_RANDOM_PCT=50 share of best-of / particle cells that pick at random
+  MUSE_EXP_LAMBDA=0           judge pick = argmax(score - LAMBDA*maxsim_to_wall)
+  MUSE_EXP_MAX_EXTRA_S=120    a heavy arm only runs if its estimated extra time fits;
+                              at run time candidates stop once 1.5x this is spent
+  MUSE_EXP_REF_MAX_S=240      refs only on cells whose estimated render fits this
+"""
+import base64, json, math, os, random, shlex, subprocess, sys, time, urllib.request
+
+H = os.environ.get("H") or "10.0.0.169"
+SSH = os.environ.get("STEER_SSH") or "ejfox@" + H
+WORK = "/tmp/muse"
+STATE = f"{WORK}/steer.json"
+ENVF = f"{WORK}/steer.env"
+CACHE = os.path.expanduser("~/.cache/muse")
+RECENT = f"{CACHE}/steer-ref-recent.json"
+LOG = f"{CACHE}/steer.jsonl"
+PC_DIR = "C:/Users/ejfox/farm/taste/steer"
+RNG = random.SystemRandom()
+
+
+def knob(name, default, cast=float):
+    try:
+        return cast(os.environ.get(name, default))
+    except ValueError:
+        return cast(default)
+
+
+def roll(pct):
+    return RNG.random() * 100 < pct
+
+
+def log(msg):
+    print(f"  ◇ steer: {msg}", file=sys.stderr, flush=True)
+
+
+# ─────────────────────────── schedule + cost model ───────────────────────────
+
+def flux2_sigmas(n, w, h):
+    """sd.cpp Flux2Scheduler (denoiser.hpp) — verified 2026-10-06: a render with these as
+    custom_sigmas matches the server's default schedule (RMSE 0.006, same seed)."""
+    seq = (w // 16) * (h // 16)
+    a1, b1, a2, b2 = 8.73809524e-05, 1.89833333, 0.00016927, 0.45666666
+    if seq > 4300:
+        mu = a2 * seq + b2
+    else:
+        m200, m10 = a2 * seq + b2, a1 * seq + b1
+        a = (m200 - m10) / 190.0
+        mu = a * n + (m200 - 200.0 * a)
+    s = []
+    for i in range(n + 1):
+        t = 1.0 - i / n
+        s.append(0.0 if t <= 0 else 1.0 if t >= 1 else math.exp(mu) / (math.exp(mu) + (1 / t - 1)))
+    s[n] = 0.0
+    return s
+
+
+def cell_schedule(steps, w, h, init, strength):
+    """The sigmas the normal render would use: txt2img = full; img2img = the tail
+    sd.cpp keeps for this strength (image.cpp: t_enc = int(steps*strength))."""
+    full = flux2_sigmas(steps, w, h)
+    if not init or strength >= 1.0:
+        return full
+    t_enc = int(steps * strength)
+    if t_enc == steps:
+        t_enc -= 1
+    return full[steps - t_enc - 1:]
+
+
+def sec_per_step(w, h):
+    # measured 2026-10-06: 512² ≈ 0.85-1.0 s/step; 512x1280 ≈ 3.8 s/step
+    return 0.9 * ((w * h) / 262144.0) ** 1.5
+
+
+def ref_factor(nref):
+    # measured 2026-10-06 at 512² (refs resized to 512): 1 ref ≈ 1.45x per step,
+    # 2 refs ≈ 2.0-2.1x, 4 refs ≈ 4x
+    return 1.0 + 0.5 * nref + 0.125 * nref * max(0, nref - 1)
+
+
+def est_render(w, h, steps, nref=0):
+    return steps * sec_per_step(w, h) * ref_factor(nref) + 4.0
+
+
+# ──────────────────────────────── sd-server ────────────────────────────────
+
+def b64(p):
+    with open(p, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
+def render(prompt, w, h, steps, seed, sampler, cfg, refs=(), init=None, strength=1.0,
+           sigmas=None, batch=1, timeout=600):
+    """sdapi request mirroring `computah imagine` exactly, + sd_cpp_extra_args."""
+    p = prompt
+    if sigmas is not None:
+        p += "<sd_cpp_extra_args>%s</sd_cpp_extra_args>" % json.dumps(
+            {"sample_params": {"custom_sigmas": [round(x, 6) for x in sigmas]}})
+        steps = len(sigmas) - 1
+    body = {"prompt": p, "steps": steps, "cfg_scale": cfg, "width": w, "height": h,
+            "seed": seed, "sampler_name": sampler, "batch_size": batch}
+    if os.environ.get("IMAGINE_LORA"):
+        body["lora"] = [{"path": x.rsplit(":", 1)[0], "multiplier": float(x.rsplit(":", 1)[1]) if ":" in x else 1.0}
+                        for x in os.environ["IMAGINE_LORA"].split(",") if x.strip()]
+    if refs:
+        body["extra_images"] = [b64(r) for r in refs]
+    ep = "txt2img"
+    if init:
+        ep = "img2img"
+        body["init_images"] = [b64(init)]
+        body["denoising_strength"] = strength
+    req = urllib.request.Request(f"http://{H}:1234/sdapi/v1/{ep}", json.dumps(body).encode(),
+                                 {"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=timeout))
+    return [base64.b64decode(x) for x in r.get("images") or []]
+
+
+def blocked():
+    """'game' / 'blender' / None — checked before EVERY extra GPU job."""
+    try:
+        g = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SSH,
+                            r"powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\farm\sd\game-detect.ps1"],
+                           capture_output=True, text=True, timeout=20).stdout
+        if "GAME" in g:
+            return "game"
+    except Exception:
+        return "game"   # can't tell → assume the worst, skip extras
+    try:
+        m = urllib.request.urlopen(f"http://{H}:7861/wall-mode.txt", timeout=4).read().decode().strip()
+        if m == "blender" and os.environ.get("STEER_TEST") != "1":   # STEER_TEST=1: manual bench runs only
+            return "blender"
+    except Exception:
+        pass
+    return None
+
+
+# ──────────────────────────────── scoring ────────────────────────────────
+
+def dead(path):
+    """same rule as imagine's dead/white-frame gate"""
+    try:
+        import numpy as np
+        from PIL import Image
+        a = np.asarray(Image.open(path).convert("L"), dtype=np.float32) / 255.0
+        m, lit, sd = a.mean(), (a > 0.24).mean(), a.std()
+        return bool((m < 0.06 and lit < 0.03) or (m > 0.94 and sd < 0.08))
+    except Exception:
+        return False
+
+
+def placeholder(paths):
+    import numpy as np
+    from PIL import Image
+    out = []
+    for p in paths:
+        a = np.asarray(Image.open(p).convert("L").resize((256, 256)), dtype=np.float32) / 255.0
+        bd = np.concatenate([a[:8].ravel(), a[-8:].ravel(), a[:, :8].ravel(), a[:, -8:].ravel()])
+        occ = float((np.abs(a - np.median(bd)) > 0.15).mean())
+        out.append({"score": round(float(a.std()) + 0.5 * occ, 4), "contrast": round(float(a.std()), 4), "occupancy": round(occ, 4)})
+    return out
+
+
+def score(paths, tag):
+    """→ (scorer_name, [ {score, ...} ]). Uploads JPEG copies to the PC and runs the
+    judge if deployed, else the CLIP probe; placeholder if the PC can't score."""
+    lam = knob("MUSE_EXP_LAMBDA", 0)
+    t0 = time.time()
+    try:
+        jp = []
+        for i, p in enumerate(paths):
+            j = f"{WORK}/steer-up-{tag}-{i}.jpg"
+            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "90", p, "--out", j],
+                           capture_output=True, check=True, timeout=30)
+            jp.append(j)
+        subprocess.run(["ssh", "-o", "ConnectTimeout=6", SSH, r"if not exist C:\Users\ejfox\farm\taste\steer mkdir C:\Users\ejfox\farm\taste\steer"],
+                       capture_output=True, timeout=20)
+        subprocess.run(["scp", "-q"] + jp + [f"{SSH}:{PC_DIR}/"], check=True, capture_output=True, timeout=60)
+        remote = " ".join(r"C:\Users\ejfox\farm\taste\steer" + "\\" + os.path.basename(j) for j in jp)
+        nowall = "" if lam > 0 else "--no-wall "
+        cmd = (r'set "PATH=C:\Windows\system32;C:\Windows" && set HF_HUB_OFFLINE=1 && cd /d C:\Users\ejfox\farm\taste && '
+               r'(dir /b judge-v*.npz 2>nul & ver >nul) && '
+               rf'if exist taste-judge.cmd (call taste-judge.cmd score {nowall}{remote}) '
+               rf'else (venv\Scripts\python.exe taste-embed.py score probe.npz {remote})')
+        out = subprocess.run(["ssh", "-o", "ConnectTimeout=6", SSH, cmd], capture_output=True, text=True, timeout=180).stdout
+        res = json.loads([l for l in out.splitlines() if l.strip().startswith("[")][-1])
+        if len(res) != len(paths):
+            raise ValueError(f"scored {len(res)} of {len(paths)}")
+        rows = []
+        if "probe" in res[0]:
+            name = "probe-v0"
+            for r in res:
+                rows.append({"score": round(r["probe"] - lam * r.get("maxsim", 0), 4), "probe": round(r["probe"], 4), "maxsim": r.get("maxsim")})
+        else:
+            import re
+            vs = [int(m) for m in re.findall(r"judge-v(\d+)\.npz", out)]
+            name = "taste-judge-v%d" % max(vs) if vs else "taste-judge"
+            for r in res:
+                logit = r.get("logit", r.get("p_like"))
+                rows.append({"score": round(float(logit) - lam * float(r.get("maxsim_to_wall") or 0), 4),
+                             "p_like": r.get("p_like"), "logit": r.get("logit"),
+                             "maxsim": r.get("maxsim_to_wall"), "ready": r.get("ready")})
+        return name, rows, round(time.time() - t0, 1)
+    except Exception as e:
+        log(f"scorer fell back to placeholder ({str(e)[:100]})")
+        return "placeholder", placeholder(paths), round(time.time() - t0, 1)
+
+
+def pick(rows, mode, excluded=()):
+    ok = [i for i in range(len(rows)) if i not in excluded] or list(range(len(rows)))
+    best = max(ok, key=lambda i: rows[i]["score"])
+    return (best if mode == "judge" else RNG.choice(ok)), best
+
+
+# ──────────────────────────────── refs ────────────────────────────────
+
+def fetch_refs(n):
+    """n ★ images (FLUX favorites + studio ★), rotated, resized to 512 for klein."""
+    try:
+        recent = json.load(open(RECENT))
+    except Exception:
+        recent = []
+    cool = int(knob("MUSE_EXP_REF_COOLDOWN", 12))
+    get = lambda p: json.load(urllib.request.urlopen(f"http://{H}:7861/{p}", timeout=8)).get("ids") or []
+    pools = {}
+    for kind, route in (("flux", "favlist"), ("studio", "studiofavlist")):
+        for _ in range(2):   # the single-threaded preview-server can be slow
+            try:
+                pools[kind] = get(route); break
+            except Exception:
+                pools[kind] = []
+    out = []
+    for i in range(n):
+        kind = "studio" if roll(knob("MUSE_EXP_REF_STUDIO_PCT", 25)) and pools.get("studio") else "flux"
+        pool = [x for x in pools.get(kind) or [] if f"{kind}:{x}" not in recent[-cool:] and all(x != o["id"] for o in out)]
+        if not pool:
+            pool = [x for x in pools.get(kind) or [] if all(x != o["id"] for o in out)]
+        if not pool:
+            continue
+        rid = RNG.choice(pool)
+        urls = ([f"taste/fav/muse-{rid}.png"] if kind == "flux"
+                else [f"studio/thumbs/{rid}.jpg", f"masterpieces/{rid}.png"])
+        raw, sm = f"{WORK}/steer-ref-{i}.raw", f"{WORK}/steer-ref-{i}.png"
+        for u in urls:
+            try:
+                data = urllib.request.urlopen(f"http://{H}:7861/{u}", timeout=30).read()
+                open(raw, "wb").write(data)
+                subprocess.run(["sips", "-s", "format", "png", "-Z", "512", raw, "--out", sm], capture_output=True, check=True, timeout=30)
+                if os.path.getsize(sm) > 0:
+                    out.append({"id": rid, "kind": kind, "path": sm}); recent.append(f"{kind}:{rid}")
+                    break
+            except Exception:
+                continue
+    try:
+        os.makedirs(CACHE, exist_ok=True)
+        json.dump(recent[-200:], open(RECENT, "w"))
+    except Exception:
+        pass
+    return out
+
+
+# ──────────────────────────────── plan ────────────────────────────────
+
+def plan():
+    t0 = time.time()
+    os.makedirs(WORK, exist_ok=True)
+    for f in (STATE, ENVF):
+        try:
+            os.remove(f)
+        except FileNotFoundError:
+            pass
+    e = os.environ
+    w, h = (int(x) for x in e["STEER_SIZE"].split("x"))
+    steps, seed = int(e["STEER_STEPS"]), int(e["STEER_SEED"])
+    sampler, cfg = e.get("STEER_SAMPLER") or "euler", float(e.get("STEER_CFG") or 1.0)
+    init = e.get("STEER_INIT") or None
+    if init and not os.path.exists(init):
+        init = None
+    strength = float(e.get("STEER_STRENGTH") or 1.0) if init else 1.0
+    prompt = e["STEER_PROMPT"]
+    cap = knob("MUSE_EXP_MAX_EXTRA_S", 120)
+    rand_pct = knob("MUSE_EXP_PICK_RANDOM_PCT", 50)
+    env = {}
+    arms = {"v": 1, "ref": 0, "bestof": 1, "bestof_pick": None, "particles": 1, "particle_pick": None,
+            "scorer": None, "work_512": round(w * h * steps / 262144.0, 1), "est_render_s": round(est_render(w, h, steps), 1)}
+
+    # ── REF ──
+    nmax = int(knob("MUSE_EXP_REF_N", 2))
+    want = RNG.randint(1, max(1, nmax)) if nmax > 0 and roll(knob("MUSE_EXP_REF_PCT", 30)) else 0
+    arms["ref_eligible"] = est_render(w, h, steps, max(1, nmax)) <= knob("MUSE_EXP_REF_MAX_S", 240)
+    refs = []
+    if want and arms["ref_eligible"]:
+        refs = fetch_refs(want)
+        arms["ref_wanted"] = want
+        arms["ref"] = len(refs)
+        arms["ref_ids"] = [r["id"] for r in refs]
+        arms["ref_kinds"] = [r["kind"] for r in refs]
+        if refs:
+            env["IMAGINE_REF_LOCALS"] = ":".join(r["path"] for r in refs)
+            env["STEER_REF0"] = refs[0]["path"]
+            env["STEER_REF_IDS"] = ",".join(r["id"] for r in refs)
+    nref = len(refs)
+    est = est_render(w, h, steps, nref)
+
+    # ── BEST-OF (runs in `finish`, after the normal render) ──
+    N = max(2, int(knob("MUSE_EXP_BESTOF_N", 4)))
+    arms["bestof_eligible"] = (N - 1) * est + 6 <= cap
+    if arms["bestof_eligible"] and roll(knob("MUSE_EXP_BESTOF_PCT", 10)):
+        arms["bestof"] = N
+        arms["bestof_pick"] = "random" if roll(rand_pct) else "judge"
+
+    # ── PARTICLES (phase 1 runs now; the final render continues the winner) ──
+    K = max(2, int(knob("MUSE_EXP_PARTICLES_K", 4)))
+    sched = cell_schedule(steps, w, h, init, strength)
+    n_cell = len(sched) - 1
+    k = max(2, int(round(knob("MUSE_EXP_PARTICLES_FRAC", 0.25) * n_cell)))
+    spp = sec_per_step(w, h) * ref_factor(nref)
+    arms["particles_eligible"] = n_cell >= k + 2 and (K * (k + 1) - k) * spp + 2 * K + 12 <= cap
+    if arms["particles_eligible"] and roll(knob("MUSE_EXP_PARTICLES_PCT", 12)):
+        arms["particles"] = K
+        arms["particle_pick"] = "random" if roll(rand_pct) else "judge"
+        det = {"k": k, "n_cell_steps": n_cell, "sigma_k": round(sched[k], 4), "seeds": [seed + i for i in range(K)],
+               "img2img_base": bool(init)}
+        arms["particle_detail"] = det
+        why = blocked()
+        if why:
+            det["aborted"] = why
+        else:
+            t1 = time.time()
+            try:
+                imgs = render(prompt, w, h, k + 1, seed, sampler, cfg, [r["path"] for r in refs], init,
+                              1.0, sched[:k + 1] + [0.0], batch=K)
+                det["phase1_s"] = round(time.time() - t1, 1)
+                paths = []
+                for i, b in enumerate(imgs):
+                    p = f"{WORK}/steer-x0-{i}.png"
+                    open(p, "wb").write(b); paths.append(p)
+                if len(paths) < 2:
+                    raise ValueError(f"phase 1 returned {len(paths)} images")
+                name, rows, ss = score(paths, f"x0-{seed}")
+                arms["scorer"] = name
+                det["score_s"] = ss
+                det["scores"] = rows
+                dd = [i for i, p in enumerate(paths) if dead(p)]
+                win, best = pick(rows, arms["particle_pick"], dd)
+                det.update(winner=win, judge_best=best, dead=dd)
+                fresh = roll(knob("MUSE_EXP_PARTICLES_FRESH_PCT", 0))
+                cseed = RNG.randrange(1 << 30) if fresh else seed + win
+                det.update(fresh_noise=fresh, continue_seed=cseed)
+                tail = sched[k:]
+                env.update(IMAGINE_INIT_LOCAL=paths[win], IMAGINE_STRENGTH="1.0", IMAGINE_SEED=str(cseed),
+                           IMAGINE_SDCPP_EXTRA=json.dumps({"sample_params": {"custom_sigmas": [round(x, 6) for x in tail]}}),
+                           STEER_STEPS_FINAL=str(len(tail) - 1))
+                det["final_steps"] = len(tail) - 1
+            except Exception as ex:
+                det["aborted"] = "error: " + str(ex)[:120]
+    arms["plan_s"] = round(time.time() - t0, 1)
+    env["STEER_ON"] = "1"
+    state = {"arms": arms, "cell": {"prompt": prompt, "w": w, "h": h, "steps": steps, "seed": seed, "sampler": sampler,
+                                    "cfg": cfg, "init": init, "strength": strength, "src": e.get("STEER_SRC"),
+                                    "slot": e.get("STEER_SLOT")},
+             "final": {k2: env.get(k2) for k2 in ("IMAGINE_INIT_LOCAL", "IMAGINE_STRENGTH", "IMAGINE_SEED",
+                                                  "IMAGINE_SDCPP_EXTRA", "STEER_STEPS_FINAL")},
+             "refs": [r["path"] for r in refs]}
+    json.dump(state, open(STATE, "w"), indent=1)
+    with open(ENVF, "w") as f:
+        for k2, v in env.items():
+            f.write(f"export {k2}={shlex.quote(v)}\n")
+    bits = []
+    if arms["ref"]:
+        bits.append(f"ref={arms['ref']}")
+    if arms["bestof"] > 1:
+        bits.append(f"bestof={arms['bestof']}/{arms['bestof_pick']}")
+    if arms["particles"] > 1:
+        d = arms["particle_detail"]
+        bits.append(f"particles={K}/{arms['particle_pick']} k={k}" +
+                    (f" win={d.get('winner')}" if "winner" in d else f" ABORTED {d.get('aborted')}"))
+    if bits:
+        log(" ".join(bits) + f" ({arms['plan_s']}s)")
+
+
+# ──────────────────────────────── finish ────────────────────────────────
+
+def finish(png, cellid):
+    try:
+        st = json.load(open(STATE))
+    except Exception:
+        return
+    arms, c, fin = st["arms"], st["cell"], st["final"]
+    t0 = time.time()
+    if arms.get("bestof", 1) > 1 and os.path.exists(png):
+        N = arms["bestof"]
+        cap = knob("MUSE_EXP_MAX_EXTRA_S", 120)
+        det = {"seeds": [], "candidate0": "the normal render (what the wall showed first)"}
+        arms["bestof_detail"] = det
+        w, h = c["w"], c["h"]
+        sig = json.loads(fin["IMAGINE_SDCPP_EXTRA"])["sample_params"]["custom_sigmas"] if fin.get("IMAGINE_SDCPP_EXTRA") else None
+        steps = int(fin.get("STEER_STEPS_FINAL") or c["steps"])
+        init = fin.get("IMAGINE_INIT_LOCAL") or c["init"]
+        strength = float(fin.get("IMAGINE_STRENGTH") or c["strength"])
+        seed0 = int(fin.get("IMAGINE_SEED") or c["seed"])
+        per = est_render(w, h, steps, len(st["refs"]))
+        paths, seeds = [png], [seed0]
+        for i in range(1, N):
+            why = blocked()
+            if why:
+                det["aborted"] = why; break
+            if time.time() - t0 + per > 1.5 * cap:
+                det["aborted"] = "cap"; break
+            s = seed0 + 7919 * i
+            try:
+                t1 = time.time()
+                imgs = render(c["prompt"], w, h, steps, s, c["sampler"], c["cfg"], st["refs"], init, strength, sig)
+                p = f"{WORK}/steer-bo-{i}.png"
+                open(p, "wb").write(imgs[0]); paths.append(p); seeds.append(s)
+                det.setdefault("render_s", []).append(round(time.time() - t1, 1))
+            except Exception as ex:
+                det["aborted"] = "error: " + str(ex)[:120]; break
+        det["seeds"] = seeds
+        det["n_done"] = len(paths)
+        if len(paths) >= 2:
+            name, rows, ss = score(paths, f"bo-{cellid}")
+            arms["scorer"] = arms.get("scorer") or name
+            if arms["scorer"] != name:
+                det["scorer"] = name
+            det["score_s"] = ss
+            det["scores"] = rows
+            dd = [i for i, p in enumerate(paths) if dead(p)]
+            win, best = pick(rows, arms["bestof_pick"], dd)
+            det.update(winner=win, judge_best=best, dead=dd)
+            if win != 0:
+                import shutil
+                shutil.copyfile(paths[win], png)
+                for dst in () if os.environ.get("STEER_TEST") == "1" else ("C:/dev/computah/farm/imagine.png", f"C:/dev/computah/farm/sd/wall_{c['slot']}.png"):
+                    subprocess.run(["scp", "-q", png, f"{SSH}:{dst}"], capture_output=True, timeout=60)
+            log(f"best-of {len(paths)}/{N} {arms['bestof_pick']} → #{win} (judge's best #{best})"
+                + (f" [{det['aborted']}]" if det.get("aborted") else ""))
+        else:
+            log(f"best-of skipped: {det.get('aborted')}")
+    arms["finish_s"] = round(time.time() - t0, 1)
+    arms["extra_s"] = round(arms.get("plan_s", 0) + arms["finish_s"], 1)
+    arms["cell_id"] = cellid
+    json.dump(st, open(STATE, "w"), indent=1)
+    try:
+        os.makedirs(CACHE, exist_ok=True)
+        with open(LOG, "a") as f:
+            f.write(json.dumps({"id": cellid, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "arms": arms}) + "\n")
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        if cmd == "plan":
+            plan()
+        elif cmd == "finish" and len(sys.argv) > 3:
+            finish(sys.argv[2], sys.argv[3])
+        elif cmd == "score" and len(sys.argv) > 2:
+            n, rows, s = score(sys.argv[2:], "dbg")
+            print(json.dumps({"scorer": n, "s": s, "rows": rows}, indent=1))
+        else:
+            print(__doc__); sys.exit(2)
+    except Exception as ex:   # never break the wall: a failed plan = a normal cell
+        log(f"{cmd} failed: {ex}")
+        sys.exit(0)
