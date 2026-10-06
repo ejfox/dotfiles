@@ -10,6 +10,7 @@
 #   computah render <file>   encode a video on the PC, result lands back beside it
 #   computah blender <blend> render a .blend on the PC, frames come back
 #   computah mount           mount the renders share in Finder
+#   computah screenshot [--up]  the real Windows desktop -> ~/screenshots/computah + clipboard (--up: Cloudinary too)
 #   computah obs [start|rec|stop|status]  OBS on the PC (off by default; Fortnite matches still auto-open it)
 #   computah rgb [wave|breathe|pulse|screen|hue|off]  PC case+DualSense RGB (hue = opt-in desk mirror)
 #   computah stream [app]    Moonlight-stream the PC desktop (or an app) here
@@ -96,6 +97,25 @@ EOF
 }
 
 case "${1:-ssh}" in
+  screenshot|shot)
+    # the REAL Windows desktop (all monitors) -> ~/screenshots/computah/<stamp>.png + the image
+    # on the Mac clipboard. The pc-screenshot task runs in EJ's session (an SSH-side capture
+    # sees only a blank session-0 desktop). Saved in a SUBFOLDER on purpose: files in
+    # ~/screenshots itself auto-upload PUBLICLY to Cloudinary and swap the clipboard for the
+    # URL. `--up` opts into exactly that.
+    dir="$HOME/screenshots/computah"; mkdir -p "$dir"
+    out="$dir/computah-$(date +%Y%m%d-%H%M%S).png"
+    stamp() { rssh "powershell -NoProfile -Command \"(Get-Item C:\\dev\\computah\\farm\\screen.png -EA 0).LastWriteTimeUtc.Ticks\"" 2>/dev/null | tr -cd 0-9; }
+    before=$(stamp)
+    rssh "schtasks /run /tn pc-screenshot >nul" || { echo "couldn't start the capture task"; exit 1; }
+    for _ in $(seq 1 20); do now=$(stamp); [ -n "$now" ] && [ "$now" != "$before" ] && break; sleep 0.5; done
+    [ "$now" != "$before" ] || { echo "no fresh capture after 10s (is someone logged in on the PC?)"; exit 1; }
+    sleep 0.3                                                   # let the PNG finish writing
+    scp -q "$REMOTE_USER@$(host):C:/dev/computah/farm/screen.png" "$out" || { echo "copy failed"; exit 1; }
+    osascript -e "set the clipboard to (read (POSIX file \"$out\") as «class PNGf»)" \
+      && echo "◆ $out (image on the clipboard)"
+    if [ "${2:-}" = "--up" ]; then cp "$out" "$HOME/screenshots/" && echo "◇ also in ~/screenshots: uploading to Cloudinary, URL replaces the clipboard"; fi
+    ;;
   obs)
     # OBS on the PC: start (tray, not recording) | rec (start + record now) | stop [--force] |
     # status. Off by default since 2026-10-06: idling it held ~35% GPU 3D and tripped the wall's
