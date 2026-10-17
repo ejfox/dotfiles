@@ -323,6 +323,10 @@ PS
   llm)
     case "${2:-on}" in
       on)
+        # game-guard (2026-10-07): nothing GPU-heavy while EJ is gaming; the guard would kill it anyway
+        if rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (exit 0) else (exit 1)" 2>/dev/null; then
+          echo "llm NOT started: a game is running (farm\\GAME_ON); it can start once the game ends"; exit 0
+        fi
         # Start-Process dies when the SSH session ends (Windows kills the
         # process tree on disconnect) — a scheduled task survives. The task
         # is a one-shot dated in the past: never auto-fires, /run-able forever.
@@ -432,6 +436,11 @@ PYEOF
         # runs after removing its own file). A lease older than 6h is treated as a crashed
         # holder and ignored, so a forgotten file can't park the wall forever.
         if [ "${3:-}" != "--force" ]; then
+          # game-guard (2026-10-07): run-logged holds sd-server while GAME_ON exists; say so
+          if rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (exit 0) else (exit 1)" 2>/dev/null; then
+            echo "sd-server NOT started: a game is running (farm\\GAME_ON); game-guard releases it when the game ends"
+            exit 0
+          fi
           _lz=$(find "$HOME/.cache/paperize-gpulease" -type f -mmin -360 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')
           if [ -n "$_lz" ]; then
             echo "sd-server NOT started: GPU leased by ${_lz% } (gpulease status; 'computah sd-server start --force' overrides)"
@@ -1850,23 +1859,35 @@ PYT
         ;;
       off)
         _stop_all
-        # true blackout: stop any effect/sampler, then set every LED to black
+        # The OpenRGB server can listen while seeing 0 devices, so "off" silently did nothing
+        # (2026-10-12: case + fan lights stayed on). rgb-heal.ps1 on the PC restarts the
+        # openrgb-server task (End + Run) until the controllers come back.
+        ssh -o ConnectTimeout=8 computah 'powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\rgb-heal.ps1' 2>/dev/null | tr -d '\r' | sed 's/^/pc rgb: /'
+        # true blackout: stop any effect/sampler, then set EVERY zone on every device to black
         "$VENV" - <<'PYEOF'
 from openrgb import OpenRGBClient
 from openrgb.utils import RGBColor
-import time
+import sys, time
 try:
     c = OpenRGBClient('10.0.0.169', 6742, 'imacpro-off'); time.sleep(0.8)
+    if not c.devices:
+        print('pc rgb: NOT off: OpenRGB sees 0 devices (heal failed; try Armoury Crate / reboot)')
+        sys.exit(1)
     for d in c.devices:
         try: d.set_mode('Direct')
         except: pass
         time.sleep(0.15)
         try: d.set_color(RGBColor(0,0,0))
         except: pass
+    print('pc rgb: black on ' + ', '.join(d.name for d in c.devices))
     c.disconnect()
+except SystemExit:
+    raise
 except Exception as e:
-    print('blackout skipped (OpenRGB unreachable):', e)
+    print('pc rgb: NOT off: OpenRGB unreachable:', e)
+    sys.exit(1)
 PYEOF
+        [ $? -eq 0 ] || { echo "pc rgb off FAILED (see above)"; exit 1; }
         # rgb-flash honors this: no event flashes on the PC while lights are off
         touch "$HOME/.config/pc-rgb-off"
         echo "pc rgb off — effects stopped, all LEDs black (event flashes muted on PC)"
@@ -1901,6 +1922,12 @@ PYEOF
   favorites|favs)
     # pop the curated favorites folder in Explorer on the PC
     rssh "schtasks /run /tn open-favorites" >/dev/null 2>&1 && echo "opened favorites on the PC" || echo "couldn't reach the PC"
+    ;;
+
+  taste-reweight)
+    # recompute studio scene/look taste-weights.json from real favorite rate (2026-10-13).
+    # --dry-run prints the table without writing. Not scheduled: run it whenever.
+    rssh "C:\\Users\\ejfox\\farm\\taste\\venv\\Scripts\\python.exe C:\\dev\\computah\\renders\\mathblend\\taste_reweight.py ${*:2}"
     ;;
 
   renders)
