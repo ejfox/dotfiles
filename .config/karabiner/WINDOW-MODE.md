@@ -1,5 +1,7 @@
 # Window Mode — ⌥Space (Option+Space) → Rectangle Pro
 
+> **2026-10-16: the Ctrl+Space leader was REMOVED. Only ⌥Space arms window mode now.** On the Voyager, `.` holds Right Ctrl, so a rolled ". " sent Ctrl+Space, armed window mode, and the next h/j/k/l snapped a window. Don't add Ctrl back. Backup: `karabiner.json.pre-ctrlspace-removal-2026-10-16`. `window-mode-doctor` was updated to match.
+
 > ## ✅ RESOLVED 2026-06-29 — and the ENTIRE prior diagnosis was barking up the wrong tree
 > The leader is **⌥Space** (Option+Space), NOT Ctrl+Space. Press ⌥Space, then a direction.
 > - **Directions:** `h`←  `l`→  `k`↑  `j`↓ **and the arrow keys** ←→↑↓ ; `space` = maximize ; `esc`/`q`/2s = exit.

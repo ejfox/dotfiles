@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# window-mode-doctor — diagnose & SAFELY recover Ctrl+Space window mode (Karabiner → Rectangle Pro)
+# window-mode-doctor — diagnose & SAFELY recover ⌥Space window mode (Karabiner → Hammerspoon windowSnap)
+# The Ctrl+Space leader was REMOVED 2026-10-16: the Voyager's "." holds Right Ctrl, so ". " could arm window mode.
 #
 # Safe to run anytime, repeatedly. It does ONLY:
 #   - read-only health checks
@@ -54,15 +55,15 @@ if [ "$issues" -eq 0 ]; then b "▏VERDICT: machine-side looks healthy. Now test
 else b "▏VERDICT: $issues issue(s) above — fix those first, then test:"; fi
 cat <<'EOF'
   1. Tap Caps Lock        → LED stays OFF  = Karabiner IS grabbing keys ✓   (LED lights = grab dead → REBOOT)
-  2. Ctrl+Space then  h   → window snaps left AND your spaces type normally ✓
-  3. Verify:  cat /tmp/kbn-debug.log   → expect:  LEADER-on  then  DIR-h-fired
+  2. ⌥Space then  h       → window snaps left AND your spaces type normally ✓
+  3. Verify:  cat /tmp/kbn-debug.log   → expect:  LEADER-on(opt)  then  DIR-h-fired
 EOF
 echo
 b "▏IF IT STILL DOES NOTHING:"
 cat <<EOF
   • Cmd-Tab also sticky, or nothing happens at all?  → a modifier is STUCK → REBOOT (the known fix; clears it).
-  • Ctrl+Space dead but Caps / double-Left-Shift work? → macOS owns ⌃Space:
-        System Settings › Keyboard › Keyboard Shortcuts › Input Sources › uncheck "Select the previous input source"
+  • ⌥Space dead but Caps / double-Left-Shift work?    → open Karabiner-EventViewer, press ⌥Space, check it
+        emits left_option + spacebar (Voyager thumb key = tap ⌥Space); then cat /tmp/kbn-debug.log
   • Caps Lock LED lights up (not remapped)?           → grab not attached → REBOOT.
   • Anything weirder?                                 → read the full runbook:  $DOC
   • DO NOT 'fix' this by restarting Karabiner daemons in a loop — that is what broke it last time.

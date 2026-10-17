@@ -409,63 +409,6 @@
                                 "conditions": [
                                     {
                                         "name": "winmode",
-                                        "type": "variable_unless",
-                                        "value": 1
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "spacebar",
-                                    "modifiers": {
-                                        "mandatory": [
-                                            "control"
-                                        ]
-                                    }
-                                },
-                                "parameters": {
-                                    "basic.to_delayed_action_delay_milliseconds": 2000
-                                },
-                                "to": [
-                                    {
-                                        "set_variable": {
-                                            "name": "winmode",
-                                            "value": 1
-                                        }
-                                    },
-                                    {
-                                        "set_notification_message": {
-                                            "id": "winmode",
-                                            "text": "\u25c6 WINDOW MODE   \u2014   h \u25e7  l \u25e8  k \u2b12  j \u2b13   space = fill   (one-shot \u00b7 esc/q exits)"
-                                        }
-                                    },
-                                    {
-                                        "shell_command": "/bin/echo \"$(date +%H:%M:%S) LEADER-on\" >> /tmp/kbn-debug.log"
-                                    }
-                                ],
-                                "to_delayed_action": {
-                                    "to_if_invoked": [
-                                        {
-                                            "set_variable": {
-                                                "name": "winmode",
-                                                "value": 0
-                                            }
-                                        },
-                                        {
-                                            "set_notification_message": {
-                                                "id": "winmode",
-                                                "text": ""
-                                            }
-                                        },
-                                        {
-                                            "shell_command": "/bin/echo \"$(date +%H:%M:%S) AUTO-EXIT\" >> /tmp/kbn-debug.log"
-                                        }
-                                    ]
-                                },
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "name": "winmode",
                                         "type": "variable_if",
                                         "value": 1
                                     }
