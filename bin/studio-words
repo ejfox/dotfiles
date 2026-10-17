@@ -7,6 +7,7 @@ fresh each sync (no fixed list):
   projects   repos under ~/code, most recently committed first
   commits    recent commit subjects (14 days), conventional-commit prefixes stripped
   notes      titles of notes touched in the last 45 days (both Obsidian vaults)
+  quotes     EJ's own quotes from any agent-vault note tagged "reverse-funnel" (2026-10-13)
 Writes ~/code/blender-math/datasets/words.json; blender-sync pushes it to the PC every 15 min
 (only when changed). Credential-looking strings are dropped.
 
@@ -17,8 +18,8 @@ import glob, json, os, re, subprocess, sys, time
 
 HOME = os.path.expanduser("~")
 OUT = f"{HOME}/code/blender-math/datasets/words.json"
-VAULTS = [f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox",
-          f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault"]
+AGENT_VAULT = f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/agent-vault"
+VAULTS = [f"{HOME}/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox", AGENT_VAULT]
 SKIP = re.compile(r"/(\.obsidian|\.trash|_archive|templates?|attachments?)/", re.I)
 SECRET = re.compile(r"(passw|token|secret|api[ _-]?key|ssn|credential|\bkey\b|sk-|@\w+\.\w)", re.I)
 NOW = time.time()
@@ -72,6 +73,35 @@ for v in VAULTS:
                 notes.append((age, s))
 notes = [s for _, s in sorted(set(notes))][:120]
 
+# EJ 2026-10-13: "render out some of these quotes randomly as a few scenes or effects" —
+# pulls EJ's own words (checked against transcripts, see the note's own gate) from any
+# agent-vault note tagged "reverse-funnel" in frontmatter, not just today's. Only the
+# attributed #### <ID> quote entries, never the "Top 10" re-listing (different markup, so
+# the regex below never matches it) or the opening callout. Any section whose own header
+# line says "(handle with care)" (e.g. B1, the meme-over-the-man quote) is skipped outright
+# — the note's own rule for it is "only with the link and framing, or not at all", and an
+# ambient render has neither.
+QUOTE = re.compile(r"^> (.+)$", re.M)
+HEADER = re.compile(r"^#### \S+ ", re.M)
+quotes = []
+for f in glob.glob(f"{AGENT_VAULT}/projects/*.md"):
+    try:
+        text = open(f, encoding="utf-8").read()
+    except OSError:
+        continue
+    fm = text.split("---", 2)[1] if text.startswith("---") else ""
+    if "reverse-funnel" not in fm:
+        continue
+    sections = re.split(r"(?=^#### )", text, flags=re.M)
+    for sec in sections:
+        hm, qm = HEADER.match(sec), QUOTE.search(sec)
+        if not (hm and qm) or "handle with care" in sec.splitlines()[0].lower():
+            continue
+        s = ok(qm.group(1), 90)
+        if s:
+            quotes.append(s)
+quotes = sorted(set(quotes))
+
 # real recent DIFFS for the code_diff scene ("a 3D diff": added lines stand, deleted lines'
 # characters fall as rigid bodies and melt). Small/medium commits, text files only.
 NOFILE = re.compile(r"(\.lock|lock\.json|package-lock|\.min\.|\.svg$|\.map$|\.env|\.pem|\.key$|\.ipynb$|\.csv$|\.json$)", re.I)
@@ -100,13 +130,13 @@ for _, r in repos[:20]:
                           "lines": rows[:56]})
 
 data = {"made": time.strftime("%Y-%m-%dT%H:%M"), "projects": projects, "commits": commits[:120], "notes": notes,
-        "diffs": diffs}
+        "quotes": quotes, "diffs": diffs}
 old = None
 try:
     old = json.load(open(OUT))
 except (OSError, ValueError):
     pass
-KEYS = ("projects", "commits", "notes", "diffs")
+KEYS = ("projects", "commits", "notes", "quotes", "diffs")
 if not old or {k: old.get(k) for k in KEYS} != {k: data[k] for k in KEYS}:
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump(data, open(OUT + ".part", "w"), indent=0)
@@ -115,9 +145,9 @@ if not old or {k: old.get(k) for k in KEYS} != {k: data[k] for k in KEYS}:
 else:
     changed = False
 print(f"{'◆ wrote' if changed else '○ unchanged'} {OUT}: {len(projects)} projects · {len(commits[:120])} commits · "
-      f"{len(notes)} notes · {len(diffs)} diffs")
+      f"{len(notes)} notes · {len(quotes)} quotes · {len(diffs)} diffs")
 if "--show" in sys.argv:
-    for k in ("projects", "commits", "notes"):
+    for k in ("projects", "commits", "notes", "quotes"):
         print(f"  {k}: " + " | ".join(data[k][:10]))
     for d in diffs:
         print(f"  diff {d['repo']}: {d['subject']} ({sum(o == '+' for o, _ in d['lines'])}+ {sum(o == '-' for o, _ in d['lines'])}-)")

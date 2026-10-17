@@ -82,6 +82,8 @@ fi
 # Capture mic volume BEFORE the lock — another instance may have already muted
 VOL=$(osascript -e 'input volume of (get volume settings)')
 # If already muted (by another claude-say), assume normal volume
+# Non-numeric ("missing value") when osascript can't read the input device
+[[ "$VOL" =~ ^[0-9]+$ ]] || VOL=100
 [ "$VOL" -eq 0 ] && VOL=100
 
 # --- Playback lock: only one claude-say speaks at a time ---

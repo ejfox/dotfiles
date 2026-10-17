@@ -1,0 +1,91 @@
+#!/bin/bash
+# booth: mise en place for a VO take.
+#   booth <slug>    e.g. booth what-the-loom-did
+# The episode script (video-scripts/<slug>.md) opens in Obsidian, full screen on the
+# portrait Dell. A fresh Logic project made from the VO_Session template opens full
+# screen on the iMac.
+#
+# Focus-proof: no keystrokes and no "frontmost" assumptions. Files open with `open`,
+# windows are found by TITLE, and placement goes through Hammerspoon first, then falls
+# back to System Events, which can move a background app's window. Every step retries,
+# so it keeps working under heavy load or if you click elsewhere halfway through.
+set -uo pipefail
+
+SLUG="${1:-what-the-loom-did}"
+VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+NOTE="$VAULT/video-scripts/$SLUG.md"   # ONE file per episode (marked script + folded backstage)
+TEMPLATE="$HOME/Music/Audio Music Apps/Project Templates/VO_Session.logicx"
+PROJECT="$HOME/Music/Logic/$(date +%F)-$SLUG-vo.logicx"
+PORTRAIT="DELL"        # screen name match for the portrait monitor
+MAIN="Built-in"        # screen name match for the iMac panel
+WAIT=180               # seconds to wait for each window (Logic is slow under load)
+
+say() { echo "◆ $*"; }
+die() { echo "◇ $*" >&2; exit 1; }
+
+[ -f "$NOTE" ] || die "no booth copy at $NOTE"
+[ -d "$TEMPLATE" ] || die "no template at $TEMPLATE"
+
+# hs with a hard timeout, so a wedged IPC can't hang us
+hsx() { timeout 10 hs -c "$1" 2>/dev/null; }
+
+# place <app> <title-substring> <screen-substring>: retry until placed or WAIT expires
+place() {
+  local app="$1" title="$2" screen="$3" deadline=$((SECONDS + WAIT)) out
+  while [ $SECONDS -lt $deadline ]; do
+    out=$(hsx "
+      local s; for _,x in ipairs(hs.screen.allScreens()) do if x:name():find('$screen',1,true) then s=x end end
+      local a=hs.application.get('$app'); if not (a and s) then print('wait') return end
+      for _,w in ipairs(a:allWindows()) do
+        if w:title():find('$title',1,true) then w:moveToScreen(s); w:setFrame(s:frame()); print('ok') return end
+      end
+      print('wait')")
+    [ "$out" = "ok" ] && { say "$app placed on $screen"; return 0; }
+    # Fallback: System Events sets position/size without focusing the app
+    if [ -z "$out" ]; then
+      local geo
+      geo=$(osascript -l JavaScript -e "
+        ObjC.import('AppKit');
+        var ss=\$.NSScreen.screens, main=ss.objectAtIndex(0).frame, r='';
+        for (var i=0;i<ss.count;i++){var s=ss.objectAtIndex(i);
+          if (ObjC.unwrap(s.localizedName).indexOf('$screen')>=0){var f=s.visibleFrame;
+            r=[f.origin.x, main.size.height-f.origin.y-f.size.height, f.size.width, f.size.height].join(',');}}
+        r;" 2>/dev/null)
+      if [ -n "$geo" ]; then
+        IFS=, read -r gx gy gw gh <<<"$geo"
+        osascript -e "tell application \"System Events\" to tell process \"$app\"
+          repeat with w in windows
+            if name of w contains \"$title\" then
+              set position of w to {${gx%.*}, ${gy%.*}}
+              set size of w to {${gw%.*}, ${gh%.*}}
+              return \"ok\"
+            end if
+          end repeat
+        end tell" 2>/dev/null | grep -q ok && { say "$app placed on $screen (System Events)"; return 0; }
+      fi
+    fi
+    sleep 3
+  done
+  echo "◇ couldn't place $app ($title) within ${WAIT}s; it's open, just not arranged"
+  return 1
+}
+
+# 1. Script: Obsidian on the portrait screen
+open "obsidian://open?path=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$NOTE")"
+say "script: $SLUG.md"
+
+# 2. Session: copy the template to today's project (reuse it if it already exists)
+if [ -e "$PROJECT" ]; then
+  say "reusing today's project: $(basename "$PROJECT")"
+else
+  cp -R "$TEMPLATE" "$PROJECT" || die "copy failed"
+  say "new project: $(basename "$PROJECT")"
+fi
+open -g -a "Logic Pro" "$PROJECT"    # -g: don't steal focus
+
+# 3. Arrange both (in parallel; each waits for its own window)
+place "Obsidian" "$SLUG" "$PORTRAIT" &
+place "Logic Pro" "$(basename "$PROJECT")" "$MAIN" &
+wait
+
+say "stage set. unfurl the mic stand."
