@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# tmux-kb-lights — your tmux windows, glowing on the Voyager's layer-2 window keys.
+#
+# Layer 2 (0.0.7) left half: number row 1-5 = tmux windows 1-5, top row Q-R = windows 6-9.
+# Those keys' LEDs show: off = no window, dim teal = window exists,
+# bright cyan = the window you're in, amber = a Claude in that window is waiting for you.
+# Keyboard only. Never touches desk lights.
+#
+# Usage:
+#   tmux-kb-lights            refresh from current tmux state (used by tmux hooks)
+#   tmux-kb-lights waiting N  mark window N as "Claude is waiting" (used by a Claude Code hook)
+#   tmux-kb-lights clear      forget waiting flags and hand the LEDs back to Oryx
+# Off switch: touch ~/.config/tmux-kb-lights.off
+#
+# STAGED, NOT ENABLED (2026-10-15). Enable after 0.0.7 is flashed and the colour test passes:
+#   ~/.tmux.conf:
+#     set-hook -g after-select-window     'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
+#     set-hook -g window-linked           'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
+#     set-hook -g window-unlinked         'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
+#     set-hook -g client-session-changed  'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
+#   Claude Code Notification hook (needs EJ's yes; hooks only apply to new sessions):
+#     [ -n "$TMUX_PANE" ] && ~/.dotfiles/bin/tmux-kb-lights waiting "$(tmux display -p -t "$TMUX_PANE" '#{window_index}')" &
+#
+# Requires: kontroll (cargo install kontroll) and Keymapp >= 1.3.1 running with its API enabled.
+set -u
+[ -e "$HOME/.config/tmux-kb-lights.off" ] && exit 0
+
+K="$HOME/.cargo/bin/kontroll"
+# Keymapp is sandboxed on macOS, so its socket is not where kontroll looks by default.
+S="$HOME/Library/Containers/io.zsa.keymapp/Data/Library/Application Support/.keymapp/keymapp.sock"
+[ -x "$K" ] && [ -S "$S" ] || exit 0
+
+STATE="${TMPDIR:-/tmp}/tmux-kb-lights.waiting"
+k() { "$K" -p "$S" "$@" >/dev/null 2>&1; }
+
+# LED index of the layer-2 key for tmux window N (Oryx/LED order: left half rows 0-3 = LEDs 0-23).
+led() { case "$1" in 1|2|3|4|5) echo "$1" ;; 6|7|8|9) echo $(( $1 + 1 )) ;; esac; }
+
+OFF="000000"; LIVE="0f4f55"; ACTIVE="7bf0f9"; WAIT="ffb000"
+
+case "${1:-refresh}" in
+  waiting)
+    [ -n "${2:-}" ] && { grep -qx "$2" "$STATE" 2>/dev/null || echo "$2" >> "$STATE"; } ;;
+  clear)
+    rm -f "$STATE"; k connect-any; k restore-rgb-leds; exit 0 ;;
+esac
+
+k connect-any
+sess=$(tmux display-message -p '#{session_name}' 2>/dev/null) || exit 0
+active=$(tmux display-message -p '#{window_index}' 2>/dev/null)
+
+# Visiting a window clears its waiting flag.
+if [ -f "$STATE" ]; then grep -vx "$active" "$STATE" > "$STATE.tmp" 2>/dev/null; mv -f "$STATE.tmp" "$STATE"; fi
+
+live=" $(tmux list-windows -t "$sess" -F '#{window_index}' 2>/dev/null | tr '\n' ' ') "
+for n in 1 2 3 4 5 6 7 8 9; do
+  c=$OFF
+  case "$live" in *" $n "*) c=$LIVE ;; esac
+  grep -qx "$n" "$STATE" 2>/dev/null && c=$WAIT
+  [ "$n" = "$active" ] && c=$ACTIVE
+  k set-rgb --led "$(led "$n")" --color "$c"
+done
