@@ -17,6 +17,7 @@ River section (2026-10-06): after the desk sheet, one DM per riverwatch picture 
 light-trail map, ship cards for notable vessels, standout cam stills, a cam timelapse GIF), rendered
 07:30 on the VPS into /data2/riverwatch-images/<date>/ with lookup codes rw/<date>/...; copies land in
 ~/Pictures/Brief/<date>/river/. BRIEF_NO_OPEN=1 with --dry skips opening the preview.
+Default since 2026-10-08: ONE card DM (see "the card"); BRIEF_LEGACY=1 for the old sheet + river DMs.
 Off switch: ~/.config/brief-pictures-disabled (everything) · ~/.config/brief-pictures-river-disabled (river only)
 """
 import base64, datetime as dt, glob, json, os, re, shutil, subprocess, sys, urllib.request
@@ -261,6 +262,180 @@ def sheet(tiles, path):
     im.save(path, "JPEG", quality=88)
 
 
+# ------------------------------------------------------------------ the card (2026-10-08)
+# EJ: "I hate getting 6 DMs, I like getting info, but it should be a really elegant morning
+# briefing, not a wall of text." So the morning is ONE DM: a two-line message (bottom line +
+# 10-minute action) and ONE phone-shaped card (1080x1350): date, headline, today's calendar,
+# a hero picture (river map when there is one, else today's first chart) beside the art pick,
+# and four numbers. The VPS brief still writes the full text to its archive; on this path it
+# does not DM it (morning-brief.sh MORNING_CARD=1) and a VPS fallback at 08:20 sends the text
+# if no card landed (iMac asleep). BRIEF_LEGACY=1 restores the old sheet + one-DM-per-picture.
+CARD_FONTS = f"{HOME}/Library/Fonts"
+ARCHIVE_REMOTE = "/home/debian/briefs/archive"
+
+def fetch_brief(wait_s=900):
+    """Today's morning archive from the VPS, waiting (up to 15 min) for this morning's write."""
+    import time
+    deadline = time.time() + wait_s
+    while True:
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps",
+                            f"f={ARCHIVE_REMOTE}/{today}-morning.md; [ -n \"$(find $f -newermt '{today} 07:30' 2>/dev/null)\" ] && cat $f"],
+                           capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout
+        if time.time() > deadline:
+            return None
+        time.sleep(10)
+
+def parse_brief(text):
+    b = {"headline": "", "action": "", "cal": [], "stats": []}
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("BOTTOM LINE:"):
+            b["headline"] = s.split(":", 1)[1].strip()
+        elif s.startswith("ACTION"):
+            b["action"] = s.split(":", 1)[1].strip()
+        elif s.startswith("•") and s.endswith("[cal]"):
+            body = s[1:-5].strip()
+            m = re.match(r"(\d{1,2}:\d{2}|All day)\s*:?\s*(.+)", body)
+            if m:
+                when, what = m.groups()
+                what = re.sub(r"^Meeting:\s*", "", what)
+                what = re.sub(r"\((\d+) attendees\)", r"· \1 people", what)
+                what = re.sub(r"^you and ", "", what)
+                b["cal"].append(("all day" if when == "All day" else when, what.strip()))
+    st = []
+    m = re.search(r"(\d+) completed yesterday", text); m and st.append((m.group(1), "done yesterday"))
+    m = re.search(r"(\d+) unread", text);               m and st.append((m.group(1), "unread"))
+    m = re.search(r"Aging ≥7d:(.*)\[things\]", text);   m and st.append((str(len(re.findall(r"\(\d+d\)", m.group(1)))), "aging ≥7d"))
+    m = re.search(r"(\d+) kanban cards? blocked", text); m and st.append((m.group(1), "blocked cards"))
+    b["stats"] = st[:4]
+    return b
+
+def river_hero():
+    """(path, title, subtitle) for the river map, ignoring the river-DM off switch (that switch
+    only stops the separate river DMs; the map belongs on the card)."""
+    local = f"{OUT}/river"; os.makedirs(local, exist_ok=True)
+    if subprocess.run(["scp", "-q", "-o", "ConnectTimeout=10", f"vps:{RIVER_REMOTE}/{today}/manifest.json",
+                       f"{local}/"], capture_output=True).returncode != 0:
+        return None
+    try:
+        man = json.load(open(f"{local}/manifest.json"))
+    except (OSError, ValueError):
+        return None
+    if man.get("date") != today:
+        return None
+    it = next((i for i in man.get("items", []) if i["kind"] == "map"), None)
+    if not it:
+        return None
+    path = f"{local}/{it['file']}"
+    if subprocess.run(["scp", "-q", f"vps:{RIVER_REMOTE}/{today}/{it['file']}", path], capture_output=True).returncode:
+        return None
+    m = re.search(r"·\s*([A-Z0-9][A-Z0-9 &'.-]+)\s*\(([^)]*)\):\s*([^,]+)", it.get("caption", ""))
+    if m:
+        return path, m.group(1).strip(), m.group(3).strip()
+    return path, "the river", "yesterday's traffic"
+
+def render_card(b, hero, art, path):
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
+    W, H, PAD = 1080, 1350, 64
+    BGc, INKc, MUT, RULE = (0, 0, 0), (245, 245, 245), (140, 140, 140), (60, 60, 60)
+    A = lambda s: ImageFont.truetype(f"{CARD_FONTS}/ArchivoBlack-Regular.ttf", s)
+    M = lambda s, w="Regular": ImageFont.truetype(f"{CARD_FONTS}/IBMPlexMono-{w}.ttf", s)
+    im = Image.new("RGB", (W, H), BGc); d = ImageDraw.Draw(im)
+    def wrap(text, font, width):
+        out, line = [], ""
+        for w in text.split():
+            t = (line + " " + w).strip()
+            if d.textlength(t, font=font) <= width: line = t
+            else: out.append(line); line = w
+        return [l for l in out + [line] if l]
+    y = PAD
+    d.text((PAD, y), f"{dt.date.today():%a %b %-d}".upper(), font=A(64), fill=INKc)
+    d.text((W - PAD, y + 30), "08:00 · morning", font=M(26), fill=MUT, anchor="ra"); y += 104
+    size = 46                                   # auto-fit: at most 3 lines of headline
+    while size > 30 and len(wrap(b["headline"], A(size), W - 2 * PAD)) > 3:
+        size -= 2
+    for ln in wrap(b["headline"], A(size), W - 2 * PAD)[:3]:
+        d.text((PAD, y), ln, font=A(size), fill=INKc); y += int(size * 1.26)
+    y += 22; d.line((PAD, y, W - PAD, y), fill=RULE, width=2); y += 30
+    if b["cal"]:
+        d.text((PAD, y), "TODAY", font=M(22, "Bold"), fill=MUT); y += 40
+        for when, what in b["cal"][:5]:
+            what = wrap(what, M(32, "Medium"), W - 2 * PAD - 150)[0]
+            d.text((PAD, y), when, font=M(32, "Medium"), fill=MUT); d.text((PAD + 150, y), what, font=M(32, "Medium"), fill=INKc); y += 48
+        y += 22; d.line((PAD, y, W - PAD, y), fill=RULE, width=2); y += 34
+    panels = [p for p in (hero, art) if p]
+    stats_h = 120 if b["stats"] else 0
+    room = H - PAD - stats_h - y - 100
+    if panels:
+        pw = (W - 2 * PAD - 24) // 2 if len(panels) == 2 else W - 2 * PAD
+        ph = min(pw, room)
+        for k, (src, cap1, cap2) in enumerate(panels):
+            x = PAD + k * (pw + 24)
+            p = Image.open(src).convert("RGB")
+            p = p.crop((0, int(p.height * 0.08), p.width, p.height))   # skip baked-in caption bands
+            p = ImageOps.fit(p, (pw, ph), centering=(0.5, 0.45)); im.paste(p, (x, y))
+            d.text((x, y + ph + 14), wrap(cap1, M(24, "Bold"), pw)[0], font=M(24, "Bold"), fill=INKc)
+            d.text((x, y + ph + 46), wrap(cap2, M(22), pw)[0], font=M(22), fill=MUT)
+        y += ph + 100
+    if b["stats"]:
+        d.line((PAD, y, W - PAD, y), fill=RULE, width=2); y += 30
+        cw = (W - 2 * PAD) // len(b["stats"])
+        for i, (n, l) in enumerate(b["stats"]):
+            x = PAD + i * cw; d.text((x, y), n, font=A(52), fill=INKc); d.text((x, y + 66), l, font=M(20), fill=MUT)
+    im.save(path, "JPEG", quality=90)
+
+def card_main():
+    """The one-DM morning card. Returns True when it handled the morning (sent, previewed, or
+    deliberately skipped), False to fall through to the legacy path."""
+    if os.environ.get("BRIEF_LEGACY"):
+        return False
+    os.makedirs(OUT, exist_ok=True)
+    text = fetch_brief(wait_s=5 if DRY else 900)
+    if not text:
+        print("◇ no morning brief archive yet; VPS fallback (08:20) will send the text"); return True
+    b = parse_brief(text)
+    tiles = todays_charts(open(PIN).read().strip() if os.path.exists(PIN) else None)
+    hero = river_hero()
+    if not hero and tiles:
+        t = tiles[0]; hero = (t["path"], "the desk", t["title"])
+    rid, why = art_pick()
+    art = None
+    wall = f"{OUT}/art-wall-{rid}.png" if rid else None
+    if rid and fetch_render(rid, wall):
+        art = (wall, "from the wall", (render_subject(rid) or why or "")[:40] or "your pick")
+    else:
+        pf = prefetched()
+        if pf:
+            wall = f"{OUT}/art-wall-{pf['rid']}.png"; shutil.copy(f"{PREFETCH}/pick.png", wall)
+            art = (wall, "from the wall", (pf.get("subject") or pf.get("why") or "your pick")[:40])
+    card = f"{OUT}/sheet.jpg"          # send.sh ships sheet.jpg + message.txt as ONE DM
+    render_card(b, hero, art, card)
+    msg = f"**{b['headline']}**" + (f"\n→ 10 min: {b['action']}" if b["action"] else "")
+    open(f"{OUT}/message.txt", "w").write(msg)
+    open(f"{OUT}/river.tsv", "w").write("")   # no separate river DMs on the card path
+    if DRY:
+        print(msg)
+        if not os.environ.get("BRIEF_NO_OPEN"):
+            subprocess.run(["open", card])
+        return True
+    remote = f"/home/debian/brief-pictures/{today}"
+    subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps", f"mkdir -p {remote}"], check=True)
+    sender = f"{OUT}/send.sh"; open(sender, "w").write(SEND_SH)
+    subprocess.run(["scp", "-q", card, f"{OUT}/message.txt", f"{OUT}/river.tsv", sender, f"vps:{remote}/"], check=True)
+    out = subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps", "bash", f"{remote}/send.sh", remote, OWNER, today, "desk"],
+                         capture_output=True, text=True).stdout.strip()
+    code = out.partition("river:")[0].strip()
+    if code.startswith("2"):
+        open(STAMP, "w").write(dt.datetime.now().isoformat())
+        subprocess.run(["ssh", "-o", "ConnectTimeout=10", "vps", f"touch {remote}/.card-sent"])
+        print("◆ sent the morning card (1 DM)")
+    else:
+        print(f"◇ card DM failed (http {code or 'none'}); VPS fallback (08:20) will send the text"); sys.exit(1)
+    return True
+
+
 def main():
     if os.path.exists(f"{HOME}/.config/brief-pictures-disabled"):
         return
@@ -273,6 +448,8 @@ def main():
     now = dt.datetime.now().time()
     if not DRY and (now >= dt.time(22, 0) or now < dt.time(7, 30)):
         print("◇ quiet hours (22:00–07:30) — not sending; use --dry to preview"); return
+    if "--river-only" not in sys.argv and card_main():
+        return
     os.makedirs(OUT, exist_ok=True)
     # ONE chart set per day: the first real send pins its desk run in PIN; --force resends
     # that same set even if chart-desk re-runs later (three sets went out on 10-02)
