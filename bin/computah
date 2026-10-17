@@ -1925,6 +1925,8 @@ PYEOF
     #   computah show <file|url>...   add items (re-fits everything still open)
     #   computah show                 re-fit what's open
     #   computah unshow               close all show windows
+    # An item can carry a caption, shown as a header strip: "photo.jpg::the barge".
+    # "cam:<url>" is a snapshot webcam: the image reloads every 5 s.
     if rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (exit 0) else (exit 1)" 2>/dev/null; then
       echo "not now: a game is running on the PC"; exit 0
     fi
@@ -1938,7 +1940,11 @@ PYEOF
       esc() { python3 -c 'import html,sys; print(html.escape(sys.argv[1], quote=True))' "$1"; }
       for item in "$@"; do
         id="$(date +%s)-$RANDOM"
-        if [[ "$item" =~ ^https?:// ]]; then
+        cap=""; case "$item" in *::*) cap="${item#*::}"; item="${item%%::*}" ;; esac
+        if [[ "$item" =~ ^cam:https?:// ]]; then
+          src="${item#cam:}"; kind=cam
+          name=$(python3 -c 'import sys,urllib.parse as u; p=u.urlparse(sys.argv[1]); print(p.netloc)' "$src")
+        elif [[ "$item" =~ ^https?:// ]]; then
           name=$(python3 -c 'import sys,urllib.parse as u; p=u.urlparse(sys.argv[1]); print(p.netloc+p.path.rstrip("/"))' "$item")
           src="$item"; kind=frame
         elif [ -f "$item" ]; then
@@ -1955,18 +1961,23 @@ PYEOF
         else
           echo "no such file: $item"; continue
         fi
-        t=$(esc "$name"); s=$(esc "$src")
+        t=$(esc "${cap:-$name}"); s=$(esc "$src")
         case $kind in
           img)   body="<img src=\"$s\">" ;;
+          # the URL rides in data-u: HTML entities aren't decoded inside <script>
+          cam)   body="<img id=c src=\"$s\" data-u=\"$s\"><script>setInterval(()=>{const u=c.dataset.u;c.src=u+(u.includes('?')?'&':'?')+'_='+Date.now()},5000)</script>" ;;
           video) body="<video src=\"$s\" autoplay loop muted controls playsinline></video>" ;;
           pdf)   body="<embed src=\"$s\" type=\"application/pdf\">" ;;
           frame) body="<iframe src=\"$s\"></iframe>" ;;
         esac
+        hdr=""; h_css="100vh"
+        if [ -n "$cap" ]; then hdr="<header>$t</header>"; h_css="calc(100vh - 44px)"; fi
         cat > "$tmp/$id.html" <<HTML
 <!doctype html><meta charset="utf-8"><title>◆ show · $t</title>
 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
-img,video,embed,iframe{display:block;width:100vw;height:100vh;object-fit:contain;border:0;background:#000}</style>
-$body
+header{height:44px;line-height:44px;padding:0 16px;font:600 22px/44px ui-monospace,Consolas,monospace;color:#eee;background:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+img,video,embed,iframe{display:block;width:100vw;height:$h_css;object-fit:contain;border:0;background:#000}</style>
+$hdr$body
 HTML
         scp -q "$tmp/$id.html" "$REMOTE_USER@$h:$SHOW/items/$id.html" && \
           rssh "echo $id.html>> C:\\dev\\computah\\show\\items\\order.txt" >/dev/null 2>&1

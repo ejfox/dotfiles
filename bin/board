@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# board: a numbered briefing wall across EJ's two auxiliary screens.
+#   board <item>...   replace the current board
+#   board             re-fit the Dell side
+#   board clear       take the board down (both screens)
+# Items are numbered 1..N in the order given and routed by type:
+#   images, videos and cam:<url> snapshot webcams -> PC 4K (computah show)
+#   documents (pdf, md, txt, html, other files) and web pages -> portrait Dell
+# Force a screen with a dell: or pc: prefix. Caption with ::  e.g.
+#   board report.pdf::"permit filed 10-02"  cam:https://x/cam.jpg::"Tappan Zee"  pc:https://example.org
+# If the PC can't show them (game running, asleep, a full-screen app in front),
+# its items go on the Dell instead.
+# Dell tiles are Hammerspoon webviews (global __board): placed exactly, never take
+# focus, captioned in their title bars. Reloading Hammerspoon closes them.
+# Etiquette: OFFER a board first ("want a board of this?") and wait for EJ's yes.
+set -uo pipefail
+HS=/usr/local/bin/hs
+DIR="$HOME/.cache/board"; TILES="$DIR/tiles"
+mkdir -p "$DIR"
+
+# Lua that grids __board on the Dell: 1 = top half, 2 = top/bottom, then 2 columns
+FIT='
+  local f=hs.screen.find("DELL"):frame(); local n=#(__board or {})
+  local cols=(n<=2) and 1 or 2; local rows=math.max(2, math.ceil(n/cols))
+  for i,v in ipairs(__board or {}) do
+    local c=(i-1)%cols; local r=math.floor((i-1)/cols)
+    pcall(function() v:frame(hs.geometry.rect(f.x+c*f.w/cols, f.y+r*f.h/rows, f.w/cols, f.h/rows)) end)
+  end'
+CLEAR='for _,v in ipairs(__board or {}) do v:delete() end; __board={}'
+
+[ $# -eq 0 ] && { "$HS" -t 5 -c "$FIT" >/dev/null; exit 0; }
+if [ "$1" = clear ]; then
+  "$HS" -t 5 -c "$CLEAR" >/dev/null; rm -rf "$TILES"
+  computah unshow >/dev/null 2>&1; echo "board cleared"; exit 0
+fi
+
+esc() { python3 -c 'import html,sys; print(html.escape(sys.argv[1], quote=True))' "$1"; }
+
+# Route and number every item
+pc=(); dell=(); n=0
+for raw in "$@"; do
+  n=$((n+1)); spec="$raw"; cap=""
+  case "$spec" in *::*) cap="${spec#*::}"; spec="${spec%%::*}" ;; esac
+  label="$n${cap:+ · $cap}"
+  where=""; case "$spec" in dell:*) where=dell; spec="${spec#dell:}" ;; pc:*) where=pc; spec="${spec#pc:}" ;; esac
+  if [ -z "$where" ]; then
+    case "$(printf '%s' "${spec##*.}" | tr 'A-Z' 'a-z')" in
+      png|jpg|jpeg|gif|webp|svg|avif|bmp|mp4|mov|m4v|webm|mkv) where=pc ;;
+      *) where=dell ;;
+    esac
+    [[ "$spec" =~ ^cam: ]] && where=pc
+  fi
+  if [ "$where" = pc ]; then pc+=("$spec::$label"); else dell+=("$spec::$label"); fi
+done
+
+# PC first (it reports back); anything it can't show moves to the Dell
+computah unshow >/dev/null 2>&1
+if [ ${#pc[@]} -gt 0 ]; then
+  res=$(computah show "${pc[@]}" 2>&1)
+  case "$res" in
+    *covered=*)
+      echo "PC busy (in front: $(printf '%s' "$res" | sed -n 's/^covered=//p')); its items go on the Dell"
+      computah unshow >/dev/null 2>&1
+      dell=("${pc[@]}" "${dell[@]}") ;;
+    *shown=*) echo "PC 4K: ${#pc[@]} tile(s)" ;;
+    *) echo "PC unavailable ($(printf '%s' "$res" | tail -1)); its items go on the Dell"; dell=("${pc[@]}" "${dell[@]}") ;;
+  esac
+fi
+
+# Keep board order on the Dell even when PC items fell back to it (labels start with N)
+if [ ${#dell[@]} -gt 1 ]; then
+  sorted=(); while IFS= read -r line; do sorted+=("${line#*$'\t'}"); done < <(
+    for it in "${dell[@]}"; do l="${it#*::}"; printf '%s\t%s\n' "${l%% *}" "$it"; done | sort -n -k1,1)
+  dell=("${sorted[@]}")
+fi
+
+# Build each Dell tile: a URL to load and a title-bar caption
+rm -rf "$TILES"; mkdir -p "$TILES"
+lua=""; k=0
+for item in "${dell[@]}"; do
+  k=$((k+1)); spec="${item%%::*}"; label="${item#*::}"; asset=""
+  if [[ "$spec" =~ ^cam: ]]; then spec="${spec#cam:}"; kind=cam
+  elif [[ "$spec" =~ ^https?:// ]]; then kind=url
+  elif [ -f "$spec" ]; then
+    asset="$k-$(basename "$spec" | tr -c 'A-Za-z0-9._-' '_')"; cp "$spec" "$TILES/$asset"
+    case "$(printf '%s' "${spec##*.}" | tr 'A-Z' 'a-z')" in
+      png|jpg|jpeg|gif|webp|svg|avif|bmp) kind=img ;;
+      mp4|mov|m4v|webm|mkv) kind=video ;;
+      pdf|html|htm) kind=direct ;;
+      *) kind=text ;;
+    esac
+  else
+    echo "no such file: $spec"; continue
+  fi
+  s=$(esc "${asset:-$spec}")
+  case $kind in
+    url)    url="$spec" ;;
+    direct) url="file://$TILES/$asset" ;;
+    *)
+      case $kind in
+        img)   body="<img src=\"$s\">" ;;
+        # the URL rides in data-u: HTML entities aren't decoded inside <script>
+        cam)   body="<img id=c src=\"$s\" data-u=\"$s\"><script>setInterval(()=>{const u=c.dataset.u;c.src=u+(u.includes('?')?'&':'?')+'_='+Date.now()},5000)</script>" ;;
+        video) body="<video src=\"$s\" autoplay loop muted controls playsinline></video>" ;;
+        text)  body="<pre>$(python3 -c 'import html,sys; print(html.escape(open(sys.argv[1],errors="replace").read()))' "$spec")</pre>" ;;
+      esac
+      cat > "$TILES/$k.html" <<HTML
+<!doctype html><meta charset="utf-8"><title>$(esc "$label")</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
+img,video{display:block;width:100vw;height:100vh;object-fit:contain}
+pre{margin:0;height:100vh;box-sizing:border-box;overflow:auto;padding:14px 18px;color:#ddd;font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap}</style>
+$body
+HTML
+      url="file://$TILES/$k.html" ;;
+  esac
+  lua+="{[==[$url]==],[==[◆ $label]==]},"
+done
+
+if [ $k -gt 0 ]; then
+  "$HS" -t 10 -c "
+    $CLEAR
+    for _,t in ipairs({$lua}) do
+      local v=hs.webview.new(hs.geometry.rect(0,0,800,600))
+        :windowStyle({'titled','closable','resizable','miniaturizable'})
+        :windowTitle(t[2]):darkMode(true):allowTextEntry(true):url(t[1])
+      table.insert(__board, v)
+    end
+    $FIT
+    for _,v in ipairs(__board) do v:show() end
+    return #__board" >/dev/null 2>&1 && echo "Dell: $k tile(s)"
+else
+  "$HS" -t 5 -c "$CLEAR" >/dev/null 2>&1
+fi
+
+# Keep a replayable record of every board
+python3 -c 'import json,sys,time; print(json.dumps({"at":time.strftime("%Y-%m-%dT%H:%M:%S"),"items":sys.argv[1:]}))' "$@" >> "$DIR/history.jsonl"

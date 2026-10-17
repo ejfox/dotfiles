@@ -27,6 +27,9 @@ public class W {
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rt, B; }
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [StructLayout(LayoutKind.Sequential)] public struct P { public int X, Y; }
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(P p);
+  [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);
   public static Dictionary<string, IntPtr> Titled(string prefix) {
     var d = new Dictionary<string, IntPtr>();
     EnumWindows((h, l) => {
@@ -77,9 +80,11 @@ function Find-Win($open, $t) {
 
 # Open any item that has no window yet
 $open = [W]::Titled($PREFIX)
+$fresh = @{}
 foreach ($id in $ids) {
   $t = Title-Of $id
   if (-not (Find-Win $open $t)) {
+    $fresh[$id] = $true
     $url = 'file:///' + ("$items\$id" -replace '\\','/')
     # InPrivate: Edge never signs this profile in, so no "now syncing" popup
     Start-Process msedge -ArgumentList "--user-data-dir=$udd", '--inprivate', '--no-first-run',
@@ -100,6 +105,21 @@ for ($i = 0; $i -lt 30; $i++) {
 $live = @()
 foreach ($id in $ids) { $w = Find-Win $open (Title-Of $id); if ($w) { $live += ,@($id, $w) } }
 $n = $live.Count
+
+# komorebi checks its ignore rule once, when a window first shows. A new Edge --app
+# window can show before its page title loads, so komorebi sometimes grabs it.
+# Hiding and re-showing a fresh window (without activating it) makes komorebi drop
+# it and re-check the rule against the real title.
+$cycled = 0
+foreach ($e in $live) {
+  if ($fresh[$e[0]]) { [W]::ShowWindow($e[1], 0) | Out-Null; $cycled++ }   # SW_HIDE
+}
+if ($cycled) {
+  Start-Sleep -Milliseconds 300
+  foreach ($e in $live) { if ($fresh[$e[0]]) { [W]::ShowWindow($e[1], 4) | Out-Null } }   # SW_SHOWNOACTIVATE
+  Start-Sleep -Milliseconds 300
+}
+
 if ($n -gt 0) {
   $wa = ([System.Windows.Forms.Screen]::PrimaryScreen).WorkingArea
   # PowerShell's switch runs EVERY matching clause, hence the breaks
@@ -112,7 +132,7 @@ if ($n -gt 0) {
   for ($pass = 1; $pass -le 12 -and $bad -gt 0; $pass++) {
     for ($k = 0; $k -lt $n; $k++) {
       $h = $live[$k][1]; $x = $wa.X + ($k % $c) * $cw; $y = $wa.Y + [math]::Floor($k / $c) * $rh
-      [W]::ShowWindow($h, 9) | Out-Null          # SW_RESTORE, in case it was maximized
+      [W]::ShowWindow($h, 4) | Out-Null          # SW_SHOWNOACTIVATE: un-maximize without taking focus
       [W]::SetWindowPos($h, [IntPtr]::Zero, $x, $y, $cw, $rh, 0x0014) | Out-Null   # NOZORDER|NOACTIVATE
     }
     Start-Sleep -Milliseconds 700
@@ -124,6 +144,22 @@ if ($n -gt 0) {
     }
   }
   $out += "grid=${c}x${r} misplaced=$bad"
+  # Windows are placed without raising them, so another app in front can hide them.
+  # Check what is actually on top at each tile's centre; if every tile is hidden,
+  # report the culprit so the caller (board) can put the items somewhere visible.
+  $hidden = 0; $by = ''
+  for ($k = 0; $k -lt $n; $k++) {
+    $p = New-Object W+P
+    $p.X = $wa.X + ($k % $c) * $cw + [int]($cw / 2); $p.Y = $wa.Y + [math]::Floor($k / $c) * $rh + [int]($rh / 2)
+    $top = [W]::GetAncestor([W]::WindowFromPoint($p), 2)   # GA_ROOT
+    if ($top -ne $live[$k][1]) {
+      $hidden++; $sb = New-Object System.Text.StringBuilder 256
+      [W]::GetWindowText($top, $sb, 256) | Out-Null; $by = $sb.ToString()
+    }
+  }
+  if (-not $by) { $by = '(untitled window)' }
+  if ($hidden -eq $n) { $out += "covered=" + ($by -replace '[^\x20-\x7E]', '?') }
+  elseif ($hidden -gt 0) { $out += "partly-hidden=$hidden" }
 }
 
 # Forget items whose window EJ closed (only once they have had time to open)
