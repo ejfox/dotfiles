@@ -104,7 +104,6 @@ if hueKeyTap then
   hueKeyTap = nil
 end
 hueKeyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
-  if hs.fs.attributes(os.getenv("HOME") .. "/.config/hue-key/disabled") then return false end  -- `hue-keys off`
   local kc = event:getKeyCode()
   local pos = keyPos[kc]
   if not pos then return false end
@@ -124,7 +123,20 @@ hueKeyTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(event)
   sendPulse(pos[1], pos[2], r, g, b, PULSE_DURATION, PULSE_RADIUS)
   return false
 end)
-hueKeyTap:start()
+
+-- An active event tap holds EVERY keystroke until Hammerspoon's main thread answers,
+-- so a busy or blocked Hammerspoon makes typing stall ("Karabiner hangs", 2026-10-17).
+-- Run the tap only while hue-key is on: `hue-keys off` creates the disabled file,
+-- and this watcher stops the tap instead of checking the disk on every keypress.
+local HUE_DISABLED = os.getenv("HOME") .. "/.config/hue-key/disabled"
+local function syncHueKeyTap()
+  local off = hs.fs.attributes(HUE_DISABLED) ~= nil
+  if off and hueKeyTap:isEnabled() then hueKeyTap:stop()
+  elseif not off and not hueKeyTap:isEnabled() then hueKeyTap:start() end
+end
+if hueDisabledWatcher then hueDisabledWatcher:stop() end
+hueDisabledWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.config/hue-key/", syncHueKeyTap):start()
+syncHueKeyTap()
 
 local count = 0
 for _ in pairs(keyPos) do count = count + 1 end
@@ -144,8 +156,7 @@ hs.alert.show("hue-key loaded: " .. count .. " keys live", 3)
 -- Re-arm on wake + a periodic health check. Only hueKeyTap uses a tap now —
 -- window-mode no longer does, so it can never be starved by secure input.
 local function rearmTaps()
-  if hueKeyTap then pcall(function() hueKeyTap:stop(); hueKeyTap:start() end) end
-  if modLogTap then pcall(function() modLogTap:stop(); modLogTap:start() end) end
+  if hueKeyTap and not hs.fs.attributes(HUE_DISABLED) then pcall(function() hueKeyTap:stop(); hueKeyTap:start() end) end
 end
 if caffeineWatcher then caffeineWatcher:stop() end
 caffeineWatcher = hs.caffeinate.watcher.new(function(ev)
@@ -156,40 +167,17 @@ caffeineWatcher = hs.caffeinate.watcher.new(function(ev)
 end):start()
 if tapHealthTimer then tapHealthTimer:stop() end
 tapHealthTimer = hs.timer.doEvery(30, function()
-  if hueKeyTap and not hueKeyTap:isEnabled() then pcall(function() hueKeyTap:start() end) end
-  if modLogTap and not modLogTap:isEnabled() then pcall(function() modLogTap:start() end) end
+  -- macOS can silently disable a tap; re-arm it, but only while hue-key is on
+  if hueKeyTap and not hueKeyTap:isEnabled() and not hs.fs.attributes(HUE_DISABLED) then
+    pcall(function() hueKeyTap:start() end)
+  end
 end)
 
--- ── Modifier transition logging (stuck-⌘ hunt, 2026-07-12) ──────────────────
--- Logs every modifier state CHANGE (post-Karabiner, what apps actually see) to
--- ~/.local/share/usage-logs/modifiers/YYYY-MM-DD.jsonl with ms timestamps and
--- the raw keycode that caused it (55=left⌘ 54=right⌘ 58=l⌥ 61=r⌥ 56=l⇧ 60=r⇧
--- 59=l⌃ 62=r⌃). A "cmd" entry with no following "" entry = stuck at flag level.
--- Remove this section once the Karabiner 16.1.0 stuck-modifier bug is resolved.
-local MODLOG_DIR = os.getenv("HOME") .. "/.local/share/usage-logs/modifiers/"
-local prevMods = "?"
-if modLogTap then modLogTap:stop() end
-modLogTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(e)
-  local f = e:getFlags()
-  local names = {}
-  for _, k in ipairs({ "cmd", "alt", "ctrl", "shift", "fn" }) do
-    if f[k] then names[#names + 1] = k end
-  end
-  local cur = table.concat(names, " ")
-  if cur ~= prevMods then
-    prevMods = cur
-    local now = hs.timer.secondsSinceEpoch()
-    local out = io.open(MODLOG_DIR .. os.date("%Y-%m-%d") .. ".jsonl", "a")
-    if out then
-      out:write(string.format('{"ts":"%s.%03dZ","mods":%q,"keycode":%d}\n',
-        os.date("!%Y-%m-%dT%H:%M:%S", math.floor(now)), math.floor((now % 1) * 1000),
-        cur, e:getKeyCode()))
-      out:close()
-    end
-  end
-  return false
-end)
-modLogTap:start()
+-- (The stuck-⌘ modifier logger lived here: an active flagsChanged tap writing a file
+-- on every modifier change. Removed 2026-10-17: the bug was Karabiner 16.1.0, fixed
+-- in 16.3.0, and the tap made typing wait on Hammerspoon. Logs kept in
+-- ~/.local/share/usage-logs/modifiers/.)
+if modLogTap then modLogTap:stop(); modLogTap = nil end
 
 -- ── Auto-reload config on save ──────────────────────────────────────────────
 -- init.lua is symlinked from the dotfiles; watch that dir and reload on save.
