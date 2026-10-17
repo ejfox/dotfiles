@@ -110,6 +110,15 @@ for d in "${CONFIG_DIRS[@]}"; do
   fi
 done
 
+# Claude Code agents dir (vendored personas only load if this is linked)
+if [ -L "$HOME/.claude/agents" ] && [[ "$(readlink "$HOME/.claude/agents")" == *".dotfiles/.claude/agents"* ]]; then
+  pass ".claude/agents ($(ls "$HOME/.claude/agents"/*.md 2>/dev/null | wc -l | tr -d ' ') agents)"
+elif [ -d "$HOME/.claude/agents" ]; then
+  fail ".claude/agents exists but is NOT a symlink to dotfiles (personas won't sync)"
+else
+  fail ".claude/agents missing (dotfiles personas not loaded)"
+fi
+
 # -------------------------------------------------------------------------
 # 3. PATH & bin scripts
 # -------------------------------------------------------------------------

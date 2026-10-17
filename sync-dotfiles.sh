@@ -59,6 +59,40 @@ link_dir() {
 OBS_DIR=~/Library/Application\ Support/obs-studio
 link_dir ~/.dotfiles/obs/basic "$OBS_DIR/basic"
 link_dir ~/.dotfiles/obs/plugin_config/obs-midi-mg "$OBS_DIR/plugin_config/obs-midi-mg"
+
+# Claude Code agents (personas): link the whole DIRECTORY so every new agent file in
+# .claude/agents/ loads without a per-file link. Unlinked, none of them load at all.
+link_dir ~/.dotfiles/.claude/agents ~/.claude/agents
+
+# Per-file links for places where the parent dir holds other, untracked files.
+# A real file that matches the repo gets backed up and linked. A real file that
+# DIFFERS is left alone and reported: it's a live tweak to reconcile by hand,
+# never something to clobber.
+BACKUP_DIR=~/.dotfiles-backups/$(date +%Y%m%d-%H%M%S)
+link_file() {
+  if [ -L "$2" ]; then ln -sfn "$1" "$2"; return; fi
+  if [ -e "$2" ]; then
+    if ! cmp -s "$1" "$2"; then echo "SKIP (differs from repo, reconcile by hand): $2"; return; fi
+    mkdir -p "$BACKUP_DIR"; mv "$2" "$BACKUP_DIR/"
+  fi
+  mkdir -p "$(dirname "$2")"; ln -sfn "$1" "$2"
+}
+
+# LaunchAgents: launchd reads the plist at load, so relinking an identical file
+# changes nothing until the next `launchctl bootout/bootstrap`.
+for plist in ~/.dotfiles/LaunchAgents/*.plist; do
+  link_file "$plist" ~/Library/LaunchAgents/"$(basename "$plist")"
+done
+
+# Obsidian (main vault): hotkeys, plugin list, CSS snippet. Per-file, since .obsidian/
+# also holds workspace state that shouldn't be versioned.
+OBS_VAULT=~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/ejfox/.obsidian
+if [ -d "$OBS_VAULT" ]; then
+  link_file ~/.dotfiles/.obsidian-config/hotkeys.json "$OBS_VAULT/hotkeys.json"
+  link_file ~/.dotfiles/.obsidian-config/community-plugins.json "$OBS_VAULT/community-plugins.json"
+  link_file ~/.dotfiles/.obsidian-config/snippets/text.css "$OBS_VAULT/snippets/text.css"
+fi
+
 # UDID-scrubbing git filter for OBS scene collections (config isn't versioned, so set it here)
 git config filter.obs-redact.clean "sed -E 's/\"setting_device_uuid\": *\"[^\"]*\"/\"setting_device_uuid\": \"REDACTED-IPHONE-UDID\"/'"
 git config filter.obs-redact.smudge cat
