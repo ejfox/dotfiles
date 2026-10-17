@@ -57,7 +57,7 @@ before=$(find "$DEST" -type f -name '*.wav' 2>/dev/null | wc -l | tr -d ' ')
 
 notify "TP-7 detected — starting pull"
 
-total=0; nextpct=25
+total=0; nextpct=25; stopped=""
 # stream root pull output; milestone notifications only — NO per-file spam.
 # NOTE: zsh runs the last pipe stage in the current shell, so $total survives the loop.
 # The puller emits lines like:
@@ -84,15 +84,28 @@ sudo -n "$SH/tp7-root-pull.sh" "$DEST" 2>>"$LOG" | while IFS= read -r line; do
           notify "${nextpct}% — ${w[2]}/${total} files"; nextpct=$((nextpct+25))
         done
       fi ;;
+    # each of these is a KNOWN stop with its own message: it must not later be mistaken for "couldn't read the
+    # device" (which opens Field Kit). zsh runs this loop in the current shell, so $stopped survives.
     STOP\ diskfloor*)   # tp7-pull stopped itself before filling the disk (newest recordings came first)
+      stopped=diskfloor
       notify "stopped early: disk almost full — free up space, then reconnect for the rest"
       jlog pull_diskfloor ;;
     STOP\ device\ lost*)
+      stopped=devlost
       notify "TP-7 disconnected mid-pull — reconnect to resume (nothing lost)"
       jlog pull_device_lost ;;
     LISTFAIL*)
+      stopped=listfail
       notify "couldn't read the TP-7's file list — power-cycle it (hold STOP) and reconnect"
       jlog pull_listfail ;;
+    STOP\ timeout*)
+      stopped=timeout
+      notify "TP-7 pull ran over 3 hours and was stopped — reconnect to resume (nothing lost)"
+      jlog pull_timeout ;;
+    NODEV*)
+      stopped=nodev
+      notify "TP-7 seen but couldn't be opened — power-cycle it (hold STOP) and reconnect"
+      jlog pull_nodev ;;
     END*) log "pull end: $line" ;;
   esac
 done
@@ -108,8 +121,10 @@ if [[ $added -gt 0 ]]; then
   log "=== import OK: +$added files ==="
   jlog pull_ok added="$added" staged_total="$after" size="$size"
 else
-  # nothing new landed. If the device simply had nothing, TOPULL was 0 and that's fine.
-  if [[ ${total:-0} -eq 0 ]]; then
+  # nothing new landed. A known stop already told EJ why; TOPULL=0 means up to date; anything else = real failure.
+  if [[ -n "${stopped:-}" ]]; then
+    log "=== stopped ($stopped), nothing new landed ==="
+  elif [[ ${total:-0} -eq 0 ]]; then
     log "=== nothing to import (already current) ==="
     jlog pull_uptodate staged_total="$after"
   else

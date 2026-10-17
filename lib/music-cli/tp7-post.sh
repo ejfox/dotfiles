@@ -85,15 +85,9 @@ done
 [[ $linked -gt 0 ]] && { log "organized $linked file(s) into by-date/"; jlog organize_ok linked="$linked"; }
 
 # --- 3. backup: raw wavs to R2 bucket ejfox-personal under tp7-raw/ ---
-# Capability-detecting, two tiers (as of 2026-07-23 the music S3 keypair is
-# READ-ONLY — PutObject denied — and wrangler caps `r2 object put` at 300MiB):
-#   a) probe S3 write with a marker object; if allowed -> aws s3 sync
-#      (multipart, resumable, handles any size). This lights up automatically
-#      the moment a write-capable token lands in ~/.config/music/.env.
-#   b) else -> wrangler for files <=250MiB; larger files are loudly flagged
-#      as LOCAL-ONLY until the write token exists.
+# Probe S3 write with a marker object; if allowed -> aws s3 sync (multipart, resumable, any size). This lights up
+# automatically the moment a write-capable token lands in ~/.config/music/.env. Otherwise skip quietly.
 BUCKET_NAME="ejfox-personal"; PREFIX="tp7-raw"
-WRANGLER_MAX=$((250 * 1024 * 1024))
 if [[ -f "$HOME/.config/music/.env" ]] && command -v aws >/dev/null; then
   source "$HOME/.config/music/.env"
   export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}" AWS_DEFAULT_REGION=auto
@@ -111,37 +105,12 @@ if [[ -f "$HOME/.config/music/.env" ]] && command -v aws >/dev/null; then
       jlog backup_fail mode=sync
       osascript -e 'display notification "R2 backup failed — recordings are LOCAL ONLY" with title "TP-7 import" sound name "Basso"' 2>/dev/null
     fi
-  elif command -v wrangler >/dev/null; then
-    # tier (b): wrangler small-file bridge. Remote inventory via read creds.
-    typeset -A on_r2
-    while IFS=$'\t' read -r key sz; do
-      [[ -n "$key" ]] && on_r2["${key#$PREFIX/}"]="$sz"
-    done < <(aws s3api list-objects-v2 --bucket "$BUCKET_NAME" --prefix "$PREFIX/" \
-               --endpoint-url "$EP" --query 'Contents[].[Key,Size]' --output text 2>>"$LOG")
-    up_ok=0; up_fail=0; too_big=0
-    for f in "$TP7_ROOT"/*/recordings/*.wav "$TP7_ROOT"/*/recordings/*.WAV; do
-      [[ -f "$f" ]] || continue
-      rel="${f#$TP7_ROOT/}"
-      sz=$(stat -f%z "$f" 2>/dev/null || echo 0)
-      [[ "${on_r2[$rel]:-}" == "$sz" ]] && continue
-      if [[ "$sz" -gt "$WRANGLER_MAX" ]]; then
-        too_big=$((too_big+1)); log "backup SKIPPED (>250MiB, needs s3 write token): $rel"
-        continue
-      fi
-      if wrangler r2 object put "$BUCKET_NAME/$PREFIX/$rel" --file "$f" --remote >/dev/null 2>>"$LOG"; then
-        up_ok=$((up_ok+1)); log "backed up $rel ($sz bytes)"
-      else
-        up_fail=$((up_fail+1)); log "backup FAILED for $rel"
-      fi
-    done
-    log "backup (wrangler tier): ok=$up_ok fail=$up_fail local_only_toobig=$too_big"
-    jlog backup_partial uploaded="$up_ok" failed="$up_fail" too_big="$too_big"
-    if [[ $((up_fail + too_big)) -gt 0 ]]; then
-      osascript -e "display notification \"$too_big large + $up_fail failed file(s) NOT backed up — add a write R2 token (see lib/music-cli/README)\" with title \"TP-7 backup\" sound name \"Basso\"" 2>/dev/null
-    fi
   else
-    log "backup skipped: no write path (s3 read-only, wrangler missing)"
-    jlog backup_skipped
+    # No write token yet. The old wrangler per-file bridge was removed 2026-10-04: under launchd it failed every
+    # file (439/run, ~12 min of cold starts) and ended in a Basso alert on every connect. Recordings are covered
+    # by the restic backup to computah until a write-capable R2 token lands in ~/.config/music/.env.
+    log "backup skipped: R2 key is read-only (add a write token, see README); restic covers ~/tp7"
+    jlog backup_skipped reason=readonly_token
   fi
 else
   log "backup skipped: missing music .env or aws cli"

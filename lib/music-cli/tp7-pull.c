@@ -23,7 +23,8 @@
 //   min_free_gb=20        # 1-500
 //   pull_all=0            # 1 = skip rule 2 (rules 1, 3, 4, 6 still apply)
 //
-// Output contract with tp7-import.sh (keep it): "<DEST> TOPULL=<n>", per file "P <done> <total> <name>",
+// Each file is fchown()ed to DEST's owner (root writes, user owns). Output contract with tp7-import.sh (keep it):
+// "<DEST> TOPULL=<n>", per file "P <done> <total> <name>",
 // "STOP diskfloor ...", "END got=<n> failed=<n>". Exit: 0 ok, 1 errors, 2 usage, 3 disk floor, 4 device lost.
 //
 // Build: cc -Wall -Wextra -O2 tp7-pull.c $(pkg-config --cflags --libs libmtp) -o tp7-pull
@@ -319,9 +320,10 @@ int main(int argc, char **argv) {
       int got = LIBMTP_Get_File_To_File_Descriptor(dev, f->item_id, fd, NULL, NULL);
       struct stat st;
       int sized = fstat(fd, &st) == 0 && (uint64_t)st.st_size == f->filesize;   // verify, don't trust
+      int owned = fchown(fd, dst.st_uid, dst.st_gid) == 0;   // owned by DEST's owner, not root
       int synced = fsync(fd) == 0;
       close(fd);
-      ok = got == 0 && sized && synced && rename(part, local) == 0;
+      ok = got == 0 && sized && owned && synced && rename(part, local) == 0;
       if (!ok) unlink(part);
     }
     if (ok) {
