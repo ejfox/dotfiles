@@ -29,6 +29,9 @@
 #   computah muse-loop  never-ending WEIRD gallery wall; alternate cycles run the
 #                       iMac screen through FLUX img2img (WALL_N, MUSE_SCREEN_EVERY)
 #   computah renders         sync Blender studio renders to ~/Pictures/Blender + open in Finder
+#   computah show <file|url>...  put things on the PC's 4K monitor, auto-gridded,
+#                            without touching komorebi's tiling (no args: re-fit)
+#   computah unshow          close everything `computah show` put up
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 # Sibling helpers (muse-lifefeed, muse-brainstorm, muse-arena, muse-cloudinary,
@@ -1912,6 +1915,73 @@ PYEOF
   run)
     shift
     rssh "$@"
+    ;;
+
+  show|unshow)
+    # Put files/URLs on the PC's 4K monitor in an auto-fitting grid (EJ's second
+    # auxiliary screen; the Mac-side `show` covers the portrait Dell). Each item is a
+    # wrapper page in an Edge --app window that komorebi ignores, so EJ's tiled windows
+    # never move. Layout lives in ~/.dotfiles/computah/show.ps1, deployed each run.
+    #   computah show <file|url>...   add items (re-fits everything still open)
+    #   computah show                 re-fit what's open
+    #   computah unshow               close all show windows
+    if rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (exit 0) else (exit 1)" 2>/dev/null; then
+      echo "not now: a game is running on the PC"; exit 0
+    fi
+    h=$(host); SHOW='C:/dev/computah/show'
+    rssh "if not exist C:\\dev\\computah\\show\\items mkdir C:\\dev\\computah\\show\\items" >/dev/null 2>&1
+    if [ "$1" = unshow ]; then
+      rssh "echo x> C:\\dev\\computah\\show\\clear.txt" >/dev/null 2>&1
+    else
+      shift
+      tmp=$(mktemp -d)
+      esc() { python3 -c 'import html,sys; print(html.escape(sys.argv[1], quote=True))' "$1"; }
+      for item in "$@"; do
+        id="$(date +%s)-$RANDOM"
+        if [[ "$item" =~ ^https?:// ]]; then
+          name=$(python3 -c 'import sys,urllib.parse as u; p=u.urlparse(sys.argv[1]); print(p.netloc+p.path.rstrip("/"))' "$item")
+          src="$item"; kind=frame
+        elif [ -f "$item" ]; then
+          name=$(basename "$item")
+          asset="$id-$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '_')"
+          scp -q "$item" "$REMOTE_USER@$h:$SHOW/items/$asset" || { echo "couldn't copy $name"; continue; }
+          src="$asset"
+          case "$(printf '%s' "${item##*.}" | tr 'A-Z' 'a-z')" in
+            png|jpg|jpeg|gif|webp|svg|avif|bmp) kind=img ;;
+            mp4|mov|m4v|webm|mkv) kind=video ;;
+            pdf) kind=pdf ;;
+            *) kind=frame ;;
+          esac
+        else
+          echo "no such file: $item"; continue
+        fi
+        t=$(esc "$name"); s=$(esc "$src")
+        case $kind in
+          img)   body="<img src=\"$s\">" ;;
+          video) body="<video src=\"$s\" autoplay loop muted controls playsinline></video>" ;;
+          pdf)   body="<embed src=\"$s\" type=\"application/pdf\">" ;;
+          frame) body="<iframe src=\"$s\"></iframe>" ;;
+        esac
+        cat > "$tmp/$id.html" <<HTML
+<!doctype html><meta charset="utf-8"><title>◆ show · $t</title>
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
+img,video,embed,iframe{display:block;width:100vw;height:100vh;object-fit:contain;border:0;background:#000}</style>
+$body
+HTML
+        scp -q "$tmp/$id.html" "$REMOTE_USER@$h:$SHOW/items/$id.html" && \
+          rssh "echo $id.html>> C:\\dev\\computah\\show\\items\\order.txt" >/dev/null 2>&1
+      done
+      rm -rf "$tmp"
+    fi
+    # Deploy the layout script (CRLF for PowerShell) and run it on the real desktop
+    ps="$(mktemp)"; awk '{printf "%s\r\n", $0}' "$(dirname "${BASH_SOURCE[0]}")/../computah/show.ps1" > "$ps"
+    scp -q "$ps" "$REMOTE_USER@$h:$SHOW/run.ps1"; rm -f "$ps"
+    rssh "del C:\\dev\\computah\\show\\last-run.txt >nul 2>&1 & schtasks /run /tn show-run >nul" 2>/dev/null || { echo "couldn't reach the PC"; exit 1; }
+    for _ in $(seq 1 30); do
+      res=$(rssh "type C:\\dev\\computah\\show\\last-run.txt 2>nul" 2>/dev/null | tr -d '\r\357\273\277' || true)
+      [ -n "$res" ] && break; sleep 1
+    done
+    echo "PC screen: ${res:-no answer from the PC (is it logged in?)}"
     ;;
 
   gallery)
