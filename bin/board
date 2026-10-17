@@ -28,9 +28,10 @@ FIT='
   end'
 CLEAR='for _,v in ipairs(__board or {}) do v:delete() end; __board={}'
 
-[ $# -eq 0 ] && { "$HS" -t 5 -c "$FIT" >/dev/null; exit 0; }
+[ $# -eq 0 ] && { "$HS" -t 5 -c "$FIT" >/dev/null 2>&1; exit 0; }
 if [ "$1" = clear ]; then
-  "$HS" -t 5 -c "$CLEAR" >/dev/null; rm -rf "$TILES"
+  # hs's reply can time out even when the delete ran; the views are gone either way
+  "$HS" -t 5 -c "$CLEAR" >/dev/null 2>&1; rm -rf "$TILES"
   computah unshow >/dev/null 2>&1; echo "board cleared"; exit 0
 fi
 
