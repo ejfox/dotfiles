@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# show <file>... : put renders/previews in front of EJ without stealing focus, auto-gridded.
+# - Opens each file in the background (videos in QuickTime, else the default app).
+# - Remembers every window it has shown; each call re-fits ALL of them that are still
+#   open into a grid. Portrait Dell: 1 = top half, 2 = top/bottom, 3-4 = 2x2, 5-6 = 2x3.
+#   More than 6 spill into a grid on the iMac's right half. EJ's rule: top/bottom halves
+#   on the portrait Dell, left/right halves on the iMac.
+# - Run `show` with no args to just re-fit what's open. Closed windows drop out on their own.
+# Used by Claude during visual loops (see "Screen etiquette" in ~/.claude/CLAUDE.md).
+set -uo pipefail
+HS=/usr/local/bin/hs
+STATE="$HOME/.cache/show/windows.tsv"
+mkdir -p "$(dirname "$STATE")"; touch "$STATE"
+
+for f in "$@"; do
+  [ -e "$f" ] || { echo "show: no such file: $f" >&2; continue; }
+  name=$(basename "$f")
+  case "${f##*.}" in
+    mp4|mov|m4v|MP4|MOV) app="QuickTime Player" ;;
+    *) app=$(osascript -e "tell application \"System Events\" to get name of (default application of (info for (POSIX file \"$f\")))" 2>/dev/null | sed 's/\.app$//')
+       [ -n "$app" ] || app="Preview" ;;
+  esac
+  open -g -a "$app" "$f"
+  printf '%s\t%s\n' "$app" "$name" >> "$STATE"
+done
+
+# Lua table of {app, title} entries, deduped, in the order they were shown
+entries=$(awk -F'\t' '!seen[$0]++ {printf "{[==[%s]==],[==[%s]==]},", $1, $2}' "$STATE")
+
+for _ in $(seq 1 20); do
+  out=$("$HS" -c "
+    local want={${entries}}
+    local found, missing = {}, 0
+    for _,e in ipairs(want) do
+      local a=hs.application.get(e[1]); local hit=nil
+      if a then for _,w in ipairs(a:allWindows()) do
+        if w:title():find(e[2],1,true) then hit=w end end end
+      if hit then table.insert(found,{w=hit,e=e}) else missing=missing+1 end
+    end
+    local function grid(scr, list)
+      if #list==0 then return end
+      local f=scr:frame(); local n=#list
+      local cols = (n<=2) and 1 or 2
+      local rows = math.max(2, math.ceil(n/cols))
+      for i,x in ipairs(list) do
+        local c=(i-1)%cols; local r=math.floor((i-1)/cols)
+        x.w:setFrame(hs.geometry.rect(f.x+c*f.w/cols, f.y+r*f.h/rows, f.w/cols, f.h/rows))
+      end
+    end
+    local dell, imac, spill = {}, {}, {}
+    for i,x in ipairs(found) do if i<=6 then table.insert(dell,x) else table.insert(spill,x) end end
+    grid(hs.screen.find('DELL'), dell)
+    if #spill>0 then
+      local m=hs.screen.primaryScreen():frame()
+      local right={frame=function() return hs.geometry.rect(m.x+m.w/2, m.y, m.w/2, m.h) end}
+      grid(right, spill)
+    end
+    return missing..' '..#found
+  " 2>/dev/null | tail -1)
+  missing=${out%% *}
+  [ "${missing:-1}" = 0 ] && break
+  sleep 0.5
+done
+
+# Forget windows that are gone, so the state file only lists what's on screen
+"$HS" -c "
+  local keep={}
+  for _,e in ipairs({${entries}}) do
+    local a=hs.application.get(e[1])
+    if a then for _,w in ipairs(a:allWindows()) do
+      if w:title():find(e[2],1,true) then table.insert(keep, e[1]..'\t'..e[2]); break end end end
+  end
+  return table.concat(keep,'\n')" 2>/dev/null > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
