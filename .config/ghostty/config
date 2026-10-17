@@ -1,9 +1,10 @@
 # Minimal Ghostty config aligned with tmux/sketchybar aesthetic
 
 window-decoration = false
-background-opacity = 0.87
-background-opacity-cells = true
-background-blur-radius = 20
+# was 0.87 + blur 20 — off to save GPU/CPU
+background-opacity = 1.0
+# background-opacity-cells = true
+# background-blur-radius = 20
 bold-is-bright = false 
 font-family = MonaspiceKr Nerd Font
 font-family-italic = MonaspiceRn Nerd Font

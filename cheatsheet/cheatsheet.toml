@@ -136,6 +136,7 @@ body = [
   { k = "brief-pictures --dry", d = "preview the 08:02 Discord picture DM (today's charts + one art tile); full-size files in ~/Pictures/Brief/<date>/" },
   { k = "computah sd-server start/stop", d = "keep FLUX hot — imagine/muse-loop skip the multi-min model reload", hl = true },
   { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
+  { k = "computah scanner-worker on/off/status", d = "PC drains the VPS radio-transcript queue (whisper turbo); idles in games + 22:00-09:00, never wakes it. UI: scanner.tools.ejfox.com (private link)" },
   { k = "computah screenshot", d = "the real Windows desktop -> ~/screenshots/computah + image on the clipboard (~3s); --up also uploads via the Cloudinary watcher", hl = true },
   { k = "computah obs start/rec/stop", d = "OBS on the PC: tray / record now / off (off by default: idle OBS tripped the wall's game guard; Fortnite matches still auto-open it)" },
   { div = true },
@@ -845,4 +846,22 @@ body = [
   { lbl = "secrets without pasting" },
   { k = "gh-secret-from-clipboard NAME owner/repo", d = "click COPY -> GitHub Actions secret, clipboard cleared" },
   { k = "env-from-clipboard KEY path/.env", d = "click COPY -> KEY=value in an .env (backed up)" },
+]
+
+[[section]]
+tone = "accent"
+tool = "both"
+badge = "PC"
+title = "B-roll — paper + CRT (renders on computah)"
+open = true
+body = [
+  { n = 'code, docs, PDFs and screenshots as **real matte paper** in Blender; outputs in ~/code/paperize/out' },
+  { k = "paperize FILE[:40-95] --orbit 70 --secs 15 --gpu", d = "one page, camera slowly circles it (code, md, pdf --page N, image)", hl = true },
+  { k = "paperize FILE", d = "single still, transparent PNG" },
+  { k = "paperdrop PDF|FOLDER", d = "huge stack falls from the sky + slams, alpha ProRes", hl = true },
+  { k = "printify DIR -o OUT --border 0.5", d = "screenshots -> inkjet prints at true relative size" },
+  { k = "paginate FILE[:A-B] [--receipt]", d = "typeset pages (80 cols) or a CVS receipt strip" },
+  { k = "crtbroll VIDEO --shot hero|pushin|macro", d = "screen recording on a black CRT, OLED-black room", hl = true },
+  { k = "gpulease status", d = "who holds the GPU (wall pauses while leased)" },
+  { o = "GUI: open the .blend files in C:\\Users\\ejfox\\Documents\\Paperize on computah" },
 ]
