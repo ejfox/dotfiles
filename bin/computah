@@ -128,6 +128,14 @@ case "${1:-ssh}" in
     shift
     rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\obs-ctl.ps1 ${*:-status}"
     ;;
+  stream-ready|stream-done)
+    # One click for streaming through the iMac's OBS (pc/stream-ready.ps1, EJ 2026-10-21): stream mode
+    # (game-guard holds FLUX/LLM/studio off the GPU), PC OBS + teleport :9100, VoiceMeeter + default
+    # output + VBAN at this Mac's current IP, the Mac's OBS + VBAN Receptor. Runs in EJ's PC session
+    # (task stream-ready/stream-done, visible checklist window); same as the desktop icons.
+    rssh "schtasks /run /tn $1" >/dev/null && echo "→ $1 started on computah (checklist window on the PC; log C:\\dev\\computah\\logs\\stream-ready.log)"
+    sleep 45; rssh "powershell -NoProfile -Command \"Get-Content C:\\dev\\computah\\logs\\stream-ready.log -Tail 12\"" 2>/dev/null | tr -d '\r'
+    ;;
   ssh)
     exec ssh "$REMOTE_USER@$(host)"
     ;;
