@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+// claude-statusline: one-line Claude Code status line that always fits.
+// Reads the statusLine JSON on stdin. Segments are listed in priority order;
+// when the pane is too narrow, the lowest-priority segments are dropped
+// instead of wrapping onto more lines. Monochrome; color only for warnings.
+// Replaced claude-powerline 2026-10-21 (config kept at ~/.claude/claude-powerline.json).
+
+import { execFileSync } from "node:child_process";
+import { openSync, closeSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import tty from "node:tty";
+import path from "node:path";
+
+const RESERVE = 12; // columns left free for Claude Code's notices on the right
+const SEP = " · ";
+
+// Vulpes, matching tmux/p10k/lualine: no backgrounds or arrows, cream for the
+// primary items, p10k-240-ish gray for the rest, amber/pink only as warnings.
+const C = {
+  text: "\x1b[38;2;242;207;223m", // #f2cfdf cream (lualine fg, tmux active path)
+  muted: "\x1b[38;2;138;138;138m", // #8a8a8a, a readable step above p10k's 240
+  dim: "\x1b[38;2;89;89;89m", // #595959 separators (tmux pane-border)
+  warn: "\x1b[38;2;255;170;0m", // #ffaa00 amber (lualine command mode)
+  crit: "\x1b[38;2;255;77;141m", // #ff4d8d pink (tmux active pane)
+  reset: "\x1b[0m",
+};
+
+function readStdin() {
+  try {
+    return JSON.parse(readFileSync(0, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function termWidth() {
+  const env = parseInt(process.env.COLUMNS || "", 10);
+  if (env > 0) return env;
+  let fd;
+  try {
+    fd = openSync("/dev/tty", "r");
+    const cols = new tty.ReadStream(fd).columns;
+    if (cols > 0) return cols;
+  } catch {
+  } finally {
+    try { if (fd !== undefined) closeSync(fd); } catch {}
+  }
+  return 120;
+}
+
+function run(cmd, args, cwd, timeout = 400) {
+  try {
+    return execFileSync(cmd, args, { cwd, encoding: "utf8", timeout, stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+
+const pctColor = (p, base = C.muted) => (p >= 85 ? C.crit : p >= 70 ? C.warn : base);
+
+// git status can take >400 ms in big repos, so cache it per folder for a few
+// seconds; a stale-but-present value beats the segment flickering out.
+const GIT_TTL_MS = 5000;
+function gitStatus(cwd) {
+  const cache = path.join(tmpdir(), `claude-statusline-git-${Buffer.from(cwd).toString("hex").slice(-40)}`);
+  try {
+    if (Date.now() - statSync(cache).mtimeMs < GIT_TTL_MS) return readFileSync(cache, "utf8");
+  } catch {}
+  const out = run("git", ["status", "--porcelain=v2", "--branch"], cwd, 1500);
+  try { writeFileSync(cache, out); } catch {}
+  return out;
+}
+
+function gitSegment(cwd) {
+  const out = gitStatus(cwd);
+  if (!out) return null;
+  let branch = "", ahead = 0, behind = 0, changed = 0;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("# branch.head ")) branch = line.slice(14);
+    else if (line.startsWith("# branch.ab ")) {
+      const m = line.match(/\+(\d+) -(\d+)/);
+      if (m) { ahead = +m[1]; behind = +m[2]; }
+    } else if (line && !line.startsWith("#")) changed++;
+  }
+  if (branch === "(detached)") branch = "detached";
+  const parts = [branch];
+  if (changed) parts.push(`+${changed} changed`);
+  if (ahead) parts.push(`${ahead} ahead`);
+  if (behind) parts.push(`${behind} behind`);
+  return parts.join(" ");
+}
+
+function duration(ms) {
+  const m = Math.round(ms / 60000);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+}
+
+// Each segment: [plainText, coloredText] or null. Order = priority.
+function segments(d) {
+  const seg = (s, color = C.muted) => (s ? [s, color + s + C.reset] : null);
+  const cwd = d.workspace?.current_dir || d.cwd || process.cwd();
+  const out = [];
+
+  out.push(seg(d.model?.display_name || d.model?.id, C.text));
+
+  const ctx = d.context_window?.used_percentage;
+  if (typeof ctx === "number") out.push(seg(`ctx ${Math.round(ctx)}%`, pctColor(ctx, C.text)));
+
+  out.push(seg(path.basename(cwd), C.text));
+  out.push(seg(gitSegment(cwd)));
+
+  const rl = d.rate_limits || {};
+  const lim = [["5h", rl.five_hour], ["7d", rl.seven_day]]
+    .filter(([, v]) => typeof v?.used_percentage === "number")
+    .map(([k, v]) => [`${k} ${Math.round(v.used_percentage)}%`, v.used_percentage]);
+  if (lim.length) {
+    const worst = Math.max(...lim.map(([, p]) => p));
+    out.push(seg(lim.map(([s]) => s).join(" "), pctColor(worst)));
+  }
+
+  const cost = d.cost?.total_cost_usd;
+  if (typeof cost === "number" && cost > 0) out.push(seg(`$${cost.toFixed(2)}`));
+
+  const ms = d.cost?.total_duration_ms;
+  if (ms > 60000) out.push(seg(duration(ms)));
+
+  if (process.env.TMUX) {
+    const win = run("tmux", ["display-message", "-p", "#I"]);
+    if (win) out.push(seg(`tmux ${win}`));
+  }
+  return out.filter(Boolean);
+}
+
+const d = readStdin();
+const budget = Math.max(20, termWidth() - RESERVE);
+let used = 0;
+const kept = [];
+for (const [plain, colored] of segments(d)) {
+  const w = plain.length + (kept.length ? SEP.length : 0);
+  if (used + w > budget) break; // drop this and everything less important
+  kept.push(colored);
+  used += w;
+}
+process.stdout.write(kept.join(C.dim + SEP + C.reset));
