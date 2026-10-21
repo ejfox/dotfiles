@@ -979,7 +979,6 @@ PYEOF
         "pixel art, limited 16-color palette, crisp ordered dithering, retro game sprite"
         "art nouveau poster, flowing organic linework, ornamental border, muted golds and forest greens"
         "brutalist collage, torn paper, photocopied high-contrast textures, xerox grit, single spot color"
-        "stained glass, leaded black outlines, luminous saturated panes, radial symmetry"
       )
     fi
     STYLELESS_PCT="${MUSE_STYLELESS_PCT:-20}"
@@ -994,7 +993,7 @@ PYEOF
       "a neon night market" "a satellite unfurling" "a tangle of cables and moss"
       "a hand-drawn map coming alive" "a CRT altar" "a drone-bee hive" "an island of servers"
       "a lighthouse of antennas" "a garden of solar panels" "a cathedral of vacuum tubes"
-      "a whale made of stained glass" "a clockwork heart" "a jellyfish of fiber optics"
+      "a clockwork heart" "a jellyfish of fiber optics"
       "a mountain of cassette tapes" "a phoenix of circuit traces" "a spider spinning copper wire"
       "a lantern-fish anglerfish" "a moth with monitor-wings" "a tortoise carrying a city"
       "a wolf woven from static" "a crow holding a floppy disk" "a deer with antler antennas"
@@ -1018,7 +1017,7 @@ PYEOF
       "as a purely abstract composition" "as a half-remembered dream" "as nature reclaiming technology"
       "as a cosmic event" "as a cozy interior" "as candid street photography")
     MOD=("colossal" "tiny and intricate" "melting" "blooming with fungus" "fractal" "ancient and weathered"
-      "iridescent" "half-submerged" "winged" "made of stained glass" "overgrown" "shattered and floating"
+      "iridescent" "half-submerged" "winged" "overgrown" "shattered and floating"
       "bioluminescent" "folded like origami" "windswept" "mirrored" "sprouting crystals")
 
     # ══ EXPLORE MODE (default on) ══════════════════════════════════════════════
@@ -1171,13 +1170,13 @@ PYEOF
       case "$t" in
         DAWN)   [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'watercolor|charcoal|cyanotype|risograph|woodblock'; PALETTES=("${PAL_PASTEL[@]}")
                 STYLELESS_PCT=40; MUSE_PALETTE_PCT=55; MUSE_WILD_PCT=25; MUSE_BLEND_PCT=15; MUSE_FAV_PCT=12; MUSE_BARE_PCT=30; MUSE_BANK_PCT=55; FINISH_1IN=14; SK_HI=18 ;;
-        STUDIO) [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|art nouveau|stained glass|screenprint'; PALETTES=("${PAL_ELECTRIC[@]}")
+        STUDIO) [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|art nouveau|screenprint'; PALETTES=("${PAL_ELECTRIC[@]}")
                 STYLELESS_PCT=10; MUSE_PALETTE_PCT=25; MUSE_WILD_PCT=10; MUSE_BLEND_PCT=12; MUSE_FAV_PCT=25 ;;
         LAB)    STYLELESS_PCT=25; MUSE_PALETTE_PCT=65; MUSE_WILD_PCT=55; MUSE_BLEND_PCT=40; MUSE_FAV_PCT=10; MUSE_BANK_PCT=78 ;;
         GOLDEN) [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'oil painting|watercolor|charcoal|art nouveau|airbrushed'; PALETTES=("${PAL_WARM[@]}")
                 STYLELESS_PCT=8; MUSE_PALETTE_PCT=45; MUSE_WILD_PCT=15; MUSE_BLEND_PCT=20; MUSE_FAV_PCT=35; MUSE_BANK_PCT=50; FINISH_1IN=5; SK_LO=18; SK_HI=26; FN_LO=32 ;;
         SIGNAL) STYLELESS_PCT=20; MUSE_PALETTE_PCT=30; MUSE_WILD_PCT=25; MUSE_BLEND_PCT=20; MUSE_SCREEN_PCT=50; MUSE_FAV_PCT=15; MUSE_BANK_PCT=45 ;;
-        DUSK)   [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|stained glass|sci-fi|risograph|oil painting'; PALETTES=("${PAL_ELECTRIC[@]}")
+        DUSK)   [ -z "${MUSE_STYLE:-}" ] && _pick_styles 'flat vector|sci-fi|risograph|oil painting'; PALETTES=("${PAL_ELECTRIC[@]}")
                 STYLELESS_PCT=15; MUSE_PALETTE_PCT=60; MUSE_WILD_PCT=35; MUSE_BLEND_PCT=35; MUSE_FAV_PCT=15; MUSE_BANK_PCT=65 ;;
         DREAM)  STYLELESS_PCT=30; MUSE_PALETTE_PCT=70; MUSE_WILD_PCT=60; MUSE_BLEND_PCT=45; MUSE_SCREEN_PCT=5; MUSE_FAV_PCT=8; MUSE_BANK_PCT=82; FINISH_1IN=12; SK_LO=14; SK_HI=20 ;;
         SCANNER) [ -z "${MUSE_STYLE:-}" ] && STYLES=(
@@ -1672,6 +1671,10 @@ print(random.choices(i, weights=range(len(i), 0, -1))[0] if i else "")' 2>/dev/n
 
       # subject was set by the brevity roll; style is per-cell (may be empty → bare).
       if [ -n "$cell_style" ]; then full="$subject, $cell_style"; else full="$subject"; fi
+      # EJ 2026-10-21: "scalpel the stained glass shit out of the prompts". The style/subject lists no
+      # longer carry it, but recycled favorite prompts and the LLM bank still can, so every wall prompt
+      # is scrubbed here, before steering/logging/render (a hand-typed `computah imagine` is untouched).
+      full=$(printf '%s' "$full" | perl -pe 's/,?\s*(made of |in the style of |as )?(stained|leaded)[ -]?glass( windows?| panes?)?//gi; s/,?\s*leaded black outlines//gi; s/,?\s*luminous saturated panes//gi; s/,?\s*(rose|cathedral) windows?//gi; s/^[\s,]+//; s/^of\s+//i; s/\s+,/,/g; s/,{2,}/,/g')
 
       # ── BEST-OF-N (2026-09-30): N cheap sketches → the preference probe, minus a
       #    diversity penalty vs. what's already on the wall, picks one → finished here
