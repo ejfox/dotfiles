@@ -156,6 +156,7 @@ title = "ejfox Workflow"
 open = true
 body = [
   { k = "C-a g", d = "tmux: lazygit popup", hl = true },
+  { k = "C-a Z", d = "tmux: reading column (this window, 80ch)", hl = true },
   { k = "Space → a", d = "lazygit: stage, AI commit", hl = true },
   { k = "⎵gg", d = "nvim: open lazygit", hl = true },
   { k = "Enter → v → Space", d = "lazygit: partial hunk staging" },

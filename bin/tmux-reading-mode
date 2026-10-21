@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# tmux reading mode: center the active pane in a fixed-width column, ONE window only.
+#   prefix+Z toggles. Width: `set -g @reading-width 80` in .tmux.conf (default 80);
+#   `tmux-reading-mode width 100` overrides it for the current window (diff-heavy work).
+# How: blank padding panes left + right of the pane, borders drawn as spaces.
+# Multi-pane window (or zoomed)? The pane is broken out into its own window (placed
+# right after the original) and joined back into the original layout, zoom restored.
+#   tmux-reading-mode toggle <pane_id>   (bound to prefix+Z)
+#   tmux-reading-mode refit [window_id]  (window-resized hook; no arg = all)
+# Hooks in .tmux.conf bounce focus/copy-mode off the pads. Everything run from a hook
+# must exit 0 and print nothing, or tmux shows "returned 1" in the pane.
+set -u
+TMUX_BIN=$(command -v tmux)
+
+wopt() { tmux show -wqv -t "$1" "$2"; }  # -q: unset option = empty, not an error
+fmt() { tmux display -p -t "$1" "$2"; }
+# NOT `display -t`: a missing target silently falls back to the current pane
+exists() { tmux list-panes -a -F '#{pane_id}' | grep -qx -- "$1"; }
+
+# window options don't inherit from the global, so fall back by hand
+width() { local m; m=$(wopt "$1" @reading-width); [[ -n $m ]] || m=$(tmux show -gqv @reading-width); echo "${m:-80}"; }
+side()  { local s=$(( ($(fmt "$1" '#{window_width}') - $(width "$1") - 2) / 2 )); (( s < 1 )) && s=1; echo "$s"; }
+
+fit() {  # two calls on purpose: a failed command aborts the rest of a `\;` chain
+  local win=$1 s; s=$(side "$win")
+  tmux resize-pane -t "$(wopt "$win" @reading-left)" -x "$s" 2>/dev/null
+  tmux resize-pane -t "$(wopt "$win" @reading-right)" -x "$s" 2>/dev/null
+}
+
+pad() {  # blank pane that dies on its own if the reading pane goes away
+  tmux split-window "$@" -P -F '#{pane_id}' \
+    "while $TMUX_BIN has -t $pane 2>/dev/null; do sleep 3; done"
+}
+
+on() {
+  local pane=$1 win name layout zoomed ids i anchor before lp rp s
+  win=$(fmt "$pane" '#{window_id}')
+  if (( $(fmt "$win" '#{window_panes}') > 1 )); then
+    layout=$(fmt "$win" '#{window_layout}')
+    zoomed=$(fmt "$win" '#{window_zoomed_flag}')
+    name=$(fmt "$win" '#{window_name}')
+    ids=($(tmux list-panes -t "$win" -F '#{pane_id}'))
+    for i in "${!ids[@]}"; do [[ ${ids[$i]} == "$pane" ]] && break; done
+    if (( i == 0 )); then anchor=${ids[1]}; before=1; else anchor=${ids[$((i-1))]}; before=0; fi
+    local origin=$win
+    # -a -t origin: new window lands right after the original, in its session
+    win=$(tmux break-pane -a -s "$pane" -t "$origin" -n "$name" -P -F '#{window_id}')
+    tmux set -w -t "$win" @reading-origin "$origin" \; \
+         set -w -t "$win" @reading-layout "$layout" \; \
+         set -w -t "$win" @reading-anchor "$anchor" \; \
+         set -w -t "$win" @reading-before "$before" \; \
+         set -w -t "$win" @reading-zoomed "$zoomed"
+  fi
+  # borderless first + pads split at final width = no flicker of 1-col slivers
+  tmux set -w -t "$win" pane-border-lines spaces \; set -w -t "$win" pane-border-status off
+  s=$(side "$win"); lp=$(pad -hbd -l "$s" -t "$pane"); rp=$(pad -hd -l "$s" -t "$pane")
+  # title = the marker resurrect-scrub filters on (resurrect saves titles, not our options);
+  # separate select-pane: `-d -T` together silently drops the title
+  for p in "$lp" "$rp"; do
+    tmux set -p -t "$p" @reading-pad 1 \; select-pane -d -t "$p" \; select-pane -T reading-pad -t "$p"
+  done
+  tmux set -w -t "$win" @reading 1 \; set -w -t "$win" @reading-pane "$pane" \; \
+       set -w -t "$win" @reading-left "$lp" \; set -w -t "$win" @reading-right "$rp"
+  tmux select-pane -t "$pane"
+}
+
+off() {
+  local win=$1 pane origin anchor layout before zoomed
+  pane=$(wopt "$win" @reading-pane)
+  origin=$(wopt "$win" @reading-origin); anchor=$(wopt "$win" @reading-anchor)
+  layout=$(wopt "$win" @reading-layout); before=$(wopt "$win" @reading-before)
+  zoomed=$(wopt "$win" @reading-zoomed)
+  tmux kill-pane -t "$(wopt "$win" @reading-left)" 2>/dev/null
+  tmux kill-pane -t "$(wopt "$win" @reading-right)" 2>/dev/null
+  for o in @reading @reading-pane @reading-left @reading-right @reading-origin \
+           @reading-layout @reading-anchor @reading-before @reading-zoomed \
+           pane-border-lines pane-border-status; do
+    tmux set -wu -t "$win" "$o" 2>/dev/null
+  done
+  # rejoin only if the neighbor pane still exists AND still lives in the origin window
+  if [[ -n $origin ]] && exists "$anchor" && [[ $(fmt "$anchor" '#{window_id}') == "$origin" ]]; then
+    if [[ $before == 1 ]]; then tmux join-pane -hb -s "$pane" -t "$anchor"
+    else tmux join-pane -h -s "$pane" -t "$anchor"; fi
+    tmux select-layout -t "$origin" "$layout" 2>/dev/null  # stale layout = tmux's own split
+    tmux select-window -t "$origin" \; select-pane -t "$pane"
+    [[ $zoomed == 1 ]] && tmux resize-pane -Z -t "$pane"
+  fi
+}
+
+case ${1:-} in
+  toggle)
+    pane=${2:-$(tmux display -p '#{pane_id}')}
+    win=$(fmt "$pane" '#{window_id}')
+    if [[ $(wopt "$win" @reading) == 1 ]]; then off "$win"; else on "$pane"; fi; exit 0 ;;
+  refit)
+    for w in ${2:-$(tmux list-windows -a -F '#{window_id}')}; do
+      [[ $(wopt "$w" @reading) == 1 ]] && fit "$w"
+    done; exit 0 ;;
+  width)  # width [N]: this window only; no N = print current
+    win=$(tmux display -p '#{window_id}')
+    [[ -n ${2:-} ]] || { width "$win"; exit 0; }
+    tmux set -w -t "$win" @reading-width "$2"; fit "$win"; exit 0 ;;
+  resurrect-scrub)  # @resurrect-hook-post-save-layout: drop pad panes so restores don't
+    f=${2:-}        # resurrect them as empty zsh fossils (the reading pane restores alone)
+    keep='!($1 == "pane" && $7 == "reading-pad")'  # field 7 = pane_title
+    [[ -f $f ]] && awk -F'\t' '$1 == "pane" && $7 == "reading-pad" {n++} END {exit !n}' "$f" || exit 0
+    awk -F'\t' "$keep" "$f" > "$f.scrub" && [[ -s $f.scrub ]] && mv "$f.scrub" "$f"
+    rm -f "$f.scrub"; exit 0 ;;
+  *) echo "usage: tmux-reading-mode toggle [pane_id] | refit [window_id] | width [N] | resurrect-scrub <file>" >&2; exit 1 ;;
+esac

@@ -50,7 +50,9 @@
 (tmux) C-a w - choose window tree view (visual session/window picker)
 (tmux) C-a C-c - create new session
 (tmux) C-a C-f - find and switch to session by name
-(tmux) C-a Z - zen mode toggle
+(tmux) C-a Z - reading mode: center THIS window's pane in an 80ch column (@reading-width)
+(tmux) tmux-reading-mode width 100 - widen the reading column for this window only (diffs/tables)
+(tmux) C-a M-z - old global zen (hide tmux status + sketchybar)
 (tmux) status bar shows ◼ when prefix is active
 (nvim/tmux) C-h/j/k/l - navigate nvim splits + tmux panes
 (nvim) gai - incoming calls (who calls this function)
