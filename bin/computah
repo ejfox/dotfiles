@@ -32,6 +32,9 @@
 #   computah show <file|url>...  put things on the PC's 4K monitor, auto-gridded,
 #                            without touching komorebi's tiling (no args: re-fit)
 #   computah unshow          close everything `computah show` put up
+#   computah gpu [status|why]  shadow GPU broker: VRAM, game state, gpu services, sleep4
+#                            next run (status, default) or last 20 broker events (why).
+#                            Read-only passthrough to gpu.ps1 on the PC. Never wakes it.
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 # Sibling helpers (muse-lifefeed, muse-brainstorm, muse-arena, muse-cloudinary,
@@ -1928,6 +1931,16 @@ PYEOF
   run)
     shift
     rssh "$@"
+    ;;
+
+  gpu)
+    # Shadow GPU broker passthrough (docs/gpu-broker-design.md, computah-telemetry pc/gpu.ps1):
+    # `gpu status` (VRAM, game state, gpu services, sleep4 next run) or `gpu why` (last 20
+    # broker events). Read-only on the PC side too -- never kills, never wakes the PC.
+    shift
+    h=$(host)
+    if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "PC asleep/unreachable"; exit 1; fi
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\gpu.ps1 ${1:-status}"
     ;;
 
   show|unshow)
