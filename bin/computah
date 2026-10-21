@@ -1333,9 +1333,11 @@ PYEOF
         # alone leaves both models resident and stealing the card. Done once; the
         # wall reloads sd-server on its next render and llm when it needs a prompt
         # once the game is gone. MUSE_GAME_KEEPGPU=1 opts out (leave models loaded).
+        # 2026-10-21: no more `sd-server stop` here. game-guard kills sd-server and its
+        # supervisor waits on GAME_ON, then restarts it; `svc stop` killed the supervisor
+        # and the wall stayed dark 10-16 → 10-20 (computah-telemetry docs/gpu-broker-design.md).
         if [ "${game_freed:-0}" -eq 0 ] && [ -z "${MUSE_GAME_KEEPGPU:-}" ]; then
-          echo "  ◆ game detected — freeing GPU (sd-server + llm off)"
-          "$0" sd-server stop >/dev/null 2>&1
+          echo "  ◆ game detected — paused (game-guard holds sd-server, llm off)"
           "$0" llm off        >/dev/null 2>&1
           game_freed=1
         fi
