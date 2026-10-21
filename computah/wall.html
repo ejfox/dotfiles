@@ -263,6 +263,21 @@ function buildGrid() {
 
 // ── studio cells ───────────────────────────────────────────────────────────────
 let SN = 0, sdivs = [], STUDIO = [];                       // STUDIO = newest-first index items
+// exposure log (2026-10-20): every studio piece that actually reaches the screen fires ONE
+// type=shown event, so taste_reweight.py can count stars per 100 SHOWN instead of per rendered.
+// Only while the tab is visible and the cell is laid out; a piece that cycles back in later
+// (mode switch, grid resize) is not re-sent.
+const studioShown = new Set();
+function logStudioShown() {
+  if (document.visibilityState !== 'visible') return;
+  sdivs.forEach(s => {
+    const n = s.item && s.item.name;
+    if (!n || studioShown.has(n) || !shown(s.d)) return;
+    studioShown.add(n);
+    sendEvent('type=shown&kind=studio&id=' + encodeURIComponent(n));
+  });
+}
+document.addEventListener('visibilitychange', logStudioShown);
 const studioTs = name => { const m = /^(\d{4})(\d\d)(\d\d)-(\d\d)(\d\d)(\d\d)/.exec(name || '');
   return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : 0; };
 const studioTag = name => String(name || '').replace(/^\d{8}-\d{6}_/, '');
@@ -289,6 +304,7 @@ async function loadStudio() {
     }
   }
   applyOrder(); drawTimeline();
+  logStudioShown();                                   // after applyOrder: cells are laid out now
 }
 async function studioInspect(j) {
   const it = sdivs[j] && sdivs[j].item; if (!it) return;

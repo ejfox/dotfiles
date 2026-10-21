@@ -147,7 +147,7 @@ while ($listener.IsListening) {
     #   optional one-line reason typed after a star / down / pair pick: verdict + text).
     if ($path -eq 'event') {
       $type = $q['type']
-      $ok = $type -in @('inspect','down','pair','fav','why')
+      $ok = $type -in @('inspect','down','pair','fav','why','shown')   # shown: studio exposure for taste_reweight.py (2026-10-20)
       $raw = $ctx.Request.RawUrl
       $kindOf = { param($v) if (@('flux','studio') -contains $v) { $v } else { '' } }
       $kind = & $kindOf $q['kind']

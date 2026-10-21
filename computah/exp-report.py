@@ -13,6 +13,12 @@ plus a power note (cells per arm needed to detect a 2x ★-rate difference).
   options: --since YYYY-MM-DD  --all (count unseen cells too; default = SEEN cells
            only, via muse_presence, when usage logs exist)  --json (machine output)
            --host IP
+  computah/exp-report.py --studio        Blender studio: taste arm vs 50% control arm,
+                                         stars per 100 SHOWN (per 100 rendered until the
+                                         wall logs exposure), Wilson CIs, P(taste > control)
+                                         from the Beta posteriors taste_reweight.py writes
+                                         nightly into studio/taste-weights.json (--file PATH
+                                         reads a local copy instead of computah :7861)
 
 Factors (independent per cell, see muse-steer):
   ref 0|1|2 · bestof 1|N (pick judge|random) · particles 1|K (pick judge|random)
@@ -134,7 +140,47 @@ def levels(c):
     return out
 
 
+def studio_report():
+    """The studio's arms block is computed in ONE place (taste_reweight.py: chains as one trial,
+    campaign/pinned pieces excluded, shown-or-rendered denominator); this only prints it."""
+    path = arg("--file")
+    raw = open(path, "rb").read() if path else fetch("studio/taste-weights.json")
+    d = json.loads(raw.decode("utf-8", "replace"))
+    a = d.get("arms") or {}
+    arms = a.get("arms") or {}
+    if not arms:
+        print("no arms block yet: run taste_reweight.py on computah (nightly task `taste-reweight`) first")
+        return
+    if "--json" in ARGS:
+        print(json.dumps({"generated": d.get("generated"), "model": d.get("model"), "counts": d.get("counts"), "arms": a}, indent=1))
+        return
+    m, c = d.get("model") or {}, d.get("counts") or {}
+    print(f"◆ STUDIO TASTE ARMS — weights generated {d.get('generated')} · stars per 100 {a.get('denominator', '?')}")
+    print(f"  model: PRIOR {m.get('prior')} · GAMMA {m.get('gamma')} · clamp {m.get('clamp')} · since {m.get('since')} · "
+          f"half-life {m.get('half_life_days') or 'off'}")
+    print(f"  trials {c.get('trials')} from {c.get('pieces')} pieces · excluded: {c.get('before_since')} before since, "
+          f"{c.get('campaign')} campaign, {c.get('forced')} pinned, {c.get('unseen')} never shown · "
+          f"stars unmatched (no sidecar) {c.get('stars_no_sidecar')}")
+    print(f"\n  {'arm':<9}{'trials':>7}  {'★ per 100 [95% CI]':<28}{'pos mass':>9}{'neg mass':>9}")
+    for name in sorted(arms, key=lambda k: ("control", "taste").index(k) if k in ("control", "taste") else 9):
+        r = arms[name]
+        p, lo, hi = wilson(r["stars"], r["trials"])
+        ci = f"{r['stars']}/{r['trials']} {p * 100:.2f} [{lo * 100:.2f}–{hi * 100:.2f}]" if r["trials"] else "-"
+        print(f"  {name:<9}{r['trials']:>7}  {ci:<28}{r['pos']:>9.1f}{r['neg']:>9.1f}")
+    if "p_taste_gt_control" in a:
+        print(f"\n  P(taste > control) = {a['p_taste_gt_control']:.3f}  (flat Beta priors)")
+    t, cc = arms.get("taste", {}), arms.get("control", {})
+    base = (cc.get("stars", 0) / cc["trials"]) if cc.get("trials") else 0
+    p1 = base if base > 0 else 0.009
+    print(f"  POWER: at a {p1:.2%} control ★ rate a 2x difference needs ~{n_for_2x(p1)} trials PER ARM "
+          f"(have taste {t.get('trials', 0)}, control {cc.get('trials', 0)}). Promote only when the taste CI lower bound "
+          f"clears the control mean; kill when its upper bound falls below it. Expect 'undetermined' for months.")
+
+
 def main():
+    if "--studio" in ARGS:
+        studio_report()
+        return
     cells = load_arms()
     if not cells:
         print("no steered cells yet (arms log ~/.cache/muse/steer.jsonl is empty) — let the wall run")
