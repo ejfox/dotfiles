@@ -29,17 +29,28 @@ req = connect(obs.ReqClient)
 we_muted = False
 
 def apply(scene):
+    # Rule: a mute that exists while the program sits in a mute scene is ours, so leaving unmutes
+    # it. A mute made OUTSIDE the mute scenes (pad 38 on Cam · Talk) is EJ's and survives the round
+    # trip. (OBS persists mute state across restarts, so a launch on BRB comes up already muted;
+    # tracking "did I press mute" alone left the mic dead after that, 2026-10-26.)
     global we_muted
     muted = req.get_input_mute(MIC).input_muted
     if scene in MUTE_SCENES:
         if not muted:
-            req.set_input_mute(MIC, True); we_muted = True
+            req.set_input_mute(MIC, True)
             print(f"muted {MIC} on {scene}", flush=True)
+        we_muted = True
     elif we_muted:
-        req.set_input_mute(MIC, False); we_muted = False
-        print(f"unmuted {MIC} leaving to {scene}", flush=True)
+        we_muted = False
+        if muted and not manual:
+            req.set_input_mute(MIC, False)
+            print(f"unmuted {MIC} leaving to {scene}", flush=True)
 
-apply(req.get_current_program_scene().scene_name)
+manual = False  # EJ's own mute, made outside the mute scenes: never undone by this script
+_start = req.get_current_program_scene().scene_name
+if _start not in MUTE_SCENES:
+    manual = req.get_input_mute(MIC).input_muted
+apply(_start)
 if "--once" in sys.argv:
     sys.exit(0)
 
@@ -59,9 +70,11 @@ def on_current_program_scene_changed(data): recheck("scene changed")
 def on_scene_transition_started(data): recheck("transition started")
 def on_scene_transition_ended(data): recheck("transition ended")
 def on_input_mute_state_changed(data):
-    global we_muted
-    if data.input_name == MIC and not data.input_muted:
-        we_muted = False  # someone unmuted by hand: respect it, don't fight them
+    # manual mute/unmute outside the mute scenes is EJ's call: stop owning the mute state
+    global we_muted, manual
+    if data.input_name == MIC and req.get_current_program_scene().scene_name not in MUTE_SCENES:
+        manual = data.input_muted
+        we_muted = False
 def on_exit_started(_):
     os._exit(0)
 ev.callback.register([on_current_program_scene_changed, on_scene_transition_started,
