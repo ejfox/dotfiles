@@ -129,16 +129,23 @@ fetch_stats() {
 }
 
 fetch_tasks() {
-  # Not from launchd precache: things-cli reads Things' Group Container, and under the
-  # motd-precache job macOS asks "gtimeout would like to access data from other apps"
-  # every 30 min. Terminal runs (Ghostty is the responsible app) refresh it instead.
-  [ -n "$PRECACHE" ] && return 0
   cache_ok "$CACHE_DIR/tasks" $TTL_TASKS && return 0
-  command -v things-cli >/dev/null || return 0
 
-  # things-cli prints "- Title (2026-10-08 | Anytime)"; keep the title only.
-  # (things.sh, used here since 2025-12, no longer exists, so FOCUS was blank.)
-  local tasks=$(things-cli today 2>/dev/null | sed -E 's/^- //; s/ +\([^()]*\|[^()]*\)$//' | head -3)
+  local tasks
+  if [ -n "$PRECACHE" ]; then
+    # launchd precache: ask Things over AppleEvents, never read its database. things-cli
+    # reads Things' Group Container, and under this job (program = gtimeout) macOS re-asks
+    # "gtimeout would like to access data from other apps" every run; gtimeout's
+    # AppleEvents grant for Things is permanent. Only if Things is open: never launch it.
+    pgrep -xq Things3 || return 0
+    tasks=$(osascript -e 'tell application "Things3" to set n to name of to dos of list "Today"' \
+      -e 'set AppleScript'"'"'s text item delimiters to linefeed' -e 'n as text' 2>/dev/null | head -3)
+  else
+    command -v things-cli >/dev/null || return 0
+    # things-cli prints "- Title (2026-10-08 | Anytime)"; keep the title only.
+    # (things.sh, used here since 2025-12, no longer exists, so FOCUS was blank.)
+    tasks=$(things-cli today 2>/dev/null | sed -E 's/^- //; s/ +\([^()]*\|[^()]*\)$//' | head -3)
+  fi
   [ -z "$tasks" ] && return 0
 
   echo "$tasks" | sed 's/^/  /' > "$CACHE_DIR/tasks.tmp.$$" && \
