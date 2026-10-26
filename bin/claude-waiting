@@ -1,0 +1,12 @@
+#!/bin/sh
+# Claude Code hook -> tmux pane flags, read by .tmux.conf (PANE STYLING + window-status-format).
+#   on   Stop / Notification:          @claude_waiting = idle (✳, not ◐)
+#                                      @claude_unseen  = idle and you haven't looked (teal)
+#   off  UserPromptSubmit / PreToolUse: clear both
+# tmux clears @claude_unseen on pane focus in/out, and redraws on its own when these change.
+[ -n "$TMUX_PANE" ] || exit 0
+case "$1" in
+  on)  tmux set -p -t "$TMUX_PANE" @claude_waiting 1 \; set -p -t "$TMUX_PANE" @claude_unseen 1 ;;
+  off) tmux set -pu -t "$TMUX_PANE" @claude_waiting \; set -pu -t "$TMUX_PANE" @claude_unseen ;;
+esac 2>/dev/null
+exit 0
