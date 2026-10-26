@@ -1,7 +1,7 @@
 #!/usr/local/bin/python3
 """obs-computah-source — put the PC's OBS program feed into the iMac OBS as its own scene.
 
-Scene "computah" holds:
+Scene "Game · COD S&D" (and its twin "Game · COD TDM") holds:
   "computah (Teleport)"  PRIMARY (2026-10-04). obs-teleport source dialing 10.0.0.169:9100 directly
                          (the PC's Teleport output, set up by computah pc/teleport-setup.ps1).
                          JPEG frames over TCP on the gigabit LAN: tens of ms instead of SRT's ~1-2 s.
@@ -21,7 +21,7 @@ import base64, json, os, sys, time
 import obsws_python as obs
 
 CFG = os.path.expanduser("~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json")
-SCENE, TP, SRT = "computah", "computah (Teleport)", "computah (SRT)"
+SCENE, TP, SRT = "Game · COD S&D", "computah (Teleport)", "computah (SRT)"   # TDM twin: "Game · COD TDM"
 PC = "10.0.0.169:9100"
 SRT_URL = "srt://0.0.0.0:9000?mode=listener&latency=120000"     # the PC dials imacpro.local; latency in µs
 

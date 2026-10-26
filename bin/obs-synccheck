@@ -20,7 +20,7 @@ import numpy as np
 WS_CONFIG = os.path.expanduser('~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json')
 CACHE = os.path.expanduser('~/.cache/obs-synccheck')
 MIC = 'SM7dB'
-SCENE = '🎙️ Yapping'            # camera-only scene (no screen capture in frame)
+SCENE = 'Cam · Talk'            # camera scene (renamed from Yapping 2026-10-26)
 FLASHES = [2.0, 4.0, 6.0, 8.0, 10.0]
 FLASH_LEN = 0.12
 STIM_DUR = 11.5
