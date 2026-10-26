@@ -8,13 +8,18 @@ HS=/usr/local/bin/hs
 URL="file://$HOME/code/stream-overlays/chat-desk.html"
 TITLE="Chat Desk"
 
-front=$("$HS" -c 'return hs.application.frontmostApplication():bundleID()' 2>/dev/null | tail -1)
+# every hs call is capped at 5 s: a Chrome allWindows() listing once hung forever (2026-10-26).
+# perl alarm, not gtimeout: gtimeout under launchd trips TCC "wants data from other apps" prompts.
+hsq() { perl -e 'alarm 5; exec @ARGV' "$HS" -c "$1" 2>/dev/null | tail -1; }
 
-have=$("$HS" -c "
+front=$(hsq 'return hs.application.frontmostApplication():bundleID()')
+refocus() { hsq "local b=hs.application.get('$front'); if b then b:activate() end" >/dev/null; }
+
+have=$(hsq "
   local a=hs.application.get('com.google.Chrome')
   if not a then return 'no' end
   for _,w in ipairs(a:allWindows()) do if w:title():find('$TITLE',1,true)==1 then return 'yes' end end
-  return 'no'" 2>/dev/null | tail -1)
+  return 'no'")
 
 if [ "$have" != "yes" ]; then
   open -g -na "Google Chrome" --args --app="$URL" --new-window
@@ -22,20 +27,19 @@ fi
 
 # place it (the window can take a moment to appear) and hand focus back
 for _ in $(seq 1 20); do
-  ok=$("$HS" -c "
+  ok=$(hsq "
     local a=hs.application.get('com.google.Chrome'); if not a then return 'wait' end
     for _,w in ipairs(a:allWindows()) do
       if w:title():find('$TITLE',1,true)==1 then   -- Chrome appends ' - <profile>'
         local f=hs.screen.find('DELL'):frame()
         w:setFrame(hs.geometry.rect(f.x, f.y, f.w, f.h/2))
-        local b=hs.application.get('$front'); if b then b:activate() end
         return 'ok'
       end
     end
-    return 'wait'" 2>/dev/null | tail -1)
-  [ "$ok" = ok ] && { echo "chat-desk: on the Dell (top half)"; exit 0; }
+    return 'wait'")
+  if [ "$ok" = ok ]; then refocus; echo "chat-desk: on the Dell (top half)"; exit 0; fi
   sleep 0.5
 done
-"$HS" -c "local b=hs.application.get('$front'); if b then b:activate() end" >/dev/null 2>&1
+refocus
 echo "chat-desk: window didn't appear" >&2
 exit 1

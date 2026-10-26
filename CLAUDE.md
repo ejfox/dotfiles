@@ -26,7 +26,7 @@ Rules and gotchas only. Feature history, setup logs and per-plugin notes live in
 - Ghostty's bloom shader blooms red and pink pixels. For selections and highlights, use a dark background with white text, not bright saturated colors.
 
 ## Things 3
-- `things-cli` and the things MCP are read-only. Add tasks with `open "things:///add?title=…&notes=…&when=today"`, URL-encoded.
+- `things-cli` and the things MCP are read-only. Add tasks with `open -g "things:///add?title=…&notes=…&when=today"`, URL-encoded (`-g` keeps focus; the guard hook blocks plain `open`).
 - Prefix titles with the action type: `FIX:`, `VERIFY:`, `UPGRADE:`, `INVESTIGATE:`, `CONSIDER:`, `MONITOR:`, `OPTIONAL:`.
 
 ## Elsewhere
