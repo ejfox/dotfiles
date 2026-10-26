@@ -10,12 +10,12 @@
             "device_id": "AppleUSBAudioEngine:Shure Inc:Shure MVX2U:MVX2U#3-5bd18f6ea886ea51bd814b0b58bc8058:2,3"
         },
         "mixers": 255,
-        "sync": 150000000,
+        "sync": 100000000,
         "flags": 0,
         "volume": 1.0,
         "balance": 0.5,
         "enabled": true,
-        "muted": true,
+        "muted": false,
         "push-to-mute": false,
         "push-to-mute-delay": 0,
         "push-to-talk": false,
@@ -943,6 +943,38 @@
         },
         {
             "prev_ver": 537001986,
+            "name": "Friends · Discord",
+            "uuid": "b0333c9d-4f27-4e9a-88ea-ab60dd76f5ee",
+            "id": "sck_audio_capture",
+            "versioned_id": "sck_audio_capture",
+            "settings": {
+                "application": "com.hnc.Discord",
+                "type": 1
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
             "name": "Show · Starting Soon",
             "uuid": "a467a753-b729-4816-9022-4174b4d87e09",
             "id": "scene",
@@ -952,7 +984,7 @@
                 "custom_size": false,
                 "items": [
                     {
-                        "name": "Part · Camera Blurred",
+                        "name": "Part · Blur Plate",
                         "source_uuid": "45f55c49-06e6-4ee1-8d14-b6e56561fcf4",
                         "visible": true,
                         "locked": false,
@@ -970,61 +1002,6 @@
                         "crop_right": 0,
                         "crop_bottom": 0,
                         "id": 5,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.0
-                        },
-                        "scale": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 1920.0,
-                            "y": 1080.0
-                        },
-                        "bounds_rel": {
-                            "x": 3.555555582046509,
-                            "y": 2.0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Part · Camera",
-                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
-                        "visible": false,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
-                        },
-                        "align": 5,
-                        "bounds_type": 2,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 1,
                         "group_item_backup": false,
                         "pos": {
                             "x": 0.0,
@@ -1249,8 +1226,6 @@
                 ],
                 "libobs.show_scene_item.5": [],
                 "libobs.hide_scene_item.5": [],
-                "libobs.show_scene_item.1": [],
-                "libobs.hide_scene_item.1": [],
                 "libobs.show_scene_item.2": [],
                 "libobs.hide_scene_item.2": [],
                 "libobs.show_scene_item.6": [],
@@ -1262,7 +1237,10 @@
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
-            "private_settings": {}
+            "private_settings": {
+                "transition": "Fade",
+                "transition_duration": 700
+            }
         },
         {
             "prev_ver": 537001986,
@@ -1471,7 +1449,10 @@
             "deinterlace_field_order": 0,
             "monitoring_type": 0,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
-            "private_settings": {}
+            "private_settings": {
+                "transition": "Fade",
+                "transition_duration": 700
+            }
         },
         {
             "prev_ver": 537001986,
@@ -1750,61 +1731,6 @@
                 "custom_size": false,
                 "items": [
                     {
-                        "name": "Part · Camera",
-                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
-                        },
-                        "align": 5,
-                        "bounds_type": 2,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 2,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": -239.0,
-                            "y": -143.0
-                        },
-                        "pos_rel": {
-                            "x": -2.220370292663574,
-                            "y": -1.264814853668213
-                        },
-                        "scale": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 2406.0,
-                            "y": 1353.0
-                        },
-                        "bounds_rel": {
-                            "x": 4.455555438995361,
-                            "y": 2.5055556297302246
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
                         "name": "Screen",
                         "source_uuid": "d3011fc2-6969-4b48-8edf-b62c3bf9ca42",
                         "visible": true,
@@ -1847,6 +1773,61 @@
                         "bounds_rel": {
                             "x": 3.555555582046509,
                             "y": 2.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Part · Camera",
+                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 2,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 976,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 984.0,
+                            "y": -143.0
+                        },
+                        "pos_rel": {
+                            "x": 0.04444444552063942,
+                            "y": -1.264814853668213
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 1182.5,
+                            "y": 1353.0
+                        },
+                        "bounds_rel": {
+                            "x": 2.1900410652160645,
+                            "y": 2.5055556297302246
                         },
                         "scale_filter": "disable",
                         "blend_method": "default",
@@ -1959,61 +1940,6 @@
                 "custom_size": false,
                 "items": [
                     {
-                        "name": "Part · Camera",
-                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
-                        },
-                        "align": 5,
-                        "bounds_type": 2,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 2,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": -138.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.2555556297302246
-                        },
-                        "scale": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
-                        },
-                        "bounds": {
-                            "x": 2406.0,
-                            "y": 1353.0
-                        },
-                        "bounds_rel": {
-                            "x": 4.455555438995361,
-                            "y": 2.5055556297302246
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
                         "name": "Screen",
                         "source_uuid": "d3011fc2-6969-4b48-8edf-b62c3bf9ca42",
                         "visible": true,
@@ -2056,6 +1982,61 @@
                         "bounds_rel": {
                             "x": 3.555555582046509,
                             "y": 2.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Part · Camera",
+                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 2,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 785,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 984.0,
+                            "y": -138.0
+                        },
+                        "pos_rel": {
+                            "x": 0.04444444552063942,
+                            "y": -1.2555556297302246
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 1422.0,
+                            "y": 1353.0
+                        },
+                        "bounds_rel": {
+                            "x": 2.6331534385681152,
+                            "y": 2.5055556297302246
                         },
                         "scale_filter": "disable",
                         "blend_method": "default",
@@ -3103,135 +3084,12 @@
         },
         {
             "prev_ver": 537001986,
-            "name": "Part · Camera Blurred",
-            "uuid": "45f55c49-06e6-4ee1-8d14-b6e56561fcf4",
-            "id": "scene",
-            "versioned_id": "scene",
-            "settings": {
-                "id_counter": 1,
-                "custom_size": true,
-                "cx": 64,
-                "cy": 36,
-                "items": [
-                    {
-                        "name": "Part · Camera",
-                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0.0,
-                        "scale_ref": {
-                            "x": 64.0,
-                            "y": 36.0
-                        },
-                        "align": 5,
-                        "bounds_type": 2,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 1,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0.0,
-                            "y": 0.0
-                        },
-                        "pos_rel": {
-                            "x": -1.7777777910232544,
-                            "y": -1.0
-                        },
-                        "scale": {
-                            "x": 0.03333333,
-                            "y": 0.03333333
-                        },
-                        "scale_rel": {
-                            "x": 0.03333333,
-                            "y": 0.03333333
-                        },
-                        "bounds": {
-                            "x": 64.0,
-                            "y": 36.0
-                        },
-                        "bounds_rel": {
-                            "x": 3.555555582046509,
-                            "y": 2.0
-                        },
-                        "scale_filter": "area",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    }
-                ]
-            },
-            "mixers": 0,
-            "sync": 0,
-            "flags": 0,
-            "volume": 1.0,
-            "balance": 0.5,
-            "enabled": true,
-            "muted": false,
-            "push-to-mute": false,
-            "push-to-mute-delay": 0,
-            "push-to-talk": false,
-            "push-to-talk-delay": 0,
-            "hotkeys": {
-                "OBSBasic.SelectScene": [],
-                "libobs.show_scene_item.1": [],
-                "libobs.hide_scene_item.1": []
-            },
-            "deinterlace_mode": 0,
-            "deinterlace_field_order": 0,
-            "monitoring_type": 0,
-            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
-            "private_settings": {},
-            "filters": [
-                {
-                    "prev_ver": 537001986,
-                    "name": "Blur",
-                    "uuid": "9b0f0f14-fbd7-4ed0-99cd-d09023d421ae",
-                    "id": "shader_filter",
-                    "versioned_id": "shader_filter",
-                    "settings": {
-                        "from_file": true,
-                        "Directions": 16.0,
-                        "Quality": 5.0,
-                        "Size": 5.0,
-                        "shader_file_name": "/Users/ejfox/Library/Application Support/obs-studio/plugins/obs-shaderfilter.plugin/Contents/Resources/examples/gaussian-blur-advanced.shader"
-                    },
-                    "mixers": 0,
-                    "sync": 0,
-                    "flags": 0,
-                    "volume": 1.0,
-                    "balance": 0.5,
-                    "enabled": true,
-                    "muted": false,
-                    "push-to-mute": false,
-                    "push-to-mute-delay": 0,
-                    "push-to-talk": false,
-                    "push-to-talk-delay": 0,
-                    "hotkeys": {},
-                    "deinterlace_mode": 0,
-                    "deinterlace_field_order": 0,
-                    "monitoring_type": 0,
-                    "private_settings": {}
-                }
-            ]
-        },
-        {
-            "prev_ver": 537001986,
             "name": "Part · Overlay Bus",
             "uuid": "f70109fe-aef4-4ba5-b4a5-4fd7bd31c462",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "id_counter": 5,
+                "id_counter": 6,
                 "custom_size": false,
                 "items": [
                     {
@@ -3292,7 +3150,7 @@
                     {
                         "name": "Overlay",
                         "source_uuid": "327e12b4-a325-42f7-a706-217e5332523c",
-                        "visible": false,
+                        "visible": true,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -3453,6 +3311,61 @@
                             "duration": 0
                         },
                         "private_settings": {}
+                    },
+                    {
+                        "name": "Friends · Discord",
+                        "source_uuid": "b0333c9d-4f27-4e9a-88ea-ab60dd76f5ee",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 6,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
@@ -3476,7 +3389,9 @@
                 "libobs.show_scene_item.3": [],
                 "libobs.hide_scene_item.3": [],
                 "libobs.show_scene_item.4": [],
-                "libobs.hide_scene_item.4": []
+                "libobs.hide_scene_item.4": [],
+                "libobs.show_scene_item.6": [],
+                "libobs.hide_scene_item.6": []
             },
             "deinterlace_mode": 0,
             "deinterlace_field_order": 0,
@@ -4136,6 +4051,129 @@
             "monitoring_type": 0,
             "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
             "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Part · Blur Plate",
+            "uuid": "45f55c49-06e6-4ee1-8d14-b6e56561fcf4",
+            "id": "scene",
+            "versioned_id": "scene",
+            "settings": {
+                "id_counter": 1,
+                "custom_size": true,
+                "cx": 64,
+                "cy": 36,
+                "items": [
+                    {
+                        "name": "Part · Camera",
+                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 64.0,
+                            "y": 36.0
+                        },
+                        "align": 5,
+                        "bounds_type": 2,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 0.03333333134651184,
+                            "y": 0.03333333134651184
+                        },
+                        "scale_rel": {
+                            "x": 0.03333333134651184,
+                            "y": 0.03333333134651184
+                        },
+                        "bounds": {
+                            "x": 64.0,
+                            "y": 36.0
+                        },
+                        "bounds_rel": {
+                            "x": 3.555555582046509,
+                            "y": 2.0
+                        },
+                        "scale_filter": "area",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    }
+                ]
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {},
+            "filters": [
+                {
+                    "prev_ver": 537001986,
+                    "name": "Blur",
+                    "uuid": "9b0f0f14-fbd7-4ed0-99cd-d09023d421ae",
+                    "id": "shader_filter",
+                    "versioned_id": "shader_filter",
+                    "settings": {
+                        "from_file": true,
+                        "shader_file_name": "/Users/ejfox/Library/Application Support/obs-studio/plugins/obs-shaderfilter.plugin/Contents/Resources/examples/gaussian-blur-advanced.shader",
+                        "Directions": 16.0,
+                        "Quality": 5.0,
+                        "Size": 5.0
+                    },
+                    "mixers": 0,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_mode": 0,
+                    "deinterlace_field_order": 0,
+                    "monitoring_type": 0,
+                    "private_settings": {}
+                }
+            ]
         },
         {
             "prev_ver": 537001986,
@@ -6492,14 +6530,14 @@
             "name": "Part · Camera"
         },
         {
-            "name": "Part · Camera Blurred"
+            "name": "Part · Blur Plate"
         },
         {
             "name": "Part · Action Cam"
         }
     ],
-    "current_scene": "Show · BRB",
-    "current_program_scene": "Show · BRB",
+    "current_scene": "Cam · Talk",
+    "current_program_scene": "Cam · Talk",
     "canvases": [
         {
             "info": {
@@ -6511,17 +6549,26 @@
         }
     ],
     "current_transition": "Move",
-    "transition_duration": 2200,
+    "transition_duration": 850,
     "transitions": [
         {
             "name": "Move",
             "id": "move_transition",
             "settings": {
-                "transition_match": "Fade",
-                "transition_in": "None",
-                "transition_out": "None",
-                "easing_function_match": 1,
-                "easing_function_in": 1
+                "transition_match": "",
+                "transition_in": "Fade",
+                "transition_out": "Fade",
+                "easing_function_match": 3,
+                "easing_function_in": 3,
+                "curve_in": 0.0,
+                "curve_match": 0.0,
+                "curve_out": 0.0,
+                "easing_function_out": 3,
+                "easing_in": 3,
+                "easing_match": 3,
+                "easing_out": 3,
+                "zoom_in": 100.0,
+                "zoom_out": false
             }
         }
     ],
