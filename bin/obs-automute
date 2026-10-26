@@ -1,0 +1,75 @@
+#!/usr/local/bin/python3
+"""obs-automute — the SM7dB goes dead on Show · BRB and Show · Starting Soon.
+The mic is OBS's global Mic/Aux, so switching scenes alone never mutes it (hot mic on BRB).
+On entering a mute scene: remember whether the mic was already muted, then mute it.
+On leaving: unmute ONLY if this script did the muting (a pad-38 manual mute stays muted).
+Started by hammerspoon/obs-lights.lua when OBS launches; waits for obs-websocket, exits when OBS
+closes. Password comes from OBS's own websocket config, never printed.
+
+  obs-automute            run (foreground)
+  obs-automute --once     apply the rule to the current scene and exit (for testing)
+"""
+import json, os, sys, time
+import obsws_python as obs
+
+MIC = "SM7dB"
+MUTE_SCENES = {"Show · BRB", "Show · Starting Soon"}
+CFG = os.path.expanduser("~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json")
+
+def connect(kind, tries=90):
+    cfg = json.load(open(CFG))
+    for _ in range(tries):  # OBS takes a few seconds to bring the websocket up after launch
+        try:
+            return kind(host="127.0.0.1", port=cfg["server_port"], password=cfg["server_password"], timeout=5)
+        except Exception:
+            time.sleep(2)
+    sys.exit("obs-automute: obs-websocket never came up")
+
+req = connect(obs.ReqClient)
+we_muted = False
+
+def apply(scene):
+    global we_muted
+    muted = req.get_input_mute(MIC).input_muted
+    if scene in MUTE_SCENES:
+        if not muted:
+            req.set_input_mute(MIC, True); we_muted = True
+            print(f"muted {MIC} on {scene}", flush=True)
+    elif we_muted:
+        req.set_input_mute(MIC, False); we_muted = False
+        print(f"unmuted {MIC} leaving to {scene}", flush=True)
+
+apply(req.get_current_program_scene().scene_name)
+if "--once" in sys.argv:
+    sys.exit(0)
+
+ev = connect(obs.EventClient)
+def recheck(why):
+    # With a transition (Move, 2.2 s) OBS reports SceneTransitionStarted/Ended and may never send
+    # CurrentProgramSceneChanged inside the window, so every one of these just re-reads the
+    # program scene and applies the (idempotent) rule. Transition start = mute before BRB lands.
+    try:
+        scene = req.get_current_program_scene().scene_name
+        if "-v" in sys.argv:
+            print(f"event: {why} -> {scene}", flush=True)
+        apply(scene)
+    except Exception as e:
+        print(f"obs-automute: {e}", flush=True)
+def on_current_program_scene_changed(data): recheck("scene changed")
+def on_scene_transition_started(data): recheck("transition started")
+def on_scene_transition_ended(data): recheck("transition ended")
+def on_input_mute_state_changed(data):
+    global we_muted
+    if data.input_name == MIC and not data.input_muted:
+        we_muted = False  # someone unmuted by hand: respect it, don't fight them
+def on_exit_started(_):
+    os._exit(0)
+ev.callback.register([on_current_program_scene_changed, on_scene_transition_started,
+                      on_scene_transition_ended, on_input_mute_state_changed, on_exit_started])
+
+while True:  # exit when OBS goes away
+    time.sleep(5)
+    try:
+        req.get_version()
+    except Exception:
+        sys.exit(0)

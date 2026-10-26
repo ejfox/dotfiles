@@ -15,7 +15,7 @@
         "volume": 1.0,
         "balance": 0.5,
         "enabled": true,
-        "muted": false,
+        "muted": true,
         "push-to-mute": false,
         "push-to-mute-delay": 0,
         "push-to-talk": false,
@@ -865,12 +865,90 @@
         },
         {
             "prev_ver": 537001986,
+            "name": "Starting Soon Type",
+            "uuid": "7c2a63a2-663c-49b8-9361-21163fbac135",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "is_local_file": true,
+                "local_file": "/Users/ejfox/code/stream-overlays/show-starting-soon.html",
+                "width": 1920,
+                "height": 1080,
+                "shutdown": true,
+                "restart_when_active": true,
+                "css": "",
+                "reroute_audio": false
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "BRB Type",
+            "uuid": "76723981-214b-4189-987b-28de91e950aa",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "is_local_file": true,
+                "local_file": "/Users/ejfox/code/stream-overlays/show-brb.html",
+                "width": 1920,
+                "height": 1080,
+                "shutdown": true,
+                "restart_when_active": true,
+                "css": "",
+                "reroute_audio": false
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
             "name": "Show · Starting Soon",
             "uuid": "a467a753-b729-4816-9022-4174b4d87e09",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "id_counter": 5,
+                "id_counter": 6,
                 "custom_size": false,
                 "items": [
                     {
@@ -986,7 +1064,7 @@
                     {
                         "name": "Starting Soon Text",
                         "source_uuid": "760a8f66-6d47-4189-9b09-e83d6ebd3bec",
-                        "visible": true,
+                        "visible": false,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -1026,6 +1104,61 @@
                         "bounds_rel": {
                             "x": 1.6666666269302368,
                             "y": 0.29629629850387573
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Starting Soon Type",
+                        "source_uuid": "7c2a63a2-663c-49b8-9361-21163fbac135",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 6,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
                         },
                         "scale_filter": "disable",
                         "blend_method": "default",
@@ -1120,6 +1253,8 @@
                 "libobs.hide_scene_item.1": [],
                 "libobs.show_scene_item.2": [],
                 "libobs.hide_scene_item.2": [],
+                "libobs.show_scene_item.6": [],
+                "libobs.hide_scene_item.6": [],
                 "libobs.show_scene_item.3": [],
                 "libobs.hide_scene_item.3": []
             },
@@ -1136,13 +1271,13 @@
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "id_counter": 3,
+                "id_counter": 4,
                 "custom_size": false,
                 "items": [
                     {
                         "name": "BRB Text",
                         "source_uuid": "3ba7c316-61e0-4456-a052-580b1718143e",
-                        "visible": true,
+                        "visible": false,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -1182,6 +1317,61 @@
                         "bounds_rel": {
                             "x": 1.5555555820465088,
                             "y": 0.29629629850387573
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "BRB Type",
+                        "source_uuid": "76723981-214b-4189-987b-28de91e950aa",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 4,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
                         },
                         "scale_filter": "disable",
                         "blend_method": "default",
@@ -1272,6 +1462,8 @@
                 ],
                 "libobs.show_scene_item.1": [],
                 "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.4": [],
+                "libobs.hide_scene_item.4": [],
                 "libobs.show_scene_item.2": [],
                 "libobs.hide_scene_item.2": []
             },
@@ -2917,7 +3109,9 @@
             "versioned_id": "scene",
             "settings": {
                 "id_counter": 1,
-                "custom_size": false,
+                "custom_size": true,
+                "cx": 64,
+                "cy": 36,
                 "items": [
                     {
                         "name": "Part · Camera",
@@ -2926,11 +3120,11 @@
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
-                            "x": 1920.0,
-                            "y": 1080.0
+                            "x": 64.0,
+                            "y": 36.0
                         },
                         "align": 5,
-                        "bounds_type": 0,
+                        "bounds_type": 2,
                         "bounds_align": 0,
                         "bounds_crop": false,
                         "crop_left": 0,
@@ -2948,22 +3142,22 @@
                             "y": -1.0
                         },
                         "scale": {
-                            "x": 1.0,
-                            "y": 1.0
+                            "x": 0.03333333,
+                            "y": 0.03333333
                         },
                         "scale_rel": {
-                            "x": 1.0,
-                            "y": 1.0
+                            "x": 0.03333333,
+                            "y": 0.03333333
                         },
                         "bounds": {
-                            "x": 0.0,
-                            "y": 0.0
+                            "x": 64.0,
+                            "y": 36.0
                         },
                         "bounds_rel": {
-                            "x": 0.0,
-                            "y": 0.0
+                            "x": 3.555555582046509,
+                            "y": 2.0
                         },
-                        "scale_filter": "disable",
+                        "scale_filter": "area",
                         "blend_method": "default",
                         "blend_type": "normal",
                         "show_transition": {
@@ -3006,8 +3200,10 @@
                     "versioned_id": "shader_filter",
                     "settings": {
                         "from_file": true,
-                        "shader_file_name": "/Users/ejfox/Library/Application Support/obs-studio/plugins/obs-shaderfilter.plugin/Contents/Resources/examples/gaussian-blur-simple.shader",
-                        "Strength": 22
+                        "Directions": 16.0,
+                        "Quality": 5.0,
+                        "Size": 5.0,
+                        "shader_file_name": "/Users/ejfox/Library/Application Support/obs-studio/plugins/obs-shaderfilter.plugin/Contents/Resources/examples/gaussian-blur-advanced.shader"
                     },
                     "mixers": 0,
                     "sync": 0,
@@ -6302,8 +6498,8 @@
             "name": "Part · Action Cam"
         }
     ],
-    "current_scene": "Cam · Talk",
-    "current_program_scene": "Cam · Talk",
+    "current_scene": "Show · BRB",
+    "current_program_scene": "Show · BRB",
     "canvases": [
         {
             "info": {
