@@ -1,0 +1,7 @@
+{
+    "rate_control": "ABR",
+    "bitrate": 20000,
+    "keyint_sec": 2,
+    "profile": "high",
+    "bframes": true
+}

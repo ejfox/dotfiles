@@ -5,8 +5,9 @@ Scene "Game · COD S&D" (and its twin "Game · COD TDM") holds:
   "computah (Teleport)"  PRIMARY (2026-10-04). obs-teleport source dialing 10.0.0.169:9100 directly
                          (the PC's Teleport output, set up by computah pc/teleport-setup.ps1).
                          JPEG frames over TCP on the gigabit LAN: tens of ms instead of SRT's ~1-2 s.
-                         MUTED with monitoring off — PC sound reaches the Mac through VBAN, and a
-                         feed's audio is what drove this OBS to 960 ms of global audio buffering.
+                         UNMUTED (2026-10-26): this is the stream's game audio (the PC OBS's own
+                         Mic/Aux is muted so only Desktop Audio rides along). Monitoring off; EJ
+                         hears the PC through VBAN Receptor.
                          Retries forever, so it reconnects by itself after PC/OBS restarts.
   "computah (SRT)"       FALLBACK, hidden. Media Source LISTENING on :9000 for the PC's caller
                          (obs-srt.py). The PC's SRT stream is off while farm\\keeper\\obs-srt.off
@@ -50,7 +51,7 @@ if TP not in inputs:
     c.create_input(SCENE, TP, "teleport-source", tp, True); print(f"◆ teleport source '{TP}' -> {PC}")
 else:
     c.set_input_settings(TP, tp, True); print(f"◆ teleport source '{TP}' settings refreshed")
-c.set_input_mute(TP, True)
+c.set_input_mute(TP, False)   # game audio on stream (was muted before 2026-10-26)
 c.set_input_audio_monitor_type(TP, "OBS_MONITORING_TYPE_NONE")
 
 # Teleport on top filling the canvas; SRT hidden underneath
