@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""office-lights onair | restore | status
+On-air look for the iPhone cam (matches obs/luts/ejfox-iphone-onair.cube, tuned 2026-10-26):
+key "Office Show Light" 5000K 100%, practicals "Desk Lamp" 2700K 70% + "Desk Underlight" 2700K 45%.
+`onair` saves the Office's current state first (once; a pending save is never overwritten),
+`restore` puts it back. Called by hammerspoon/obs-lights.lua on OBS launch/quit.
+Only the Office room is ever touched; Pamara's room is refused outright."""
+import json, os, ssl, sys, urllib.request
+
+ONAIR = {"Office Show Light": {"k": 5000, "bri": 100},
+         "Desk Lamp": {"k": 2700, "bri": 70},
+         "Desk Underlight": {"k": 2700, "bri": 45}}
+ALLOWED = {"office"}
+STATE = os.path.expanduser("~/.cache/office-lights/before.json")
+
+def env():
+    ip, key = os.environ.get("HUE_BRIDGE_IP"), os.environ.get("HUE_APP_KEY")
+    if ip and key:
+        return ip, key
+    vals = {}
+    try:
+        for line in open(os.path.expanduser("~/.env")):
+            line = line.strip().removeprefix("export ")
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                vals[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return vals.get("HUE_BRIDGE_IP"), vals.get("HUE_APP_KEY")
+
+IP, KEY = env()
+if not IP or not KEY:
+    sys.exit("office-lights: HUE_BRIDGE_IP / HUE_APP_KEY not set")
+CTX = ssl._create_unverified_context()  # the bridge's LAN cert is self-signed
+
+def req(method, path, body=None):
+    r = urllib.request.Request(f"https://{IP}/clip/v2/resource/{path}", method=method,
+                               data=json.dumps(body).encode() if body else None,
+                               headers={"hue-application-key": KEY, "Content-Type": "application/json"})
+    with urllib.request.urlopen(r, context=CTX, timeout=8) as resp:
+        return json.load(resp)
+
+def office():
+    rooms = {ch["rid"]: room["metadata"]["name"].lower()
+             for room in req("GET", "room")["data"] for ch in room["children"]}
+    out = {}
+    for l in req("GET", "light")["data"]:
+        room = rooms.get(l["owner"]["rid"], "")
+        if "pamara" not in room and room in ALLOWED:
+            out[l["metadata"]["name"]] = l
+    return out
+
+def put(light, body):
+    req("PUT", f"light/{light['id']}", body)
+
+def main(cmd):
+    lights = office()
+    if cmd == "onair":
+        if not os.path.exists(STATE):
+            os.makedirs(os.path.dirname(STATE), exist_ok=True)
+            state = {n: {"on": l["on"]["on"], "bri": l.get("dimming", {}).get("brightness"),
+                         "mirek": l.get("color_temperature", {}).get("mirek")} for n, l in lights.items()}
+            json.dump(state, open(STATE, "w"), indent=1)
+        for n, s in ONAIR.items():
+            if n in lights:
+                body = {"on": {"on": True}, "dimming": {"brightness": s["bri"]}}
+                if "color_temperature" in lights[n]:
+                    body["color_temperature"] = {"mirek": round(1e6 / s["k"])}
+                put(lights[n], body)
+        print("on-air")
+    elif cmd == "restore":
+        if not os.path.exists(STATE):
+            print("nothing saved"); return
+        for n, s in json.load(open(STATE)).items():
+            if n not in lights:
+                continue
+            body = {"on": {"on": s["on"]}}
+            if s["on"] and s.get("bri") is not None:
+                body["dimming"] = {"brightness": s["bri"]}
+            if s["on"] and s.get("mirek") and "color_temperature" in lights[n]:
+                body["color_temperature"] = {"mirek": s["mirek"]}
+            put(lights[n], body)
+        os.remove(STATE)
+        print("restored")
+    elif cmd == "status":
+        for n, l in lights.items():
+            m = l.get("color_temperature", {}).get("mirek")
+            print(f"{n:20} {'on ' if l['on']['on'] else 'off'} {l.get('dimming', {}).get('brightness', '-'):>6} "
+                  f"{round(1e6 / m) if m else '-'}K")
+        print("saved state pending" if os.path.exists(STATE) else "no saved state")
+    else:
+        sys.exit(__doc__)
+
+if __name__ == "__main__":
+    main(sys.argv[1] if len(sys.argv) > 1 else "")
