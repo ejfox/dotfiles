@@ -3,15 +3,13 @@ return {
   "obsidian-nvim/obsidian.nvim",
   version = "*", -- recommended, use latest release instead of latest commit
   lazy = true,
-  ft = "markdown",
-  -- Replace the above line with this if you only want to load obsidian.nvim for markdown files in your vault:
-  -- event = {
-  --   -- If you want to use the home shortcut '~' here you need to call 'vim.fn.expand'.
-  --   -- E.g. "BufReadPre " .. vim.fn.expand "~" .. "/my-vault/*.md"
-  --   -- refer to `:h file-pattern` for more examples
-  --   "BufReadPre path/to/my-vault/*.md",
-  --   "BufNewFile path/to/my-vault/*.md",
-  -- },
+  -- WHY not ft = "markdown": lazy re-fires FileType after loading on it, and nvim 0.12's
+  -- markdown ftplugin undo then throws E31 on every .md open. Vault-only also keeps it off
+  -- non-vault markdown. Table form because the vault path has a space.
+  event = {
+    { event = { "BufReadPre", "BufNewFile" }, pattern = "/Users/ejfox/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox/*.md" },
+  },
+  cmd = "Obsidian",
   dependencies = {
     -- Required.
     "nvim-lua/plenary.nvim",
