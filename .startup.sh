@@ -129,10 +129,16 @@ fetch_stats() {
 }
 
 fetch_tasks() {
+  # Not from launchd precache: things-cli reads Things' Group Container, and under the
+  # motd-precache job macOS asks "gtimeout would like to access data from other apps"
+  # every 30 min. Terminal runs (Ghostty is the responsible app) refresh it instead.
+  [ -n "$PRECACHE" ] && return 0
   cache_ok "$CACHE_DIR/tasks" $TTL_TASKS && return 0
-  command -v things.sh >/dev/null || return 0
+  command -v things-cli >/dev/null || return 0
 
-  local tasks=$(things.sh today 2>/dev/null | cut -d'|' -f2 | sed 's/^[^[:alnum:]]*//' | head -3)
+  # things-cli prints "- Title (2026-10-08 | Anytime)"; keep the title only.
+  # (things.sh, used here since 2025-12, no longer exists, so FOCUS was blank.)
+  local tasks=$(things-cli today 2>/dev/null | sed -E 's/^- //; s/ +\([^()]*\|[^()]*\)$//' | head -3)
   [ -z "$tasks" ] && return 0
 
   echo "$tasks" | sed 's/^/  /' > "$CACHE_DIR/tasks.tmp.$$" && \
