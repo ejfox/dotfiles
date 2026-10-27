@@ -5,6 +5,7 @@ require("hs.ipc")  -- enables `hs -c "..."` CLI for debugging
 _G.computah_audio = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/computah-audio.lua"))  -- menu bar PC-audio control (guarded)
 _G.studio_lock = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/studio.lua"))  -- `studio` recording window keeps its size (guarded)
 _G.obs_lights = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/obs-lights.lua"))  -- OBS launch/quit -> Office on-air lights (guarded)
+_G.vclip = select(2, pcall(dofile, os.getenv("HOME") .. "/.dotfiles/hammerspoon/vclip.lua"))  -- floating CLIP button: vertical backtrack save (guarded)
 
 -- ── Config ──────────────────────────────────────────────────────────────
 local STREAK_GAP = 0.8       -- seconds of silence that resets streak

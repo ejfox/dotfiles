@@ -1,0 +1,58 @@
+#!/Library/Frameworks/Python.framework/Versions/3.11/bin/python3
+"""vclip : save the vertical canvas backtrack (Aitum Vertical "backtrack clip") right now.
+Prints one line for the floating CLIP button (Hammerspoon vclip.lua) or a terminal.
+If backtrack isn't running there's nothing to save, so it starts it and says so."""
+import glob, json, os, sys, time
+import obsws_python as obs
+
+CFG = os.path.expanduser("~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json")
+VC = os.path.expanduser("~/Library/Application Support/obs-studio/plugin_config/vertical-canvas/config.json")
+
+
+def vendor(c, req):
+    r = c.send("CallVendorRequest", {"vendorName": "aitum-vertical-canvas", "requestType": req, "requestData": {}}, raw=True)
+    return r.get("responseData") or {}
+
+
+def backtrack_dir():
+    try:
+        d = json.load(open(VC))
+        canv = d["canvas"][0] if isinstance(d.get("canvas"), list) else d
+        return canv.get("backtrack_path") or os.path.expanduser("~/Movies")
+    except Exception:
+        return os.path.expanduser("~/Movies")
+
+
+def newest(path, since):
+    files = [f for f in glob.glob(os.path.join(path, "*")) if os.path.isfile(f) and os.path.getmtime(f) >= since]
+    if not files:
+        return ""
+    return os.path.basename(max(files, key=os.path.getmtime))
+
+
+def main():
+    try:
+        cfg = json.load(open(CFG))
+        c = obs.ReqClient(host="localhost", port=cfg.get("server_port", 4455), password=cfg.get("server_password"), timeout=5)
+    except Exception:
+        print("ERR OBS not reachable")
+        return 1
+    st = vendor(c, "status")
+    if not st.get("backtrack"):
+        vendor(c, "start_backtrack")
+        print("WAIT backtrack was off; started it, clip again in a bit")
+        return 2
+    t0 = time.time() - 1
+    vendor(c, "save_backtrack")
+    for _ in range(16):                       # the file lands a moment after the request
+        time.sleep(0.5)
+        f = newest(backtrack_dir(), t0)
+        if f:
+            print(f"OK {f}")
+            return 0
+    print("OK saved")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
