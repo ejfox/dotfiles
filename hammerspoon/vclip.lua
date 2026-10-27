@@ -32,11 +32,26 @@ local HTML = [[
     max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
   body.busy .big{opacity:.4;}
   body.ok button{background:#fff;color:#000;} body.ok .sub{color:rgba(0,0,0,.6);}
+  /* armed = this window has keyboard focus, so Enter will clip (EJ: yellow border when focused) */
+  html[data-armed] button{box-shadow:inset 0 0 0 6px #ffd400;}
+  html[data-armed] .sub{color:#ffd400;}
+  html[data-armed] body.ok .sub{color:rgba(0,0,0,.6);}
 </style></head><body>
 <button id="b" autofocus><span class="big" id="big">CLIP</span><span class="sub" id="sub">vertical · last __S__s</span></button>
 <script>
   const IDLE = "vertical · last __S__s";
-  let busy = false;
+  let busy = false, armed = false;
+  function idleText(){
+    if (armed) return "press enter to clip";
+    return IDLE;
+  }
+  // called from Lua on window focus changes
+  function setArmed(on){
+    armed = on;
+    if (on) document.documentElement.dataset.armed = "";
+    else delete document.documentElement.dataset.armed;
+    if (!busy) document.getElementById("sub").textContent = idleText();
+  }
   function fire(){ if(busy) return; busy = true; document.body.className = "busy";
     document.getElementById("sub").textContent = "saving…";
     webkit.messageHandlers.vclip.postMessage("clip"); }
@@ -46,7 +61,7 @@ local HTML = [[
     document.getElementById("sub").textContent = msg;
     setTimeout(() => { busy = false; document.body.className = "";
       document.getElementById("big").textContent = "CLIP";
-      document.getElementById("sub").textContent = IDLE; }, 2600);
+      document.getElementById("sub").textContent = idleText(); }, 2600);
   }
   document.getElementById("b").addEventListener("click", fire);
   addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fire(); } });
@@ -87,6 +102,7 @@ local function build()
     :html((HTML:gsub("__S__", tostring(seconds()))))
   view:windowCallback(function(action, _, fr)
     if action == "frameChange" and fr then hs.settings.set(KEY, { x = fr.x, y = fr.y, w = fr.w, h = fr.h }) end
+    if action == "focusChange" and view then view:evaluateJavaScript("setArmed(" .. tostring(fr == true) .. ")") end
   end)
 end
 
@@ -98,6 +114,11 @@ end
 
 function M.hide()
   if view then view:hide() end
+end
+
+-- run JS in the button (testing the armed look without stealing focus: vclip.js("setArmed(true)"))
+function M.js(s)
+  if view then view:evaluateJavaScript(s) end
 end
 
 -- reopen from the menu bar any time (EJ: "easy to reopen"): click = bring the button back
