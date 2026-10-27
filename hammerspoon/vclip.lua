@@ -26,8 +26,9 @@ local HTML = [[
     align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;}
   button:hover{background:#111;}
   button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35);}
-  .big{font-family:"Archivo Black",Impact,sans-serif;font-size:54px;letter-spacing:.06em;line-height:1;}
-  .sub{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.5);
+  /* type scales with the window (it's resizable): whichever of width/height is tighter wins */
+  .big{font-family:"Archivo Black",Impact,sans-serif;font-size:min(42vh,21vw);letter-spacing:.06em;line-height:1;}
+  .sub{font-size:min(8vh,4.4vw);letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.5);
     max-width:92%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
   body.busy .big{opacity:.4;}
   body.ok button{background:#fff;color:#000;} body.ok .sub{color:rgba(0,0,0,.6);}
@@ -76,7 +77,7 @@ local function build()
   local uc = hs.webview.usercontent.new("vclip")
   uc:setCallback(function() run(view) end)
   view = hs.webview.new(frame, { developerExtrasEnabled = false }, uc)
-    :windowStyle({ "titled", "closable", "utility", "HUD" })
+    :windowStyle({ "titled", "closable", "resizable", "utility", "HUD" })
     :windowTitle("CLIP")
     :level(hs.drawing.windowLevels.floating)
     :behavior(hs.drawing.windowBehaviors.canJoinAllSpaces + hs.drawing.windowBehaviors.stationary)
@@ -97,6 +98,15 @@ end
 
 function M.hide()
   if view then view:hide() end
+end
+
+-- reopen from the menu bar any time (EJ: "easy to reopen"): click = bring the button back
+-- (and to the front of the floating layer); the X on the button only hides it
+M.menu = hs.menubar.new(true, "vclip")
+if M.menu then
+  M.menu:setTitle("CLIP")
+  M.menu:setTooltip("Show the vertical CLIP button")
+  M.menu:setClickCallback(function() M.show() end)
 end
 
 -- visible while OBS runs (the clip only exists in OBS's buffer); no focus is taken on show
