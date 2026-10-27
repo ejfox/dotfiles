@@ -1,7 +1,8 @@
 #!/Library/Frameworks/Python.framework/Versions/3.11/bin/python3
 """vclip : save the vertical canvas backtrack (Aitum Vertical "backtrack clip") right now.
 Prints one line for the floating CLIP button (Hammerspoon vclip.lua) or a terminal.
-If backtrack isn't running there's nothing to save, so it starts it and says so."""
+If backtrack isn't running there's nothing to save, so it starts it and says so.
+Order: computah's vertical canvas (it runs the show since 2026-10-26) -> the iMac's -> computah's replay buffer."""
 import glob, json, os, sys, time
 import obsws_python as obs
 
@@ -33,6 +34,38 @@ def newest(path, since):
 PC_CFG = os.path.expanduser("~/.config/vclip/pc-ws.json")   # computah's obs-websocket creds (0600)
 
 
+def pc_client():
+    cfg = json.load(open(PC_CFG))
+    return obs.ReqClient(host="10.0.0.169", port=cfg.get("server_port", 4455), password=cfg.get("server_password"), timeout=5)
+
+
+def pc_vertical():
+    """computah runs the show AND the vertical canvas (since 2026-10-26): save its vertical backtrack.
+    Returns an exit code, or None when computah/its vertical plugin isn't there (caller falls back)."""
+    try:
+        p = pc_client()
+        st = vendor(p, "status")
+    except Exception:
+        return None
+    if not st.get("success"):
+        return None
+    if not st.get("backtrack"):
+        vendor(p, "start_backtrack")
+        print("WAIT computah vertical buffer was off; started it")
+        return 2
+    vendor(p, "save_backtrack")
+    time.sleep(2.5)
+    try:                                       # newest VERTICAL file on computah (ssh is ~0.5 s on the LAN)
+        import subprocess
+        out = subprocess.run(["ssh", "-o", "ConnectTimeout=3", "computah",
+                              r'dir /b /o-d "C:\Users\ejfox\Videos\OBS Recordings\*VERTICAL*"'],
+                             capture_output=True, text=True, timeout=6).stdout.splitlines()
+        print(f"OK computah · {out[0].strip()}")
+    except Exception:
+        print("OK computah vertical saved")
+    return 0
+
+
 def pc_replay():
     """iMac OBS closed (gaming night): save computah's OBS replay buffer instead (EJ 2026-10-26)."""
     try:
@@ -56,6 +89,9 @@ def pc_replay():
 
 
 def main():
+    rc = pc_vertical()                         # computah first: it makes the vertical clips now
+    if rc is not None:
+        return rc
     try:
         cfg = json.load(open(CFG))
         c = obs.ReqClient(host="localhost", port=cfg.get("server_port", 4455), password=cfg.get("server_password"), timeout=5)
