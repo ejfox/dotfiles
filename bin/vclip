@@ -30,13 +30,37 @@ def newest(path, since):
     return os.path.basename(max(files, key=os.path.getmtime))
 
 
+PC_CFG = os.path.expanduser("~/.config/vclip/pc-ws.json")   # computah's obs-websocket creds (0600)
+
+
+def pc_replay():
+    """iMac OBS closed (gaming night): save computah's OBS replay buffer instead (EJ 2026-10-26)."""
+    try:
+        cfg = json.load(open(PC_CFG))
+        p = obs.ReqClient(host="10.0.0.169", port=cfg.get("server_port", 4455), password=cfg.get("server_password"), timeout=5)
+    except Exception:
+        print("ERR no OBS reachable (iMac or computah)")
+        return 1
+    if not p.get_replay_buffer_status().output_active:
+        p.start_replay_buffer()
+        print("WAIT computah replay buffer was off; started it")
+        return 2
+    p.save_replay_buffer()
+    time.sleep(1.5)
+    try:
+        f = os.path.basename(p.get_last_replay_buffer_replay().saved_replay_path.replace("\\", "/"))
+        print(f"OK computah · {f}")
+    except Exception:
+        print("OK computah replay saved")
+    return 0
+
+
 def main():
     try:
         cfg = json.load(open(CFG))
         c = obs.ReqClient(host="localhost", port=cfg.get("server_port", 4455), password=cfg.get("server_password"), timeout=5)
     except Exception:
-        print("ERR OBS not reachable")
-        return 1
+        return pc_replay()
     st = vendor(c, "status")
     if not st.get("backtrack"):
         vendor(c, "start_backtrack")
