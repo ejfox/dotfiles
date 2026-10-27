@@ -49,6 +49,11 @@ def pc_vertical():
         return None
     if not st.get("success"):
         return None
+    try:                                       # computah only makes the clips while IT runs the show
+        if not p.get_current_program_scene().scene_name.startswith("Game"):
+            return None
+    except Exception:
+        return None
     if not st.get("backtrack"):
         vendor(p, "start_backtrack")
         print("WAIT computah vertical buffer was off; started it")
