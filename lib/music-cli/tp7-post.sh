@@ -13,6 +13,12 @@
 #  3. BACKUP     aws s3 sync → r2://ejfox-personal/tp7-raw (same creds the
 #                music CLI uses, from ~/.config/music/.env). Excludes by-date/
 #                (hardlinks would upload twice) and quarantine/.
+#  4. MEMOS      `music tp7 memos` transcribes new spoken recordings into the
+#                main vault's voicememos/, then embeds each one under "What
+#                happened this week" in this week's note (created from the
+#                template if missing). Verbatim; no summary. Recordings that
+#                predate 2026-10-28 were seeded into the ledger as
+#                "preexisting", so only new memos are touched.
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/bin:$PATH"
 setopt extendedglob null_glob
 
@@ -115,4 +121,39 @@ if [[ -f "$HOME/.config/music/.env" ]] && command -v aws >/dev/null; then
 else
   log "backup skipped: missing music .env or aws cli"
   jlog backup_skipped
+fi
+
+# --- 4. memos: transcribe new speech -> vault, embed in this week's note ---
+# Absolute path: $HOME/bin/music is a stale May copy without `tp7 memos`.
+MUSIC="$HOME/.dotfiles/bin/music"
+MLEDGER="$HOME/.local/share/music-cli/memos-ledger.tsv"
+VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/ejfox"
+if [[ -x "$MUSIC" ]]; then
+  touch "$MLEDGER"
+  before=$(wc -l < "$MLEDGER" | tr -d ' ')
+  "$MUSIC" tp7 memos >/dev/null 2>>"$LOG" || { log "memos: transcribe FAILED"; jlog memos_fail; }
+  new_notes=( ${(f)"$(tail -n +$((before+1)) "$MLEDGER" | awk -F'\t' '$2=="speech"{print $3}')"} )
+  # each memo goes in the week it was RECORDED (note names start YYYY-MM-DD; the broken TP-7 clock is
+  # already mapped to today by `music tp7 memos`), not the week it happened to be imported
+  for n in $new_notes; do
+    d="${${n:t}[1,10]}"
+    wk=$(date -j -f %F "$d" +%G-%V 2>/dev/null) || wk=$(date +%G-%V)
+    week="$VAULT/week-notes/$wk.md"
+    if [[ ! -f "$week" ]]; then
+      sed "s/{{date:YYYY-WW}}/$wk/g" "$VAULT/templates/weekly.md" > "$week"
+      log "memos: created week note $wk from template"
+    fi
+    embed="![[voicememos/${${n:t}%.md}]]"
+    grep -qF "$embed" "$week" && continue
+    # insert above "## What I made" so memos sit in the human section; else append
+    if grep -q '^## What I made' "$week"; then
+      E="$embed" awk '/^## What I made/ && !done {printf "%s\n\n", ENVIRON["E"]; done=1} {print}' "$week" > "$week.tmp" && mv "$week.tmp" "$week"
+    else
+      print -- "$embed" >> "$week"
+    fi
+    log "memos: ${n:t} -> week-notes/$wk.md"
+    jlog memos_ok week="$wk"
+  done
+else
+  log "memos skipped: $MUSIC missing"
 fi

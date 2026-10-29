@@ -46,7 +46,7 @@ fallback_fieldkit() {
   log "CLI pull did not deliver files — opening field kit"
   jlog pull_fail fallback=fieldkit
   notify "auto-pull couldn't read the device — opening field kit"
-  open -a "field kit" 2>/dev/null
+  open -g -a "field kit" 2>/dev/null
 }
 
 log "=== import start -> $DEST ==="
@@ -57,58 +57,97 @@ before=$(find "$DEST" -type f -name '*.wav' 2>/dev/null | wc -l | tr -d ' ')
 
 notify "TP-7 detected — starting pull"
 
-total=0; nextpct=25; stopped=""
-# stream root pull output; milestone notifications only — NO per-file spam.
-# NOTE: zsh runs the last pipe stage in the current shell, so $total survives the loop.
-# The puller emits lines like:
-#   /path/to/dest TOPULL=5        (count is NOT the first token — match anywhere)
-#   P <n> <total> <filename>      (per-file progress)
-#   END got=<n> failed=<n>
-sudo -n "$SH/tp7-root-pull.sh" "$DEST" 2>>"$LOG" | while IFS= read -r line; do
-  log "$line"
-  line="${line##[[:space:]]#}"   # puller may emit leading whitespace — don't let it break the case match
-  case "$line" in
-    *TOPULL=*)
-      total="${line##*TOPULL=}"; total="${total%%[^0-9]*}"
-      if [[ "${total:-0}" -eq 0 ]]; then
-        notify "already up to date — nothing new"
+# --- pull via the native tp7 CLI (totocaster/tp7) + MIDI mode switch ---
+# 2026-10-28: on firmware 1.1.11 libmtp lists 0 files (blind to /memo AND /recordings), so the old
+# sudo/libmtp puller (tp7-root-pull.sh) is no longer called. The TP-7 also drops out of MTP after
+# each CLI session, so before every op we send TE's MTP mode-switch SysEx over MIDI (sendmidi;
+# sequence from totocaster/tp7 docs/tp7-handshake.md) and wait for "TP-7 MTP Device". One op per
+# switch, retry once. Disk floor = min_free_gb from tp7-pull.conf, checked before every file.
+MEMO_DIR="${HOME}/tp7/cli-memo"
+QUAR="${HOME}/tp7/quarantine"
+CONF="${HOME}/.config/music/tp7-pull.conf"
+mkdir -p "$MEMO_DIR"
+floor_gb=20
+[[ -f "$CONF" ]] && floor_gb=$(awk -F= '/^ *min_free_gb/{gsub(/ /,"",$2); print $2}' "$CONF")
+[[ "$floor_gb" == <-> ]] || floor_gb=20
+
+in_mtp() { ioreg -p IOUSB -l -w0 | grep -q '"USB Product Name" = "TP-7 MTP Device"'; }
+to_mtp() {
+  in_mtp && return 0
+  sendmidi dev "TP-7" hex syx 00 20 76 19 40 60 05 04 00 01 03 2>/dev/null
+  local i
+  for i in {1..30}; do
+    if in_mtp; then sleep 1; return 0; fi
+    sleep 0.5
+  done
+  return 1
+}
+# one tp7 CLI op on a fresh MTP session; on failure re-switch and retry once
+tp7op() {
+  to_mtp && tp7 "$@" 2>/dev/null && return 0
+  sleep 2
+  to_mtp && tp7 "$@" 2>/dev/null
+}
+
+total=0; got=0; stopped=""
+if ! command -v tp7 >/dev/null || ! command -v sendmidi >/dev/null; then
+  stopped=notools
+  log "tp7 CLI or sendmidi missing"
+  notify "tp7 CLI or sendmidi missing — see README"
+else
+  # 1. memos: whole /memo folder (small), new ones hardlinked into DEST for tp7-post
+  tp7op pull --recursive --skip-existing --no-progress /memo "$MEMO_DIR" | grep '^downloaded' >> "$LOG"
+  memo_new=0
+  for m in "$MEMO_DIR"/*.wav(N); do
+    [[ -e "$DEST/${m:t}" ]] && continue
+    ln "$m" "$DEST/" 2>/dev/null && memo_new=$((memo_new+1))
+  done
+  log "memos via tp7 CLI: $memo_new new"
+  jlog memo_pull new="$memo_new"
+
+  # 2. recordings: list newest-first, pull each one we don't have, above the disk floor
+  listing=$(tp7op ls -l -t /recordings)
+  if [[ -z "$listing" ]]; then
+    stopped=listfail
+    log "LISTFAIL /recordings"
+    jlog pull_listfail
+    notify "couldn't list TP-7 recordings — unplug, replug in MTP mode"
+  else
+    want=()
+    for line in ${(f)listing}; do
+      w=(${=line})                     # file <bytes> <stamp> <name>
+      [[ "${w[1]}" == file ]] || continue
+      [[ -e "$DEST/${w[4]}" || -e "$QUAR/${w[4]}" ]] && continue
+      want+=("${w[2]} ${w[4]}")
+    done
+    total=${#want}
+    log "recordings: $total to pull (floor ${floor_gb} GB)"
+    if (( total > 0 )); then
+      notify "$total recording(s) to pull"
+      jlog pull_start topull="$total"
+    fi
+    for item in $want; do
+      sz=${item%% *}; name=${item#* }
+      free=$(df -k "$DEST" | awk 'NR==2{print $4*1024}')
+      if (( free < sz + floor_gb * 1073741824 )); then
+        stopped=diskfloor
+        log "STOP diskfloor before $name"
+        jlog pull_diskfloor
+        notify "stopped early: disk almost full — free up space, then reconnect for the rest"
+        break
+      fi
+      if tp7op pull --overwrite --no-progress "/recordings/$name" "$DEST/$name.part" >/dev/null \
+         && mv "$DEST/$name.part" "$DEST/$name"; then
+        got=$((got+1))
+        log "pulled $name"
       else
-        notify "$total file(s) to pull"
-        jlog pull_start topull="$total"
-      fi ;;
-    P\ *)
-      w=(${=line})   # w[1]=P w[2]=done-count w[3]=total w[4...]=name
-      if [[ $total -gt 0 && "${w[2]:-0}" -gt 0 ]]; then
-        pct=$(( w[2] * 100 / total ))
-        while (( pct >= nextpct && nextpct <= 100 )); do
-          notify "${nextpct}% — ${w[2]}/${total} files"; nextpct=$((nextpct+25))
-        done
-      fi ;;
-    # each of these is a KNOWN stop with its own message: it must not later be mistaken for "couldn't read the
-    # device" (which opens Field Kit). zsh runs this loop in the current shell, so $stopped survives.
-    STOP\ diskfloor*)   # tp7-pull stopped itself before filling the disk (newest recordings came first)
-      stopped=diskfloor
-      notify "stopped early: disk almost full — free up space, then reconnect for the rest"
-      jlog pull_diskfloor ;;
-    STOP\ device\ lost*)
-      stopped=devlost
-      notify "TP-7 disconnected mid-pull — reconnect to resume (nothing lost)"
-      jlog pull_device_lost ;;
-    LISTFAIL*)
-      stopped=listfail
-      notify "couldn't read the TP-7's file list — power-cycle it (hold STOP) and reconnect"
-      jlog pull_listfail ;;
-    STOP\ timeout*)
-      stopped=timeout
-      notify "TP-7 pull ran over 3 hours and was stopped — reconnect to resume (nothing lost)"
-      jlog pull_timeout ;;
-    NODEV*)
-      stopped=nodev
-      notify "TP-7 seen but couldn't be opened — power-cycle it (hold STOP) and reconnect"
-      jlog pull_nodev ;;
-    END*) log "pull end: $line" ;;
-  esac
-done
+        rm -f "$DEST/$name.part"
+        log "FAILED $name"
+      fi
+    done
+    log "pull end: got=$got of $total"
+  fi
+fi
 
 # evaluate what actually landed on disk (source of truth, not the stream)
 after=$(find "$DEST" -type f -name '*.wav' 2>/dev/null | wc -l | tr -d ' ')

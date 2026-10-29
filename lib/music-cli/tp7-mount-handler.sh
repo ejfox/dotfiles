@@ -32,32 +32,38 @@ fi
 # 17ms ioreg poll every 10s is simpler and effectively free.)
 usb_info=$(ioreg -p IOUSB -l 2>/dev/null)
 
-# no TP-7 connected — clear session state. The LOCK belongs to tp7-import.sh
-# (PID-stamped); only clear it if the owning process is dead.
+# 2026-10-28: any plug-in syncs, in audio OR MTP mode. tp7-import.sh flips the TP-7 into MTP itself
+# over MIDI (no hold-STOP), and it falls back to audio mode on its own afterward.
+COOL=/tmp/.music-tp7-last   # epoch when the last import finished
+GONE=/tmp/.music-tp7-gone   # consecutive polls with no TP-7 on the bus
+
+# no TP-7 connected. It also vanishes for ~1 s on every audio<->MTP switch, so only treat it as
+# unplugged after 3 empty polls (~30 s); otherwise each mode switch would look like a new plug-in.
+# The LOCK belongs to tp7-import.sh (PID-stamped); only clear it if the owning process is dead.
 if ! echo "$usb_info" | grep -q '"idVendor" = 9063'; then
-  rm -f "$SEEN"
+  gone=$(( $(cat "$GONE" 2>/dev/null || echo 0) + 1 ))
+  echo "$gone" > "$GONE"
+  (( gone >= 3 )) && rm -f "$SEEN"
   if [[ -f "$LOCK" ]] && ! kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
     rm -f "$LOCK"
   fi
   exit 0
 fi
+rm -f "$GONE"
 
-# already handled this session
+# already handled this plug-in
 [[ -f "$SEEN" ]] && exit 0
 
-# TP-7 connected but not MTP mode
-if ! echo "$usb_info" | grep -q '"idProduct" = 25'; then
-  touch "$SEEN"
-  jlog device_seen mode=disk
-  osascript -e 'display notification "To pull files: power off, hold STOP + power on" with title "TP-7 connected" sound name "Glass"'
-  exit 0
-fi
+# second guard against mode-switch blips: no new import within 3 min of the last one
+last=$(cat "$COOL" 2>/dev/null || echo 0)
+(( $(date +%s) - last < 180 )) && exit 0
 
-# TP-7 in MTP mode — auto-pull
 touch "$SEEN"
-jlog device_seen mode=mtp
+mode=audio
+echo "$usb_info" | grep -q '"USB Product Name" = "TP-7 MTP Device"' && mode=mtp
+jlog device_seen mode="$mode"
 
-# self-healing importer: tries the CLI pull, auto-falls-back to field kit on failure.
-# milestone notifications (25/50/75/100% of delta) handled inside; no per-file spam.
-# Locking lives inside tp7-import.sh (PID-stamped single-flight).
+# Locking lives inside tp7-import.sh (PID-stamped single-flight); launchd never overlaps this job,
+# so the import's own mode switches happen while no poll is running.
 /Users/ejfox/.local/share/music-cli/tp7-import.sh >> "$LOG" 2>&1
+date +%s > "$COOL"

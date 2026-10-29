@@ -5,7 +5,37 @@ the pipeline survives a disk loss. If you edit here, copy to the live location
 (or vice versa). The `tp7-pull` (libmtp) and `tp7-detach-driver` (libusb)
 binaries are built by `music setup` and are not mirrored.
 
-## Flow
+## Flow (since 2026-10-28: tp7 CLI + MIDI, no hold-STOP)
+
+On firmware 1.1.11 libmtp lists **0 files** (blind to `/memo` and `/recordings`), so the
+automatic path no longer uses it. Plug the TP-7 in normally, in any mode, and it syncs:
+
+```
+launchd com.ejfox.music-tp7-watch (every 10s)
+  └─ tp7-mount-handler.sh   TE vendor 9063 on the bus? once per plug-in
+       │                    (unplug = 3 empty polls; 180 s cooldown, because
+       │                     every audio<->MTP switch drops off USB for ~1 s)
+       └─ tp7-import.sh
+            ├─ to_mtp: sendmidi SysEx 00 20 76 19 40 60 05 04 00 01 03 → wait for
+            │          "TP-7 MTP Device" (ack 00 20 76 19 40 20 05 04 00). Before EVERY op:
+            │          the TP-7 falls back to audio mode right after each CLI session.
+            ├─ tp7 pull --recursive --skip-existing /memo → ~/tp7/cli-memo, hardlinked into latest/
+            ├─ tp7 ls -l -t /recordings → pull each missing file (disk floor checked per file)
+            └─ tp7-post.sh  quarantine · by-date links · R2 · memos → vault + week note
+```
+
+- Deps: `tp7` (brew totocaster/tap/tp7 0.1.0) and `sendmidi`, both in /usr/local/bin. The CLI
+  only sees the device in MTP mode (PID 0x0019); in audio mode this unit is 0x8019, which the
+  CLI doesn't match. That's why the MIDI switch is done here and not with `tp7 -a`.
+- Memos: `music tp7 memos` → `ejfox/voicememos/`, embedded in the week note for the week they
+  were recorded. Under 5 words = `noise` (whisper says "you" on silence). Ledger:
+  `~/.local/share/music-cli/memos-ledger.tsv` (`preexisting` / `preexisting-memo` = held;
+  delete a line to backfill that file).
+- Deploy edits atomically (`cp f f.new && mv f.new f`): zsh reads scripts as it runs, and
+  replacing one mid-run caused "parse error" lines in watcher.log on 2026-10-28.
+- Manual run: `~/.local/share/music-cli/tp7-import.sh` (works from audio mode).
+
+### Old libmtp flow (kept for reference; broken on firmware 1.1.11)
 
 ```
 launchd com.ejfox.music-tp7-watch (every 10s)
