@@ -139,8 +139,10 @@ fi
 # uploaded, no 'secretly' uploading files". So this is the ONLY R2 write in the pipeline, and every
 # upload gets: its own notification with the public URL, a row in the vault's music-published.md,
 # and an import.log line. A failed upload notifies too.
-# What qualifies: recordings that arrived in THIS run (new ledger lines) judged instrumental/noise by
-# step 4, at least 30 s long, NOT from the TP-7's memo folder (~/tp7/cli-memo), not published before.
+# What qualifies: recordings that arrived in THIS run (new ledger lines) judged "instrumental" by step 4,
+# at least 30 s long, and passing every privacy layer below: not from the TP-7's memo folder, never
+# judged speech/noise, no voicememos note, and a WHOLE-FILE transcription with <= 12 real words.
+# Anything that fails the last check is HELD (publish-held.tsv + notification), never auto-retried.
 PUBLOG="$VAULT/music-published.md"
 PLEDGER="$HOME/.local/share/music-cli/published.tsv"   # wav <TAB> r2 key <TAB> published at
 pnotify() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null; }
@@ -154,17 +156,33 @@ r2_put() {   # $1 local mp3, $2 key. Creds stay inside this subshell.
 if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
   PENDING="$HOME/.local/share/music-cli/publish-pending.txt"   # failed uploads, retried every run
   touch "$PLEDGER" "$PENDING"
-  jams=( ${(fu)"$( { tail -n +$((before+1)) "$MLEDGER" | awk -F'\t' '$2=="instrumental"||$2=="noise"{print $1}'; cat "$PENDING"; } )"} )
+  HELD="$HOME/.local/share/music-cli/publish-held.tsv"   # wav <TAB> words heard <TAB> when; never auto-retried
+  touch "$HELD"
+  jams=( ${(fu)"$( { tail -n +$((before+1)) "$MLEDGER" | awk -F'\t' '$2=="instrumental"{print $1}'; cat "$PENDING"; } )"} )
   for base in $jams; do
     wav="$TP7_ROOT/latest/recordings/$base"
     [[ -f "$wav" ]] || continue
-    [[ -e "$TP7_ROOT/cli-memo/$base" ]] && continue                          # memo folder: never
+    # --- privacy layers (EJ 2026-10-29: "make sure we don't leak private notes and voice memos") ---
+    [[ -e "$TP7_ROOT/cli-memo/$base" ]] && continue                          # TP-7 memo folder: never
+    awk -F'\t' -v b="$base" '$1==b && $2!="instrumental"{f=1} END{exit !f}' "$MLEDGER" && continue  # ever judged speech/noise
+    grep -rqF -- "${base%.wav}" "$VAULT/voicememos" 2>/dev/null && continue  # has a transcript note
+    awk -F'\t' -v b="$base" '$1==b{f=1} END{exit !f}' "$HELD" && continue     # held for EJ: never auto-retry
     awk -F'\t' -v b="$base" '$1==b{f=1} END{exit !f}' "$PLEDGER" && continue  # already published
     [[ "$base" =~ '^([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2})([0-9]{2})' ]] || continue
     d="$match[1]"; hhmm="$match[2]$match[3]"
     secs=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$wav" 2>/dev/null)
     secs=${secs%.*}
     (( ${secs:-0} >= 30 )) || continue
+    # last gate: transcribe the WHOLE recording; any real talking (or a failed check) = held, not published
+    heard=$("$MUSIC" tp7 safe-to-publish "$wav" 2>/dev/null)
+    if (( $? != 0 )); then
+      printf '%s\t%s\t%s\n' "$base" "${heard:-unchecked}" "$(date '+%F %H:%M')" >> "$HELD"
+      log "HELD (not published) $base: talking detected (${heard:-unchecked} words)"
+      jlog publish_held wav="$base" words="${heard:-unchecked}"
+      pnotify "Held, NOT published: $base has talking in it (${heard:-?} words). Tell Claude if it's fine to post." "Basso"
+      grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
+      continue
+    fi
     # real recording date: the TP-7 clock ran exactly 14001 days fast until it was set
     (( ${d[1,4]} > $(date +%Y) )) && d=$(date -j -v-14001d -f %F "$d" +%F)
     key="music/tp7/${d}-${hhmm}.mp3"

@@ -903,6 +903,29 @@ tp7_analyze_audio() {
   echo "speech|${slug}"
 }
 
+# Privacy gate before ANY upload (EJ 2026-10-29: "make sure we don't leak private notes and voice memos
+# that come from the same device"). tp7_analyze_audio only hears the first 30 s; this transcribes the
+# WHOLE file. Prints the number of real words heard (bracketed/parenthetical annotations like [Music]
+# don't count; sung lyrics DO count, so a vocal jam gets held for EJ, never published by accident).
+# Exit 0 = clean, safe to publish. Anything else, including "couldn't check", = do NOT upload.
+tp7_safe_to_publish() {
+  local wav="$1" limit="${2:-12}"
+  if [[ ! -f "$WHISPER_MODEL" ]] || ! command -v whisper-cli >/dev/null 2>&1; then
+    print "unchecked"; return 2
+  fi
+  local tmp="/tmp/music-privacy-$$.wav"
+  if ! ffmpeg -hide_banner -loglevel error -y -i "$wav" -ar 16000 -ac 1 "$tmp" </dev/null 2>/dev/null; then
+    rm -f "$tmp"; print "unchecked"; return 2
+  fi
+  local words
+  words=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp" 2>/dev/null \
+    | sed 's/([^)]*)//g; s/\[[^]]*\]//g; s/♪//g' | wc -w | tr -d ' ')
+  rm -f "$tmp"
+  [[ "$words" == <-> ]] || { print "unchecked"; return 2; }
+  print "$words"
+  (( words <= limit ))
+}
+
 tp7_field_kit_running() {
   pgrep -xf "/Applications/field kit.app/Contents/MacOS/field kit" >/dev/null 2>&1
 }
@@ -950,6 +973,7 @@ cmd_tp7() {
     ls|list)     cmd_tp7_ls ;;
     status)      cmd_tp7_status ;;
     memos|memo)  shift 2>/dev/null; cmd_tp7_memos "$@" ;;
+    safe-to-publish) shift 2>/dev/null; tp7_safe_to_publish "$@" ;;
     rename-memos) shift 2>/dev/null; cmd_tp7_rename_memos "$@" ;;
     clean)       shift 2>/dev/null; cmd_tp7_clean "$@" ;;
     *)           die "unknown tp7 command: $subcmd (try: pull, ls, status, memos, rename-memos, clean)" ;;
@@ -1074,6 +1098,14 @@ cmd_tp7_pull() {
       i=$((i+1))
       local dur=$(ffprobe -hide_banner -loglevel error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null)
       local mtime=$(stat -f "%Sm" -t "%Y-%m-%d" "$f")
+
+      # privacy gate: never upload anything with talking in it (whole-file check, not just the first 30 s)
+      print -n "  ${MUTED}[$i] ${base} privacy check…${RST}\r"
+      local heard
+      if ! heard=$(tp7_safe_to_publish "$f"); then
+        print "  ${PINK}[$i] ${base} NOT uploaded: talking detected (${heard} words). Kept local.${RST}"
+        continue
+      fi
 
       # auto-name via whisper analysis
       print -n "  ${MUTED}[$i] ${base} analyzing…${RST}\r"
