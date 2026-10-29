@@ -148,6 +148,12 @@ PLEDGER="$HOME/.local/share/music-cli/published.tsv"   # wav <TAB> r2 key <TAB> 
 # plain notification. (A Hammerspoon click-to-open version hung forever in `hs -c`, blocking the
 # whole run for 28 min on 2026-10-29; the list's ✕ remove links still go through Hammerspoon.)
 pnotify() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null; }
+# persistent: a notification is easy to miss when EJ is away, so every publish/hold also leaves a
+# Things to-do in Today that stays until he checks it off (EJ 2026-10-29: "it needs to be persistent")
+things_todo() {   # $1 title, $2 notes
+  local q=$(python3 -c 'import sys, urllib.parse as u; print(u.urlencode({"title": sys.argv[1], "notes": sys.argv[2], "when": "today"}, quote_via=u.quote))' "$1" "$2")
+  open -g "things:///add?$q" 2>/dev/null
+}
 r2_put() {   # $1 local mp3, $2 key. wrangler's existing Cloudflare login; no extra R2 token.
   wrangler r2 object put "ejfox-personal/$2" --file "$1" --content-type audio/mpeg --remote >/dev/null 2>>"$LOG"
 }
@@ -178,6 +184,8 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
       log "HELD (not published) $base: talking detected (${heard:-unchecked} words)"
       jlog publish_held wav="$base" words="${heard:-unchecked}"
       pnotify "Held, NOT published: $base has talking in it (${heard:-?} words). Tell Claude if it's fine to post." "Basso"
+      things_todo "CONSIDER: TP-7 recording held back (talking detected), not public" \
+        "$base: ${heard:-?} words heard. It stays private unless you tell Claude to publish it."
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
       continue
     fi
@@ -207,6 +215,8 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
       log "PUBLISHED (public) $base -> $url ($len)"
       jlog published wav="$base" key="$key" len="$len"
       pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len). Listen or remove: music-published.md in your vault." "Glass"
+      things_todo "VERIFY: published jam $d ${hhmm[1,2]}:${hhmm[3,4]} ($len) is OK to be public" \
+        "Listen: $url"$'\n'"Remove: hammerspoon://tp7-unpublish?key=$key"$'\n'"Full list: music-published.md in the vault"
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
     else
       log "PUBLISH FAILED $base (nothing went public; will retry next plug-in)"
