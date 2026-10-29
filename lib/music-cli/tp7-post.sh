@@ -184,7 +184,7 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
       log "HELD (not published) $base: talking detected (${heard:-unchecked} words)"
       jlog publish_held wav="$base" words="${heard:-unchecked}"
       pnotify "Held, NOT published: $base has talking in it (${heard:-?} words). Tell Claude if it's fine to post." "Basso"
-      things_todo "CONSIDER: TP-7 recording held back (talking detected), not public" \
+      things_todo "Held rec ${base[1,10]}" \
         "$base: ${heard:-?} words heard. It stays private unless you tell Claude to publish it."
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
       continue
@@ -215,7 +215,7 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
       log "PUBLISHED (public) $base -> $url ($len)"
       jlog published wav="$base" key="$key" len="$len"
       pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len). Listen or remove: music-published.md in your vault." "Glass"
-      things_todo "VERIFY: published jam $d ${hhmm[1,2]}:${hhmm[3,4]} ($len) is OK to be public" \
+      things_todo "Jam $(date -j -f %F "$d" '+%b %-d') $(date -j -f %H%M "$hhmm" '+%-I:%M%p' | tr -d M | tr AP ap) ok?" \
         "Listen: $url"$'\n'"Remove: hammerspoon://tp7-unpublish?key=$key"$'\n'"Full list: music-published.md in the vault"
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
     else
