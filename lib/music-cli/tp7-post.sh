@@ -145,12 +145,9 @@ fi
 # Anything that fails the last check is HELD (publish-held.tsv + notification), never auto-retried.
 PUBLOG="$VAULT/music-published.md"
 PLEDGER="$HOME/.local/share/music-cli/published.tsv"   # wav <TAB> r2 key <TAB> published at
-# clickable via Hammerspoon (click = open music-published.md to listen / ✕ remove); plain notification if it's down
-pnotify() {
-  local msg="${1//]]/] ]}"
-  hs -c "_G.tp7_unpublish.announce([[TP-7 → music.tools (public)]], [[$msg]], [[$2]])" >/dev/null 2>&1 \
-    || osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null
-}
+# plain notification. (A Hammerspoon click-to-open version hung forever in `hs -c`, blocking the
+# whole run for 28 min on 2026-10-29; the list's ✕ remove links still go through Hammerspoon.)
+pnotify() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null; }
 r2_put() {   # $1 local mp3, $2 key. wrangler's existing Cloudflare login; no extra R2 token.
   wrangler r2 object put "ejfox-personal/$2" --file "$1" --content-type audio/mpeg --remote >/dev/null 2>>"$LOG"
 }
@@ -209,7 +206,7 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
       print -- "| $now | $d ${hhmm[1,2]}:${hhmm[3,4]} | $len | [▶ listen]($url) | [✕ remove](hammerspoon://tp7-unpublish?key=$key) | $base |" >> "$PUBLOG"
       log "PUBLISHED (public) $base -> $url ($len)"
       jlog published wav="$base" key="$key" len="$len"
-      pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len). Click to listen or remove." "Glass"
+      pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len). Listen or remove: music-published.md in your vault." "Glass"
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
     else
       log "PUBLISH FAILED $base (nothing went public; will retry next plug-in)"
