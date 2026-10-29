@@ -151,12 +151,8 @@ pnotify() {
   hs -c "_G.tp7_unpublish.announce([[TP-7 → music.tools (public)]], [[$msg]], [[$2]])" >/dev/null 2>&1 \
     || osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null
 }
-r2_put() {   # $1 local mp3, $2 key. Creds stay inside this subshell.
-  ( source "$HOME/.config/music/.env" || exit 1
-    export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
-    aws s3 cp "$1" "s3://${R2_BUCKET_NAME:-ejfox-personal}/$2" \
-      --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
-      --content-type audio/mpeg --only-show-errors ) 2>>"$LOG"
+r2_put() {   # $1 local mp3, $2 key. wrangler's existing Cloudflare login; no extra R2 token.
+  wrangler r2 object put "ejfox-personal/$2" --file "$1" --content-type audio/mpeg --remote >/dev/null 2>>"$LOG"
 }
 if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
   PENDING="$HOME/.local/share/music-cli/publish-pending.txt"   # failed uploads, retried every run
