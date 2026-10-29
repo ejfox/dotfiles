@@ -13,7 +13,8 @@ PCDIR='C:\Users\ejfox\farm\taste'
 LOCAL="$HOME/.cache/muse/render-scores.csv"
 mkdir -p "$HOME/.cache/muse"
 
-if ssh -o ConnectTimeout=8 "$H" 'tasklist /fo csv /nh' 2>/dev/null | grep -qiE 'fortniteclient|easyanticheat|beservice|battleye'; then
+# game-guard's flag (game list lives once, in the PC's bin\computah.json)
+if ssh -o ConnectTimeout=8 "$H" 'if exist C:\dev\computah\farm\GAME_ON (exit 0) else (exit 1)' 2>/dev/null; then
   echo "◇ game running on computah — not scoring now"; exit 0
 fi
 

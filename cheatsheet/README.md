@@ -27,7 +27,13 @@ TUI keys: `j/k ↑/↓` scroll · `C-d/C-u` half-page · `g/G` top/bottom ·
 ## Editing the TOML
 
 Each card is a `[[section]]` with `tone`, `tool`, `badge`, `title`, `open`, and
-an ordered `body`. Body item shapes:
+an ordered `body`.
+
+**App context:** a card with `apps = ["Final Cut Pro"]` (Mac app names, as
+`pgrep -x` sees them) jumps to the top, opened and badged "● … open", while
+that app is running. The Hammerspoon panel also sets `CHEAT_FRONT` to the app
+you were in when you opened it, and that app's card goes first. Logic is in
+`src/context.rs`. App cards stay out of `docs/tips.txt` on purpose. Body item shapes:
 
 | write                                        | renders as              |
 |----------------------------------------------|-------------------------|

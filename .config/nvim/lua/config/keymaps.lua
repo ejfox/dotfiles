@@ -11,27 +11,8 @@
 
 -- (mapped in lua/plugins/focus.lua via Snacks.zen)
 
--- ============================================================================
--- LSP NAVIGATION
--- ============================================================================
--- WHY native LSP instead of Telescope/Snacks: Direct calls are faster and
--- more reliable. Fuzzy finding is great for files, but LSP jumps should
--- be instant and predictable.
-
-vim.keymap.set("n", "gd", vim.lsp.buf.definition, { desc = "Goto Definition" })
-vim.keymap.set("n", "gr", vim.lsp.buf.references, { desc = "Goto References" })
-vim.keymap.set("n", "gI", vim.lsp.buf.implementation, { desc = "Goto Implementation" })
-vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, { desc = "Goto Type Definition" })
-
--- ============================================================================
--- LSP SYMBOLS & CALLS
--- ============================================================================
--- These are less common but useful for understanding large codebases
-
-vim.keymap.set("n", "<leader>ss", vim.lsp.buf.document_symbol, { desc = "Document Symbols" })
-vim.keymap.set("n", "<leader>sS", vim.lsp.buf.workspace_symbol, { desc = "Workspace Symbols" })
-vim.keymap.set("n", "gai", vim.lsp.buf.incoming_calls, { desc = "Incoming Calls" })
-vim.keymap.set("n", "gao", vim.lsp.buf.outgoing_calls, { desc = "Outgoing Calls" })
+-- LSP keys (gd, gr, gI, gy, <leader>ss/sS, gai/gao) come from LazyVim, which
+-- sets them per buffer on LspAttach; global maps here were always overridden.
 
 -- ============================================================================
 -- DISPLAY-LINE MOTION
@@ -54,6 +35,26 @@ vim.keymap.set("n", "<leader>fv", function()
   vim.cmd.edit(root .. "/.env")
 end, { desc = "Open project .env" })
 
+
+-- ============================================================================
+-- YANK WITH PATH (for pasting into Claude Code)
+-- ============================================================================
+-- Copies the selection as `path:start-end` plus a fenced block.
+-- WHY min/max: line("v") is below line(".") when you select upward.
+
+local function yank_with_path(path_fmt)
+  return function()
+    local a, b = vim.fn.line("v"), vim.fn.line(".")
+    local first, last = math.min(a, b), math.max(a, b)
+    local code = table.concat(vim.fn.getline(first, last), "\n")
+    local path = vim.fn.expand(path_fmt)
+    vim.fn.setreg("+", string.format("%s:%d-%d\n```\n%s\n```", path, first, last, code))
+    vim.notify("Copied with path: " .. path)
+  end
+end
+
+vim.keymap.set("v", "<leader>yr", yank_with_path("%:."), { desc = "Yank with relative path" })
+vim.keymap.set("v", "<leader>ya", yank_with_path("%:p"), { desc = "Yank with absolute path" })
 
 -- ============================================================================
 -- GIT DIFF NAVIGATION

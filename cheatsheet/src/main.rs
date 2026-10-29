@@ -4,6 +4,7 @@
 //!   cheat gen [out]  regenerate the Hammerspoon HTML panel from the TOML
 //!   cheat help
 
+mod context;
 mod html;
 mod inline;
 mod model;
@@ -32,7 +33,10 @@ fn load_sheet() -> Result<Sheet, String> {
     let p = toml_path();
     let raw = std::fs::read_to_string(&p)
         .map_err(|e| format!("reading {}: {e}", p.display()))?;
-    toml::from_str(&raw).map_err(|e| format!("parsing {}: {e}", p.display()))
+    let mut sheet: Sheet =
+        toml::from_str(&raw).map_err(|e| format!("parsing {}: {e}", p.display()))?;
+    context::arrange(&mut sheet);
+    Ok(sheet)
 }
 
 fn cmd_gen(out: Option<String>) -> Result<(), String> {

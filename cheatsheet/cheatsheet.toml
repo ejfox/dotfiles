@@ -14,6 +14,8 @@
 #   tool  = "nvim" | "lazygit" | "both"                     (filter buttons)
 #   badge = "nvim" | "lazygit" | ""                         (label in title)
 #   open  = true|false                                      (expanded on load)
+#   apps  = ["Final Cut Pro"]   Mac app names: card jumps to the top, opened,
+#                               while that app is frontmost or running
 #
 # ── body items (order preserved) ───────────────────────────────────────
 #   { k = "za", d = "toggle" }          a binding row
@@ -865,4 +867,78 @@ body = [
   { k = "crtbroll VIDEO --shot hero|pushin|macro", d = "screen recording on a black CRT, OLED-black room", hl = true },
   { k = "gpulease status", d = "who holds the GPU (wall pauses while leased)" },
   { o = "GUI: open the .blend files in C:\\Users\\ejfox\\Documents\\Paperize on computah" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# APP-CONTEXT CARDS: `apps = [...]` cards jump to the top, opened, while
+# that Mac app is frontmost (via the Hammerspoon panel) or running.
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+tone = "primary"
+tool = "both"
+apps = ["Final Cut Pro"]
+title = "Final Cut Pro — your keys"
+body = [
+  { n = "read from your active command set, *EJ's Final Cut Pro Shortcuts* (2023)" },
+  { lbl = "your rebinds" },
+  { k = "q / w", d = "trim start / trim end to the playhead (top and tail)", hl = true },
+  { k = "x", d = "blade ALL lanes at the playhead", hl = true },
+  { k = "⌥← / ⌥→", d = "step one subframe (audio-precise trims)" },
+  { k = "⌥⇧a", d = "start / stop voiceover recording", hl = true },
+  { k = "⌥⌘8", d = "voiceover record view" },
+  { div = true },
+  { lbl = "cutting" },
+  { k = "j k l", d = "back / stop / forward (tap again to go faster)" },
+  { k = "i / o  then  /", d = "mark in / out, play the selection" },
+  { k = "; / '", d = "previous / next edit point", hl = true },
+  { k = "⌘b", d = "blade the selected clip at the playhead" },
+  { k = "c", d = "select the clip under the playhead" },
+  { k = "e / d / ⇧q", d = "append / overwrite / connect backtimed" },
+  { k = "⇧⌫", d = "delete, leave a gap (keep sync)" },
+  { k = "⌥⌘⌫", d = "delete the clip only, keep its connected clips" },
+  { k = "⌥\\  ·  ⇧x", d = "trim to selection · extend edit to playhead" },
+  { k = ", / .", d = "nudge one frame" },
+  { k = "v  ·  ⌥s", d = "disable clip · solo clip" },
+  { k = "⌥g  ·  ⌘r  ·  ⌃d", d = "compound clip · retime editor · type a duration" },
+  { div = true },
+  { lbl = "review, roles, captions" },
+  { k = "⇧z  ·  ⌘= / ⌘-", d = "fit the timeline · zoom" },
+  { k = "n  ·  s", d = "snapping · skimming" },
+  { k = "m  ·  ⌥m", d = "marker · marker + note (paper-edit notes)" },
+  { k = "⌃⌥d / ⌃⌥m", d = "role: dialogue (VO) / music (beds)" },
+  { k = "⌥c", d = "add + edit a caption" },
+  { k = "⌘4  ·  ⌘e", d = "inspector · share (default destination)" },
+  { strat = "agent rough cut → your cut", steps = [
+    "File → Import → XML the `.fcpxml` from build-rough-cut.sh",
+    "`⇧z` to see it all, then hop cuts with `;` / `'`",
+    "`q` / `w` to top and tail, `x` to cut everything at once",
+  ] },
+  { o = "not bound in your 2023 set: detect beats, beat grid, scene-detect blade, create captions · add them in `⌥⌘k`" },
+]
+
+[[section]]
+tone = "gold"
+tool = "both"
+apps = ["Logic Pro"]
+title = "Logic Pro — beds, stems, VO"
+body = [
+  { n = "Logic's default key commands (no named custom set found) · check any in `⌥k`" },
+  { lbl = "transport" },
+  { k = "⎵  ·  r", d = "play / stop · record", hl = true },
+  { k = "⏎", d = "go to the beginning" },
+  { k = "c  ·  ⌘u", d = "cycle on/off · cycle the selection (set locators)", hl = true },
+  { k = "k", d = "metronome click" },
+  { div = true },
+  { lbl = "regions" },
+  { k = "⌘t", d = "split at the playhead (chopping stems + samples)", hl = true },
+  { k = "⌘j", d = "join regions" },
+  { k = "⌃m", d = "mute region" },
+  { k = "m  ·  s", d = "mute track · solo track" },
+  { k = "q", d = "quantize selection" },
+  { k = "z", d = "zoom to fit the selection" },
+  { div = true },
+  { lbl = "windows + out" },
+  { k = "x  ·  e  ·  b  ·  y", d = "mixer · editor · smart controls · library" },
+  { k = "⌘b", d = "bounce project or the cycle area (beds, KO-33 / TP-7 packs)", hl = true },
 ]

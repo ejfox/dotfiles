@@ -48,7 +48,9 @@ vim.opt.relativenumber = true
 -- EDITING BEHAVIOR
 -- ============================================================================
 
-vim.opt.virtualedit = "all"      -- WHY: Move cursor anywhere, even past EOL (useful for column editing)
+-- WHY block, not all: "all" let j/k carry the cursor past EOL on short lines,
+-- and typing there padded the line with trailing spaces.
+vim.opt.virtualedit = "block"    -- Past-EOL only in visual-block (column editing)
 vim.opt.scrolloff = 8            -- WHY: Keep cursor 8 lines from edge (always see context)
 vim.opt.sidescrolloff = 8
 vim.opt.wrap = true              -- WHY: Wrapped lines are easier to read than horizontal scrolling

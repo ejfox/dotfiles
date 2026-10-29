@@ -102,14 +102,19 @@ return {
         return "AI"
       end
 
-      -- Hotreload status - only shows when file was just reloaded
-      local function hotreload_status()
-        -- Check for recent reload flag
-        if vim.g.file_just_reloaded then
-          return "⟳" -- Just reloaded by Claude Code
-        end
-        return ""
+      -- Macro recording - WHY: cmdheight=0 and no noice, so nothing else shows it
+      local function recording_status()
+        local reg = vim.fn.reg_recording()
+        if reg == "" then return "" end
+        return "recording @" .. reg
       end
+      -- lualine only redraws on its timer; repaint the moment `q` starts/stops
+      vim.api.nvim_create_autocmd({ "RecordingEnter", "RecordingLeave" }, {
+        group = vim.api.nvim_create_augroup("VulpesLualineRecording", { clear = true }),
+        callback = function()
+          vim.schedule(function() require("lualine").refresh({ place = { "statusline" } }) end)
+        end,
+      })
 
       -- Modified/unsaved changes indicator
       local function modified_status()
@@ -194,7 +199,7 @@ return {
           },
           lualine_x = {
             { modified_status, color = { fg = "#ff6666" } },   -- Red dot (unsaved!)
-            { hotreload_status, color = { fg = "#66ff66" } },  -- Green (just reloaded)
+            { recording_status, color = { fg = "#e60067" } },  -- Vulpes pink (recording)
             { copilot_status, color = { fg = "#888888" } },    -- Dim gray (AI ready)
             { line_count },
             { minimal_diagnostics },

@@ -32,6 +32,13 @@ pub struct Section {
     pub title: String,
     #[serde(default)]
     pub open: bool,
+    /// Mac app names ("Final Cut Pro", "Logic Pro"). While one is frontmost or
+    /// running, the card jumps to the top, opened. See context.rs.
+    #[serde(default)]
+    pub apps: Vec<String>,
+    /// Set at runtime by context::arrange: the app that made this card live.
+    #[serde(skip)]
+    pub live: Option<String>,
     #[serde(default)]
     pub body: Vec<Item>,
 }

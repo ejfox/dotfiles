@@ -29,7 +29,6 @@
 --   ├── nvim-dap.lua       - Debugger
 --   ├── obsidian.lua       - Note-taking
 --   ├── ai.lua             - Copilot ghost text (native) + next-edit (sidekick)
---   ├── claude-code-workflow.lua - Copy code with paths
 --   ├── usage-logging.lua  - Activity tracking
 --   └── strudel.lua        - Live coding music (strudel.cc)
 --

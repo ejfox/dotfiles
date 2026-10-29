@@ -27,7 +27,7 @@ fn section_html(s: &Section) -> String {
         format!(" class=\"{}\"", s.tone)
     };
     let open = if s.open { " open" } else { "" };
-    let summary = if s.badge.is_empty() {
+    let mut summary = if s.badge.is_empty() {
         esc(&s.title)
     } else {
         format!(
@@ -37,6 +37,9 @@ fn section_html(s: &Section) -> String {
             esc(&s.title)
         )
     };
+    if let Some(app) = &s.live {
+        summary = format!("<span class=\"badge live\">● {} open</span> {summary}", esc(app));
+    }
 
     let mut out = String::new();
     out.push_str(&format!(

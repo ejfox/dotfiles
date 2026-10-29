@@ -16,8 +16,8 @@ R="ejfox@10.0.0.169"
 PS() { ssh -o BatchMode=yes -o ConnectTimeout=8 "$R" "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$1\""; }
 
 nc -z -G 3 10.0.0.169 22 2>/dev/null || { echo "computah unreachable"; exit 1; }
-if PS "if (Get-Process FortniteClient* -ErrorAction SilentlyContinue) {'GAME'} else {'clear'}" | grep -q GAME; then
-  echo "Fortnite is running — provisioning refused. Try later."; exit 1
+if ssh -o BatchMode=yes -o ConnectTimeout=8 "$R" 'if exist C:\dev\computah\farm\GAME_ON (exit 0) else (exit 1)' 2>/dev/null; then
+  echo "a game is running (farm\\GAME_ON) — provisioning refused. Try later."; exit 1
 fi
 
 echo "═══ 1. power hygiene (the 2am incident) ═══"

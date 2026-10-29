@@ -530,7 +530,13 @@ function cheatsheetToggle() -- global on purpose: reachable via `hs -c`
   -- refresh window.TIPS from docs/tips.txt so the banner + full index are always
   -- current (the panel loads the HTML file directly, which the Safari path used
   -- to be the only thing regenerating). Reused generator = single source of truth.
-  hs.execute(os.getenv("HOME") .. "/.dotfiles/bin/cheatsheets gen")
+  -- CHEAT_FRONT = the app you were in when you hit ⌥Space ?; `cheat gen` lifts
+  -- that app's card (Final Cut, Logic: `apps = [...]` in cheatsheet.toml) to the top.
+  local frontName = ""
+  local front = hs.application.frontmostApplication()
+  if front then frontName = front:name() or "" end
+  local quoted = "'" .. (frontName:gsub("'", "'\\''")) .. "'"
+  hs.execute("CHEAT_FRONT=" .. quoted .. " " .. os.getenv("HOME") .. "/.dotfiles/bin/cheatsheets gen")
   local existed = cheatsheetView ~= nil
   if not cheatsheetView then
     local uc = hs.webview.usercontent.new("cheat")

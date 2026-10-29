@@ -384,6 +384,12 @@ fn build_block(s: &Section, cw: usize, q: &str) -> Vec<Line<'static>> {
             Style::default().fg(BADGE),
         ));
     }
+    if let Some(app) = &s.live {
+        hspans.push(Span::styled(
+            format!("  ● {app} open"),
+            Style::default().fg(tcol),
+        ));
+    }
     out.push(Line::from(hspans));
 
     // per-section key column width so keys share one left rail

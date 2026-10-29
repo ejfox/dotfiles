@@ -53,19 +53,15 @@ return {
     "akinsho/git-conflict.nvim",
     version = "*",
     config = function()
+      -- Keybindings: co=ours, ct=theirs, cb=both, c0=none, [x/]x=prev/next
+      -- WHY default_mappings: the plugin maps these buffer-locally, only while a
+      -- buffer has conflict markers. Global maps shadowed `ct)` / `cb` everywhere.
       require("git-conflict").setup({
-        default_mappings = false,
+        default_mappings = true,
         default_commands = true,
         disable_diagnostics = false,
         highlights = { incoming = "DiffAdd", current = "DiffText" },
       })
-      -- Keybindings: co=ours, ct=theirs, cb=both, c0=none, [x/]x=prev/next
-      vim.keymap.set("n", "co", "<Plug>(git-conflict-ours)", { desc = "Choose Ours" })
-      vim.keymap.set("n", "ct", "<Plug>(git-conflict-theirs)", { desc = "Choose Theirs" })
-      vim.keymap.set("n", "cb", "<Plug>(git-conflict-both)", { desc = "Choose Both" })
-      vim.keymap.set("n", "c0", "<Plug>(git-conflict-none)", { desc = "Choose None" })
-      vim.keymap.set("n", "[x", "<Plug>(git-conflict-prev-conflict)", { desc = "Prev Conflict" })
-      vim.keymap.set("n", "]x", "<Plug>(git-conflict-next-conflict)", { desc = "Next Conflict" })
     end,
   },
 
