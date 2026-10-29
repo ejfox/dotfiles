@@ -145,10 +145,12 @@ if [[ -x "$MUSIC" ]]; then
     fi
     embed="![[voicememos/${${n:t}%.md}]]"
     grep -qF "$embed" "$week" && continue
-    # insert above "## What I made" so memos sit in the human section; else append
+    # template weeks: insert above "## What I made" (the human section). Other layouts (e.g. the
+    # reconstructed backfill weeks): append under an "## In my own words" heading, added once.
     if grep -q '^## What I made' "$week"; then
       E="$embed" awk '/^## What I made/ && !done {printf "%s\n\n", ENVIRON["E"]; done=1} {print}' "$week" > "$week.tmp" && mv "$week.tmp" "$week"
     else
+      grep -q '^## In my own words' "$week" || print -- $'\n## In my own words (TP-7 memos)\n' >> "$week"
       print -- "$embed" >> "$week"
     fi
     log "memos: ${n:t} -> week-notes/$wk.md"
