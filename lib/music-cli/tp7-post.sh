@@ -145,7 +145,12 @@ fi
 # Anything that fails the last check is HELD (publish-held.tsv + notification), never auto-retried.
 PUBLOG="$VAULT/music-published.md"
 PLEDGER="$HOME/.local/share/music-cli/published.tsv"   # wav <TAB> r2 key <TAB> published at
-pnotify() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null; }
+# clickable via Hammerspoon (click = open music-published.md to listen / ✕ remove); plain notification if it's down
+pnotify() {
+  local msg="${1//]]/] ]}"
+  hs -c "_G.tp7_unpublish.announce([[TP-7 → music.tools (public)]], [[$msg]], [[$2]])" >/dev/null 2>&1 \
+    || osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null
+}
 r2_put() {   # $1 local mp3, $2 key. Creds stay inside this subshell.
   ( source "$HOME/.config/music/.env" || exit 1
     export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
@@ -200,14 +205,15 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
         print -- "# Music published to music.tools.ejfox.com" > "$PUBLOG"
         print -- "" >> "$PUBLOG"
         print -- "Every file the TP-7 pipeline has ever uploaded. These are PUBLIC. Written by tp7-post.sh; nothing uploads without a row here." >> "$PUBLOG"
+        print -- "Listen, and if one shouldn't be up, click **✕ remove**: it comes down from R2, the row gets struck, and that recording is never uploaded again." >> "$PUBLOG"
         print -- "" >> "$PUBLOG"
-        print -- "| published | recorded | length | public URL | source wav |" >> "$PUBLOG"
-        print -- "|---|---|---|---|---|" >> "$PUBLOG"
+        print -- "| published | recorded | length | listen | remove | source wav |" >> "$PUBLOG"
+        print -- "|---|---|---|---|---|---|" >> "$PUBLOG"
       fi
-      print -- "| $now | $d ${hhmm[1,2]}:${hhmm[3,4]} | $len | $url | $base |" >> "$PUBLOG"
+      print -- "| $now | $d ${hhmm[1,2]}:${hhmm[3,4]} | $len | [▶ listen]($url) | [✕ remove](hammerspoon://tp7-unpublish?key=$key) | $base |" >> "$PUBLOG"
       log "PUBLISHED (public) $base -> $url ($len)"
       jlog published wav="$base" key="$key" len="$len"
-      pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len): $url" "Glass"
+      pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len). Click to listen or remove." "Glass"
       grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
     else
       log "PUBLISH FAILED $base (nothing went public; will retry next plug-in)"

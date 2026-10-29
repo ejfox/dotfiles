@@ -926,6 +926,46 @@ tp7_safe_to_publish() {
   (( words <= limit ))
 }
 
+# Undo a TP-7 auto-publish (EJ 2026-10-29: "i listen to a few, WOOPS gotta delete one, that moment
+# should be built in"). Called by the ✕ remove links in the vault's music-published.md via
+# Hammerspoon (hammerspoon://tp7-unpublish?key=...). Deletes the MP3 from R2, verifies it's gone,
+# strikes the row, notifies. The wav stays local and its ledger line stays, so it is never re-uploaded.
+cmd_tp7_unpublish() {
+  local key="${1:-}"
+  local pledger="$SHARE_DIR/published.tsv"
+  local publog="$VAULT_DIR/music-published.md"
+  local now=$(date '+%F %H:%M')
+  _unpub_note() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools\" sound name \"$2\"" 2>/dev/null; }
+  [[ "$key" =~ '^music/tp7/[A-Za-z0-9-]+\.mp3$' ]] || { _unpub_note "Not removed: '$key' isn't a TP-7 upload." Basso; die "bad key: $key"; }
+  if ! awk -F'\t' -v k="$key" '$2==k && $4==""{f=1} END{exit !f}' "$pledger" 2>/dev/null; then
+    _unpub_note "Not removed: $key isn't in the published list (or was already removed)." Basso
+    die "not a live published key: $key"
+  fi
+  local ok
+  ok=$( ( source "$ENV_FILE" || exit 1
+          export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
+          ep="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 rm "s3://${R2_BUCKET_NAME:-ejfox-personal}/$key" --endpoint-url "$ep" --only-show-errors >/dev/null 2>&1 || exit 1
+          aws s3api head-object --bucket "${R2_BUCKET_NAME:-ejfox-personal}" --key "$key" --endpoint-url "$ep" >/dev/null 2>&1 && exit 1
+          exit 0 ) && print yes )
+  if [[ "$ok" != yes ]]; then
+    _unpub_note "Remove FAILED for $key. It may still be public. Tell Claude." Basso
+    die "remove failed: $key"
+  fi
+  # ledger: 4th column = removed time (never re-uploaded: step 5 skips any wav already in the ledger)
+  awk -F'\t' -v OFS='\t' -v k="$key" -v t="$now" '$2==k{$4="removed " t} {print}' "$pledger" > "$pledger.tmp" && mv "$pledger.tmp" "$pledger"
+  # list: strike the row, drop its links
+  if [[ -f "$publog" ]]; then
+    awk -F' \\| ' -v k="$key" -v t="$now" 'index($0, k) && /^\| / {
+        gsub(/^\| /, "", $1); src=$NF; gsub(/ \|$/, "", src)
+        printf "| ~~%s~~ | ~~%s~~ | ~~%s~~ | removed %s | | %s |\n", $1, $2, $3, t, src; next } {print}' \
+      "$publog" > "$publog.tmp" && mv "$publog.tmp" "$publog"
+  fi
+  print "[$(date '+%F %T')] post: UNPUBLISHED $key" >> "$SHARE_DIR/import.log"
+  _unpub_note "Removed from music.tools: ${key#music/tp7/}. Cached copies can linger a few minutes." Glass
+  print "${TEAL}removed${RST} $key"
+}
+
 tp7_field_kit_running() {
   pgrep -xf "/Applications/field kit.app/Contents/MacOS/field kit" >/dev/null 2>&1
 }
@@ -974,6 +1014,7 @@ cmd_tp7() {
     status)      cmd_tp7_status ;;
     memos|memo)  shift 2>/dev/null; cmd_tp7_memos "$@" ;;
     safe-to-publish) shift 2>/dev/null; tp7_safe_to_publish "$@" ;;
+    unpublish)   shift 2>/dev/null; cmd_tp7_unpublish "$@" ;;
     rename-memos) shift 2>/dev/null; cmd_tp7_rename_memos "$@" ;;
     clean)       shift 2>/dev/null; cmd_tp7_clean "$@" ;;
     *)           die "unknown tp7 command: $subcmd (try: pull, ls, status, memos, rename-memos, clean)" ;;
