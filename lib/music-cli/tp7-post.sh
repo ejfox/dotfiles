@@ -10,15 +10,20 @@
 #                from the TP-7's timestamped filenames; zero extra disk).
 #                latest/recordings must keep its files — it is the dedupe
 #                ledger against the device. Never move out of it, only link.
-#  3. BACKUP     aws s3 sync → r2://ejfox-personal/tp7-raw (same creds the
-#                music CLI uses, from ~/.config/music/.env). Excludes by-date/
-#                (hardlinks would upload twice) and quarantine/.
+#  3. (removed 2026-10-29) The old R2 "backup" synced ALL of ~/tp7, memos
+#                included, to the bucket behind the PUBLIC r2.ejfox.com domain the
+#                moment a write key existed. It never succeeded; restic to computah
+#                backs up ~/tp7. Nothing here uploads raw files.
 #  4. MEMOS      `music tp7 memos` transcribes new spoken recordings into the
 #                main vault's voicememos/, then embeds each one under "What
 #                happened this week" in this week's note (created from the
 #                template if missing). Verbatim; no summary. Recordings that
 #                predate 2026-10-28 were seeded into the ledger as
 #                "preexisting", so only new memos are touched.
+#  5. PUBLISH    new jams → music.tools.ejfox.com (PUBLIC). The ONLY R2 write in
+#                this pipeline. Every upload: its own notification with the public
+#                URL + a row in the vault's music-published.md + an import.log line.
+#                Memos never upload. See the step for the exact rules.
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/bin:$PATH"
 setopt extendedglob null_glob
 
@@ -90,38 +95,7 @@ for f in "$TP7_ROOT"/*/recordings/*.wav "$TP7_ROOT"/*/recordings/*.WAV; do
 done
 [[ $linked -gt 0 ]] && { log "organized $linked file(s) into by-date/"; jlog organize_ok linked="$linked"; }
 
-# --- 3. backup: raw wavs to R2 bucket ejfox-personal under tp7-raw/ ---
-# Probe S3 write with a marker object; if allowed -> aws s3 sync (multipart, resumable, any size). This lights up
-# automatically the moment a write-capable token lands in ~/.config/music/.env. Otherwise skip quietly.
-BUCKET_NAME="ejfox-personal"; PREFIX="tp7-raw"
-if [[ -f "$HOME/.config/music/.env" ]] && command -v aws >/dev/null; then
-  source "$HOME/.config/music/.env"
-  export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID:-}" AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY:-}" AWS_DEFAULT_REGION=auto
-  EP="https://${R2_ACCOUNT_ID:-deffa184038440afc07f53b5e7583a97}.r2.cloudflarestorage.com"
-
-  if print -n "probe" | aws s3 cp - "s3://$BUCKET_NAME/$PREFIX/.write-probe" --endpoint-url "$EP" >/dev/null 2>&1; then
-    # tier (a): real sync
-    if aws s3 sync "$TP7_ROOT" "s3://$BUCKET_NAME/$PREFIX" --endpoint-url "$EP" \
-         --exclude "by-date/*" --exclude "quarantine/*" --exclude ".*" --exclude "*/.*" \
-         --only-show-errors 2>>"$LOG"; then
-      log "backup sync OK -> r2:$BUCKET_NAME/$PREFIX (s3 write token active)"
-      jlog backup_ok mode=sync
-    else
-      log "backup sync FAILED"
-      jlog backup_fail mode=sync
-      osascript -e 'display notification "R2 backup failed — recordings are LOCAL ONLY" with title "TP-7 import" sound name "Basso"' 2>/dev/null
-    fi
-  else
-    # No write token yet. The old wrangler per-file bridge was removed 2026-10-04: under launchd it failed every
-    # file (439/run, ~12 min of cold starts) and ended in a Basso alert on every connect. Recordings are covered
-    # by the restic backup to computah until a write-capable R2 token lands in ~/.config/music/.env.
-    log "backup skipped: R2 key is read-only (add a write token, see README); restic covers ~/tp7"
-    jlog backup_skipped reason=readonly_token
-  fi
-else
-  log "backup skipped: missing music .env or aws cli"
-  jlog backup_skipped
-fi
+# --- 3. (removed 2026-10-29): no raw R2 sync; see header. restic to computah backs up ~/tp7. ---
 
 # --- 4. memos: transcribe new speech -> vault, embed in this week's note ---
 # Absolute path: $HOME/bin/music is a stale May copy without `tp7 memos`.
@@ -158,4 +132,71 @@ if [[ -x "$MUSIC" ]]; then
   done
 else
   log "memos skipped: $MUSIC missing"
+fi
+
+# --- 5. publish: new TP-7 jams -> music.tools.ejfox.com (PUBLIC) ---
+# EJ 2026-10-29: auto-publish every new jam, and "be VERY SUPER CLEAR about every single file ever
+# uploaded, no 'secretly' uploading files". So this is the ONLY R2 write in the pipeline, and every
+# upload gets: its own notification with the public URL, a row in the vault's music-published.md,
+# and an import.log line. A failed upload notifies too.
+# What qualifies: recordings that arrived in THIS run (new ledger lines) judged instrumental/noise by
+# step 4, at least 30 s long, NOT from the TP-7's memo folder (~/tp7/cli-memo), not published before.
+PUBLOG="$VAULT/music-published.md"
+PLEDGER="$HOME/.local/share/music-cli/published.tsv"   # wav <TAB> r2 key <TAB> published at
+pnotify() { osascript -e "display notification \"$1\" with title \"TP-7 → music.tools (public)\" sound name \"$2\"" 2>/dev/null; }
+r2_put() {   # $1 local mp3, $2 key. Creds stay inside this subshell.
+  ( source "$HOME/.config/music/.env" || exit 1
+    export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" AWS_DEFAULT_REGION=auto
+    aws s3 cp "$1" "s3://${R2_BUCKET_NAME:-ejfox-personal}/$2" \
+      --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+      --content-type audio/mpeg --only-show-errors ) 2>>"$LOG"
+}
+if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
+  PENDING="$HOME/.local/share/music-cli/publish-pending.txt"   # failed uploads, retried every run
+  touch "$PLEDGER" "$PENDING"
+  jams=( ${(fu)"$( { tail -n +$((before+1)) "$MLEDGER" | awk -F'\t' '$2=="instrumental"||$2=="noise"{print $1}'; cat "$PENDING"; } )"} )
+  for base in $jams; do
+    wav="$TP7_ROOT/latest/recordings/$base"
+    [[ -f "$wav" ]] || continue
+    [[ -e "$TP7_ROOT/cli-memo/$base" ]] && continue                          # memo folder: never
+    awk -F'\t' -v b="$base" '$1==b{f=1} END{exit !f}' "$PLEDGER" && continue  # already published
+    [[ "$base" =~ '^([0-9]{4}-[0-9]{2}-[0-9]{2})_([0-9]{2})([0-9]{2})' ]] || continue
+    d="$match[1]"; hhmm="$match[2]$match[3]"
+    secs=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$wav" 2>/dev/null)
+    secs=${secs%.*}
+    (( ${secs:-0} >= 30 )) || continue
+    # real recording date: the TP-7 clock ran exactly 14001 days fast until it was set
+    (( ${d[1,4]} > $(date +%Y) )) && d=$(date -j -v-14001d -f %F "$d" +%F)
+    key="music/tp7/${d}-${hhmm}.mp3"
+    n=2
+    while [[ "$(curl -s -o /dev/null -w '%{http_code}' -m 10 -I "https://r2.ejfox.com/$key")" == 200 ]]; do
+      key="music/tp7/${d}-${hhmm}-$n.mp3"; n=$((n+1))                        # never overwrite
+    done
+    url="https://r2.ejfox.com/$key"
+    len=$(printf '%d:%02d' $((secs / 60)) $((secs % 60)))
+    mp3="/tmp/tp7-publish-$$.mp3"
+    if ffmpeg -loglevel error -y -i "$wav" -codec:a libmp3lame -b:a 320k "$mp3" </dev/null && r2_put "$mp3" "$key"; then
+      now=$(date '+%F %H:%M')
+      printf '%s\t%s\t%s\n' "$base" "$key" "$now" >> "$PLEDGER"
+      if [[ ! -f "$PUBLOG" ]]; then
+        print -- "# Music published to music.tools.ejfox.com" > "$PUBLOG"
+        print -- "" >> "$PUBLOG"
+        print -- "Every file the TP-7 pipeline has ever uploaded. These are PUBLIC. Written by tp7-post.sh; nothing uploads without a row here." >> "$PUBLOG"
+        print -- "" >> "$PUBLOG"
+        print -- "| published | recorded | length | public URL | source wav |" >> "$PUBLOG"
+        print -- "|---|---|---|---|---|" >> "$PUBLOG"
+      fi
+      print -- "| $now | $d ${hhmm[1,2]}:${hhmm[3,4]} | $len | $url | $base |" >> "$PUBLOG"
+      log "PUBLISHED (public) $base -> $url ($len)"
+      jlog published wav="$base" key="$key" len="$len"
+      pnotify "Published $d ${hhmm[1,2]}:${hhmm[3,4]} jam ($len): $url" "Glass"
+      grep -vxF "$base" "$PENDING" > "$PENDING.tmp"; mv "$PENDING.tmp" "$PENDING"
+    else
+      log "PUBLISH FAILED $base (nothing went public; will retry next plug-in)"
+      jlog publish_fail wav="$base"
+      pnotify "NOT published: $base. Upload failed, nothing went public. Retrying next plug-in." "Basso"
+      grep -qxF "$base" "$PENDING" || print -- "$base" >> "$PENDING"
+    fi
+    rm -f "$mp3"
+  done
 fi
