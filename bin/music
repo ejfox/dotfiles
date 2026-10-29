@@ -1380,8 +1380,18 @@ cmd_tp7_memos() {
     [[ -z "$date" ]] && date=$(print -- "$base" | grep -oE '[0-9]{8}T' | head -1 \
       | sed -E 's/([0-9]{4})([0-9]{2})([0-9]{2})T/\1-\2-\3/')
     [[ -z "$date" ]] && date=$(stat -f "%Sm" -t "%Y-%m-%d" "$f")
-    # TP-7 clock is broken (files dated 2064/2065 are recent); future year => use today
-    [[ "${date[1,4]}" -gt "$(date +%Y)" ]] && date=$(date +%F)
+    # The TP-7's clock ran exactly 14001 days fast until it was set (by Oct 2026). Verified 2026-10-29
+    # against the memos' own spoken dates: 2064-12-10 "Tuesday August" = 2026-08-11, 2064-12-12
+    # "August 13th", 2064-12-14 "Saturday August 15th", 2064-12-15 "Sunday". A future-year stamp gets
+    # the offset; if that still isn't a past date (the clock broke differently), fall back to today.
+    if [[ "${date[1,4]}" -gt "$(date +%Y)" ]]; then
+      local fixed=$(date -j -v-14001d -f %F "$date" +%F 2>/dev/null)
+      if [[ -n "$fixed" && "$fixed" < "$(date -v+1d +%F)" ]]; then
+        date="$fixed"
+      else
+        date=$(date +%F)
+      fi
+    fi
     local dur=$(ffprobe -hide_banner -loglevel error -show_entries format=duration -of default=nw=1:nk=1 "$f" 2>/dev/null)
     local durfmt=$(fmt_dur "${dur:-0}")
     local title="${slug//-/ }"
