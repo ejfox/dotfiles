@@ -89,7 +89,7 @@ tp7op() {
   to_mtp && tp7 "$@" 2>/dev/null
 }
 
-total=0; got=0; stopped=""
+total=0; got=0; stopped=""; retry_wanted=0
 if ! command -v tp7 >/dev/null || ! command -v sendmidi >/dev/null; then
   stopped=notools
   log "tp7 CLI or sendmidi missing"
@@ -97,6 +97,10 @@ if ! command -v tp7 >/dev/null || ! command -v sendmidi >/dev/null; then
 else
   # 1. memos: whole /memo folder (small), new ones hardlinked into DEST for tp7-post
   tp7op pull --recursive --skip-existing --no-progress /memo "$MEMO_DIR" | grep '^downloaded' >> "$LOG"
+  if (( pipestatus[1] != 0 )); then
+    retry_wanted=1
+    log "memo pull FAILED"
+  fi
   memo_new=0
   for m in "$MEMO_DIR"/*.wav(N); do
     [[ -e "$DEST/${m:t}" ]] && continue
@@ -142,6 +146,7 @@ else
         log "pulled $name"
       else
         rm -f "$DEST/$name.part"
+        retry_wanted=1
         log "FAILED $name"
       fi
     done
@@ -175,3 +180,10 @@ fi
 # post-pull: quarantine truncated wavs (mid-transfer unplug protection),
 # organize into by-date/ hardlinks, and sync raw wavs to R2
 "$SH/tp7-post.sh"
+
+# exit 75 (EX_TEMPFAIL) = the device couldn't be fully read; the watcher retries this plug-in.
+# Disk-floor stops exit 0: retrying can't fix a full disk, and EJ was already notified.
+if [[ "$stopped" == listfail || "$retry_wanted" == 1 ]]; then
+  exit 75
+fi
+exit 0

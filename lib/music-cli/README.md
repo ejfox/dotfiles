@@ -34,6 +34,17 @@ launchd com.ejfox.music-tp7-watch (every 10s)
 - Deploy edits atomically (`cp f f.new && mv f.new f`): zsh reads scripts as it runs, and
   replacing one mid-run caused "parse error" lines in watcher.log on 2026-10-28.
 - Manual run: `~/.local/share/music-cli/tp7-import.sh` (works from audio mode).
+- **Powered off but plugged in:** it still shows on USB but ignores MIDI. The watcher sends a MIDI
+  identity request (`7e 7f 06 01`) and starts only once the TP-7 answers, so it syncs the moment
+  it's switched on. Exits quietly until then.
+- **Retries:** `tp7-import.sh` exits 75 when the device couldn't be fully read (list failed, memo
+  pull failed, or any recording failed). The watcher retries that plug-in after the 3-min cooldown,
+  up to 3 times, then notifies once ("unplug, then plug back in"). Counter: `/tmp/.music-tp7-tries`,
+  cleared on unplug or success. A disk-floor stop exits 0, since retrying can't help.
+- **Daily self-check** (inside the watcher, once per day, TP-7 not needed; notifies ONLY on failure):
+  deps (tp7, sendmidi, receivemidi, whisper-cli, ffmpeg, ffprobe, music, whisper model), each live
+  script parses AND matches its dotfiles copy, disk free ≥ floor. Log line `SELFTEST FAIL` in
+  watcher.log, events `selftest_ok/fail` in the usage log. Force a re-run: delete `selftest.stamp`.
 
 ### Old libmtp flow (kept for reference; broken on firmware 1.1.11)
 
