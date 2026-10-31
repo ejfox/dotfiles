@@ -345,7 +345,8 @@ PS
         # process tree on disconnect) — a scheduled task survives. The task
         # is a one-shot dated in the past: never auto-fires, /run-able forever.
         rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\dev\computah\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\dev\computah\farm\llama-server.log 2>&1\""
-        rssh "tasklist | findstr /i llama-server.exe >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
+        # check the port, not the name: embed-server (:8090) is a llama-server.exe too
+        rssh "netstat -ano | findstr LISTENING | findstr :8085 >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
         ;;
       # only the :8085 LLM — a by-name kill also took down embed-server (nomic, :8090)
