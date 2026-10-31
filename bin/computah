@@ -62,8 +62,9 @@ wake() {
   # Magic packet: 6x FF + 16x MAC. Subnet-proof: blasts the global broadcast,
   # this Mac's *current* interface broadcast (derived live, so a DHCP/router
   # subnet change can't strand the packet), and the legacy 10.0.0.x subnet.
-  # No deps beyond python3.
-  python3 - "$MAC_ADDR" <<'EOF'
+  # No deps beyond python3. Apple's /usr/bin/python3: Local Network privacy blocks
+  # /usr/local/bin/python3's LAN packets (see ask, 2026-10-31).
+  /usr/bin/python3 - "$MAC_ADDR" <<'EOF'
 import socket, sys, subprocess, ipaddress
 mac = bytes.fromhex(sys.argv[1].replace(':', ''))
 pkt = b'\xff' * 6 + mac * 16
@@ -192,7 +193,7 @@ PS
     rm -f "$ps1"
     echo "→ applying (elevated, one-shot scheduled task)"
     # past-dated ONCE task; /run triggers it immediately (the /ST warning is harmless)
-    rssh "schtasks /create /f /tn harden-wol /rl HIGHEST /sc ONCE /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\$REMOTE_USER\\harden-wol.ps1\"" >/dev/null 2>&1
+    rssh "schtasks /create /f /tn harden-wol /rl HIGHEST /sc ONCE /st 00:00 /sd 2020/01/01 /ru $REMOTE_USER /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\$REMOTE_USER\\harden-wol.ps1\"" >/dev/null 2>&1
     rssh "schtasks /run /tn harden-wol" >/dev/null 2>&1
     # poll until the task finishes writing its log (up to ~24s) instead of a fixed sleep
     for i in $(seq 1 12); do
@@ -344,7 +345,10 @@ PS
         # Start-Process dies when the SSH session ends (Windows kills the
         # process tree on disconnect) — a scheduled task survives. The task
         # is a one-shot dated in the past: never auto-fires, /run-able forever.
-        rssh "schtasks /query /tn llama-server >nul 2>&1 || schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\dev\computah\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 > C:\dev\computah\farm\llama-server.log 2>&1\""
+        # -c 8192: without it llama.cpp sizes the KV cache for Qwen3's full 40k context
+        # (~6.7 GB on top of 8.3 GB of weights) and sits at 503 "Loading model" for good (2026-10-31).
+        # /create /f every time so a flag change here reaches the PC's task.
+        rssh "schtasks /create /f /tn llama-server /sc once /st 00:00 /sd 2020/01/01 /ru $REMOTE_USER /tr \"cmd /c cd /d C:\dev\computah\farm\llama && llama-server.exe -m C:\Users\\$REMOTE_USER\models\llm\Qwen3-14B-Q4_K_M.gguf --host 0.0.0.0 --port 8085 -ngl 99 -c 8192 > C:\dev\computah\farm\llama-server.log 2>&1\" >nul"
         # check the port, not the name: embed-server (:8090) is a llama-server.exe too
         rssh "netstat -ano | findstr LISTENING | findstr :8085 >nul && echo already running || (schtasks /run /tn llama-server >nul && echo llama-server starting on :8085)"
         echo "endpoint: http://$(host):8085/v1 (OpenAI-compatible, also on tailnet)"
@@ -384,7 +388,9 @@ PS
         "$0" llm off >/dev/null 2>&1 || true; "$0" sd-server start >/dev/null 2>&1 || true; exit 1
       fi
     fi
-    Q="$q" HOST="$h" python3 - <<'PYEOF'
+    # /usr/bin/python3, not PATH's: macOS Local Network privacy blocks /usr/local/bin/python3
+    # from the LAN ("[Errno 65] No route to host") while curl and Apple's python get through (2026-10-31)
+    Q="$q" HOST="$h" /usr/bin/python3 - <<'PYEOF'
 import json, os, sys, urllib.request
 body = json.dumps({
     "messages": [{"role": "user", "content": os.environ["Q"]}],
@@ -509,7 +515,7 @@ PYEOF
     rm -f ./early.png ./early.json
     if ! HOST="$h" PROMPT="$prompt" IW="$W" IH="$H" ISTEPS="$steps" ISEED="$seed" \
          ISTRENGTH="$strength" ENDPOINT="$endpoint" INIT="$init" OUT="./$out" \
-         ISAMPLER="$sampler" ICFG="$cfg" IEARLY="$early_on" python3 - <<'PYEOF'
+         ISAMPLER="$sampler" ICFG="$cfg" IEARLY="$early_on" /usr/bin/python3 - <<'PYEOF'
 import os, sys, json, base64, urllib.request
 h = os.environ["HOST"]; ep = os.environ["ENDPOINT"]
 
@@ -776,7 +782,7 @@ del $FARM\sd\preview.png >nul 2>&1
 sd-cli.exe --diffusion-model $M\flux-2-klein-9b-Q5_K_M.gguf --vae $M\flux2-vae.safetensors --llm $M\qwen3-8b-Q6_K.gguf --backend diffusion=vulkan0,te=cpu,vae=vulkan0 -p "$prompt" --seed $seed --cfg-scale 1.0 --steps $steps --sampling-method euler -W $W -H $H --diffusion-fa --taesd $M\taef2.safetensors --taesd-preview-only --preview tae --preview-interval 1 --preview-path $FARM\sd\preview.png -o $FARM\sd\grid_$i.png > $FARM\sd\grid-run.log 2>&1
 CMDEOF
       awk '{printf "%s\r\n", $0}' "$tmp" > "$tmp.cmd" && scp -q "$tmp.cmd" "$REMOTE_USER@$h:C:/dev/computah/farm/sd/grid-run.cmd" && rm -f "$tmp" "$tmp.cmd"
-      rssh "schtasks /query /tn grid-run >nul 2>&1 || schtasks /create /f /tn grid-run /sc once /st 00:00 /sd 01/01/2020 /ru $REMOTE_USER /tr \"powershell -NoProfile -WindowStyle Hidden -Command cmd /c $FARM\sd\grid-run.cmd\"" >/dev/null
+      rssh "schtasks /query /tn grid-run >nul 2>&1 || schtasks /create /f /tn grid-run /sc once /st 00:00 /sd 2020/01/01 /ru $REMOTE_USER /tr \"powershell -NoProfile -WindowStyle Hidden -Command cmd /c $FARM\sd\grid-run.cmd\"" >/dev/null
       rssh "schtasks /run /tn grid-run >nul" || true
       # wait for this cell to finish before starting the next (single GPU)
       for w in $(seq 1 200); do
@@ -855,7 +861,7 @@ editing: $files"
       [ "$(curl -s -m 2 -o /dev/null -w '%{http_code}' "http://$h:8085/health" 2>/dev/null)" = "200" ] && break
       sleep 3
     done
-    mprompt=$(CTX="$ctx" HOST="$h" python3 - <<'PYEOF' || true
+    mprompt=$(CTX="$ctx" HOST="$h" /usr/bin/python3 - <<'PYEOF' || true
 import json, os, re, urllib.request
 body = json.dumps({
     "messages": [
