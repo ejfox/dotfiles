@@ -210,11 +210,23 @@ PS
   doctor)
     # One-shot health check + auto-heal of the whole PC integration. Safe to
     # run anytime; starts the preview server and heals deskflow if needed.
+    # --scheduled (daily LaunchAgent com.ejfox.computah-doctor, EJ 2026-10-31): also fixes
+    # the safe, reversible things below, then sends ONE alert via anomalywatch listing
+    # what's still wrong and what it fixed; silent when healthy. Never wakes the PC.
+    # A checker must never die mid-run: under the script's `set -e` + pipefail, one SSH
+    # hiccup inside a `x=$(rssh … | tr …)` killed the whole doctor silently (2026-10-31).
+    set +e +o pipefail
+    sched=0; [ "${2:-}" = "--scheduled" ] && sched=1
+    probs=(); fixes=()
     ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
-    bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
+    bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; probs+=("$*"); }
+    fixed() { printf '  \033[33m↻\033[0m %s\n' "$*"; fixes+=("$*"); }
     h=$(host)
-    echo "◆ computah doctor"
-    if ! nc -z -G 3 "$h" 22 2>/dev/null; then bad "PC unreachable (try: computah wake)"; exit 1; fi
+    echo "◆ computah doctor $(date '+%Y-%m-%d %H:%M')"
+    if ! nc -z -G 3 "$h" 22 2>/dev/null; then
+      if [ "$sched" -eq 1 ]; then echo "  · PC asleep or off: skipped (the doctor never wakes it)"; exit 0; fi
+      bad "PC unreachable (try: computah wake)"; exit 1
+    fi
     [ "$h" = "$LAN_IP" ] && ok "reachable via LAN ($h)" || ok "reachable via Tailscale ($h)"
     # models
     miss=$(rssh "powershell -NoProfile -Command \"@('models\image\flux-2-klein-9b-Q5_K_M.gguf','models\image\flux2-vae.safetensors','models\image\qwen3-8b-Q6_K.gguf','models\image\taef2.safetensors','models\vlm\Qwen2.5-VL-7B-Q4_K_M.gguf','models\vlm\mmproj-Qwen2.5-VL-7B.gguf') | Where-Object { -not (Test-Path (Join-Path \$env:USERPROFILE \$_)) }; if (-not (Test-Path 'C:\dev\computah\farm\sd\sd-cli.exe')) { 'farm\sd\sd-cli.exe' }\"" 2>/dev/null | tr -d '\r')
@@ -231,7 +243,15 @@ PS
     [ "$wol" = "1" ] && ok "wake-on-LAN armed (Fast Startup off, NIC wakes)" || bad "wake-on-LAN NOT armed — run: computah harden-wol"
     # night-wake guard — nothing may self-wake the PC at night (the 2AM rule)
     wt=$(rssh "powershell -NoProfile -Command \"@((powercfg -waketimers) | Select-String 'expires').Count\"" 2>/dev/null | tr -d '\r')
-    [ "${wt:-0}" = "0" ] && ok "no wake timers armed (won't self-wake at night)" || bad "$wt wake timer(s) ARMED — run: computah harden-wol"
+    if [ "${wt:-0}" = "0" ]; then
+      ok "no wake timers armed (won't self-wake at night)"
+    elif [ "$sched" -eq 1 ]; then
+      "$0" harden-wol >/dev/null 2>&1 || true; sleep 5
+      wt=$(rssh "powershell -NoProfile -Command \"@((powercfg -waketimers) | Select-String 'expires').Count\"" 2>/dev/null | tr -d '\r')
+      if [ "${wt:-0}" = "0" ]; then fixed "wake timers were armed: harden-wol disarmed them"; else bad "$wt wake timer(s) still ARMED after harden-wol"; fi
+    else
+      bad "$wt wake timer(s) ARMED — run: computah harden-wol"
+    fi
     # preview server — start if down
     if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ]; then
       ok "preview server up (:7861)"
@@ -246,6 +266,56 @@ PS
       deskflow-heal >/dev/null 2>&1
       lsof -nP -iTCP:24800 2>/dev/null | grep -qi established && ok "deskflow KVM connected" \
         || { lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1 && echo "  · deskflow listening, client not connected yet" || bad "deskflow core not listening"; }
+    fi
+    # PC-side checks (computah-telemetry pc/doctor.ps1): tailscale (re-ups it), DST-pinned
+    # triggers, gui-keeper stuck/gave up, crashes in 24 h, studio quiet, disk
+    while IFS= read -r line; do
+      line=${line%$'\r'}
+      case "$line" in
+        "OK "*) ok "${line#OK }" ;;
+        "FIXED "*) fixed "${line#FIXED }" ;;
+        "BAD "*) bad "${line#BAD }" ;;
+      esac
+    done < <(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\doctor.ps1" 2>/dev/null)
+    # GPU leases (paperize/CRT): they never expire, so a crashed or forgetful holder keeps
+    # FLUX off for hours (2026-10-31: 'lesswrong', ~7 h, nothing running). Stale = older
+    # than 2 h with no paperize/librashader process on the Mac.
+    ldir="$HOME/.cache/paperize-gpulease"; now=$(date +%s)
+    for lf in "$ldir"/*; do
+      [ -f "$lf" ] || continue
+      lname=$(basename "$lf"); lage=$(( (now - $(cat "$lf")) / 60 ))
+      if [ "$lage" -lt 120 ] || pgrep -f 'paperize|librashader' >/dev/null; then
+        ok "GPU lease '$lname' held ${lage}m (render running or recent)"
+      elif [ "$sched" -eq 1 ]; then
+        "$HOME/code/paperize/gpulease" release "$lname" >/dev/null 2>&1 || true
+        fixed "released stale GPU lease '$lname' (${lage}m, nothing rendering)"
+      else
+        bad "stale GPU lease '$lname' (${lage}m, nothing rendering): ~/code/paperize/gpulease release $lname"
+      fi
+    done
+    # the wall's FLUX server: should be up unless a game or a lease holds the card
+    leases=$(find "$ldir" -type f 2>/dev/null | wc -l | tr -d ' ')
+    game=$(rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (echo 1) else (echo 0)" 2>/dev/null | tr -cd '01')
+    if curl -s -m3 -o /dev/null "http://$h:1234/" 2>/dev/null || nc -z -G 3 "$h" 1234 2>/dev/null; then
+      ok "sd-server up (:1234)"
+    elif [ "$leases" != "0" ] || [ "$game" = "1" ]; then
+      ok "sd-server down on purpose (lease or game)"
+    elif [ "$sched" -eq 1 ]; then
+      "$0" sd-server start >/dev/null 2>&1 || true
+      fixed "sd-server was down with no lease or game: started it"
+    else
+      bad "sd-server down with no lease or game: computah sd-server start"
+    fi
+    # Qwen holds ~9 GB of VRAM; the policy is off when done (report only, a session may be using it)
+    nc -z -G 3 "$h" 8085 2>/dev/null && bad "Qwen (:8085) still loaded, 9 GB VRAM: computah llm off when done"
+    if [ "$sched" -eq 1 ] && [ $(( ${#probs[@]} + ${#fixes[@]} )) -gt 0 ]; then
+      level=info; [ "${#probs[@]}" -gt 0 ] && level=warning
+      msg="computah doctor: ${#probs[@]} problem(s)"
+      [ "${#probs[@]}" -gt 0 ] && msg="$msg: $(printf '%s; ' "${probs[@]}")"
+      [ "${#fixes[@]}" -gt 0 ] && msg="$msg Fixed: $(printf '%s; ' "${fixes[@]}")"
+      msg=$(printf '%s' "$msg" | tr -cd "A-Za-z0-9 .,:;()/_+=-" | cut -c1-900)  # safe through ssh quoting
+      ssh -o ConnectTimeout=10 vps "~/scripts/scripts/alert.sh computah-doctor $level '$msg'" >/dev/null 2>&1 \
+        && echo "  · alert sent ($level)" || echo "  · alert FAILED to send"
     fi
     echo "◆ done"
     ;;
