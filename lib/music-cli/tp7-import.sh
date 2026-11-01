@@ -82,11 +82,13 @@ to_mtp() {
   done
   return 1
 }
-# one tp7 CLI op on a fresh MTP session; on failure re-switch and retry once
+# one tp7 CLI op on a fresh MTP session; on failure re-switch and retry once.
+# macOS's ptpcamerad grabs every MTP device exclusively the moment it appears ("busy", 0xe00002c5,
+# 2026-10-31); it runs as EJ, so kill it right before each op (launchd respawns it, harmlessly).
 tp7op() {
-  to_mtp && tp7 "$@" 2>/dev/null && return 0
+  to_mtp && pkill -9 -x ptpcamerad 2>/dev/null; to_mtp && tp7 "$@" 2>/dev/null && return 0
   sleep 2
-  to_mtp && tp7 "$@" 2>/dev/null
+  to_mtp && pkill -9 -x ptpcamerad 2>/dev/null; to_mtp && tp7 "$@" 2>/dev/null
 }
 
 total=0; got=0; stopped=""; retry_wanted=0
