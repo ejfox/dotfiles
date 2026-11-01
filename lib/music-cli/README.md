@@ -15,22 +15,48 @@ launchd com.ejfox.music-tp7-watch (every 10s)
   └─ tp7-mount-handler.sh   TE vendor 9063 on the bus? once per plug-in
        │                    (unplug = 3 empty polls; 180 s cooldown, because
        │                     every audio<->MTP switch drops off USB for ~1 s)
-       └─ tp7-import.sh
-            ├─ to_mtp: sendmidi SysEx 00 20 76 19 40 60 05 04 00 01 03 → wait for
-            │          "TP-7 MTP Device" (ack 00 20 76 19 40 20 05 04 00). Before EVERY op:
-            │          the TP-7 falls back to audio mode right after each CLI session.
+       └─ tp7-import.sh        (run via /bin/zsh so a lost exec bit can't skip it)
+            ├─ before EVERY tp7 op: MIDI SysEx 00 20 76 19 40 60 05 04 00 01 03 → wait for
+            │  "TP-7 MTP Device", then `pkill -9 ptpcamerad` (macOS's camera daemon grabs MTP
+            │  devices exclusively → "busy" 0xe00002c5). Each op = one TP-7 restart; the device
+            │  falls back to audio mode after every CLI session.
             ├─ tp7 pull --recursive --skip-existing /memo → ~/tp7/cli-memo, hardlinked into latest/
-            ├─ tp7 ls -l -t /recordings → pull each missing file (disk floor checked per file)
-            └─ tp7-post.sh  quarantine · by-date links · R2 · memos → vault + week note
+            ├─ tp7 ls -l -t /recordings → disk floor checked on the TOTAL of missing files
+            ├─ tp7 pull --recursive --skip-existing /recordings → latest/   (ONE session)
+            └─ tp7-post.sh
+                 1 quarantine truncated wavs (re-pulled next plug-in)
+                 2 by-date/ hardlinks
+                 4 memos: ONE whole-file whisper pass per new file. ≥5 real words = memo →
+                   ejfox/voicememos/ + embed in that week's note; <5 = jam. Word count → ledger col 4.
+                 5 PUBLISH (public!): jam, ≥30 s, not from /memo, ledger words <5 →
+                   320k MP3 via wrangler → r2 ejfox-personal music/tp7/<real date>-<HHMM>.mp3
+                   (r2.ejfox.com; listed on music.tools + Tapes iOS app via /api/tracks).
+                   Every upload: notification + row in vault music-published.md (▶ listen /
+                   ✕ remove) + Things to-do "Jam Oct 11 10:59p ok?" + import.log line.
+                   Anything that fails the gate is HELD (publish-held.tsv + Things), never retried.
 ```
+
+**Remove a published jam:** click ✕ remove in `music-published.md` →
+`hammerspoon://tp7-unpublish?key=…` → `~/.dotfiles/hammerspoon/tp7-unpublish.lua` →
+`music tp7 unpublish <key>` (deletes from R2, strikes the row, notifies; never re-uploaded).
+
+**Ledgers** (`~/.local/share/music-cli/`): `memos-ledger.tsv` (wav, verdict, note, words),
+`published.tsv` (wav, key, published, removed), `publish-pending.txt` (failed uploads, retried),
+`publish-held.tsv` (gate failures). The old R2 "backup" sync is gone: r2.ejfox.com is a PUBLIC
+domain over the whole bucket, so raw files never go there. restic to computah backs up ~/tp7.
+
+**Waveforms on music.tools:** `vps:/data2/smallweb/data/music/peaks.py` (cron */15, flock)
+computes 200 real peaks per track with ffmpeg → `music/data/peaks.json`; main.ts draws SVG.
 
 - Deps: `tp7` (brew totocaster/tap/tp7 0.1.0) and `sendmidi`, both in /usr/local/bin. The CLI
   only sees the device in MTP mode (PID 0x0019); in audio mode this unit is 0x8019, which the
   CLI doesn't match. That's why the MIDI switch is done here and not with `tp7 -a`.
-- Memos: `music tp7 memos` → `ejfox/voicememos/`, embedded in the week note for the week they
-  were recorded. Under 5 words = `noise` (whisper says "you" on silence). Ledger:
-  `~/.local/share/music-cli/memos-ledger.tsv` (`preexisting` / `preexisting-memo` = held;
-  delete a line to backfill that file).
+- Memos: the TP-7 clock ran exactly 14001 days fast until it was set; `music tp7 memos` maps
+  2064/2065 stamps back. Ledger `preexisting` / `preexisting-memo` rows = never processed;
+  delete a line to backfill that file.
+- `music tp7` with no args prints usage. The old libmtp commands (pull, ls, status, clean,
+  rename-memos) are unrouted: libmtp is blind on 1.1.11, and `pull` uploaded speech unrecorded.
+- Failures that need EJ also leave a Things to-do: disk too full to pull, or 3 failed tries.
 - Deploy edits atomically (`cp f f.new && mv f.new f`): zsh reads scripts as it runs, and
   replacing one mid-run caused "parse error" lines in watcher.log on 2026-10-28.
 - Manual run: `~/.local/share/music-cli/tp7-import.sh` (works from audio mode).
