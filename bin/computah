@@ -1911,7 +1911,10 @@ PYT
     # PC case + DualSense RGB via OpenRGB. Effects (wave/breathe/pulse) or screen-sync.
     SYNC="$HOME/.dotfiles/hue-stream/pc-rgb-sync.py"
     EFFECT="$HOME/.dotfiles/hue-stream/pc-rgb-effect.py"
-    VENV="$HOME/.local/share/rgb-venv/bin/python"
+    # Apple's /usr/bin/python3 venv: macOS Local Network privacy blocks the python.org python from
+    # 10.0.0.169 (EHOSTUNREACH), so "off" silently did nothing (2026-11-01). Old venv kept as fallback.
+    VENV="$HOME/.local/share/rgb-venv-apple/bin/python"
+    [ -x "$VENV" ] || VENV="$HOME/.local/share/rgb-venv/bin/python"
     NODE_DIR="$HOME/.dotfiles/hue-stream/node"
     _stop_all() { pkill -f pc-rgb-sync.py 2>/dev/null || true; pkill -f pc-rgb-effect.py 2>/dev/null || true; sleep 1; }
     _hue_daemon_pid() { pgrep -f "hue-stream.js daemon" 2>/dev/null | head -1; }
