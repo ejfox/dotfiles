@@ -1002,17 +1002,16 @@ tp7_wait_for_gphoto() {
 }
 
 cmd_tp7() {
-  local subcmd="${1:-pull}"
+  # 2026-10-31: the old libmtp commands (pull/import, ls, status, rename-memos, clean) are unrouted.
+  # libmtp is blind on firmware 1.1.11, and `pull` uploaded every recording (speech included) to
+  # music/loosies/ with no record. Syncing is automatic: plug the TP-7 in (tp7-import.sh, launchd).
+  local subcmd="${1:-help}"
   case "$subcmd" in
-    pull|import) shift 2>/dev/null; cmd_tp7_pull "$@" ;;
-    ls|list)     cmd_tp7_ls ;;
-    status)      cmd_tp7_status ;;
     memos|memo)  shift 2>/dev/null; cmd_tp7_memos "$@" ;;
     safe-to-publish) shift 2>/dev/null; tp7_safe_to_publish "$@" ;;
     unpublish)   shift 2>/dev/null; cmd_tp7_unpublish "$@" ;;
-    rename-memos) shift 2>/dev/null; cmd_tp7_rename_memos "$@" ;;
-    clean)       shift 2>/dev/null; cmd_tp7_clean "$@" ;;
-    *)           die "unknown tp7 command: $subcmd (try: pull, ls, status, memos, rename-memos, clean)" ;;
+    *)           print "TP-7 syncs automatically when plugged in (see ~/.dotfiles/lib/music-cli/README.md)."
+                 print "manual: music tp7 memos [dir] | safe-to-publish <wav> | unpublish <music/tp7/key.mp3>" ;;
   esac
 }
 
@@ -1412,36 +1411,30 @@ cmd_tp7_memos() {
       already=$((already+1)); continue
     fi
 
-    # 1) cheap speech/instrumental verdict (whisper on first 30s)
-    print -n "  ${MUTED}${base} — analyzing…${RST}\r"
-    local analysis=$(tp7_analyze_audio "$f")
-    local verdict="${analysis%%|*}"      # speech | instrumental
-    local slug="${analysis#*|}"
-
-    if [[ "$verdict" != "speech" ]]; then
-      printf '%s\t%s\t\n' "$base" instrumental >> "$ledger"
-      jams=$((jams+1)); continue
-    fi
-
-    # 2) full transcript (whole file, 16k mono)
+    # ONE whole-file pass decides everything (2026-10-31 audit: the old first-30-s check let a jam
+    # with a spoken aside later on count as "instrumental"). Real words = not [Music]/(…) tags.
+    # < 5 words -> jam (whisper says "you"/"thank you" on silence and music). >= 5 -> memo.
+    # Column 4 of the ledger is the word count; the publish step reads it (no second whisper pass).
     print -n "  ${MUTED}${base} — transcribing…${RST}      \r"
     local tmp="/tmp/music-memo-$$.wav"
     ffmpeg -hide_banner -loglevel error -y -i "$f" -ar 16000 -ac 1 "$tmp" </dev/null 2>/dev/null
     local transcript=""
-    [[ -f "$tmp" ]] && transcript=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp" 2>/dev/null \
-      | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | awk 'NF{blank=0} !NF{blank++} blank<2')
+    if [[ ! -f "$tmp" ]] || ! transcript=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp" 2>/dev/null \
+         | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | awk 'NF{blank=0} !NF{blank++} blank<2'); then
+      rm -f "$tmp"
+      printf '%s\t%s\t\t%s\n' "$base" unchecked unchecked >> "$ledger"   # never publishable
+      continue
+    fi
     rm -f "$tmp"
-
-    if [[ -z "$transcript" ]]; then
-      printf '%s\t%s\t\n' "$base" instrumental >> "$ledger"
-      jams=$((jams+1)); continue
-    fi
-    # whisper hallucinates a word or two ("you") on near-silent clips; under 5 real words = noise
-    local nwords=$(print -- "$transcript" | sed 's/([^)]*)//g; s/\[[^]]*\]//g' | wc -w | tr -d ' ')
+    local cleaned=$(print -- "$transcript" | sed 's/([^)]*)//g; s/\[[^]]*\]//g; s/♪//g')
+    local nwords=$(print -- "$cleaned" | wc -w | tr -d ' ')
     if [[ "$nwords" -lt 5 ]]; then
-      printf '%s\t%s\t\n' "$base" noise >> "$ledger"
+      printf '%s\t%s\t\t%s\n' "$base" instrumental "$nwords" >> "$ledger"
       jams=$((jams+1)); continue
     fi
+    local slug=$(print -- "$cleaned" | tr '\n' ' ' | awk '{for(i=1;i<=6&&i<=NF;i++) printf "%s ", $i}' \
+      | sed 's/[^a-zA-Z0-9 ]//g; s/  */ /g; s/^ *//; s/ *$//' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | head -c 60)
+    [[ -z "$slug" ]] && slug="memo"
 
     # 3) metadata: date (from filename, else mtime), duration
     local date=$(print -- "$base" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
@@ -1487,7 +1480,7 @@ cmd_tp7_memos() {
       print -- "${transcript}"
     } > "$note" || { print "${PINK}  failed to write ${note}${RST}"; continue; }
 
-    printf '%s\t%s\t%s\n' "$base" speech "$note" >> "$ledger"
+    printf '%s\t%s\t%s\t%s\n' "$base" speech "$note" "$nwords" >> "$ledger"
     memos=$((memos+1))
     print "  ${TEAL}memo:${RST} ${title} ${MUTED}(${durfmt}) -> ${note##*/}${RST}          "
   done

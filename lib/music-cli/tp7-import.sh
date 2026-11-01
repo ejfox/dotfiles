@@ -42,11 +42,10 @@ jlog() {
     >> "$JLOG_DIR/$(date +%F).jsonl"
 }
 
-fallback_fieldkit() {
-  log "CLI pull did not deliver files — opening field kit"
-  jlog pull_fail fallback=fieldkit
-  notify "auto-pull couldn't read the device — opening field kit"
-  open -g -a "field kit" 2>/dev/null
+# persistent heads-up in Things Today (a notification is easy to miss when EJ is away)
+things_todo() {   # $1 short title (Watch-legible), $2 notes
+  local q=$(python3 -c 'import sys, urllib.parse as u; print(u.urlencode({"title": sys.argv[1], "notes": sys.argv[2], "when": "today"}, quote_via=u.quote))' "$1" "$2")
+  open -g "things:///add?$q" 2>/dev/null
 }
 
 log "=== import start -> $DEST ==="
@@ -127,31 +126,27 @@ else
       want+=("${w[2]} ${w[4]}")
     done
     total=${#want}
-    log "recordings: $total to pull (floor ${floor_gb} GB)"
-    if (( total > 0 )); then
+    need=0
+    for item in $want; do need=$(( need + ${item%% *} )); done
+    free=$(df -k "$DEST" | awk 'NR==2{print $4*1024}')
+    log "recordings: $total to pull, $(( need / 1048576 )) MB (floor ${floor_gb} GB)"
+    if (( total > 0 && free < need + floor_gb * 1073741824 )); then
+      stopped=diskfloor
+      log "STOP diskfloor: need $(( need / 1048576 )) MB + ${floor_gb} GB floor, $(( free / 1048576 )) MB free"
+      jlog pull_diskfloor
+      notify "Mac disk too full to pull $total TP-7 recording(s). Free space, then replug."
+      things_todo "TP-7: disk full" "$total recording(s), $(( need / 1048576 )) MB, are waiting on the TP-7. Free space on the Mac, then plug it in again."
+    elif (( total > 0 )); then
       notify "$total recording(s) to pull"
       jlog pull_start topull="$total"
+      # ONE session for everything (2026-10-31): every tp7 op restarts the TP-7 into MTP mode,
+      # so per-file pulls meant a restart per file. skip-existing skips what we already have;
+      # a truncated file from a dropped session is quarantined by tp7-post and re-pulled next time.
+      tp7op pull --recursive --skip-existing --no-progress /recordings "$DEST" | grep '^downloaded' >> "$LOG"
+      (( pipestatus[1] != 0 )) && retry_wanted=1
+      for item in $want; do [[ -e "$DEST/${item#* }" ]] && got=$((got+1)); done
+      (( got < total )) && retry_wanted=1
     fi
-    for item in $want; do
-      sz=${item%% *}; name=${item#* }
-      free=$(df -k "$DEST" | awk 'NR==2{print $4*1024}')
-      if (( free < sz + floor_gb * 1073741824 )); then
-        stopped=diskfloor
-        log "STOP diskfloor before $name"
-        jlog pull_diskfloor
-        notify "stopped early: disk almost full — free up space, then reconnect for the rest"
-        break
-      fi
-      if tp7op pull --overwrite --no-progress "/recordings/$name" "$DEST/$name.part" >/dev/null \
-         && mv "$DEST/$name.part" "$DEST/$name"; then
-        got=$((got+1))
-        log "pulled $name"
-      else
-        rm -f "$DEST/$name.part"
-        retry_wanted=1
-        log "FAILED $name"
-      fi
-    done
     log "pull end: got=$got of $total"
   fi
 fi
@@ -174,14 +169,14 @@ else
     log "=== nothing to import (already current) ==="
     jlog pull_uptodate staged_total="$after"
   else
-    fallback_fieldkit
-    log "=== import FAILED — fell back to field kit ==="
+    retry_wanted=1
+    log "=== import FAILED: nothing landed ==="
   fi
 fi
 
-# post-pull: quarantine truncated wavs (mid-transfer unplug protection),
-# organize into by-date/ hardlinks, and sync raw wavs to R2
-"$SH/tp7-post.sh"
+# post-pull: quarantine, by-date links, memos, publish. Run via zsh so a lost exec bit can't
+# silently skip it (that happened: "permission denied", import "succeeded", post never ran).
+/bin/zsh "$SH/tp7-post.sh"
 
 # exit 75 (EX_TEMPFAIL) = the device couldn't be fully read; the watcher retries this plug-in.
 # Disk-floor stops exit 0: retrying can't fix a full disk, and EJ was already notified.

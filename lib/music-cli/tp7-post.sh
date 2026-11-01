@@ -177,9 +177,10 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
     secs=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$wav" 2>/dev/null)
     secs=${secs%.*}
     (( ${secs:-0} >= 30 )) || continue
-    # last gate: transcribe the WHOLE recording; any real talking (or a failed check) = held, not published
-    heard=$("$MUSIC" tp7 safe-to-publish "$wav" 2>/dev/null)
-    if (( $? != 0 )); then
+    # last gate: the whole-file word count step 4 recorded (ledger column 4). Missing, unchecked,
+    # or 5+ real words = held, not published. (Replaces a second whisper pass, 2026-10-31.)
+    heard=$(awk -F'\t' -v b="$base" '$1==b{w=$4} END{print w}' "$MLEDGER")
+    if [[ "$heard" != <-> ]] || (( heard >= 5 )); then
       printf '%s\t%s\t%s\n' "$base" "${heard:-unchecked}" "$(date '+%F %H:%M')" >> "$HELD"
       log "HELD (not published) $base: talking detected (${heard:-unchecked} words)"
       jlog publish_held wav="$base" words="${heard:-unchecked}"

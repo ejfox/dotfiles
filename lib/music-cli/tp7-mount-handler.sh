@@ -113,7 +113,7 @@ jlog device_seen mode="$mode"
 
 # Locking lives inside tp7-import.sh (PID-stamped single-flight); launchd never overlaps this job,
 # so the import's own mode switches happen while no poll is running.
-"$SH/tp7-import.sh" >> "$LOG" 2>&1
+/bin/zsh "$SH/tp7-import.sh" >> "$LOG" 2>&1   # via zsh: a lost exec bit can't silently skip it
 rc=$?
 date +%s > "$COOL"
 
@@ -128,6 +128,9 @@ if (( rc == 75 )); then
   else
     jlog retry_gave_up tries="$tries"
     notify "sync failed 3 times. Unplug the TP-7, then plug it back in."
+    # persistent too: a Things to-do survives EJ being away from the Mac
+    q=$(python3 -c 'import sys, urllib.parse as u; print(u.urlencode({"title": "TP-7 sync failed", "notes": "3 tries failed. Unplug the TP-7 and plug it back in. Log: ~/.local/share/music-cli/import.log", "when": "today"}, quote_via=u.quote))')
+    open -g "things:///add?$q" 2>/dev/null
   fi
 else
   rm -f "$TRIES"
