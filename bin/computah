@@ -296,6 +296,9 @@ PS
     # the wall's FLUX server: should be up unless a game or a lease holds the card
     leases=$(find "$ldir" -type f 2>/dev/null | wc -l | tr -d ' ')
     game=$(rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (echo 1) else (echo 0)" 2>/dev/null | tr -cd '01')
+    # PC-side holds (farm\gpu\HOLD_<who>, e.g. the scene lab's scene-keeper) count like a lease
+    pchold=$(rssh "dir /b C:\\dev\\computah\\farm\\gpu\\HOLD_* 2>nul" 2>/dev/null | tr -d '\r' | head -3 | tr '\n' ' ')
+    [ -n "$pchold" ] && leases=$((leases + 1))
     if curl -s -m3 -o /dev/null "http://$h:1234/" 2>/dev/null || nc -z -G 3 "$h" 1234 2>/dev/null; then
       ok "sd-server up (:1234)"
     elif [ "$leases" != "0" ] || [ "$game" = "1" ]; then
