@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# show <file>... : put renders/previews in front of EJ without stealing focus, auto-gridded.
+# show <file|url>... : put renders/previews in front of EJ without stealing focus, auto-gridded.
 # - Opens each file in the background (videos in QuickTime, else the default app).
+# - http(s) URLs open in their own new Chrome window, also in the background (live pages:
+#   scroll, video, dev servers). The window is tracked by its page title once it loads.
 # - Remembers every window it has shown; each call re-fits ALL of them that are still
 #   open into a grid. Portrait Dell: 1 = top half, 2 = top/bottom, 3-4 = 2x2, 5-6 = 2x3.
 #   More than 6 spill into a grid on the iMac's right half. EJ's rule: top/bottom halves
@@ -13,6 +15,31 @@ STATE="$HOME/.cache/show/windows.tsv"
 mkdir -p "$(dirname "$STATE")"; touch "$STATE"
 
 for f in "$@"; do
+  case "$f" in
+    http://*|https://*)
+      # New Chrome window via AppleScript; Chrome still grabs focus when it makes a
+      # window, so remember the frontmost app and hand focus straight back after.
+      front=$("$HS" -c "return hs.application.frontmostApplication():bundleID()" 2>/dev/null)
+      title=$(osascript - "$f" <<'OSA' 2>/dev/null
+on run argv
+  set u to item 1 of argv
+  tell application "Google Chrome"
+    set w to make new window
+    set URL of active tab of w to u
+    repeat 40 times
+      delay 0.25
+      if not (loading of active tab of w) then exit repeat
+    end repeat
+    return title of active tab of w
+  end tell
+end run
+OSA
+)
+      [ -n "$front" ] && "$HS" -c "local a=hs.application.get('$front'); if a then a:activate() end" >/dev/null 2>&1
+      [ -n "$title" ] || title="$f"
+      printf '%s\t%s\n' "Google Chrome" "$title" >> "$STATE"
+      continue ;;
+  esac
   [ -e "$f" ] || { echo "show: no such file: $f" >&2; continue; }
   name=$(basename "$f")
   case "${f##*.}" in
@@ -31,8 +58,12 @@ for _ in $(seq 1 20); do
   out=$("$HS" -c "
     local want={${entries}}
     local found, missing = {}, 0
+    -- exact app-name match: hs.application.get falls back to window titles, so
+    -- 'Preview' matched the 'preview-reel.mp4' QuickTime window and the script died
+    local function app(n) for _,a in ipairs(hs.application.runningApplications()) do
+      if a:name()==n then return a end end end
     for _,e in ipairs(want) do
-      local a=hs.application.get(e[1]); local hit=nil
+      local a=app(e[1]); local hit=nil
       if a then for _,w in ipairs(a:allWindows()) do
         if w:title():find(e[2],1,true) then hit=w end end end
       if hit then table.insert(found,{w=hit,e=e}) else missing=missing+1 end
@@ -65,8 +96,10 @@ done
 # Forget windows that are gone, so the state file only lists what's on screen
 "$HS" -c "
   local keep={}
+  local function app(n) for _,a in ipairs(hs.application.runningApplications()) do
+    if a:name()==n then return a end end end
   for _,e in ipairs({${entries}}) do
-    local a=hs.application.get(e[1])
+    local a=app(e[1])
     if a then for _,w in ipairs(a:allWindows()) do
       if w:title():find(e[2],1,true) then table.insert(keep, e[1]..'\t'..e[2]); break end end end
   end
