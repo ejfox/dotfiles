@@ -12,6 +12,17 @@
 vim.g.snacks_animate = true
 
 -- ============================================================================
+-- PROVIDERS
+-- ============================================================================
+-- WHY off: no plugin here uses remote-plugin hosts (no rplugin/ dirs), so
+-- probing for python/node/ruby/perl only costs startup and :checkhealth noise.
+
+vim.g.loaded_python3_provider = 0
+vim.g.loaded_node_provider = 0
+vim.g.loaded_ruby_provider = 0
+vim.g.loaded_perl_provider = 0
+
+-- ============================================================================
 -- CLIPBOARD
 -- ============================================================================
 -- WHY pbcopy instead of OSC52: OSC52 causes clipboard spam on refocus in

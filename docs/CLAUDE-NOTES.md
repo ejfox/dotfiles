@@ -593,7 +593,7 @@ Zombie purge: Jul 13, 2026 - dead aliases/files removed, theme systems consolida
 **Status**: ✅ nvim 0.12.5 + LazyVim 15, commits "modernize step A/B/C"
 
 **Binary**: Homebrew has NO Intel bottle for 0.12, so nvim is the official release build:
-`~/.local/opt/nvim-0.12.5/` symlinked as `~/.local/bin/nvim` (ahead of /usr/local/bin in PATH).
+`~/.local/opt/nvim-0.12.6/` symlinked as `~/.local/bin/nvim` (ahead of /usr/local/bin in PATH; bumped from 0.12.5 on 2026-10-20, 0.12.5 kept as fallback).
 - Upgrade: download `nvim-macos-x86_64.tar.gz` from GitHub releases → `~/.local/opt/nvim-X`, `xattr -dr com.apple.quarantine`, repoint symlink
 - Roll back: `rm ~/.local/bin/nvim` (falls back to brew 0.11.6) or point it at `~/.local/opt/nvim-0.11.6`
 - `tree-sitter-cli` (brew) is REQUIRED — nvim-treesitter main branch compiles parsers with it
