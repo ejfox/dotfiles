@@ -1,0 +1,35 @@
+#!/bin/bash
+# Truncate oversized Homebrew service logs.
+#
+# Created 2026-10-02, generalized from sketchybar-logrotate. Homebrew's service
+# plists point StandardOutPath/StandardErrorPath at these files and nothing ever
+# rotates them. By 2026-10-02 sketchybar's had reached 85MB+34MB and
+# postgresql@14's 44MB, unrotated since 2025-03.
+#
+# Truncates in place with `:` rather than rm — the services hold open fds, and
+# unlinking would leave them writing to an invisible inode until restart.
+
+BREW_LOG=/opt/homebrew/var/log; [ -d "$BREW_LOG" ] || BREW_LOG=/usr/local/var/log
+set -u
+
+MAX_BYTES=$((10 * 1024 * 1024))   # 10MB
+KEEP_LINES=2000
+
+LOGS=(
+  $BREW_LOG/sketchybar/sketchybar.out.log
+  $BREW_LOG/sketchybar/sketchybar.err.log
+  $BREW_LOG/postgresql@14.log
+  $BREW_LOG/postgresql@16.log
+  $BREW_LOG/caddy.log
+  $BREW_LOG/redis.log
+)
+
+for f in "${LOGS[@]}"; do
+  [ -f "$f" ] || continue
+  size=$(stat -f %z "$f" 2>/dev/null) || continue
+  if [ "$size" -gt "$MAX_BYTES" ]; then
+    tail -n "$KEEP_LINES" "$f" > "$f.recent" 2>/dev/null
+    : > "$f"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') rotated $(basename "$f") (was $size bytes)"
+  fi
+done

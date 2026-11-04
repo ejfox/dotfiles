@@ -1,0 +1,52 @@
+#!/bin/bash
+# Back up the laptop's irreplaceable work to R2.
+#
+# Scope is deliberately NOT the whole disk: rclone-backup-filters.txt removes regenerable
+# bulk, and ~/.config/rclone/backup-filters.local adds machine-specific exclusions.
+#
+# Uses `sync --backup-dir` rather than `copy`: changed and deleted files are moved
+# into a dated versions prefix instead of vanishing, so a local mistake is
+# recoverable and the mirror doesn't accumulate junk forever.
+
+set -uo pipefail
+
+DEST_BUCKET="r2-personal:ejfox-personal"
+PREFIX="laptop-backup"
+FILTERS="$HOME/.dotfiles/rclone-backup-filters.txt"
+LOCAL_FILTERS="$HOME/.config/rclone/backup-filters.local"
+STAMP=$(date +%Y-%m-%d)
+LOG="$HOME/logs/laptop-backup.log"
+mkdir -p "$(dirname "$LOG")"
+
+SOURCES=(
+  "$HOME/client-code"
+  "$HOME/code"
+)
+
+DRY=""
+[ "${1:-}" = "--dry-run" ] && DRY="--dry-run"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
+
+LOCAL_ARGS=()
+[ -f "$LOCAL_FILTERS" ] && LOCAL_ARGS=(--filter-from "$LOCAL_FILTERS")
+[ -f "$FILTERS" ] || { log "FATAL: filter file missing: $FILTERS"; exit 1; }
+
+log "=== laptop-backup start ${DRY:+(DRY RUN)} ==="
+rc=0
+for src in "${SOURCES[@]}"; do
+  [ -d "$src" ] || { log "SKIP missing: $src"; continue; }
+  name=$(basename "$src")
+  log "--- $name"
+  rclone sync "$src" "$DEST_BUCKET/$PREFIX/$name" \
+    --filter-from "$FILTERS" \
+    ${LOCAL_ARGS[@]+"${LOCAL_ARGS[@]}"} \
+    --backup-dir "$DEST_BUCKET/$PREFIX-versions/$STAMP/$name" \
+    --transfers 8 --checkers 16 --fast-list \
+    --stats 60s --stats-one-line \
+    $DRY 2>&1 | tee -a "$LOG"
+  s=${PIPESTATUS[0]}
+  [ "$s" -ne 0 ] && { log "ERROR: $name exited $s"; rc=$s; }
+done
+log "=== laptop-backup done (rc=$rc) ==="
+exit $rc

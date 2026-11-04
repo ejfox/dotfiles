@@ -1,0 +1,28 @@
+# Exclusions for laptop -> R2 backup. Everything here is REGENERABLE; the point is
+# to back up work, not build artifacts.
+- node_modules/**
+- .next/**
+- dist/**
+- build/**
+- out/**
+- target/**
+- .turbo/**
+- .cache/**
+- .parcel-cache/**
+- .venv/**
+- venv/**
+- __pycache__/**
+- .pytest_cache/**
+- *.pyc
+# OS / editor noise
+- .DS_Store
+- *.swp
+- .Trash/**
+# Catch virtualenvs regardless of directory name — the dry run found
+# ARCHIVE/lsenv/.../site-packages/torch, which the .venv/venv patterns missed.
+- **/site-packages/**
+- **/*.egg-info/**
+- **/.tox/**
+- **/Pods/**
+- **/.gradle/**
+- **/coverage/**

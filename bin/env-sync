@@ -1,0 +1,40 @@
+#!/bin/bash
+# env-sync: render secrets from 1Password into the plain files scripts source.
+# 1Password is the source of truth; env.op and claude-wiki.op hold op:// references
+# only, so they're safe in this public repo. Rendered files stay because cron and
+# LaunchAgents can't answer a biometric prompt. Change values in 1Password, then rerun.
+#
+#   env-sync           render, refusing to drop variables the template doesn't know
+#   env-sync --check   compare variable names only; writes nothing
+#   env-sync --force   render even if that drops variables (old file kept as .bak)
+set -euo pipefail
+
+MODE="${1:-}"
+DOT="$HOME/.dotfiles"
+names() { grep -oE '^(export )?[A-Za-z_][A-Za-z0-9_]*=' "$1" | sed -E 's/^export //; s/=$//' | sort -u; }
+
+command -v op >/dev/null || { echo "env-sync: op not installed" >&2; exit 1; }
+
+rc=0
+for pair in "env.op:$HOME/.env" "claude-wiki.op:$HOME/.claude-secrets"; do
+  tmpl="$DOT/${pair%%:*}"; dest="${pair#*:}"
+  extra=""
+  [ -f "$dest" ] && extra=$(comm -23 <(names "$dest") <(names "$tmpl") | tr '\n' ' ')
+  if [ "$MODE" = "--check" ]; then
+    echo "$dest: $(names "$tmpl" | wc -l | tr -d ' ') in template; not in template: ${extra:-none}"
+    continue
+  fi
+  if [ -n "$extra" ] && [ "$MODE" != "--force" ]; then
+    echo "env-sync: skipping $dest, it has variables the template lacks: $extra" >&2
+    echo "  add them to 1Password and ${pair%%:*}, or pass --force" >&2
+    rc=1; continue
+  fi
+  tmp=$(mktemp "$dest.XXXXXX")
+  chmod 600 "$tmp"
+  if ! op inject -i "$tmpl" -o "$tmp" --force >/dev/null; then rm -f "$tmp"; exit 1; fi
+  chmod 600 "$tmp"
+  [ -f "$dest" ] && cp -p "$dest" "$dest.bak"
+  mv "$tmp" "$dest"
+  echo "rendered $dest"
+done
+exit $rc

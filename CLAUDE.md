@@ -8,7 +8,7 @@ Rules and gotchas only. Feature history, setup logs and per-plugin notes live in
 - Stage only your own hunks; other sessions often leave uncommitted work here.
 
 ## Shell and PATH
-- `~/.zshrc` is a symlink to `~/.dotfiles/.zshrc`. Secrets live in `~/.env` (gitignored, sourced). Never commit them.
+- `~/.zshrc` is a symlink to `~/.dotfiles/.zshrc`. Secrets live in 1Password; `bin/env-sync` renders `env.op` and `claude-wiki.op` (`op://` references, safe to commit) into `~/.env` and `~/.claude-secrets` (gitignored, sourced). Change values in 1Password, never commit them.
 - `/opt/homebrew/bin` must stay on PATH. Base: `$HOME/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin`.
 - `c` is a zsh alias, so a shell function named `c()` won't parse.
 

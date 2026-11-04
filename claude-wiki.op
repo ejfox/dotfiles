@@ -1,0 +1,4 @@
+# Rendered by bin/env-sync with `op inject`. References only: no values live here.
+export WIKI_PASS='{{ op://Private/dotfiles-claude-secrets/WIKI_PASS }}'
+export WIKI_URL='{{ op://Private/dotfiles-claude-secrets/WIKI_URL }}'
+export WIKI_USER='{{ op://Private/dotfiles-claude-secrets/WIKI_USER }}'

@@ -76,7 +76,7 @@
 	plus-emph-style            = bold "#44ff77" "#1a4d2a"
 	line-numbers-minus-style   = "#ff5577"
 	line-numbers-plus-style    = "#77ff99"
-	line-numbers-zero-style    = "#73264a"
+	line-numbers-zero-style    = "#96707f"  # was #73264a (2.11 on black, invisible)
 	hunk-header-style          = file line-number syntax
 	hunk-header-decoration-style = "#ff0055" box
 	file-style                 = "#ff0055" bold
@@ -91,8 +91,8 @@
 [alias]
 	cs = commit -S
 [credential "https://github.com"]
-	helper =
-	helper = !/usr/local/bin/gh auth git-credential
+	helper = 
+	helper = !$HOME/.dotfiles/bin/gh-credential
 [credential "https://gist.github.com"]
-	helper =
-	helper = !/usr/local/bin/gh auth git-credential
+	helper = 
+	helper = !$HOME/.dotfiles/bin/gh-credential

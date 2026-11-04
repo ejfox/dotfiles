@@ -133,7 +133,7 @@ else
 fi
 
 # Send to canvas
-RESPONSE=$(curl -s -X POST "${ENDPOINT}?key=${TLDRAW_WEBHOOK_KEY}" \
+RESPONSE=$(curl -s -X POST "${ENDPOINT}?key=${TLDRAW_WEBHOOK_KEY:-${TLDRAW_PASSWORD:-}}" \
   -H "Content-Type: application/json" \
   -d "$PAYLOAD")
 
