@@ -7,6 +7,8 @@
 # Runs daily at 16:00 via com.ejfox.mac-backup. NEVER wakes the PC — if it's
 # off/asleep it just logs and exits (see the 2am incident of 2026-09-09).
 set -uo pipefail
+# launchd's PATH lacks Homebrew, so restic was "command not found" every run 09-09 → 10-26.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 export RESTIC_REPOSITORY="sftp:ejfox@10.0.0.169:/C:/Users/ejfox/backups/imacpro"
 export RESTIC_PASSWORD_FILE="$HOME/.config/restic/password"
@@ -26,6 +28,7 @@ case "${1:-run}" in
       echo "$(date '+%F %T') skipped — computah unreachable" >> "$LOG"; exit 0
     fi
     echo "$(date '+%F %T') starting" >> "$LOG"
+    start=$(wc -l < "$LOG")
     restic backup "${PATHS[@]}" \
       --exclude '**/.Trash' --exclude '**/node_modules' --exclude '**/.git' \
       >> "$LOG" 2>&1
@@ -34,8 +37,13 @@ case "${1:-run}" in
     echo "$(date '+%F %T') done" >> "$LOG"
     # Heartbeat: Kuma push monitor "push: mac-backup". A skipped run (computah
     # unreachable) sends nothing, so repeated skips surface as a missed heartbeat.
+    # Exit 3 = snapshot saved but some files unreadable: mostly iCloud "Optimize Mac
+    # Storage" placeholders (evicted, cloud-only), which iCloud itself holds. Report, don't alarm.
     if [ "$rc" -eq 0 ]; then
       "$HOME/.dotfiles/bin/kuma-push" 1b2c5e4a883655dd1163c65014e47944 up "restic snapshot ok"
+    elif [ "$rc" -eq 3 ]; then
+      skipped=$(tail -n +"$((start + 1))" "$LOG" | grep -c '^error: ')
+      "$HOME/.dotfiles/bin/kuma-push" 1b2c5e4a883655dd1163c65014e47944 up "snapshot ok, $skipped unreadable skipped (iCloud cloud-only)"
     else
       "$HOME/.dotfiles/bin/kuma-push" 1b2c5e4a883655dd1163c65014e47944 down "restic backup exit $rc"
     fi
