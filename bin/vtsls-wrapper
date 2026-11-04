@@ -1,0 +1,3 @@
+#!/bin/bash
+source "$HOME/.nvm/nvm.sh"
+nvm exec 20 node ~/.local/share/nvim/mason/packages/vtsls/node_modules/.bin/vtsls "$@"
