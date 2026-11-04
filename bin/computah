@@ -177,9 +177,10 @@ foreach ($dn in @('Energy-Efficient Ethernet','Green Ethernet','Advanced EEE','G
 powercfg -deviceenablewake "$($a.InterfaceDescription)" 2>&1 | Add-Content $log
 # 5. No self-wake at night (the 2AM rule): kill wake timers + the Win-Update wake task.
 #    WoL from a magic packet still works — only unsolicited self-wakes are blocked.
-powercfg -attributes 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 -ATTRIB_HIDE 2>&1 | Out-Null
-powercfg /SETACVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 0
-powercfg /SETDCVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 f15576e8-98b7-4186-b944-eafa664402d9 0
+#    bd3b718a = 'Allow wake timers' (0 = disable). Disabling the SYSTEM-owned task below fails for admin; this is the real guard.
+powercfg -attributes 238c9fa8-0aad-41ed-83f4-97be242c8f20 bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d -ATTRIB_HIDE 2>&1 | Out-Null
+powercfg /SETACVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0
+powercfg /SETDCVALUEINDEX SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d 0
 powercfg /SETACTIVE SCHEME_CURRENT
 schtasks /Change /TN "\Microsoft\Windows\UpdateOrchestrator\Schedule Wake To Work" /DISABLE 2>&1 | Out-Null
 "wake-timers: disabled (no self-wake at night; WoL magic packet still works)" | Add-Content $log
@@ -241,16 +242,19 @@ PS
     # wake-on-LAN readiness — so `computah wake` works after a full shutdown
     wol=$(rssh "powershell -NoProfile -Command \"\$hb=(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power' -Name HiberbootEnabled -EA SilentlyContinue).HiberbootEnabled; \$armed=((powercfg -devicequery wake_armed) -join ','); if (\$hb -eq 0 -and \$armed -match 'Ethernet|Realtek|Intel|Killer|Network') { '1' } else { '0' }\"" 2>/dev/null | tr -d '\r')
     [ "$wol" = "1" ] && ok "wake-on-LAN armed (Fast Startup off, NIC wakes)" || bad "wake-on-LAN NOT armed — run: computah harden-wol"
-    # night-wake guard — nothing may self-wake the PC at night (the 2AM rule)
-    wt=$(rssh "powershell -NoProfile -Command \"@((powercfg -waketimers) | Select-String 'expires').Count\"" 2>/dev/null | tr -d '\r')
-    if [ "${wt:-0}" = "0" ]; then
-      ok "no wake timers armed (won't self-wake at night)"
+    # night-wake guard — nothing may self-wake the PC at night (the 2AM rule).
+    # Windows Update keeps re-listing 'Schedule Wake To Work' (a SYSTEM task admin can't disable),
+    # so a listed timer proves nothing. What matters: the plan's 'Allow wake timers' (bd3b718a) is 0 on AC.
+    wtq="(powercfg /qh SCHEME_CURRENT 238c9fa8-0aad-41ed-83f4-97be242c8f20 bd3b718a-0680-4d9d-8ab2-e1d2b4ac806d | Select-String 'Current AC') -replace '.*: ',''"
+    wt=$(rssh "powershell -NoProfile -Command \"$wtq\"" 2>/dev/null | tr -d '\r')
+    if [ "$wt" = "0x00000000" ]; then
+      ok "wake timers disallowed in power plan (won't self-wake at night)"
     elif [ "$sched" -eq 1 ]; then
       "$0" harden-wol >/dev/null 2>&1 || true; sleep 5
-      wt=$(rssh "powershell -NoProfile -Command \"@((powercfg -waketimers) | Select-String 'expires').Count\"" 2>/dev/null | tr -d '\r')
-      if [ "${wt:-0}" = "0" ]; then fixed "wake timers were armed: harden-wol disarmed them"; else bad "$wt wake timer(s) still ARMED after harden-wol"; fi
+      wt=$(rssh "powershell -NoProfile -Command \"$wtq\"" 2>/dev/null | tr -d '\r')
+      if [ "$wt" = "0x00000000" ]; then fixed "wake timers were allowed: harden-wol disallowed them"; else bad "wake timers still ALLOWED after harden-wol ($wt)"; fi
     else
-      bad "$wt wake timer(s) ARMED — run: computah harden-wol"
+      bad "wake timers ALLOWED in power plan ($wt) — run: computah harden-wol"
     fi
     # preview server — start if down
     if [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ]; then
@@ -283,6 +287,8 @@ PS
     ldir="$HOME/.cache/paperize-gpulease"; now=$(date +%s)
     for lf in "$ldir"/*; do
       [ -f "$lf" ] || continue
+      # lease files hold only an epoch; skip the watchdog's own log and anything else
+      case "$(cat "$lf")" in ''|*[!0-9]*) continue ;; esac
       lname=$(basename "$lf"); lage=$(( (now - $(cat "$lf")) / 60 ))
       if [ "$lage" -lt 120 ] || pgrep -f 'paperize|librashader' >/dev/null; then
         ok "GPU lease '$lname' held ${lage}m (render running or recent)"
