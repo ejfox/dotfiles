@@ -13,7 +13,15 @@ CACHE="/tmp/sketchybar-ejfox-rss.xml"
 CACHE_TTL=900   # 15 minutes
 
 if [ ! -f "$CACHE" ] || [ $(( $(date +%s) - $(stat -f %m "$CACHE") )) -gt $CACHE_TTL ]; then
-  curl -sfm 5 "https://ejfox.com/rss.xml" -o "$CACHE.tmp" && mv "$CACHE.tmp" "$CACHE"
+  # posts.sh and dispatch.sh both refresh this cache and previously shared one
+  # "$CACHE.tmp" path — whichever mv ran second failed with "No such file or
+  # directory". mktemp gives each run its own file.
+  _rss_tmp=$(mktemp "${TMPDIR:-/tmp}/sketchybar-rss.XXXXXX")
+  if curl -sfm 5 "https://ejfox.com/rss.xml" -o "$_rss_tmp"; then
+    mv -f "$_rss_tmp" "$CACHE"
+  else
+    rm -f "$_rss_tmp"
+  fi
 fi
 
 WS=$(week_start_monday)

@@ -34,8 +34,9 @@ function M.setup()
     info = '#a8003c',        -- brand pink (was #ff0095)
     hint = '#5c0030',        -- deeper wine (was #ff4d9d)
 
-    -- Diff colors (HCL-harmonized with vulpes base hue ~340°, for cream bg)
-    -- chroma-verified: all pass AA on cream bg (was #5d7a1f failing at 4.24:1)
+    -- Diff colors (HCL-harmonized with vulpes base hue ~340°, for #ffffff bg)
+    -- chroma-verified on #ffffff: add 6.50, delete 7.69, change 6.14, text 8.82.
+    -- On the GitSigns line-washes all pass AA except change-on-#e8dac0 = 4.45 (edge).
     diff_add = '#4d6618',    -- darkened chartreuse (was #b4d455 — same hue, AA on cream)
     diff_delete = '#a8003c', -- vulpes accent.strong (matches delta minus-style)
     diff_change = '#8a5530', -- sepia for changes (was #ffaa00 — same warm hue)

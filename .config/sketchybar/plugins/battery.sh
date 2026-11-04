@@ -19,6 +19,15 @@ TIME_TO_EMPTY=$(echo "$BATTERY_INFO" | grep -o '"TimeRemaining" = [0-9]*' | awk 
 TIME_TO_FULL=$(echo "$BATTERY_INFO" | grep -o '"AvgTimeToFull" = [0-9]*' | awk '{print $3}')
 AMPERAGE=$(echo "$BATTERY_INFO" | grep -o '"Amperage" = [0-9-]*' | awk '{print $3}')
 
+# ioreg reports a negative (discharging) amperage as an unsigned 64-bit value,
+# e.g. 18446744073709545787. That exceeds bash's signed-int range, so the
+# `-lt 0` test below died with "integer expression expected" ~6x/min. A real
+# amperage is at most 5 digits; anything longer is the unsigned form, which we
+# treat as "discharging at an unknown rate" and let the fallback branch handle.
+if [ -n "$AMPERAGE" ] && [ "${#AMPERAGE}" -gt 15 ]; then
+  AMPERAGE=""
+fi
+
 # Calculate actual percentage
 if [ -n "$PERCENTAGE" ] && [ -n "$MAX_CAPACITY" ] && [ "$MAX_CAPACITY" -gt 0 ]; then
   PERCENT=$((PERCENTAGE * 100 / MAX_CAPACITY))

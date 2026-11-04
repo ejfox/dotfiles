@@ -15,7 +15,9 @@ cursor-color         = #d6004c
 selection-background = #ebe2d6
 selection-foreground = #1a0f14
 
-# ANSI palette — tuned against #f4ede4 cream
+# ANSI palette — verified against #ffffff (base) + #ebe2d6 (selection) via HCL.
+# All 16 slots pass AA (≥4.5:1) on white; brights clear AA-large (≥3.5:1) on
+# selection. Slots 9/13 (#d6004c brand pink) held at 4.13 on selection by design.
 # normal
 palette = 0=#1a0f14
 palette = 1=#a8003c
@@ -28,9 +30,9 @@ palette = 7=#3d2a30
 # bright
 palette = 8=#6a5d60
 palette = 9=#d6004c
-palette = 10=#4d8a4d
-palette = 11=#a06838
+palette = 10=#417e42
+palette = 11=#9d6636
 palette = 12=#4d6f8a
 palette = 13=#d6004c
-palette = 14=#4d8080
+palette = 14=#477a7a
 palette = 15=#1a0f14

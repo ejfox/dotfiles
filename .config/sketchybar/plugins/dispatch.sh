@@ -16,7 +16,15 @@ RSS_CACHE="/tmp/sketchybar-ejfox-rss.xml"
 
 # Refresh the RSS copy at most every 15 minutes.
 if [ ! -f "$RSS_CACHE" ] || [ $(( $(date +%s) - $(stat -f %m "$RSS_CACHE") )) -gt 900 ]; then
-  curl -sfm 5 "https://ejfox.com/rss.xml" -o "$RSS_CACHE.tmp" && mv "$RSS_CACHE.tmp" "$RSS_CACHE"
+  # posts.sh and dispatch.sh both refresh this cache and previously shared one
+  # "$CACHE.tmp" path — whichever mv ran second failed with "No such file or
+  # directory". mktemp gives each run its own file.
+  _rss_tmp=$(mktemp "${TMPDIR:-/tmp}/sketchybar-rss.XXXXXX")
+  if curl -sfm 5 "https://ejfox.com/rss.xml" -o "$_rss_tmp"; then
+    mv -f "$_rss_tmp" "$RSS_CACHE"
+  else
+    rm -f "$_rss_tmp"
+  fi
 fi
 
 PUBLISHED=""

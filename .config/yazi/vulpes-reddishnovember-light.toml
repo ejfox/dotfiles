@@ -1,9 +1,9 @@
 # vulpes-reddishnovember-light — Yazi Theme
 # Light Vulpes 2.0 — Risograph Editorial
 # Direct translation of vulpes-reddishnovember-dark.toml, preserving roles:
-#   • brand pink (#a8003c) replaces #ff0055 (darkened for cream)
-#   • cream paper (#f4ede4) replaces #000000 OLED black
-#   • bg_alt cream (#ebe2d6) replaces #2d1a22 deep wine
+#   • brand pink (#a8003c) replaces #ff0055 (darkened for white bg)
+#   • white surface (#ffffff) replaces #000000 OLED black (v2.5: not cream)
+#   • bg_alt warm-tan (#ebe2d6) replaces #2d1a22 deep wine
 #   • muted vulpes (#7a3055) replaces #d4a5bf rose-grey
 #   • ink fade (#6a5d60) replaces #73264a chrome wine
 # Reference: ~/code/VULPES/vulpes-theme-lab/themes/light-vulpes-v2/

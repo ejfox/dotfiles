@@ -1,7 +1,8 @@
 # Theme System
 
-Cross-tool dark/light theming across ghostty, lazygit, tmux, yazi, btop, fzf,
-nvim, and Claude Code, driven by macOS appearance.
+Cross-tool dark/light theming across ghostty, lazygit, tmux, yazi, btop, and
+fzf, driven by macOS appearance. Nvim and Claude Code handle their own flips
+(auto-dark-mode.nvim; Claude Code `theme = "auto"` matches the terminal).
 
 ## When something looks wrong
 
@@ -30,8 +31,7 @@ appearance-watcher (daemon, polls every 2s)
         ├─ lazygit: cp vulpes-reddishnovember-{mode}.yml → config.yml
         ├─ tmux:    sed .tmux.conf source-file line + tmux source-file
         ├─ yazi:    ln -sf vulpes-reddishnovember-{mode}.toml → theme.toml
-        ├─ fzf:     ln -sf theme-{mode}.sh → current.sh
-        └─ claude:  jq .theme = "{mode}" in ~/.claude.json
+        └─ fzf:     ln -sf theme-{mode}.sh → current.sh
 ```
 
 Daemon: `~/.dotfiles/bin/appearance-watcher` (launched from `.startup.sh`,

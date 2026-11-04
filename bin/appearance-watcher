@@ -6,7 +6,6 @@ BTOP_CONF="$HOME/.config/btop/btop.conf"
 LAZYGIT_CONFIG="$HOME/.config/lazygit/config.yml"
 LAZYGIT_DARK="$HOME/.config/lazygit/vulpes-reddishnovember-dark.yml"
 LAZYGIT_LIGHT="$HOME/.config/lazygit/vulpes-reddishnovember-light.yml"
-CLAUDE_SETTINGS="$HOME/.claude.json"
 LAST_MODE=""
 
 get_mode() {
@@ -62,29 +61,35 @@ set_fzf_theme() {
     [[ -f "$src" ]] && ln -sf "$src" "$HOME/.config/fzf/current.sh"
 }
 
-set_claude_theme() {
+set_delta_theme() {
     local mode="$1"
-    # 'light'/'dark' use Claude Code's hardcoded palette and are immune to
-    # weird ANSI slot colors. 'light-ansi' borrowed the terminal's ANSI bg
-    # for the input chrome and rendered as unreadable dark grey on light.
-    local theme="light"
-    [[ "$mode" == "dark" ]] && theme="dark"
+    local feature="light-vulpes"
+    [[ "$mode" == "dark" ]] && feature="dark-vulpes"
+    # .gitconfig is symlinked into ~/.dotfiles; sed the real target.
+    local gc
+    gc=$(readlink -f "$HOME/.gitconfig" 2>/dev/null || echo "$HOME/.gitconfig")
+    [[ -f "$gc" ]] || return 0
+    # Swap the base [delta] feature line; the lazygit sub-feature layers on top.
+    sed -i '' -E "s/(features = )(light-vulpes|dark-vulpes)/\1${feature}/" "$gc"
+}
 
-    if [[ -f "$CLAUDE_SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
-        local tmp
-        tmp=$(mktemp)
-        jq --arg t "$theme" '.theme = $t' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
-    fi
+ensure_bat_cache() {
+    # bat can't see the vulpes .tmTheme files until its cache is built; without
+    # it, --theme-light resolves to nothing and bat falls back to a dark default
+    # (near-white text → invisible on light). Idempotent: only builds if missing.
+    command -v bat >/dev/null 2>&1 || return 0
+    bat --list-themes 2>/dev/null | grep -q vulpes || bat cache --build >/dev/null 2>&1
 }
 
 sync_all() {
     local mode="$1"
+    ensure_bat_cache
     set_btop_theme "$mode"
     set_lazygit_theme "$mode"
     set_tmux_theme "$mode"
     set_yazi_theme "$mode"
     set_fzf_theme "$mode"
-    set_claude_theme "$mode"
+    set_delta_theme "$mode"
 }
 
 # --sync: re-apply current mode to all tools and exit (no daemon loop).
