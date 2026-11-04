@@ -120,6 +120,8 @@
   }
   summary .badge.nvim { background: rgba(230,0,103,0.15); color: var(--base50); }
   summary .badge.lazygit { background: rgba(247,200,110,0.12); color: var(--gold40); }
+  /* app-context card: its app (Final Cut, Logic) is frontmost or running */
+  summary .badge.live { background: rgba(123,240,249,0.14); color: #7bf0f9; }
 
   .c { padding: 0 6px; }
   /* Two-column TABLE: keys in a stable left column, descriptions left-aligned so
@@ -253,6 +255,30 @@
 <!-- ═══════════════════════════════════════════ -->
 <!--                 NVIM                        -->
 <!-- ═══════════════════════════════════════════ -->
+
+<details class="gold" open data-tool="both">
+  <summary><span class="badge live">● Logic Pro open</span> Logic Pro — beds, stems, VO</summary>
+  <div class="c">
+    <div class="n">Logic's default key commands (no named custom set found) · check any in <kbd>⌥k</kbd></div>
+    <div class="lbl">transport</div>
+    <div class="r dd"><kbd>⎵  ·  r</kbd><span class="d">play / stop · record</span></div>
+    <div class="r"><kbd>⏎</kbd><span class="d">go to the beginning</span></div>
+    <div class="r dd"><kbd>c  ·  ⌘u</kbd><span class="d">cycle on/off · cycle the selection (set locators)</span></div>
+    <div class="r"><kbd>k</kbd><span class="d">metronome click</span></div>
+    <div class="div"></div>
+    <div class="lbl">regions</div>
+    <div class="r dd"><kbd>⌘t</kbd><span class="d">split at the playhead (chopping stems + samples)</span></div>
+    <div class="r"><kbd>⌘j</kbd><span class="d">join regions</span></div>
+    <div class="r"><kbd>⌃m</kbd><span class="d">mute region</span></div>
+    <div class="r"><kbd>m  ·  s</kbd><span class="d">mute track · solo track</span></div>
+    <div class="r"><kbd>q</kbd><span class="d">quantize selection</span></div>
+    <div class="r"><kbd>z</kbd><span class="d">zoom to fit the selection</span></div>
+    <div class="div"></div>
+    <div class="lbl">windows + out</div>
+    <div class="r"><kbd>x  ·  e  ·  b  ·  y</kbd><span class="d">mixer · editor · smart controls · library</span></div>
+    <div class="r dd"><kbd>⌘b</kbd><span class="d">bounce project or the cycle area (beds, KO-33 / TP-7 packs)</span></div>
+  </div>
+</details>
 
 <details class="accent" open data-tool="both">
   <summary>Talon — Deleting</summary>
@@ -967,6 +993,48 @@
     <div class="r dd"><kbd>crtbroll VIDEO --shot hero|pushin|macro</kbd><span class="d">screen recording on a black CRT, OLED-black room</span></div>
     <div class="r"><kbd>gpulease status</kbd><span class="d">who holds the GPU (wall pauses while leased)</span></div>
     <div class="o">GUI: open the .blend files in C:UsersejfoxDocumentsPaperize on computah</div>
+  </div>
+</details>
+
+<details class="primary" data-tool="both">
+  <summary>Final Cut Pro — your keys</summary>
+  <div class="c">
+    <div class="n">read from your active command set, <em>EJ's Final Cut Pro Shortcuts</em> (2023)</div>
+    <div class="lbl">your rebinds</div>
+    <div class="r dd"><kbd>q / w</kbd><span class="d">trim start / trim end to the playhead (top and tail)</span></div>
+    <div class="r dd"><kbd>x</kbd><span class="d">blade ALL lanes at the playhead</span></div>
+    <div class="r"><kbd>⌥← / ⌥→</kbd><span class="d">step one subframe (audio-precise trims)</span></div>
+    <div class="r dd"><kbd>⌥⇧a</kbd><span class="d">start / stop voiceover recording</span></div>
+    <div class="r"><kbd>⌥⌘8</kbd><span class="d">voiceover record view</span></div>
+    <div class="div"></div>
+    <div class="lbl">cutting</div>
+    <div class="r"><kbd>j k l</kbd><span class="d">back / stop / forward (tap again to go faster)</span></div>
+    <div class="r"><kbd>i / o  then  /</kbd><span class="d">mark in / out, play the selection</span></div>
+    <div class="r dd"><kbd>; / '</kbd><span class="d">previous / next edit point</span></div>
+    <div class="r"><kbd>⌘b</kbd><span class="d">blade the selected clip at the playhead</span></div>
+    <div class="r"><kbd>c</kbd><span class="d">select the clip under the playhead</span></div>
+    <div class="r"><kbd>e / d / ⇧q</kbd><span class="d">append / overwrite / connect backtimed</span></div>
+    <div class="r"><kbd>⇧⌫</kbd><span class="d">delete, leave a gap (keep sync)</span></div>
+    <div class="r"><kbd>⌥⌘⌫</kbd><span class="d">delete the clip only, keep its connected clips</span></div>
+    <div class="r"><kbd>⌥\  ·  ⇧x</kbd><span class="d">trim to selection · extend edit to playhead</span></div>
+    <div class="r"><kbd>, / .</kbd><span class="d">nudge one frame</span></div>
+    <div class="r"><kbd>v  ·  ⌥s</kbd><span class="d">disable clip · solo clip</span></div>
+    <div class="r"><kbd>⌥g  ·  ⌘r  ·  ⌃d</kbd><span class="d">compound clip · retime editor · type a duration</span></div>
+    <div class="div"></div>
+    <div class="lbl">review, roles, captions</div>
+    <div class="r"><kbd>⇧z  ·  ⌘= / ⌘-</kbd><span class="d">fit the timeline · zoom</span></div>
+    <div class="r"><kbd>n  ·  s</kbd><span class="d">snapping · skimming</span></div>
+    <div class="r"><kbd>m  ·  ⌥m</kbd><span class="d">marker · marker + note (paper-edit notes)</span></div>
+    <div class="r"><kbd>⌃⌥d / ⌃⌥m</kbd><span class="d">role: dialogue (VO) / music (beds)</span></div>
+    <div class="r"><kbd>⌥c</kbd><span class="d">add + edit a caption</span></div>
+    <div class="r"><kbd>⌘4  ·  ⌘e</kbd><span class="d">inspector · share (default destination)</span></div>
+    <div class="strat">
+      <span class="h">agent rough cut → your cut</span>
+      <span class="step">File → Import → XML the <kbd>.fcpxml</kbd> from build-rough-cut.sh</span>
+      <span class="step"><kbd>⇧z</kbd> to see it all, then hop cuts with <kbd>;</kbd> / <kbd>'</kbd></span>
+      <span class="step"><kbd>q</kbd> / <kbd>w</kbd> to top and tail, <kbd>x</kbd> to cut everything at once</span>
+    </div>
+    <div class="o">not bound in your 2023 set: detect beats, beat grid, scene-detect blade, create captions · add them in <kbd>⌥⌘k</kbd></div>
   </div>
 </details>
 

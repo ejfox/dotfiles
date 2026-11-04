@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""connectology-push: create a Connectology network from a d3-style JSON graph.
+
+Usage: connectology-push GRAPH.json [--name "Title"] [--description "..."] [--public]
+       [--network-id N]   (add to an existing network instead of creating one)
+
+GRAPH.json: {"nodes": [{"id", "label", "properties"?}], "links": [{"source", "target", "type"?}]}
+
+Talks to Connectology's own MCP endpoint (POST /api/mcp, tools create_network +
+add_nodes_and_edges). Auth: CONNECTOLOGY_KEY (a Clerk API key with read+write
+scope, made at /settings/agents), read from the environment or ~/.env and never printed.
+CONNECTOLOGY_URL overrides the host (default https://connectology.room302.studio).
+"""
+import argparse
+import json
+import os
+import re
+import ssl
+import sys
+import urllib.request
+
+# python.org Python on this Mac has no CA bundle; use the system one
+SSL_CTX = ssl.create_default_context(cafile="/etc/ssl/cert.pem")
+
+BASE = os.environ.get("CONNECTOLOGY_URL", "https://connectology.room302.studio").rstrip("/")
+
+
+def load_key():
+    key = os.environ.get("CONNECTOLOGY_KEY")
+    if key:
+        return key
+    keyfile = os.path.expanduser("~/.config/connectology/mcp-key")
+    if os.path.exists(keyfile):
+        return open(keyfile).read().strip()
+    env = os.path.expanduser("~/.env")
+    if os.path.exists(env):
+        for line in open(env):
+            m = re.match(r'\s*(?:export\s+)?CONNECTOLOGY_KEY=["\']?([^"\'\s]+)', line)
+            if m:
+                return m.group(1)
+    sys.exit("connectology-push: no CONNECTOLOGY_KEY in env or ~/.env (make one at /settings/agents)")
+
+
+def parse_response(raw):
+    """The endpoint answers as SSE (`data: {...}` lines) or plain JSON; empty for notifications."""
+    raw = raw.strip()
+    if not raw:
+        return None
+    if raw.startswith("{"):
+        return json.loads(raw)
+    payload = [line[5:].strip() for line in raw.splitlines() if line.startswith("data:")]
+    return json.loads("".join(payload))
+
+
+class Mcp:
+    def __init__(self, key):
+        self.key = key
+        self.n = 0
+
+    def call(self, method, params):
+        self.n += 1
+        body = json.dumps({"jsonrpc": "2.0", "id": self.n, "method": method, "params": params}).encode()
+        req = urllib.request.Request(
+            BASE + "/api/mcp",
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": "Bearer " + self.key,
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "MCP-Protocol-Version": "2025-06-18",
+                # Cloudflare (error 1010) blocks the default Python-urllib signature
+                "User-Agent": "connectology-push/1.0 (+claude-code)",
+            },
+        )
+        try:
+            raw = urllib.request.urlopen(req, timeout=120, context=SSL_CTX).read().decode()
+        except urllib.error.HTTPError as e:
+            sys.exit(f"connectology-push: HTTP {e.code} on {method}: {e.read().decode()[:300]}")
+        data = parse_response(raw)
+        if data is None:
+            return {}
+        if "error" in data:
+            sys.exit(f"connectology-push: {method} error: {data['error']}")
+        return data["result"]
+
+    def tool(self, name, args):
+        res = self.call("tools/call", {"name": name, "arguments": args})
+        if res.get("isError"):
+            sys.exit(f"connectology-push: {name} failed: {json.dumps(res.get('content'))[:400]}")
+        if "structuredContent" in res:
+            return res["structuredContent"]
+        return json.loads(res["content"][0]["text"])
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("graph")
+    ap.add_argument("--name")
+    ap.add_argument("--description", default="")
+    ap.add_argument("--public", action="store_true")
+    ap.add_argument("--network-id", type=int)
+    a = ap.parse_args()
+
+    g = json.load(open(a.graph))
+    mcp = Mcp(load_key())
+    mcp.call("initialize", {
+        "protocolVersion": "2025-06-18",
+        "capabilities": {},
+        "clientInfo": {"name": "connectology-push", "version": "1.0"},
+    })
+
+    net_id = a.network_id
+    if net_id is None:
+        name = a.name or g.get("name") or os.path.basename(a.graph)
+        net = mcp.tool("create_network", {"label": name, "description": a.description, "is_public": a.public})
+        net_id = net.get("id") or net.get("networkId")
+
+    # node ids in the file become refs; keep the original id as a property
+    nodes = []
+    for n in g["nodes"]:
+        props = dict(n.get("properties") or {})
+        props.setdefault("source_id", str(n["id"]))
+        nodes.append({"ref": str(n["id"]), "label": str(n.get("label") or n["id"])[:1000], "properties": props})
+    edges = []
+    for e in g.get("links", g.get("edges", [])):
+        edge = {"source": str(e["source"]), "target": str(e["target"])}
+        if e.get("type"):
+            edge["type"] = e["type"]
+        if e.get("properties"):
+            edge["properties"] = e["properties"]
+        edges.append(edge)
+
+    res = mcp.tool("add_nodes_and_edges", {"networkId": net_id, "nodes": nodes, "edges": edges, "dedupeByLabel": True})
+    url = f"{BASE}/network/{net_id}"
+    created = res.get("created") or {}
+    print(json.dumps({
+        "networkId": net_id,
+        "url": url,
+        "nodes": len(nodes),
+        "edges": len(edges),
+        "created": {k: (len(v) if isinstance(v, (list, dict)) else v) for k, v in created.items()},
+    }, indent=2))
+
+
+if __name__ == "__main__":
+    main()
