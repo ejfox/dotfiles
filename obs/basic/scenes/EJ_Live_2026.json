@@ -200,6 +200,34 @@
                 "deinterlace_field_order": 0,
                 "monitoring_type": 0,
                 "private_settings": {}
+            },
+            {
+                "prev_ver": 537001986,
+                "name": "7 · Teleport → computah",
+                "uuid": "7cade957-54d7-45ae-a879-1299daf581ab",
+                "id": "teleport-audio-filter",
+                "versioned_id": "teleport-audio-filter",
+                "settings": {
+                    "identifier": "imac-mic",
+                    "advanced": true,
+                    "port": 9102
+                },
+                "mixers": 255,
+                "sync": 0,
+                "flags": 0,
+                "volume": 1.0,
+                "balance": 0.5,
+                "enabled": false,
+                "muted": false,
+                "push-to-mute": false,
+                "push-to-mute-delay": 0,
+                "push-to-talk": false,
+                "push-to-talk-delay": 0,
+                "hotkeys": {},
+                "deinterlace_mode": 0,
+                "deinterlace_field_order": 0,
+                "monitoring_type": 0,
+                "private_settings": {}
             }
         ]
     },
@@ -281,6 +309,35 @@
                     "volume": 1.0,
                     "balance": 0.5,
                     "enabled": true,
+                    "muted": false,
+                    "push-to-mute": false,
+                    "push-to-mute-delay": 0,
+                    "push-to-talk": false,
+                    "push-to-talk-delay": 0,
+                    "hotkeys": {},
+                    "deinterlace_mode": 0,
+                    "deinterlace_field_order": 0,
+                    "monitoring_type": 0,
+                    "private_settings": {}
+                },
+                {
+                    "prev_ver": 537001986,
+                    "name": "Teleport → computah (cam)",
+                    "uuid": "00d5a7fd-fc95-4932-acf2-e9283a2a1099",
+                    "id": "teleport-video-filter",
+                    "versioned_id": "teleport-video-filter",
+                    "settings": {
+                        "identifier": "imac-cam",
+                        "quality": 85,
+                        "advanced": true,
+                        "port": 9101
+                    },
+                    "mixers": 0,
+                    "sync": 0,
+                    "flags": 0,
+                    "volume": 1.0,
+                    "balance": 0.5,
+                    "enabled": false,
                     "muted": false,
                     "push-to-mute": false,
                     "push-to-mute-delay": 0,
@@ -408,12 +465,12 @@
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "is_local_file": true,
+                "is_local_file": false,
                 "local_file": "/Users/ejfox/code/stream-overlays/overlay.html",
-                "url": "file:///Users/ejfox/code/stream-overlays/overlay.html",
+                "url": "file:///Users/ejfox/code/stream-overlays/overlay.html?hide=top,bottom,objective",
                 "width": 1920,
                 "height": 1080,
-                "fps": 60,
+                "fps": 30,
                 "fps_custom": true,
                 "shutdown": true,
                 "restart_when_active": true,
@@ -975,6 +1032,132 @@
         },
         {
             "prev_ver": 537001986,
+            "name": "Overlay · Top Bar",
+            "uuid": "a869b938-c6c5-43d8-b5db-08e2f8195a8d",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "is_local_file": false,
+                "url": "file:///Users/ejfox/code/stream-overlays/overlay.html?only=top",
+                "width": 1920,
+                "height": 1080,
+                "fps": 60,
+                "fps_custom": true,
+                "shutdown": true,
+                "restart_when_active": true,
+                "webpage_control_level": 1,
+                "css": "",
+                "reroute_audio": false
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Overlay · Bottom Bar",
+            "uuid": "4b420c59-3d4b-4d50-b2be-f36ba06e4d28",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "is_local_file": false,
+                "url": "file:///Users/ejfox/code/stream-overlays/overlay.html?only=bottom",
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "fps_custom": true,
+                "shutdown": true,
+                "restart_when_active": true,
+                "webpage_control_level": 1,
+                "css": "",
+                "reroute_audio": false
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Overlay · Objective",
+            "uuid": "a8593945-c71f-477e-b99a-d3de94a2131b",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "is_local_file": false,
+                "url": "file:///Users/ejfox/code/stream-overlays/overlay.html?only=objective",
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "fps_custom": true,
+                "shutdown": true,
+                "restart_when_active": true,
+                "webpage_control_level": 1,
+                "css": "",
+                "reroute_audio": false
+            },
+            "mixers": 255,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
             "name": "Show · Starting Soon",
             "uuid": "a467a753-b729-4816-9022-4174b4d87e09",
             "id": "scene",
@@ -1151,7 +1334,7 @@
                     {
                         "name": "Part · Overlay Bus",
                         "source_uuid": "f70109fe-aef4-4ba5-b4a5-4fd7bd31c462",
-                        "visible": true,
+                        "visible": false,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -1916,10 +2099,10 @@
                         "key": "OBS_KEY_7"
                     }
                 ],
-                "libobs.show_scene_item.2": [],
-                "libobs.hide_scene_item.2": [],
                 "libobs.show_scene_item.1": [],
                 "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.2": [],
+                "libobs.hide_scene_item.2": [],
                 "libobs.show_scene_item.3": [],
                 "libobs.hide_scene_item.3": []
             },
@@ -2125,10 +2308,10 @@
                         "key": "OBS_KEY_0"
                     }
                 ],
-                "libobs.show_scene_item.2": [],
-                "libobs.hide_scene_item.2": [],
                 "libobs.show_scene_item.1": [],
                 "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.2": [],
+                "libobs.hide_scene_item.2": [],
                 "libobs.show_scene_item.3": [],
                 "libobs.hide_scene_item.3": []
             },
@@ -3089,7 +3272,7 @@
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "id_counter": 6,
+                "id_counter": 9,
                 "custom_size": false,
                 "items": [
                     {
@@ -3150,7 +3333,7 @@
                     {
                         "name": "Overlay",
                         "source_uuid": "327e12b4-a325-42f7-a706-217e5332523c",
-                        "visible": true,
+                        "visible": false,
                         "locked": false,
                         "rot": 0.0,
                         "scale_ref": {
@@ -3166,6 +3349,171 @@
                         "crop_right": 0,
                         "crop_bottom": 0,
                         "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Overlay · Objective",
+                        "source_uuid": "a8593945-c71f-477e-b99a-d3de94a2131b",
+                        "visible": false,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 9,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Overlay · Top Bar",
+                        "source_uuid": "a869b938-c6c5-43d8-b5db-08e2f8195a8d",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 7,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Overlay · Bottom Bar",
+                        "source_uuid": "4b420c59-3d4b-4d50-b2be-f36ba06e4d28",
+                        "visible": false,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 8,
                         "group_item_backup": false,
                         "pos": {
                             "x": 0.0,
@@ -3386,6 +3734,12 @@
                 "libobs.hide_scene_item.1": [],
                 "libobs.show_scene_item.2": [],
                 "libobs.hide_scene_item.2": [],
+                "libobs.show_scene_item.9": [],
+                "libobs.hide_scene_item.9": [],
+                "libobs.show_scene_item.7": [],
+                "libobs.hide_scene_item.7": [],
+                "libobs.show_scene_item.8": [],
+                "libobs.hide_scene_item.8": [],
                 "libobs.show_scene_item.3": [],
                 "libobs.hide_scene_item.3": [],
                 "libobs.show_scene_item.4": [],
@@ -4177,6 +4531,298 @@
         },
         {
             "prev_ver": 537001986,
+            "name": "Game · computah",
+            "uuid": "b0db19af-c665-4136-b73c-024e666112bb",
+            "id": "scene",
+            "versioned_id": "scene",
+            "settings": {
+                "id_counter": 3,
+                "custom_size": false,
+                "items": [
+                    {
+                        "name": "computah (Teleport)",
+                        "source_uuid": "04daaa7a-9ccc-4540-be54-a7a5caa8b636",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 2,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "bounds_rel": {
+                            "x": 3.555555582046509,
+                            "y": 2.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Part · Camera",
+                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
+                        "visible": false,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 1443.0,
+                            "y": 778.0
+                        },
+                        "pos_rel": {
+                            "x": 0.894444465637207,
+                            "y": 0.440740704536438
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Part · Overlay Bus",
+                        "source_uuid": "f70109fe-aef4-4ba5-b4a5-4fd7bd31c462",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 3,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    }
+                ]
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.2": [],
+                "libobs.hide_scene_item.2": [],
+                "libobs.show_scene_item.3": [],
+                "libobs.hide_scene_item.3": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Feed · computah",
+            "uuid": "7fc89370-aeff-4013-87c4-58d098d7870a",
+            "id": "scene",
+            "versioned_id": "scene",
+            "settings": {
+                "id_counter": 1,
+                "custom_size": false,
+                "items": [
+                    {
+                        "name": "Part · Camera",
+                        "source_uuid": "d66e1688-40d5-46e8-a385-1c22e02a9dbe",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0.0,
+                        "scale_ref": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    }
+                ]
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
             "name": "V Cam · Full Face",
             "uuid": "015cf1c9-9f9a-4b9e-9215-b032f0e8df8b",
             "id": "scene",
@@ -4296,7 +4942,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 2,
+                "order": 5,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4499,7 +5145,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 1,
+                "order": 0,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4704,7 +5350,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 10,
+                "order": 11,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -4909,7 +5555,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 7,
+                "order": 1,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -5114,8 +5760,8 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 3,
-                "canvas_active": true
+                "order": 4,
+                "canvas_active": false
             },
             "mixers": 0,
             "sync": 0,
@@ -5374,7 +6020,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 5,
+                "order": 3,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -5581,7 +6227,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 4,
+                "order": 6,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -5731,7 +6377,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 6,
+                "order": 7,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -5879,7 +6525,7 @@
                         "private_settings": {}
                     }
                 ],
-                "order": 0,
+                "order": 2,
                 "canvas_active": false
             },
             "mixers": 0,
@@ -5913,8 +6559,8 @@
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
-                "order": 8,
-                "canvas_active": false,
+                "order": 10,
+                "canvas_active": true,
                 "id_counter": 5,
                 "custom_size": false,
                 "items": [
@@ -6486,6 +7132,39 @@
             "monitoring_type": 0,
             "canvas_uuid": "6a14f63a-cd2b-4e73-b460-d03f181198f9",
             "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "V Idle",
+            "uuid": "e4709f82-a5f0-4b3d-9964-dd6adc2144d4",
+            "id": "scene",
+            "versioned_id": "scene",
+            "settings": {
+                "id_counter": 0,
+                "custom_size": false,
+                "items": [],
+                "order": 8,
+                "canvas_active": false
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6a14f63a-cd2b-4e73-b460-d03f181198f9",
+            "private_settings": {}
         }
     ],
     "groups": [],
@@ -6506,6 +7185,9 @@
             "name": "Game · COD TDM"
         },
         {
+            "name": "Feed · computah"
+        },
+        {
             "name": "Screen · Left"
         },
         {
@@ -6513,6 +7195,9 @@
         },
         {
             "name": "Screen · Code"
+        },
+        {
+            "name": "Game · computah"
         },
         {
             "name": "Screen · Gopro"
@@ -6536,8 +7221,8 @@
             "name": "Part · Action Cam"
         }
     ],
-    "current_scene": "Cam · Talk",
-    "current_program_scene": "Cam · Talk",
+    "current_scene": "Game · COD S&D",
+    "current_program_scene": "Game · COD S&D",
     "canvases": [
         {
             "info": {
@@ -6549,7 +7234,7 @@
         }
     ],
     "current_transition": "Move",
-    "transition_duration": 850,
+    "transition_duration": 1250,
     "transitions": [
         {
             "name": "Move",
@@ -6558,17 +7243,17 @@
                 "transition_match": "",
                 "transition_in": "Fade",
                 "transition_out": "Fade",
+                "zoom_out": false,
+                "easing_match": 3,
+                "easing_in": 3,
+                "easing_out": 3,
                 "easing_function_match": 3,
                 "easing_function_in": 3,
-                "curve_in": 0.0,
-                "curve_match": 0.0,
-                "curve_out": 0.0,
                 "easing_function_out": 3,
-                "easing_in": 3,
-                "easing_match": 3,
-                "easing_out": 3,
                 "zoom_in": 100.0,
-                "zoom_out": false
+                "curve_match": 0.0,
+                "curve_in": 0.0,
+                "curve_out": 0.0
             }
         }
     ],
