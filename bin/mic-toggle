@@ -22,4 +22,4 @@ end
 '
 SKETCHYBAR=$(command -v sketchybar || echo /usr/local/bin/sketchybar)
 "$SKETCHYBAR" --trigger mic_change 2>/dev/null
-touch /tmp/talon-mic-toggle
+mkdir -p /tmp/talon-mic && touch /tmp/talon-mic/toggle

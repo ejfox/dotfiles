@@ -100,9 +100,10 @@ while ! mkdir "$LOCKDIR" 2>/dev/null; do
 done
 
 # Cleanup: always restore mic, remove temp file, release lock
-trap 'osascript -e "set volume input volume $VOL" 2>/dev/null; touch /tmp/talon-mic-toggle 2>/dev/null; rm -f "$TMPFILE"; rmdir "$LOCKDIR" 2>/dev/null' EXIT
+trap 'osascript -e "set volume input volume $VOL" 2>/dev/null; rm -f "$TMPFILE"; rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
-# Mute mic
+# Mute mic. Deliberately does NOT signal mic_toggle.py: Talon's sleep/wake state
+# is left alone, so a sleeping Talon stays asleep after we finish speaking.
 osascript -e 'set volume input volume 0'
 
 # Play the message
