@@ -1,9 +1,11 @@
 #!/bin/bash
 # booth: mise en place for a VO take.
 #   booth <slug>    e.g. booth what-the-loom-did
-# The episode script (video-scripts/<slug>.md) opens in Obsidian, full screen on the
-# portrait Dell. A fresh Logic project made from the VO_Session template opens full
-# screen on the iMac.
+# The episode's working Logic project (newest one with takes; a new one from the
+# VO_Session template only if none exists, or with --new) opens full screen on the
+# portrait Dell (meters + waveform = B-roll when the screen is filmed). The episode
+# script (video-scripts/<slug>.md) opens in Obsidian, full screen on the iMac, at eye
+# level for reading (EJ, 2026-10-20: better ergonomics that way round).
 #
 # Focus-proof: no keystrokes and no "frontmost" assumptions. Files open with `open`,
 # windows are found by TITLE, and placement goes through Hammerspoon first, then falls
@@ -74,8 +76,23 @@ place() {
 open "obsidian://open?path=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$NOTE")"
 say "script: $SLUG.md"
 
-# 2. Session: copy the template to today's project (reuse it if it already exists)
-if [ -e "$PROJECT" ]; then
+# 2. Session: reuse the episode's working project (the newest one that has takes in it,
+#    else the newest one at all). Only make a new one from the template if none exists
+#    or `booth <slug> --new` is passed. EJ, 10-31: a fresh project every day split his
+#    takes across sessions.
+EXISTING=""
+if [ "${2:-}" != "--new" ]; then
+  while IFS= read -r p; do
+    if ls "$p/Media/Audio Files/"*.aif >/dev/null 2>&1; then EXISTING="$p"; break; fi
+  done < <(ls -dt "$HOME/Music/Logic/"*-"$SLUG"-vo.logicx 2>/dev/null)
+  if [ -z "$EXISTING" ]; then
+    EXISTING=$(ls -dt "$HOME/Music/Logic/"*-"$SLUG"-vo.logicx 2>/dev/null | head -1)
+  fi
+fi
+if [ -n "$EXISTING" ]; then
+  PROJECT="$EXISTING"
+  say "reusing working project: $(basename "$PROJECT")"
+elif [ -e "$PROJECT" ]; then
   say "reusing today's project: $(basename "$PROJECT")"
 else
   cp -R "$TEMPLATE" "$PROJECT" || die "copy failed"
@@ -84,8 +101,29 @@ fi
 open -g -a "Logic Pro" "$PROJECT"    # -g: don't steal focus
 
 # 3. Arrange both (in parallel; each waits for its own window)
-place "Obsidian" "$SLUG" "$PORTRAIT" &
-place "Logic Pro" "$(basename "$PROJECT")" "$MAIN" &
+place "Obsidian" "$SLUG" "$MAIN" &
+place "Logic Pro" "$(basename "$PROJECT")" "$PORTRAIT" &
 wait
+
+# 4. B-roll meters: MiniMeters in the bottom third of the portrait screen, Logic above it.
+#    Its "New Update Available" window gets closed (never auto-update from here).
+if [ -d /Applications/MiniMeters.app ]; then
+  open -g -a MiniMeters
+  deadline=$((SECONDS + 30))
+  while [ $SECONDS -lt $deadline ]; do
+    out=$(hsx "
+      local s; for _,x in ipairs(hs.screen.allScreens()) do if x:name():find('$PORTRAIT',1,true) then s=x end end
+      local mm=hs.application.get('MiniMeters'); if not (s and mm and #mm:allWindows()>0) then print('wait') return end
+      local f=s:frame(); local split=math.floor(f.h*0.66)
+      local lg=hs.application.get('Logic Pro')
+      if lg then for _,w in ipairs(lg:allWindows()) do if w:title():find('$(basename "$PROJECT")',1,true) then w:setFrame({x=f.x,y=f.y,w=f.w,h=split}) end end end
+      for _,w in ipairs(mm:allWindows()) do
+        if w:title():find('Update',1,true) then w:close() else w:moveToScreen(s); w:setFrame({x=f.x,y=f.y+split,w=f.w,h=f.h-split}) end
+      end
+      print('ok')")
+    [ "$out" = "ok" ] && { say "MiniMeters under Logic on $PORTRAIT"; break; }
+    sleep 2
+  done
+fi
 
 say "stage set. unfurl the mic stand."
