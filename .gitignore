@@ -169,3 +169,4 @@ obs/**/*.bak
 obs/**/*.bak-*
 obs/**/*.tmp
 obs/basic/scenes/Untitled.json
+bin/*.bak-*
