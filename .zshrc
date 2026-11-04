@@ -59,10 +59,12 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # Case-sensitive completion must be off. _ and - will be interchangeable.
 # HYPHEN_INSENSITIVE="true"
 
-# Auto-update: reminder only, every 13 days (the update check cost ~145ms
-# on every shell startup when left at defaults)
-zstyle ':omz:update' mode reminder
+# Auto-update silently every 13 days. WHY not "reminder": once an update is
+# pending, reminder mode never resets its clock, so the ~150ms network check
+# ran on EVERY shell (OMZ sat on a 2022 commit until 2026-10-20).
+zstyle ':omz:update' mode auto
 zstyle ':omz:update' frequency 13
+zstyle ':omz:update' verbose minimal
 
 # Uncomment the following line if pasting URLs and other text is messed up.
 # DISABLE_MAGIC_FUNCTIONS="true"
@@ -324,12 +326,20 @@ z() {
     z "$@"
 }
 
-# Initialize atuin - lazy loaded  
-atuin() {
-    unset -f atuin
-    eval "$(atuin init zsh)"
-    atuin "$@"
-}
+# Initialize atuin eagerly so every command is recorded. WHY not lazy: the old
+# lazy wrapper only installed atuin's hooks after a manual `atuin` call, so
+# history went unrecorded for days (0 commands Oct 18-20, 2026). The init
+# script is cached and rebuilt only when the atuin binary changes, so startup
+# pays a `source`, not a subprocess. Up arrow stays up-line-or-beginning-search;
+# atuin takes Ctrl-R.
+if (( $+commands[atuin] )); then
+  _atuin_init="${XDG_CACHE_HOME:-$HOME/.cache}/atuin-init.zsh"
+  if [[ ! -s $_atuin_init || $commands[atuin] -nt $_atuin_init ]]; then
+    mkdir -p "${_atuin_init:h}" && atuin init zsh --disable-up-arrow >| "$_atuin_init"
+  fi
+  source "$_atuin_init"
+  unset _atuin_init
+fi
 
 
 export EDITOR="nvim"

@@ -235,6 +235,83 @@ show_section "$CACHE_DIR/tasks" "FOCUS"
 show_section "$CACHE_DIR/calendar" "SCHEDULE"
 
 ################################################################################
+# ORACLE - 2-4 lines of poetry woven from real life (the 2024 video's MOTD)
+################################################################################
+# Revived 2026-10-20. The 2025 I Ching oracle called /opt/homebrew/bin/llm
+# (not on this Intel Mac) inline with a 6s timeout, then was cut in the
+# April slim-down. Now it's like the mirror: generate in the background via
+# the claude CLI, shell only displays the cache. Regenerates hourly; a poem
+# up to 6h old still shows.
+TTL_ORACLE=60
+
+make_oracle() {
+  local ctx_file="$CIPHER_CACHE/context.txt"
+  [ -s "$ctx_file" ] || return 0
+  local claude_bin=$(command -v claude || echo "$HOME/.claude/local/claude")
+  [ -x "$claude_bin" ] || return 0
+
+  local hex="" hex_name="" hex_wisdom="" moon=""
+  if declare -f get_daily_hexagram >/dev/null; then
+    hex=$(get_daily_hexagram); hex_name=$(get_daily_hexagram_name)
+    hex_wisdom=$(get_daily_hexagram_wisdom); moon=$(get_moon_name)
+  fi
+  local focus=$(safe_read "$CACHE_DIR/tasks" | sed 's/^ *//' | head -3)
+  local sched=$(safe_read "$CACHE_DIR/calendar" | sed 's/^ *//')
+
+  local prompt="You write the message of the day in a hacker-journalist's terminal: a tiny poem he sees every time he opens a shell. Weave his actual life into it. It should feel organic and natural, never clinical, never a to-do list.
+
+NOW: $(date '+%A %B %-d, %-I:%M %p'), moon $moon, hexagram $hex $hex_name ($hex_wisdom)
+FOCUS RIGHT NOW:
+$focus
+STILL ON TODAY'S CALENDAR:
+$sched
+HIS DAY (tasks, carry-overs, recent notes, what shipped, his Mastodon posts):
+$(safe_read "$ctx_file")
+
+Write 2-4 short lines of poetry. Rules:
+- Concrete beats mystical: name real things from above (a repo, a commit, a task, a note title, a phrase from his posts, the hour, the moon). At least two specifics.
+- The hexagram and moon are seasoning, not the subject.
+- Tasks are still undone: never describe one as finished. Only the SHIPPED list happened.
+- No advice, no imperatives, no pep talk, no moralizing, no rhyming couplets.
+- Plain text only: no markdown, no quotation marks, no title. One poem line per output line."
+
+  local poem=$(cd /tmp && printf '%s' "$prompt" | \
+    timeout 60 "$claude_bin" -p --model claude-sonnet-5 --output-format text 2>/dev/null | \
+    grep -v '^[[:space:]]*$' | sed 's/\*\*//g; s/`//g; s/^[[:space:]]*//; s/[[:space:]]*$//' | head -4)
+
+  # 2+ lines or it isn't the poem (guards against a one-line refusal/error)
+  [ "$(printf '%s\n' "$poem" | grep -c .)" -ge 2 ] || return 0
+  atomic_write "$CACHE_DIR/oracle" "$poem"
+  atomic_write "$CACHE_DIR/oracle.head" "${hex:+$hex }ORACLE${moon:+  $moon}"
+}
+
+surface_oracle() {
+  if ! cache_ok "$CACHE_DIR/oracle" $TTL_ORACLE; then
+    local lock="$CACHE_DIR/oracle.lock"
+    find "$lock" -maxdepth 0 -mmin +3 -exec rmdir {} \; 2>/dev/null
+    if mkdir "$lock" 2>/dev/null; then
+      if [ -n "$PRECACHE" ]; then
+        make_oracle; rmdir "$lock"
+      else
+        ( make_oracle; rmdir "$lock" ) >/dev/null 2>&1 &
+        disown 2>/dev/null
+      fi
+    fi
+  fi
+  [ -n "$PRECACHE" ] && return 0
+
+  cache_ok "$CACHE_DIR/oracle" 360 || return 0
+  [ $SHOWN -eq 1 ] && echo ""
+  echo -e "\033[38;5;204m$(safe_read "$CACHE_DIR/oracle.head")\033[0m"
+  while IFS= read -r line; do
+    [ -n "$line" ] && echo -e "\033[38;5;250m  $line\033[0m"
+  done < "$CACHE_DIR/oracle"
+  SHOWN=1
+}
+surface_oracle
+[ $SHOWN -eq 1 ] && echo ""
+
+################################################################################
 # MIRROR - Ambient observation (25% chance, always late night)
 ################################################################################
 # make_mirror writes the line to the cache; the shell only ever DISPLAYS the
