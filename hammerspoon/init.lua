@@ -336,7 +336,7 @@ end
 -- This catches NEWLY CREATED windows of whitelisted apps and snaps them there.
 --
 -- What it will NEVER do: move an existing window, touch float-class apps
--- (Messages, Discord, Things, 1Password, Fantastical — deliberately absent
+-- (Messages, 1Password — deliberately absent
 -- from the table), or move a window already sitting at its home slot (so
 -- macOS frame-restoration wins when it's already right).
 --
@@ -357,7 +357,7 @@ local AUTOPLACE_HOMES = {
   -- app              screen (name substring)  slot (SNAP_UNITS)  evidence, Jul 2026 logs
   -- Safari fills slots in order (EJ, 2026-11-05): 1st window iMac left, 2nd
   -- iMac right, 3rd Dell top, 4th Dell bottom. Each new window takes the first
-  -- slot no other Safari window is covering; past that, macOS placement stands.
+  -- slot no other (non-full-screen) window covers; past that, macOS placement stands.
   ["Safari"]        = { sequence = {
                           { screen = "Retina", slot = "left",   label = "iMac left" },   -- #1 manual snap
                           { screen = "Retina", slot = "right",  label = "iMac right" },
@@ -376,6 +376,16 @@ local AUTOPLACE_HOMES = {
   ["Discord"]       = { sequence = {
                           { screen = "DELL", slot = "top",    label = "Dell top" },
                           { screen = "DELL", slot = "bottom", label = "Dell bottom" },
+                        } },
+  -- Fantastical | Things share a Dell half as two quarters, top row if free
+  -- else bottom (EJ, 2026-11-05: "split ... 25 25 top or bottom")
+  ["Fantastical"]   = { sequence = {
+                          { screen = "DELL", slot = "topLeft",    label = "Dell top-left quarter" },
+                          { screen = "DELL", slot = "bottomLeft", label = "Dell bottom-left quarter" },
+                        } },
+  ["Things"]        = { sequence = {
+                          { screen = "DELL", slot = "topRight",    label = "Dell top-right quarter" },
+                          { screen = "DELL", slot = "bottomRight", label = "Dell bottom-right quarter" },
                         } },
   ["Claude"]        = { sequence = {                                              -- 6/6 half-snaps
                           { screen = "Retina", slot = "left",  label = "iMac left" },
@@ -397,13 +407,16 @@ local function coverage(a, b)
   return (w * h) / (b.w * b.h)
 end
 
--- First slot in a sequence that no OTHER visible window of the app covers
--- by half or more. Unplugged screens are skipped. nil = all taken.
+-- First slot in a sequence that no other visible window (any app) covers by
+-- half or more. Full-screen windows don't count as occupying anything: EJ
+-- often snaps Safari over a full-screen Ghostty. Unplugged screens are
+-- skipped. nil = all taken.
 local function nextFreeSlot(win, sequence)
   local others = {}
-  for _, w in ipairs(win:application():allWindows()) do
-    if w:id() ~= win:id() and w:isStandard() and w:isVisible() then
-      table.insert(others, w:frame())
+  for _, w in ipairs(hs.window.visibleWindows()) do
+    if w:id() ~= win:id() and w:isStandard() then
+      local f, s = w:frame(), w:screen()
+      if s and coverage(f, s:frame()) < 0.9 then table.insert(others, f) end
     end
   end
   for _, slot in ipairs(sequence) do
@@ -423,9 +436,8 @@ end
 --   hs -c 'return autoplacePreview("Safari")'
 function autoplacePreview(appName)
   local home = AUTOPLACE_HOMES[appName]
-  local app = hs.application.get(appName)
-  if not home or not home.sequence or not app then return "n/a" end
-  local ghost = { id = function() return -1 end, application = function() return app end }
+  if not home or not home.sequence then return "n/a" end
+  local ghost = { id = function() return -1 end }
   local slot = nextFreeSlot(ghost, home.sequence)
   if not slot then return "all slots taken (macOS placement)" end
   return slot.label
@@ -455,7 +467,7 @@ local function autoplace(win, appName)
 end
 
 if autoplaceFilter then autoplaceFilter:unsubscribeAll() end
-autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify", "Discord", "Claude" })
+autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify", "Discord", "Claude", "Fantastical", "Things" })
 autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
   -- brief delay so the app finishes its own frame-restore before we judge
   hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
