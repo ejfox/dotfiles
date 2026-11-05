@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+# window-habits: mine ~/.local/share/usage-logs/windows for where EJ snaps each
+# app by hand, which context predicts it, how often autoplace guessed wrong
+# (re-snapped within 90 s), and whether "fill the free half" explains the
+# snaps. Read-only. Feeds AUTOPLACE_HOMES in hammerspoon/init.lua.
+import json, glob, os, collections, datetime as dt
+L = os.path.expanduser("~/.local/share/usage-logs/windows/*.jsonl")
+ev = []
+for f in sorted(glob.glob(L)):
+    for line in open(f):
+        try: d = json.loads(line)
+        except: continue
+        if d.get("windows") is None: continue
+        d["t"] = dt.datetime.fromisoformat(d["ts"].replace("Z", "+00:00"))
+        ev.append(d)
+ev.sort(key=lambda d: d["t"])
+
+def slot(w):
+    x, y, ww, h = (round(w[k], 2) for k in "xywh")
+    scr = "dell" if "DELL" in (w.get("screen") or "") else "imac"
+    names = {(0,0,.5,1):"left",(.5,0,.5,1):"right",(0,0,1,.5):"top",(0,.5,1,.5):"bottom",(0,0,1,1):"full",
+             (0,0,.5,.5):"TL",(.5,0,.5,.5):"TR",(0,.5,.5,.5):"BL",(.5,.5,.5,.5):"BR"}
+    n = names.get((x, y, ww, h))
+    if n is None:
+        if ww < 0.45 and h < 0.6: n = "float"
+        else: n = "other"
+    return f"{scr}:{n}"
+
+snaps = [d for d in ev if d["trigger"] == "snap"]
+print("manual snaps:", len(snaps), "from", snaps[0]["t"].date(), "to", snaps[-1]["t"].date())
+
+# 1. where each app gets snapped
+per = collections.defaultdict(collections.Counter)
+ctx = collections.defaultdict(collections.Counter)
+for d in snaps:
+    foc = [w for w in d["windows"] if w.get("focused")]
+    if not foc: continue
+    w = foc[0]; app = w["app"]; s = slot(w)
+    per[app][s] += 1
+    others = frozenset(f"{o['app']}@{slot(o)}" for o in d["windows"] if not o.get("focused") and o["app"] != app)
+    for o in others: ctx[(app, s)][o] += 1
+print("\n== where you snap each app (top apps)")
+for app, c in sorted(per.items(), key=lambda kv: -sum(kv[1].values()))[:14]:
+    n = sum(c.values())
+    top = ", ".join(f"{k} {v*100//n}%" for k, v in c.most_common(3))
+    print(f"{app:22} n={n:4}  {top}")
+
+# 2. conditional patterns: for app's 2nd-most slot, what co-occurs
+print("\n== context that predicts a slot (app slot: other-window present in >=70% of those snaps)")
+for (app, s), c in ctx.items():
+    n = per[app][s]
+    if n < 8: continue
+    strong = [f"{o} {v*100//n}%" for o, v in c.most_common(3) if v / n >= 0.7]
+    if strong: print(f"{app:20} {s:12} n={n:3}  with {'; '.join(strong)}")
+
+# 3. autoplace accuracy: autoplace then manual snap of same app within 90s
+auto = [d for d in ev if d["trigger"] == "autoplace"]
+bad = collections.Counter(); tot = collections.Counter()
+si = 0
+for a in auto:
+    foc = [w for w in a["windows"] if w.get("focused")]
+    app = foc[0]["app"] if foc else None
+    if not app: continue
+    tot[app] += 1
+    for d in snaps:
+        if a["t"] < d["t"] <= a["t"] + dt.timedelta(seconds=90):
+            f2 = [w for w in d["windows"] if w.get("focused")]
+            if f2 and f2[0]["app"] == app: bad[app] += 1; break
+print("\n== autoplace: re-snapped by hand within 90s (= wrong guess)")
+for app in tot: print(f"{app:16} {bad[app]}/{tot[app]} wrong ({bad[app]*100//max(tot[app],1)}%)")
+
+# 4. whole-layout patterns from periodic snapshots (what's open together, where)
+lay = collections.Counter()
+per_snap = [d for d in ev if d["trigger"] == "periodic" and d["windows"]]
+for d in per_snap:
+    key = tuple(sorted(f"{w['app']}@{slot(w)}" for w in d["windows"] if slot(w).split(':')[1] not in ("float","other")))
+    if key: lay[key] += 1
+print(f"\n== most common full layouts ({len(per_snap)} snapshots)")
+for k, v in lay.most_common(8): print(f"{v*100/len(per_snap):5.1f}%  {' | '.join(k)}")
+
+# 5. Hypothesis: "complement" — a snapped window goes to the free half of its screen
+def occupied(d, foc_app, scr):
+    occ = set()
+    for w in d["windows"]:
+        if w.get("focused"): continue
+        s = slot(w)
+        if not s.startswith(scr): continue
+        occ.add(s.split(":")[1])
+    return occ
+
+pairs = {"imac": ("left", "right"), "dell": ("top", "bottom")}
+hit = tot = 0; by_app = collections.defaultdict(lambda: [0, 0])
+safari_right_with_left = [0, 0]
+for d in snaps:
+    foc = [w for w in d["windows"] if w.get("focused")]
+    if not foc: continue
+    w = foc[0]; s = slot(w); scr, name = s.split(":")
+    a, b = pairs[scr]
+    if name not in (a, b): continue
+    occ = occupied(d, w["app"], scr)
+    if "full" in occ: continue
+    pred = a
+    if a in occ or ({"TL","BL"} & occ and scr == "imac") or ({"TL","TR"} & occ and scr == "dell"): pred = b
+    tot += 1; by_app[w["app"]][1] += 1
+    if pred == name: hit += 1; by_app[w["app"]][0] += 1
+    if w["app"] == "Safari" and name == "right":
+        safari_right_with_left[1] += 1
+        if "left" in occ: safari_right_with_left[0] += 1
+print(f"\n== 'fill the free half' rule: predicts {hit}/{tot} half-snaps ({hit*100//tot}%)")
+for app, (h, t) in sorted(by_app.items(), key=lambda kv: -kv[1][1])[:8]:
+    print(f"   {app:16} {h}/{t}")
+print(f"Safari snapped right while the iMac left was already taken: {safari_right_with_left[0]}/{safari_right_with_left[1]}")
+
+# 6. Ghostty: full vs right, by what's on imac
+g = collections.Counter()
+for d in snaps:
+    foc = [w for w in d["windows"] if w.get("focused") and w["app"] == "Ghostty"]
+    if not foc: continue
+    s = slot(foc[0])
+    occ = occupied(d, "Ghostty", "imac")
+    g[(s, "imac-left-taken" if "left" in occ else "imac-left-free")] += 1
+print("\n== Ghostty snaps by whether iMac left was taken:", dict(g.most_common(8)))
