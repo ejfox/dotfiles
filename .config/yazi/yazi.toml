@@ -29,8 +29,8 @@ image_delay = 10
 
 # Git status fetcher - shows status in file list
 prepend_fetchers = [
-  { id = "git", name = "*", run = "git" },
-  { id = "git", name = "*/", run = "git" },
+  { group = "git", url = "*", run = "git" },
+  { group = "git", url = "*/", run = "git" },
 ]
 
 # FZF plugin for fuzzy finding

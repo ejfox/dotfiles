@@ -21,6 +21,11 @@ Rules and gotchas only. Feature history, setup logs and per-plugin notes live in
 - Upgrade: get the release tarball, unpack it into `~/.local/opt/`, run `xattr -dr com.apple.quarantine`, then repoint the symlink.
 - `tree-sitter-cli` (brew) is required. nvim-treesitter compiles its parsers with it.
 
+## Upgrading tools on the Intel iMac
+- Never run a blanket `brew upgrade` here. Homebrew ships almost no Intel bottles, so it compiles from source (LLVM, Qt, ffmpeg). Upgrade only formulae whose whole runtime dependency tree is bottled.
+- 21 CLIs (gh, fzf, lazygit, starship, atuin, yazi, rg, fd, uv, deno…) come from release binaries: `bin/relbins status`, then `bin/relbins install`. They live in `~/.local/opt/<tool>-<ver>/`, symlinked into `~/.local/bin`; brew's copies stay as fallbacks. On Apple Silicon, `brew upgrade` is fine.
+- After upgrading yazi, lazygit or fzf, check the vulpes theme files: yazi and lazygit silently ignore renamed keys.
+
 ## Theme and Ghostty
 - A theme that's broken or unreadable in dark or light mode: run `theme`. See `docs/THEME-SYSTEM.md`.
 - Ghostty's bloom shader blooms red and pink pixels. For selections and highlights, use a dark background with white text, not bright saturated colors.

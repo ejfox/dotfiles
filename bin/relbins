@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# relbins: CLI tools from official GitHub release binaries, for the Intel iMac.
+#
+# Homebrew ships almost no Intel bottles anymore, so `brew upgrade` there means
+# source builds (LLVM, Qt, ...). These tools live in ~/.local/opt/<tool>-<ver>/
+# and are symlinked into ~/.local/bin, which wins over /usr/local/bin on PATH.
+# brew's copies stay installed underneath as fallbacks. Same pattern as nvim.
+# On Apple Silicon brew bottles work, so use `brew upgrade` there instead.
+#
+#   relbins status            installed vs latest release for every tool
+#   relbins install [tool..]  install/upgrade (all outdated tools if none given)
+#
+# Each download is checked against the release's published sha256 when one
+# exists. Old versions stay in ~/.local/opt for rollback: repoint the symlink.
+set -euo pipefail
+
+if [[ $(uname -m) != x86_64 ]]; then
+  echo "relbins is for the Intel iMac; on Apple Silicon use brew upgrade." >&2
+  exit 1
+fi
+
+# tool  repo  asset-regex(jq, use [.] for a literal dot)  binaries
+MANIFEST='
+gh          cli/cli                 macOS_amd64[.]zip$                          gh
+fzf         junegunn/fzf            darwin_amd64[.]tar[.]gz$                    fzf
+lazygit     jesseduffield/lazygit   darwin_x86_64[.]tar[.]gz$                   lazygit
+starship    starship/starship       ^starship-x86_64-apple-darwin[.]tar[.]gz$   starship
+atuin       atuinsh/atuin           ^atuin-x86_64-apple-darwin[.]tar[.]gz$      atuin
+yazi        sxyazi/yazi             x86_64-apple-darwin[.]zip$                  yazi,ya
+fd          sharkdp/fd              x86_64-apple-darwin[.]tar[.]gz$             fd
+rg          BurntSushi/ripgrep      x86_64-apple-darwin[.]tar[.]gz$             rg
+just        casey/just              x86_64-apple-darwin[.]tar[.]gz$             just
+btm         ClementTsang/bottom     ^bottom_x86_64-apple-darwin[.]tar[.]gz$     btm
+gping       orf/gping               macOS-x86_64[.]tar[.]gz$                    gping
+yq          mikefarah/yq            darwin_amd64[.]tar[.]gz$                    yq_darwin_amd64:yq
+uv          astral-sh/uv            ^uv-x86_64-apple-darwin[.]tar[.]gz$         uv,uvx
+act         nektos/act              Darwin_x86_64[.]tar[.]gz$                   act
+git-lfs     git-lfs/git-lfs         darwin-amd64.*[.]zip$                       git-lfs
+rclone      rclone/rclone           osx-amd64[.]zip$                            rclone
+tree-sitter tree-sitter/tree-sitter ^tree-sitter-cli-macos-x64[.]zip$           tree-sitter
+vhs         charmbracelet/vhs       Darwin_x86_64[.]tar[.]gz$                   vhs
+wtfutil     wtfutil/wtf             ^wtf_.*darwin_amd64[.]tar[.]gz$             wtfutil
+ncspot      hrkfdn/ncspot           macos-x86_64[.]tar[.]gz$                    ncspot
+deno        denoland/deno           ^deno-x86_64-apple-darwin[.]zip$            deno
+'
+# Not here on purpose: tmux (source-only releases; a new binary under a running
+# server breaks attach), delta (no Intel build), nvim (see dotfiles CLAUDE.md),
+# fly (self-updates in ~/.fly: `fly version upgrade`), yt-dlp (uv tool).
+
+OPT=$HOME/.local/opt
+BIN=$HOME/.local/bin
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+# Version number of the installed tool, from the symlink target's dir name.
+installed_version() {
+  local link=$BIN/$1 target
+  [[ -L $link ]] || { echo "-"; return; }
+  target=$(readlink "$link")
+  [[ $target == "$OPT"/* ]] || { echo "-"; return; }
+  target=${target#"$OPT"/}
+  target=${target%%/*}
+  echo "${target#"$1"-}"
+}
+
+latest_tag() { gh api "repos/$1/releases/latest" --jq .tag_name; }
+
+# Strip a leading "v" and any "<tool>-v" prefix (gping tags as gping-v1.21.0).
+plain_version() {
+  local v=${1##*-v}
+  echo "${v#v}"
+}
+
+install_one() {
+  local tool=$1 repo=$2 pat=$3 bins=$4
+  local tag ver asset dest got verified=no
+  tag=$(latest_tag "$repo")
+  ver=$(plain_version "$tag")
+  asset=$(gh api "repos/$repo/releases/latest" --jq "[.assets[].name | select(test(\"$pat\"))][0]")
+  if [[ -z $asset || $asset == null ]]; then
+    echo "FAIL $tool: no release asset matches $pat"; return 1
+  fi
+  mkdir -p "$TMP/$tool"
+  gh release download "$tag" -R "$repo" -p "$asset" -D "$TMP/$tool" >/dev/null
+  got=$(shasum -a 256 "$TMP/$tool/$asset" | awk '{print $1}')
+
+  # Verified = our hash appears on a checksum-file line naming this asset.
+  # (Some projects publish one column per algorithm, e.g. yq.)
+  local sums s
+  sums=$(gh api "repos/$repo/releases/latest" --jq '[.assets[].name | select(test("sha256|checksums|SHA256SUMS";"i")) | select(test("[.](sig|pem|asc|bundle)$")|not)] | .[]')
+  for s in $sums; do
+    if [[ $s == *.sha256 && $s != "$asset.sha256" ]]; then continue; fi
+    gh release download "$tag" -R "$repo" -p "$s" -D "$TMP/$tool/sums" >/dev/null 2>&1 || continue
+    if grep -F "$got" "$TMP/$tool/sums/$s" >/dev/null; then verified=yes; break; fi
+    if grep -F "$asset" "$TMP/$tool/sums/$s" >/dev/null; then
+      echo "FAIL $tool: sha256 mismatch against $s"; return 1
+    fi
+  done
+
+  dest=$OPT/$tool-$ver
+  rm -rf "$dest"; mkdir -p "$dest"
+  case $asset in
+    *.tar.gz|*.tgz) tar -xzf "$TMP/$tool/$asset" -C "$dest" ;;
+    *.zip) unzip -q "$TMP/$tool/$asset" -d "$dest" ;;
+    *) cp "$TMP/$tool/$asset" "$dest/" ;;
+  esac
+  xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
+
+  # bins: "name" or "file-in-archive:link-name", comma-separated
+  local b src name path
+  IFS=, read -ra list <<< "$bins"
+  for b in "${list[@]}"; do
+    src=${b%%:*}
+    name=${b##*:}
+    path=$(find "$dest" -type f -name "$src" | head -1)
+    if [[ -z $path ]]; then echo "FAIL $tool: $src not found in $asset"; return 1; fi
+    chmod +x "$path"
+    ln -sfn "$path" "$BIN/$name"
+  done
+  echo "OK   $tool $ver (sha256 verified: $verified)"
+}
+
+cmd=${1:-status}
+shift || true
+mkdir -p "$OPT" "$BIN"
+
+while read -r tool repo pat bins; do
+  [[ -z $tool ]] && continue
+  if [[ $# -gt 0 && " $* " != *" $tool "* ]]; then continue; fi
+  have=$(installed_version "${bins##*:}")
+  have=${have%%,*}
+  if [[ $have == - ]]; then have=$(installed_version "$tool"); fi
+  want=$(plain_version "$(latest_tag "$repo")")
+  case $cmd in
+    status)
+      if [[ $have == "$want" ]]; then
+        printf '%-12s %-10s current\n' "$tool" "$have"
+      else
+        printf '%-12s %-10s -> %s\n' "$tool" "$have" "$want"
+      fi ;;
+    install)
+      if [[ $have == "$want" && $# -eq 0 ]]; then continue; fi
+      install_one "$tool" "$repo" "$pat" "$bins" || true ;;
+    *) echo "usage: relbins [status|install [tool...]]" >&2; exit 2 ;;
+  esac
+done <<< "$MANIFEST"

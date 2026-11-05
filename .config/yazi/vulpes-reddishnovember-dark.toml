@@ -3,8 +3,6 @@
 
 [mgr]
 cwd = { fg = "#ff0055" }
-hovered = { fg = "#000000", bg = "#ff0055" }
-preview_hovered = { underline = true }
 
 # Find
 find_keyword = { fg = "#ff3344", italic = true }
@@ -20,6 +18,12 @@ border_symbol = "│"
 border_style = { fg = "#2d1a22" }
 
 syntect_theme = ""
+
+# Hovered row in each column (yazi 26: was mgr.hovered / mgr.preview_hovered)
+[indicator]
+parent = { fg = "#ff0055", bg = "#2d1a22" }
+current = { fg = "#000000", bg = "#ff0055" }
+preview = { underline = true }
 
 [mode]
 normal_main = { fg = "#000000", bg = "#ff0055", bold = true }
@@ -56,7 +60,7 @@ title = {}
 value = {}
 selected = { reversed = true }
 
-[select]
+[pick]
 border = { fg = "#ff0055" }
 active = { fg = "#ff0055" }
 inactive = {}
@@ -67,6 +71,7 @@ title = {}
 hovered = { underline = true }
 
 [which]
+border = { fg = "#ff0055" }
 mask = { bg = "#2d1a22" }
 cand = { fg = "#ff0055" }
 rest = { fg = "#73264a" }
@@ -75,11 +80,10 @@ separator = "  "
 separator_style = { fg = "#73264a" }
 
 [help]
-on = { fg = "#d4a5bf" }
-run = { fg = "#ff0077" }
-desc = { fg = "#73264a" }
+border = { fg = "#ff0055" }
+chord = { fg = "#d4a5bf" }
+action = { fg = "#ff0077" }
 hovered = { bg = "#2d1a22", bold = true }
-footer = { fg = "#73264a", bg = "#2d1a22" }
 
 [filetype]
 rules = [
@@ -103,6 +107,6 @@ rules = [
 	{ mime = "application/pdf", fg = "#ff0055" },
 
 	# Fallback
-	{ name = "*", fg = "#f5d0dc" },
-	{ name = "*/", fg = "#ff0055" }
+	{ url = "*", fg = "#f5d0dc" },
+	{ url = "*/", fg = "#ff0055" }
 ]

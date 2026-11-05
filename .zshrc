@@ -142,11 +142,19 @@ setopt HIST_IGNORE_DUPS
 # NVM configuration — loaded with --no-use so shell startup skips nvm_auto
 # (measured: full load ~1.0s, --no-use ~76ms). Default node goes on PATH
 # statically instead; `nvm use <ver>` still works when actually switching.
-# Bump the pinned path when upgrading node (must match ~/.nvm/versions/node/).
+# Bump the pinned version when upgrading node. A machine that doesn't have it
+# yet (e.g. the laptop before its own upgrade) falls back to its newest node
+# instead of losing node from PATH; the glob only runs on that miss.
 export NVM_DIR="$HOME/.nvm"
 [ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh" --no-use
 [ -s "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
-export PATH="$NVM_DIR/versions/node/v22.22.2/bin:$PATH"
+_node_bin="$NVM_DIR/versions/node/v22.23.4/bin"
+if [[ ! -d $_node_bin ]]; then
+  _node_bin=( "$NVM_DIR"/versions/node/v*/bin(N/nOn) )
+  _node_bin=${_node_bin[1]}
+fi
+[[ -n $_node_bin ]] && export PATH="$_node_bin:$PATH"
+unset _node_bin
 
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"

@@ -10,8 +10,6 @@
 
 [mgr]
 cwd = { fg = "#a8003c" }
-hovered = { fg = "#ffffff", bg = "#a8003c" }
-preview_hovered = { underline = true }
 
 # Find
 find_keyword = { fg = "#9e3050", italic = true }
@@ -27,6 +25,12 @@ border_symbol = "│"
 border_style = { fg = "#ebe2d6" }
 
 syntect_theme = ""
+
+# Hovered row in each column (yazi 26: was mgr.hovered / mgr.preview_hovered)
+[indicator]
+parent = { fg = "#a8003c", bg = "#ebe2d6" }
+current = { fg = "#ffffff", bg = "#a8003c" }
+preview = { underline = true }
 
 [mode]
 normal_main = { fg = "#ffffff", bg = "#a8003c", bold = true }
@@ -63,7 +67,7 @@ title = {}
 value = {}
 selected = { reversed = true }
 
-[select]
+[pick]
 border = { fg = "#a8003c" }
 active = { fg = "#a8003c" }
 inactive = {}
@@ -74,6 +78,7 @@ title = {}
 hovered = { underline = true }
 
 [which]
+border = { fg = "#a8003c" }
 mask = { bg = "#ebe2d6" }
 cand = { fg = "#a8003c" }
 rest = { fg = "#6a5d60" }
@@ -82,11 +87,10 @@ separator = "  "
 separator_style = { fg = "#6a5d60" }
 
 [help]
-on = { fg = "#7a3055" }
-run = { fg = "#a8003c" }
-desc = { fg = "#6a5d60" }
+border = { fg = "#a8003c" }
+chord = { fg = "#7a3055" }
+action = { fg = "#a8003c" }
 hovered = { bg = "#ebe2d6", bold = true }
-footer = { fg = "#6a5d60", bg = "#ebe2d6" }
 
 # Git status — chartreuse + burgundy duo (mirrors lazygit/delta/nvim)
 [git]
@@ -118,6 +122,6 @@ rules = [
 	{ mime = "application/pdf", fg = "#a8003c" },
 
 	# Fallback
-	{ name = "*", fg = "#1a0f14" },
-	{ name = "*/", fg = "#a8003c" }
+	{ url = "*", fg = "#1a0f14" },
+	{ url = "*/", fg = "#a8003c" }
 ]
