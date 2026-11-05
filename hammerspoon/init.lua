@@ -365,8 +365,22 @@ local AUTOPLACE_HOMES = {
                           { screen = "DELL",   slot = "bottom", label = "Dell bottom" },
                         } },
   ["Mail"]          = { screen = "Retina", slot = "right", label = "right-half" },     -- 93% of observations
-  ["Google Chrome"] = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 60% born there already
   ["Spotify"]       = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 100% of observations
+  -- 2026-11-05, mined from 1,052 manual snaps (Jul-Nov): "fill the free half"
+  -- explains 68% of half-snaps. Ghostty (full vs right is a real choice) and
+  -- Obsidian (the booth script places it) are left out on purpose.
+  ["Google Chrome"] = { sequence = {                                              -- top-only was 8% wrong
+                          { screen = "DELL", slot = "top",    label = "Dell top" },
+                          { screen = "DELL", slot = "bottom", label = "Dell bottom" },
+                        } },
+  ["Discord"]       = { sequence = {
+                          { screen = "DELL", slot = "top",    label = "Dell top" },
+                          { screen = "DELL", slot = "bottom", label = "Dell bottom" },
+                        } },
+  ["Claude"]        = { sequence = {                                              -- 6/6 half-snaps
+                          { screen = "Retina", slot = "left",  label = "iMac left" },
+                          { screen = "Retina", slot = "right", label = "iMac right" },
+                        } },
 }
 
 local function autoplaceScreen(pattern)
@@ -441,7 +455,7 @@ local function autoplace(win, appName)
 end
 
 if autoplaceFilter then autoplaceFilter:unsubscribeAll() end
-autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify" })
+autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify", "Discord", "Claude" })
 autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
   -- brief delay so the app finishes its own frame-restore before we judge
   hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
