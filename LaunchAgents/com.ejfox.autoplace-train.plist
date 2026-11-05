@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 04:30 autoplace learner: window logs → ~/.config/autoplace-learned.json,
+       which Hammerspoon prefers over its hand-written AUTOPLACE_HOMES.
+       Turns a rule on only at >=80% replay accuracy, off when EJ keeps
+       re-snapping it. Changes: ~/.local/share/usage-logs/autoplace-learning.log.
+       Off switch: launchctl bootout gui/$(id -u)/com.ejfox.autoplace-train -->
+  <key>Label</key>
+  <string>com.ejfox.autoplace-train</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/ejfox/.dotfiles/bin/autoplace-train</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>4</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/tmp/autoplace-train.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/autoplace-train.err</string>
+</dict>
+</plist>

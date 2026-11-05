@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""autoplace-train: nightly learner for Hammerspoon autoplace.
+
+Reads ~/.local/share/usage-logs/windows/*.jsonl and writes
+~/.config/autoplace-learned.json, which hammerspoon/init.lua prefers over its
+hand-written AUTOPLACE_HOMES table.
+
+Learns from "created" events (a new window of a watched app, logged with its
+id): where did that window SETTLE (its slot in the first periodic snapshot
+60-300 s later)? For each app, replay its history in time order, predicting
+each new window from earlier ones only: the slots it settled in, ranked by
+recency-weighted frequency, first one free on screen right now (any app's
+non-full-screen window counts as occupying). If that replay is right at
+least 80% of the time over at least 10 windows, the app gets a learned
+sequence. If the replay says "he leaves it where it opens", the app is
+disabled. Static rules he keeps correcting (re-snapped within 90 s, kept
+under 70% over the last 14 days, n >= 8) are disabled too.
+
+Never learns Obsidian: the booth script places it. Every change is appended
+to ~/.local/share/usage-logs/autoplace-learning.log. Run with --dry-run to
+print the result without writing.
+"""
+import collections
+import datetime as dt
+import glob
+import json
+import math
+import os
+import sys
+
+HOME = os.path.expanduser("~")
+LOGS = os.environ.get("AUTOPLACE_LOGS", f"{HOME}/.local/share/usage-logs/windows/*.jsonl")
+OUT = os.environ.get("AUTOPLACE_OUT", f"{HOME}/.config/autoplace-learned.json")
+CHANGELOG = os.environ.get("AUTOPLACE_CHANGELOG", f"{HOME}/.local/share/usage-logs/autoplace-learning.log")
+NEVER_LEARN = {"Obsidian"}
+MIN_REPLAYED, MIN_ACCURACY = 10, 0.80
+MIN_PRIOR = 5
+KEEP_WINDOW_DAYS, MIN_AUTOPLACES, MIN_KEEP = 14, 8, 0.70
+
+NAMES = {(0, 0, .5, 1): "left", (.5, 0, .5, 1): "right", (0, 0, 1, .5): "top",
+         (0, .5, 1, .5): "bottom", (0, 0, 1, 1): "full", (0, 0, .5, .5): "topLeft",
+         (.5, 0, .5, .5): "topRight", (0, .5, .5, .5): "bottomLeft", (.5, .5, .5, .5): "bottomRight"}
+PLACEABLE = set(NAMES.values())
+SCREEN_KEY = {"imac": "Retina", "dell": "DELL"}
+LABEL_SCREEN = {"imac": "iMac", "dell": "Dell"}
+
+
+def slot(w):
+    key = tuple(round(w[k], 2) for k in "xywh")
+    scr = "dell" if "DELL" in (w.get("screen") or "") else "imac"
+    return scr, NAMES.get(key, "stay")
+
+
+def overlap(a, b):
+    """Do two (screen, slot) placements overlap? full/stay never block."""
+    if a[0] != b[0] or "full" in (a[1], b[1]) or "stay" in (a[1], b[1]):
+        return False
+    ra = next(k for k, v in NAMES.items() if v == a[1])
+    rb = next(k for k, v in NAMES.items() if v == b[1])
+    w = min(ra[0] + ra[2], rb[0] + rb[2]) - max(ra[0], rb[0])
+    h = min(ra[1] + ra[3], rb[1] + rb[3]) - max(ra[1], rb[1])
+    return w > 0.01 and h > 0.01
+
+
+def load():
+    ev = []
+    for f in sorted(glob.glob(LOGS)):
+        for line in open(f):
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            if d.get("windows") is None:
+                continue
+            d["t"] = dt.datetime.fromisoformat(d["ts"].replace("Z", "+00:00"))
+            ev.append(d)
+    ev.sort(key=lambda d: d["t"])
+    return ev
+
+
+def births(ev):
+    periodic = [d for d in ev if d["trigger"] == "periodic"]
+    out = collections.defaultdict(list)
+    for d in ev:
+        c = d.get("created")
+        if d["trigger"] != "created" or not c or not c.get("id"):
+            continue
+        settled = None
+        for q in periodic:
+            if q["t"] < d["t"] + dt.timedelta(seconds=60):
+                continue
+            if q["t"] > d["t"] + dt.timedelta(seconds=300):
+                break
+            match = [w for w in q["windows"] if w.get("id") == c["id"]]
+            if match:
+                settled = slot(match[0])
+            break
+        if settled is None:
+            continue
+        occ = [slot(w) for w in d["windows"] if w.get("id") != c["id"]]
+        out[c["app"]].append({"t": d["t"], "settled": settled, "occ": occ})
+    return out
+
+
+def rank(prior, now):
+    score = collections.Counter()
+    for p in prior:
+        score[p["settled"]] += math.exp(-(now - p["t"]).days / 30)
+    return score
+
+
+def predict(prior, now, occ):
+    score = rank(prior, now)
+    total = sum(score.values())
+    stay = sum(v for k, v in score.items() if k[1] == "stay")
+    if total and stay / total >= 0.5:
+        return ("stay", None), score
+    for s, _ in score.most_common():
+        if s[1] in PLACEABLE and not any(overlap(s, o) for o in occ):
+            return s, score
+    return None, score
+
+
+def learn(app_births):
+    result, stats = {}, {}
+    for app, bs in app_births.items():
+        if app in NEVER_LEARN:
+            continue
+        right = n = 0
+        for i, b in enumerate(bs):
+            prior = bs[:i]
+            if len(prior) < MIN_PRIOR:
+                continue
+            pred, _ = predict(prior, b["t"], b["occ"])
+            if pred is None:
+                continue
+            n += 1
+            if pred[0] == "stay":
+                right += b["settled"][1] == "stay"
+            else:
+                right += pred == b["settled"]
+        acc = right / n if n else 0
+        stats[app] = {"births": len(bs), "replayed": n, "accuracy": round(acc, 2)}
+        if n < MIN_REPLAYED or acc < MIN_ACCURACY:
+            continue
+        now = bs[-1]["t"]
+        score = rank(bs, now)
+        total = sum(score.values())
+        stay = sum(v for k, v in score.items() if k[1] == "stay")
+        if stay / total >= 0.5:
+            result[app] = {"disabled": True, "why": f"leaves it where it opens; replay {acc:.0%} over {n}"}
+            continue
+        seq = [{"screen": SCREEN_KEY[s[0]], "slot": s[1], "label": f"{LABEL_SCREEN[s[0]]} {s[1]}"}
+               for s, _ in score.most_common() if s[1] in PLACEABLE][:4]
+        if seq:
+            result[app] = {"sequence": seq, "why": f"replay {acc:.0%} over {n} new windows"}
+    return result, stats
+
+
+def demote(ev, result, stats):
+    since = ev[-1]["t"] - dt.timedelta(days=KEEP_WINDOW_DAYS)
+    snaps = [d for d in ev if d["trigger"] == "snap" and d["t"] >= since]
+
+    def focused_app(d):
+        f = [w for w in d["windows"] if w.get("focused")]
+        return f[0]["app"] if f else None
+
+    # Only autoplaces that recorded their rule ("placed", logged since
+    # 2026-11-05) count, so a rule is never judged by an older rule's misses.
+    kept = collections.defaultdict(lambda: [0, 0])
+    for d in ev:
+        if d["trigger"] != "autoplace" or d["t"] < since or not d.get("placed"):
+            continue
+        app = d["placed"].get("app")
+        if not app:
+            continue
+        fixed = any(d["t"] < s["t"] <= d["t"] + dt.timedelta(seconds=90) and focused_app(s) == app
+                    for s in snaps)
+        kept[app][1] += 1
+        kept[app][0] += not fixed
+    for app, (k, n) in kept.items():
+        stats.setdefault(app, {})["autoplace_kept"] = f"{k}/{n}"
+        if n >= MIN_AUTOPLACES and k / n < MIN_KEEP and app not in result:
+            result[app] = {"disabled": True, "why": f"you re-snapped it {n - k} of {n} times in {KEEP_WINDOW_DAYS} days"}
+
+
+def main():
+    ev = load()
+    if not ev:
+        sys.exit("no window logs")
+    result, stats = learn(births(ev))
+    demote(ev, result, stats)
+    doc = {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+           "apps": result, "stats": stats}
+    if "--dry-run" in sys.argv:
+        print(json.dumps(doc, indent=1))
+        return
+    try:
+        old = json.load(open(OUT)).get("apps", {})
+    except (OSError, ValueError):
+        old = {}
+    changes = []
+    for app in sorted(set(old) | set(result)):
+        a, b = old.get(app), result.get(app)
+        if a != b:
+            changes.append(f"{app}: {json.dumps(a)} -> {json.dumps(b)}")
+    tmp = OUT + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(doc, f, indent=1)
+    os.replace(tmp, OUT)
+    with open(CHANGELOG, "a") as f:
+        for c in changes:
+            f.write(f"{doc['generated']} {c}\n")
+    print(f"autoplace-train: {len(result)} learned rule(s), {len(changes)} change(s)")
+
+
+if __name__ == "__main__":
+    main()

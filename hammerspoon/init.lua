@@ -201,7 +201,10 @@ end):start()
 -- directly onto SNAP_UNITS. Purpose: mine a week of real arranging behavior to
 -- design layout presets from actual usage, not guesses.
 local WINLOG_DIR = os.getenv("HOME") .. "/.local/share/usage-logs/windows/"
-local function logWindowSnapshot(trigger)
+-- extra: optional raw JSON fields appended to the record, e.g.
+-- ',"created":{"app":"Safari","id":123}' (window-habits --train uses ids to
+-- follow a new window until it settles)
+local function logWindowSnapshot(trigger, extra)
   local focused = hs.window.focusedWindow()
   local wins = {}
   for _, w in ipairs(hs.window.orderedWindows()) do
@@ -209,15 +212,15 @@ local function logWindowSnapshot(trigger)
     if w:isStandard() and app then
       local f, sf = w:frame(), w:screen():frame()
       wins[#wins + 1] = string.format(
-        '{"app":%q,"x":%.3f,"y":%.3f,"w":%.3f,"h":%.3f,"screen":%q,"focused":%s}',
-        app:name() or "?", (f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
+        '{"app":%q,"id":%d,"x":%.3f,"y":%.3f,"w":%.3f,"h":%.3f,"screen":%q,"focused":%s}',
+        app:name() or "?", w:id() or 0, (f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
         f.w / sf.w, f.h / sf.h, w:screen():name() or "?", tostring(w == focused))
     end
   end
   local out = io.open(WINLOG_DIR .. os.date("%Y-%m-%d") .. ".jsonl", "a")
   if out then
-    out:write(string.format('{"ts":"%s","trigger":%q,"windows":[%s]}\n',
-      os.date("!%Y-%m-%dT%H:%M:%SZ"), trigger, table.concat(wins, ",")))
+    out:write(string.format('{"ts":"%s","trigger":%q,"windows":[%s]%s}\n',
+      os.date("!%Y-%m-%dT%H:%M:%SZ"), trigger, table.concat(wins, ","), extra or ""))
     out:close()
   end
 end
@@ -432,10 +435,28 @@ local function nextFreeSlot(win, sequence)
   end
 end
 
+-- Nightly-learned rules (window-habits --train → this file) override the
+-- table above: {"apps": {"Discord": {"sequence": [...]}, "Mail": {"disabled": true}}}.
+-- Re-read only when the file's mtime changes.
+local LEARNED_FILE = os.getenv("HOME") .. "/.config/autoplace-learned.json"
+local learnedCache, learnedMtime = {}, nil
+local function learnedRules()
+  local attr = hs.fs.attributes(LEARNED_FILE)
+  if not attr then return {} end
+  if attr.modification ~= learnedMtime then
+    learnedCache = hs.json.read(LEARNED_FILE) or {}
+    learnedMtime = attr.modification
+  end
+  return learnedCache.apps or {}
+end
+
 -- Read-only check: where would a NEW window of this app land right now?
 --   hs -c 'return autoplacePreview("Safari")'
 function autoplacePreview(appName)
   local home = AUTOPLACE_HOMES[appName]
+  local learned = learnedRules()[appName]
+  if learned and learned.disabled then return "disabled by trainer" end
+  if learned and learned.sequence then home = { sequence = learned.sequence } end
   if not home or not home.sequence then return "n/a" end
   local ghost = { id = function() return -1 end }
   local slot = nextFreeSlot(ghost, home.sequence)
@@ -445,6 +466,13 @@ end
 
 local function autoplace(win, appName)
   local home = AUTOPLACE_HOMES[appName]
+  local learned = learnedRules()[appName]
+  local tag = ""
+  if learned and learned.disabled then return end
+  if learned and learned.sequence then
+    home = { sequence = learned.sequence }
+    tag = " (learned)"
+  end
   if not home then return end
   if home.sequence then
     home = nextFreeSlot(win, home.sequence)
@@ -462,15 +490,28 @@ local function autoplace(win, appName)
   if snapSameRect(f, target) then return end -- already home
   lastSnap = { id = win:id(), frame = f } -- ⌥Space u restores
   win:setFrame(target, 0)
-  hs.alert.show("⌂ " .. appName .. " → " .. home.label .. "   (⌥Space u undoes)", 1)
-  hs.timer.doAfter(0.3, function() pcall(logWindowSnapshot, "autoplace") end)
+  hs.alert.show("⌂ " .. appName .. " → " .. home.label .. tag .. "   (⌥Space u undoes)", 1)
+  -- "placed" lets the trainer judge each rule only by its own placements
+  local placed = string.format(',"placed":{"app":%q,"id":%d,"rule":%q}',
+    appName, win:id() or 0, home.label .. tag)
+  hs.timer.doAfter(0.3, function() pcall(logWindowSnapshot, "autoplace", placed) end)
 end
 
+-- Watched apps = everything with a rule plus EJ's most-snapped apps, so the
+-- nightly trainer sees their new windows (trigger "created") and can learn
+-- rules for them. Kept to a short list: every watched app costs AX work.
+local AUTOPLACE_WATCH = { "Safari", "Mail", "Google Chrome", "Spotify", "Discord", "Claude",
+  "Fantastical", "Things", "Ghostty", "Obsidian", "OBS Studio", "TV", "Slack", "Preview", "Messages" }
 if autoplaceFilter then autoplaceFilter:unsubscribeAll() end
-autoplaceFilter = hs.window.filter.new({ "Safari", "Mail", "Google Chrome", "Spotify", "Discord", "Claude", "Fantastical", "Things" })
+autoplaceFilter = hs.window.filter.new(AUTOPLACE_WATCH)
 autoplaceFilter:subscribe(hs.window.filter.windowCreated, function(win, appName)
   -- brief delay so the app finishes its own frame-restore before we judge
   hs.timer.doAfter(0.25, function() pcall(autoplace, win, appName) end)
+  -- after autoplace has had its turn, record the birth for the trainer
+  hs.timer.doAfter(1.0, function()
+    pcall(logWindowSnapshot, "created",
+      string.format(',"created":{"app":%q,"id":%d}', appName or "?", win:id() or 0))
+  end)
 end)
 
 -- ── OBS reveal: a finished recording pops up in Finder on the Dell ──────────
