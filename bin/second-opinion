@@ -10,8 +10,8 @@
 #   second-opinion --private ...      allow a PRIVATE repo (public ones need nothing)
 #
 # Everything sent goes to OpenAI. So: public GitHub repos are allowed by
-# default; private repos need --private; the hard blocklist below is refused
-# no matter what; and anything that looks like a secret aborts the send.
+# default; private repos need --private; and anything that looks like a
+# secret aborts the send.
 # Never wakes computah (the PC is in the bedroom); exits 3 if it's asleep.
 set -euo pipefail
 
@@ -19,9 +19,6 @@ HOST=computah
 CODEX='C:\dev\computah\tools\codex\codex.exe'
 REMOTE_ROOT='C:\dev\computah\second-opinion'
 
-# Paths that never leave this machine, flag or not (sources, unpublished
-# investigations, private notes, credentials).
-BLOCK_RE='/(dnr-archive|kingston-twins|osint-tools|landwatch|standing-watch|egoscan)(/|$)|/Mobile Documents/iCloud~md~obsidian/|/\.claude(/|$)|/\.ssh(/|$)|(^|/)\.env([.]|$)|\.claude-secrets'
 SECRET_RE='sk-or-v1-|sk-ant-|sk-proj-|sk_live_|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[bp]-|-----BEGIN [A-Z ]*PRIVATE KEY'
 
 die() { printf 'second-opinion: %s\n' "$*" >&2; exit "${2:-1}"; }
@@ -41,14 +38,9 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-blocked() { [[ $1 =~ $BLOCK_RE ]]; }
-
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)
-if blocked "$root/"; then die "refusing: $root is on the never-send list"; fi
 for f in "${files[@]+"${files[@]}"}"; do
   [[ -e $f ]] || die "no such file: $f"
-  real=$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")
-  if blocked "$real"; then die "refusing: $real is on the never-send list"; fi
 done
 
 # Visibility: a public GitHub repo's code is already public.
@@ -88,12 +80,6 @@ else
 fi
 if [[ -f $pay/change.diff && ! -s $pay/change.diff ]]; then die "nothing to review"; fi
 
-# Diffs can touch blocked paths even from an allowed repo.
-if [[ -f $pay/change.diff ]]; then
-  while read -r p; do
-    if blocked "/$p"; then die "refusing: the diff touches $p"; fi
-  done < <(grep -E '^\+\+\+ b/' "$pay/change.diff" | sed 's|^+++ b/||')
-fi
 if grep -rEq "$SECRET_RE" "$pay"; then die "refusing: something in the payload looks like a secret"; fi
 
 cat > "$pay/prompt.md" <<EOF
