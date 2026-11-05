@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# second-opinion: cross-model review. Ships a diff or files to computah, where
+# the Codex CLI (OpenAI, ChatGPT sign-in) reviews them READ-ONLY, and prints
+# the findings here. A different model family catches what Opus misses.
+#
+#   second-opinion                    review uncommitted changes (or HEAD if clean)
+#   second-opinion -r <rev-range>     review a commit range, e.g. HEAD~3..HEAD
+#   second-opinion file...            review whole files
+#   second-opinion -f "focus" ...     tell the reviewer what to attack
+#   second-opinion --private ...      allow a PRIVATE repo (public ones need nothing)
+#
+# Everything sent goes to OpenAI. So: public GitHub repos are allowed by
+# default; private repos need --private; the hard blocklist below is refused
+# no matter what; and anything that looks like a secret aborts the send.
+# Never wakes computah (the PC is in the bedroom); exits 3 if it's asleep.
+set -euo pipefail
+
+HOST=computah
+CODEX='C:\dev\computah\tools\codex\codex.exe'
+REMOTE_ROOT='C:\dev\computah\second-opinion'
+
+# Paths that never leave this machine, flag or not (sources, unpublished
+# investigations, private notes, credentials).
+BLOCK_RE='/(dnr-archive|kingston-twins|osint-tools|landwatch|standing-watch|egoscan)(/|$)|/Mobile Documents/iCloud~md~obsidian/|/\.claude(/|$)|/\.ssh(/|$)|(^|/)\.env([.]|$)|\.claude-secrets'
+SECRET_RE='sk-or-v1-|sk-ant-|sk-proj-|sk_live_|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|xox[bp]-|-----BEGIN [A-Z ]*PRIVATE KEY'
+
+die() { printf 'second-opinion: %s\n' "$*" >&2; exit "${2:-1}"; }
+
+allow_private=0
+focus=""
+range=""
+files=()
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --private) allow_private=1 ;;
+    -f|--focus) focus=$2; shift ;;
+    -r|--range) range=$2; shift ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    *) files+=("$1") ;;
+  esac
+  shift
+done
+
+blocked() { [[ $1 =~ $BLOCK_RE ]]; }
+
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)
+if blocked "$root/"; then die "refusing: $root is on the never-send list"; fi
+for f in "${files[@]+"${files[@]}"}"; do
+  [[ -e $f ]] || die "no such file: $f"
+  real=$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")
+  if blocked "$real"; then die "refusing: $real is on the never-send list"; fi
+done
+
+# Visibility: a public GitHub repo's code is already public.
+visibility=PRIVATE
+if git -C "$root" remote get-url origin >/dev/null 2>&1; then
+  visibility=$( (cd "$root" && gh repo view --json visibility -q .visibility 2>/dev/null) || echo PRIVATE)
+fi
+if [[ $visibility != PUBLIC && $allow_private -eq 0 ]]; then
+  die "refusing: $(basename "$root") is not a public GitHub repo (pass --private to send it to OpenAI anyway)"
+fi
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+id="so-$(date +%Y%m%d-%H%M%S)-$$"
+pay=$work/$id
+mkdir -p "$pay/files"
+
+what=""
+if [[ ${#files[@]} -gt 0 ]]; then
+  for f in "${files[@]}"; do
+    rel=${f#"$root"/}
+    mkdir -p "$pay/files/$(dirname "$rel")"
+    cp "$f" "$pay/files/$rel"
+  done
+  what="whole files under files/"
+elif [[ -n $range ]]; then
+  git -C "$root" log --format='%h %s%n%n%b' "$range" > "$pay/commits.txt"
+  git -C "$root" diff "$range" > "$pay/change.diff"
+  what="the diff in change.diff (commit messages in commits.txt)"
+elif [[ -n $(git -C "$root" status --porcelain 2>/dev/null) ]]; then
+  git -C "$root" diff HEAD > "$pay/change.diff"
+  what="the uncommitted diff in change.diff"
+else
+  git -C "$root" log -1 --format='%h %s%n%n%b' > "$pay/commits.txt"
+  git -C "$root" show --format= HEAD > "$pay/change.diff"
+  what="the last commit: change.diff (message in commits.txt)"
+fi
+if [[ -f $pay/change.diff && ! -s $pay/change.diff ]]; then die "nothing to review"; fi
+
+# Diffs can touch blocked paths even from an allowed repo.
+if [[ -f $pay/change.diff ]]; then
+  while read -r p; do
+    if blocked "/$p"; then die "refusing: the diff touches $p"; fi
+  done < <(grep -E '^\+\+\+ b/' "$pay/change.diff" | sed 's|^+++ b/||')
+fi
+if grep -rEq "$SECRET_RE" "$pay"; then die "refusing: something in the payload looks like a secret"; fi
+
+cat > "$pay/prompt.md" <<EOF
+You are a skeptical senior reviewer giving a second opinion on work written
+by another AI model (Claude). Review $what, included in full below; don't
+run commands or read files, everything you need is in this message. The
+project is $(basename "$root").${focus:+ Focus especially on: $focus}
+
+Find real defects: wrong behavior, silent failures, edge cases that break,
+claims in the commit message the code doesn't deliver, security problems.
+Skip style nits and anything you can't tie to concrete behavior.
+
+For each finding give: severity (high/medium/low), file:line, what breaks
+and the input or state that triggers it, and a one-line fix. Most severe
+first. If you find nothing real, say "No findings." and stop. Don't
+rewrite the code.
+EOF
+
+# Inline the payload: Codex's Windows sandbox can't start its command runner
+# from an SSH session, so the reviewer gets everything in the prompt instead.
+for f in "$pay/commits.txt" "$pay/change.diff"; do
+  if [[ -f $f ]]; then printf '\n===== %s =====\n' "$(basename "$f")"; cat "$f"; fi
+done >> "$pay/prompt.md"
+if [[ -d $pay/files ]]; then
+  while IFS= read -r -d '' f; do
+    printf '\n===== %s =====\n' "${f#"$pay/files/"}"
+    cat "$f"
+  done < <(find "$pay/files" -type f -print0) >> "$pay/prompt.md"
+fi
+if [[ $(wc -c < "$pay/prompt.md") -gt 400000 ]]; then
+  die "payload over 400 KB; narrow it with -r or specific files"
+fi
+
+# Reachable? Never wake it.
+if ! ssh -o ConnectTimeout=6 -o BatchMode=yes "$HOST" "exit" 2>/dev/null; then
+  die "computah is asleep or unreachable (not waking it)" 3
+fi
+
+ssh -o BatchMode=yes "$HOST" "mkdir $REMOTE_ROOT 2>nul & exit 0" >/dev/null 2>&1 || true
+scp -q -r "$pay" "$HOST:C:/dev/computah/second-opinion/" || die "upload failed"
+
+rdir="$REMOTE_ROOT\\$id"
+printf 'second-opinion: Codex reviewing %s (%s)...\n' "$(basename "$root")" "$what" >&2
+ssh -o BatchMode=yes "$HOST" 'powershell -NoProfile -Command -' <<EOF >"$work/run.log" 2>&1 || true
+\$d = "$rdir"
+Get-Content "\$d\\prompt.md" -Raw | & "$CODEX" exec -s read-only -C "\$d" --skip-git-repo-check --ephemeral --color never -o "\$d\\findings.md" - 2>&1 | Out-Null
+EOF
+
+if ! scp -q "$HOST:C:/dev/computah/second-opinion/$id/findings.md" "$work/findings.md" 2>/dev/null; then
+  cat "$work/run.log" >&2
+  die "Codex produced no findings file"
+fi
+ssh -o BatchMode=yes "$HOST" 'powershell -NoProfile -Command -' <<EOF >/dev/null 2>&1 || true
+Remove-Item -Recurse -Force "$rdir"
+EOF
+cat "$work/findings.md"
