@@ -355,7 +355,15 @@ local AUTOPLACE_MIN_W, AUTOPLACE_MIN_H = 500, 300 -- px; skips dialog/panel-size
 
 local AUTOPLACE_HOMES = {
   -- app              screen (name substring)  slot (SNAP_UNITS)  evidence, Jul 2026 logs
-  ["Safari"]        = { screen = "Retina", slot = "left",  label = "left-half" },      -- #1 manual snap
+  -- Safari fills slots in order (EJ, 2026-11-05): 1st window iMac left, 2nd
+  -- iMac right, 3rd Dell top, 4th Dell bottom. Each new window takes the first
+  -- slot no other Safari window is covering; past that, macOS placement stands.
+  ["Safari"]        = { sequence = {
+                          { screen = "Retina", slot = "left",   label = "iMac left" },   -- #1 manual snap
+                          { screen = "Retina", slot = "right",  label = "iMac right" },
+                          { screen = "DELL",   slot = "top",    label = "Dell top" },
+                          { screen = "DELL",   slot = "bottom", label = "Dell bottom" },
+                        } },
   ["Mail"]          = { screen = "Retina", slot = "right", label = "right-half" },     -- 93% of observations
   ["Google Chrome"] = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 60% born there already
   ["Spotify"]       = { screen = "DELL",   slot = "top",   label = "Dell top-half" },  -- 100% of observations
@@ -367,9 +375,55 @@ local function autoplaceScreen(pattern)
   end
 end
 
+-- Fraction of rect b covered by rect a
+local function coverage(a, b)
+  local w = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+  local h = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+  if w <= 0 or h <= 0 then return 0 end
+  return (w * h) / (b.w * b.h)
+end
+
+-- First slot in a sequence that no OTHER visible window of the app covers
+-- by half or more. Unplugged screens are skipped. nil = all taken.
+local function nextFreeSlot(win, sequence)
+  local others = {}
+  for _, w in ipairs(win:application():allWindows()) do
+    if w:id() ~= win:id() and w:isStandard() and w:isVisible() then
+      table.insert(others, w:frame())
+    end
+  end
+  for _, slot in ipairs(sequence) do
+    local screen = autoplaceScreen(slot.screen)
+    if screen then
+      local target = snapRectFor(screen, SNAP_UNITS[slot.slot])
+      local taken = false
+      for _, f in ipairs(others) do
+        if coverage(f, target) >= 0.5 then taken = true end
+      end
+      if not taken then return slot end
+    end
+  end
+end
+
+-- Read-only check: where would a NEW window of this app land right now?
+--   hs -c 'return autoplacePreview("Safari")'
+function autoplacePreview(appName)
+  local home = AUTOPLACE_HOMES[appName]
+  local app = hs.application.get(appName)
+  if not home or not home.sequence or not app then return "n/a" end
+  local ghost = { id = function() return -1 end, application = function() return app end }
+  local slot = nextFreeSlot(ghost, home.sequence)
+  if not slot then return "all slots taken (macOS placement)" end
+  return slot.label
+end
+
 local function autoplace(win, appName)
   local home = AUTOPLACE_HOMES[appName]
   if not home then return end
+  if home.sequence then
+    home = nextFreeSlot(win, home.sequence)
+    if not home then return end -- every slot already has a window
+  end
   if hs.fs.attributes(AUTOPLACE_DISABLE_FILE) then return end
   if not win:isStandard() then return end
   -- Mail compose windows are new windows too, but they belong floating
