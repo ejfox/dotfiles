@@ -11,7 +11,8 @@ $studiodir = 'C:\dev\computah\renders\mathblend\masterpieces'
 function Post-Fave($png, $kind) {
   if (-not (Test-Path $png)) { return }
   if (-not (Test-Path 'C:\dev\computah\farm\sd\discord-faves.url')) { return }
-  Start-Process -WindowStyle Hidden -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\python.exe' `
+  # pythonw (2026-11-04): python.exe got a console, and Windows Terminal ignores -WindowStyle Hidden.
+  Start-Process -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\pythonw.exe' `
     -ArgumentList @('C:\dev\computah\bin\fave_post.py', "`"$png`"", "`"$([IO.Path]::ChangeExtension($png, '.json'))`"", $kind) -EA 0
 }
 # A star also goes to 417am.party after a 10-min grace (fave_post.py spawns post_417am.py).
@@ -19,7 +20,7 @@ function Post-Fave($png, $kind) {
 function Unpost-417($kind, $id) {
   if (-not $id) { return }
   if (-not (Test-Path 'C:\dev\computah\farm\sd\417am-token.txt')) { return }
-  Start-Process -WindowStyle Hidden -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\python.exe' `
+  Start-Process -FilePath 'C:\Users\ejfox\farm\taste\venv\Scripts\pythonw.exe' `
     -ArgumentList @('C:\dev\computah\bin\post_417am.py', 'unstar', $kind, "`"$id`"") -EA 0
 }
 $prefix = 'http://+:7861/'
