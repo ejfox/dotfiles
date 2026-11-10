@@ -6,8 +6,21 @@ LOG="$HOME/.local/share/deskflow-heal.log"
 mkdir -p "$(dirname "$LOG")"
 ts() { date '+%F %T'; }
 say() { echo "$(ts) $*" >> "$LOG"; }
-verbose=""; [ "${1:-}" = "-v" ] && verbose=1
+#   -v      say what it found
+#   --kick  restart a disconnected PC client right away (skip the grace period
+#           and the rate limit); `computah doctor` uses this
+verbose=""; kick_now=""
+for arg in "$@"; do
+  case "$arg" in
+    -v) verbose=1 ;;
+    --kick) kick_now=1 ;;
+  esac
+done
 tell() { [ -n "$verbose" ] && echo "$*"; }
+PC_LAN=10.0.0.169
+STATE="$HOME/.local/share"
+NOCLIENT="$STATE/deskflow-heal.noclient"   # epoch when we first saw no client
+LASTKICK="$STATE/deskflow-heal.lastkick"   # epoch of the last client restart
 
 acted=""
 
@@ -26,7 +39,7 @@ fi
 if scutil --nc list 2>/dev/null | grep -qiE '^\* \(Connected\).*NordVPN'; then
   say "WARNING: NordVPN is connected — it blocks Deskflow port 24800. Run: scutil --nc stop <NordVPN-UUID>"
   tell "⚠ NordVPN connected — blocks Deskflow 24800 (scutil --nc stop it)"
-  acted=1
+  acted=1; vpn_block=1
 fi
 
 # 3. Ensure the Deskflow server core is actually LISTENing on 24800. The GUI can
@@ -39,12 +52,58 @@ if ! lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1; then
     sed -i '' 's/^startCoreWithGui=false/startCoreWithGui=true/' "$conf"
     say "reset startCoreWithGui=true"
   fi
+  rm -f "$NOCLIENT"   # the client's grace period restarts once the server is back
   say "core not listening on 24800 — (re)launching Deskflow.app"
   open -ga Deskflow 2>/dev/null || open -a Deskflow 2>/dev/null
   acted=1; tell "relaunched Deskflow (core was down)"
 fi
 
-if [ -z "$acted" ]; then
-  tell "deskflow healthy: core listening, UC inert, no VPN block"
+# 4. The PC client can hang mid-connect (2026-11-09: stuck 23 h on "connecting
+#    to 10.0.0.119:24800"). Its process stays alive, so the Windows daemon never
+#    respawns it. Tell: we listen, the PC is awake, yet nothing is ESTABLISHED.
+#    Seen on two runs in a row (>= 4 min) -> kill deskflow-core.exe on the PC;
+#    the daemon restarts it within a second. At most one kick per 15 min. LAN
+#    only (Deskflow doesn't cross the tailnet) and it never wakes the PC.
+client=ok
+if lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1; then
+  if lsof -nP -iTCP:24800 2>/dev/null | grep -q ESTABLISHED; then
+    rm -f "$NOCLIENT"
+  elif [ -n "${vpn_block:-}" ]; then
+    # the VPN is why nothing connects; killing a healthy client won't help
+    rm -f "$NOCLIENT"; client=blocked
+  elif ! nc -z -G 2 "$PC_LAN" 22 2>/dev/null; then
+    rm -f "$NOCLIENT"; client=asleep
+    tell "no client connected: PC asleep or off the LAN (left alone)"
+  else
+    client=missing
+    now=$(date +%s)
+    first=$(cat "$NOCLIENT" 2>/dev/null); case "$first" in ''|*[!0-9]*) first="" ;; esac
+    if [ -z "$first" ]; then first=$now; echo "$now" > "$NOCLIENT"; fi
+    last=$(cat "$LASTKICK" 2>/dev/null); case "$last" in ''|*[!0-9]*) last=0 ;; esac
+    gone=$(( now - first ))
+    due=""
+    if [ -n "$kick_now" ]; then
+      due=1
+    elif [ "$gone" -ge 240 ] && [ $(( now - last )) -ge 900 ]; then
+      due=1
+    fi
+    if [ -z "$due" ]; then
+      tell "PC is up but no client connected (${gone}s): will restart it if still gone next run"
+    elif echo "$now" > "$LASTKICK" && ssh -o BatchMode=yes -o ConnectTimeout=6 \
+        -o ServerAliveInterval=5 -o ServerAliveCountMax=2 "ejfox@$PC_LAN" \
+        'tasklist /FI "IMAGENAME eq deskflow-core.exe" | find /I "deskflow-core.exe" >nul && taskkill /F /IM deskflow-core.exe >nul' 2>/dev/null; then
+      # the cooldown is stamped BEFORE the ssh, so a dropped session can't allow a second kick
+      rm -f "$NOCLIENT"
+      say "PC client not connected for ${gone}s: restarted deskflow-core.exe on computah"
+      acted=1; tell "restarted the hung Deskflow client on computah"
+    else
+      say "PC client not connected for ${gone}s, and deskflow-core.exe isn't running there (or ssh failed): left alone"
+      acted=1; tell "no client connected, and no deskflow-core.exe on the PC to restart"
+    fi
+  fi
+fi
+
+if [ -z "$acted" ] && [ "$client" = "ok" ]; then
+  tell "deskflow healthy: core listening, client connected, UC inert, no VPN block"
 fi
 exit 0
