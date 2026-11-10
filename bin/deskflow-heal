@@ -53,8 +53,24 @@ if ! lsof -nP -iTCP:24800 -sTCP:LISTEN >/dev/null 2>&1; then
     say "reset startCoreWithGui=true"
   fi
   rm -f "$NOCLIENT"   # the client's grace period restarts once the server is back
-  say "core not listening on 24800 — (re)launching Deskflow.app"
-  open -ga Deskflow 2>/dev/null || open -a Deskflow 2>/dev/null
+  # A GUI that outlives its core never restarts it, and `open -a` on a running
+  # app is a no-op (verified 2026-11-10: SEGV'd core, GUI up, nothing came back).
+  # So quit the GUI first, then launch fresh: hidden, in the background.
+  # ^-anchored so only the executables themselves match (not a debugger or an
+  # editor with the path as an argument); "( |$)" allows trailing arguments.
+  gui='^/Applications/Deskflow\.app/Contents/MacOS/Deskflow( |$)'
+  core='^/Applications/Deskflow\.app/Contents/MacOS/deskflow-core( |$)'
+  if pgrep -f "$gui" >/dev/null; then
+    pkill -f "$gui"
+    for _ in 1 2 3 4 5; do pgrep -f "$gui" >/dev/null || break; sleep 1; done
+    say "core not listening on 24800 with the GUI still up — quit the GUI"
+  fi
+  pkill -9 -f "$gui" 2>/dev/null
+  pkill -9 -f "$core" 2>/dev/null
+  # `open` on a still-dying instance is a no-op again: wait until both are gone
+  for _ in 1 2 3 4 5; do pgrep -f "$gui|$core" >/dev/null || break; sleep 1; done
+  say "core not listening on 24800 — launching Deskflow.app"
+  open -gja Deskflow 2>/dev/null
   acted=1; tell "relaunched Deskflow (core was down)"
 fi
 
