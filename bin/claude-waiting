@@ -4,9 +4,14 @@
 #                                      @claude_unseen  = idle and you haven't looked (teal)
 #   off  UserPromptSubmit / PreToolUse: clear both
 # tmux clears @claude_unseen on pane focus in/out, and redraws on its own when these change.
+# Each change of @claude_unseen also syncs the Voyager number-key glow (bin/tmux-kb-lights).
 [ -n "$TMUX_PANE" ] || exit 0
+lights() { "$HOME/.dotfiles/bin/tmux-kb-lights" >/dev/null 2>&1 & }
 case "$1" in
-  on)  tmux set -p -t "$TMUX_PANE" @claude_waiting 1 \; set -p -t "$TMUX_PANE" @claude_unseen 1 ;;
-  off) tmux set -pu -t "$TMUX_PANE" @claude_waiting \; set -pu -t "$TMUX_PANE" @claude_unseen ;;
+  on)  tmux set -p -t "$TMUX_PANE" @claude_waiting 1 \; set -p -t "$TMUX_PANE" @claude_unseen 1
+       lights ;;
+  off) was=$(tmux display -p -t "$TMUX_PANE" '#{@claude_unseen}')
+       tmux set -pu -t "$TMUX_PANE" @claude_waiting \; set -pu -t "$TMUX_PANE" @claude_unseen
+       [ -n "$was" ] && lights ;;
 esac 2>/dev/null
 exit 0

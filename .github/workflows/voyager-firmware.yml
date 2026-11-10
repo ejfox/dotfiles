@@ -1,0 +1,70 @@
+name: Voyager firmware
+
+# Builds EJ's latest Oryx layout with the host-LED overlay patch (voyager/patch-keymap.py).
+# Trigger: `voyager-firmware build` on the Mac, the Actions tab, or a push that touches voyager/.
+# Output: a .bin artifact to flash from Keymapp. See voyager/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      layout_id:
+        description: "Oryx layout id (configure.zsa.io/voyager/layouts/<ID>)"
+        required: true
+        default: "QJ7wB"
+  push:
+    paths:
+      - "voyager/**"
+      - ".github/workflows/voyager-firmware.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      LAYOUT_ID: ${{ github.event.inputs.layout_id || 'QJ7wB' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch the latest compiled Oryx revision
+        id: oryx
+        run: |
+          set -euo pipefail
+          query='query($hashId: String!, $geometry: String) { layout(hashId: $hashId, geometry: $geometry, revisionId: "latest") { title revision { hashId qmkVersion } } }'
+          body=$(jq -n --arg q "$query" --arg id "$LAYOUT_ID" '{query: $q, variables: {hashId: $id, geometry: "voyager"}}')
+          resp=$(curl -fsS https://oryx.zsa.io/graphql -H 'Content-Type: application/json' -d "$body")
+          rev=$(echo "$resp" | jq -er '.data.layout.revision.hashId')
+          qmk=$(printf '%.0f' "$(echo "$resp" | jq -er '.data.layout.revision.qmkVersion')")
+          title=$(echo "$resp" | jq -r '.data.layout.title')
+          echo "layout: $title  revision: $rev  qmk: firmware$qmk"
+          curl -fsSL "https://oryx.zsa.io/source/$rev" -o source.zip
+          unzip -oj source.zip '*_source/*' -d keymap
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "qmk=$qmk" >> "$GITHUB_OUTPUT"
+
+      - name: Apply the host-LED overlay patch
+        run: python3 voyager/patch-keymap.py keymap/keymap.c
+
+      - name: Clone ZSA QMK
+        run: |
+          set -euo pipefail
+          git clone --depth 1 -b "firmware${{ steps.oryx.outputs.qmk }}" https://github.com/zsa/qmk_firmware.git
+          git -C qmk_firmware submodule update --init --recursive --depth 1
+          mkdir -p qmk_firmware/keyboards/zsa/voyager/keymaps
+          cp -r keymap qmk_firmware/keyboards/zsa/voyager/keymaps/ej
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/qmk_firmware:/qmk_firmware" -w /qmk_firmware ghcr.io/qmk/qmk_cli:latest \
+            /bin/sh -c "git config --global --add safe.directory '*' && make zsa/voyager:ej"
+          out="zsa_voyager_${LAYOUT_ID}_${{ steps.oryx.outputs.rev }}_ej-overlay.bin"
+          sudo cp qmk_firmware/zsa_voyager_ej.bin "$out"
+          echo "FIRMWARE=$out" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voyager-firmware
+          path: ${{ env.FIRMWARE }}
+          if-no-files-found: error

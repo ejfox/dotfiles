@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# voyager-firmware — build the Voyager firmware with the host-LED overlay patch.
+#
+# Oryx stays the editor: change the layout at configure.zsa.io, hit Compile there,
+# then run `voyager-firmware build`. GitHub Actions (ejfox/dotfiles) pulls the latest
+# compiled Oryx revision, applies voyager/patch-keymap.py, builds, and this script
+# drops the .bin in ~/Downloads/voyager-firmware/run-<id>/ for you to flash from Keymapp.
+#
+# Usage:
+#   voyager-firmware build     trigger a build, wait, download the .bin
+#   voyager-firmware fetch     download the .bin from the latest successful build
+#   voyager-firmware status    show recent builds
+# Docs: ~/.dotfiles/voyager/README.md
+set -euo pipefail
+
+REPO="ejfox/dotfiles"
+WF="voyager-firmware.yml"
+OUT="$HOME/Downloads/voyager-firmware"
+
+# Newest run started by hand (pushes that touch voyager/ make their own runs; skip those).
+latest_dispatch() {
+  gh run list -R "$REPO" -w "$WF" -e workflow_dispatch -L 1 --json databaseId --jq '.[0].databaseId // empty'
+}
+
+fetch() {
+  local id="$1"
+  local dir="$OUT/run-$id"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  gh run download "$id" -R "$REPO" -n voyager-firmware -D "$dir"
+  echo
+  echo "Firmware: $(find "$dir" -name '*.bin' | head -1)"
+  echo "Flash it: Keymapp -> Flash -> pick that file. Flash mode = tap STAGE, then the right inner thumb."
+}
+
+case "${1:-}" in
+  build)
+    before=$(latest_dispatch)
+    gh workflow run "$WF" -R "$REPO"
+    id="$before"
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      /bin/sleep 3
+      id=$(latest_dispatch)
+      [ -n "$id" ] && [ "$id" != "$before" ] && break
+    done
+    if [ -z "$id" ] || [ "$id" = "$before" ]; then
+      echo "The build did not start. Check: gh run list -R $REPO -w $WF" >&2
+      exit 1
+    fi
+    gh run watch "$id" -R "$REPO" --exit-status
+    fetch "$id"
+    ;;
+  fetch)
+    id=$(gh run list -R "$REPO" -w "$WF" -s success -L 1 --json databaseId --jq '.[0].databaseId // empty')
+    [ -n "$id" ] || { echo "No successful build yet." >&2; exit 1; }
+    fetch "$id"
+    ;;
+  status)
+    gh run list -R "$REPO" -w "$WF" -L 5
+    ;;
+  *)
+    echo "usage: voyager-firmware build|fetch|status" >&2
+    exit 2
+    ;;
+esac

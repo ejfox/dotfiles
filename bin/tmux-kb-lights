@@ -1,62 +1,105 @@
 #!/usr/bin/env bash
-# tmux-kb-lights — your tmux windows, glowing on the Voyager's layer-2 window keys.
+# tmux-kb-lights — a tmux window that is waiting on you glows its number key on the Voyager.
 #
-# Layer 2 (0.0.7) left half: number row 1-5 = tmux windows 1-5, top row Q-R = windows 6-9.
-# Those keys' LEDs show: off = no window, dim teal = window exists,
-# bright cyan = the window you're in, amber = a Claude in that window is waiting for you.
-# Keyboard only. Never touches desk lights.
+# "Waiting" = a Claude pane in that window finished or asked something and you have not
+# looked yet. Same flag as the teal ✳ in the tmux window list (@claude_unseen, set by
+# bin/claude-waiting, cleared when you focus the pane). Base-layer number keys only;
+# teal to match the ✳. Keyboard only. Never touches desk lights.
+#
+# NEEDS the overlay firmware (voyager/README.md). On stock Oryx firmware, lighting any
+# key from the host blanks the layer colors until the LEDs are handed back.
 #
 # Usage:
-#   tmux-kb-lights            refresh from current tmux state (used by tmux hooks)
-#   tmux-kb-lights waiting N  mark window N as "Claude is waiting" (used by a Claude Code hook)
-#   tmux-kb-lights clear      forget waiting flags and hand the LEDs back to Oryx
-# Off switch: touch ~/.config/tmux-kb-lights.off
+#   tmux-kb-lights            sync the keys to the current tmux state (hooks call this)
+#   tmux-kb-lights test N     light number key N for 3 seconds (LED mapping check)
+#   tmux-kb-lights clear      hand all LEDs back to the firmware
+# Off switch: touch ~/.config/tmux-kb-lights.off   (rm it to turn back on)
 #
-# STAGED, NOT ENABLED (2026-10-15). Enable after 0.0.7 is flashed and the colour test passes:
-#   ~/.tmux.conf:
-#     set-hook -g after-select-window     'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
-#     set-hook -g window-linked           'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
-#     set-hook -g window-unlinked         'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
-#     set-hook -g client-session-changed  'run-shell -b "~/.dotfiles/bin/tmux-kb-lights"'
-#   Claude Code Notification hook (needs EJ's yes; hooks only apply to new sessions):
-#     [ -n "$TMUX_PANE" ] && ~/.dotfiles/bin/tmux-kb-lights waiting "$(tmux display -p -t "$TMUX_PANE" '#{window_index}')" &
-#
-# Requires: kontroll (cargo install kontroll) and Keymapp >= 1.3.1 running with its API enabled.
+# Wired from: bin/claude-waiting (flag set/cleared) and the pane-focus hooks in .tmux.conf.
+# Requires: kontroll (~/.cargo/bin) and Keymapp running with its API on.
 set -u
-[ -e "$HOME/.config/tmux-kb-lights.off" ] && exit 0
 
 K="$HOME/.cargo/bin/kontroll"
 # Keymapp is sandboxed on macOS, so its socket is not where kontroll looks by default.
 S="$HOME/Library/Containers/io.zsa.keymapp/Data/Library/Application Support/.keymapp/keymapp.sock"
+STATE="${TMPDIR:-/tmp}/tmux-kb-lights.lit"
+LOCK="${TMPDIR:-/tmp}/tmux-kb-lights.lock"
+COLOR="00e6f5"   # gamut-edge teal; #7bf0f9 washes out on LEDs
+
 [ -x "$K" ] && [ -S "$S" ] || exit 0
+k() { gtimeout 3 "$K" -p "$S" "$@" >/dev/null 2>&1; }
 
-STATE="${TMPDIR:-/tmp}/tmux-kb-lights.waiting"
-k() { "$K" -p "$S" "$@" >/dev/null 2>&1; }
+# LED index of the base-layer number key (EJ 0.0.9: 1-5 left top row, 6-9 and 0 right top row).
+led() {
+  case "$1" in
+    1|2|3|4|5) echo "$1" ;;
+    6|7|8|9)   echo $(( $1 + 20 )) ;;
+    0)         echo 30 ;;
+  esac
+}
 
-# LED index of the layer-2 key for tmux window N (Oryx/LED order: left half rows 0-3 = LEDs 0-23).
-led() { case "$1" in 1|2|3|4|5) echo "$1" ;; 6|7|8|9) echo $(( $1 + 1 )) ;; esac; }
+# One run at a time, every mode. The lock holds its owner's pid and is only taken
+# over when that process is gone.
+lock() {
+  until mkdir "$LOCK" 2>/dev/null; do
+    owner=$(cat "$LOCK/pid" 2>/dev/null)
+    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+      rm -rf "$LOCK"
+    else
+      /bin/sleep 0.1
+    fi
+  done
+  echo $$ > "$LOCK/pid"
+  trap 'rm -rf "$LOCK"' EXIT
+}
 
-OFF="000000"; LIVE="0f4f55"; ACTIVE="7bf0f9"; WAIT="ffb000"
+# Hand every LED back to the firmware and forget what we lit.
+release() { k connect-any; k restore-rgb-leds; rm -f "$STATE"; }
 
-case "${1:-refresh}" in
-  waiting)
-    [ -n "${2:-}" ] && { grep -qx "$2" "$STATE" 2>/dev/null || echo "$2" >> "$STATE"; } ;;
+case "${1:-sync}" in
   clear)
-    rm -f "$STATE"; k connect-any; k restore-rgb-leds; exit 0 ;;
+    lock; release; exit 0 ;;
+  test)
+    l=$(led "${2:-}"); [ -n "$l" ] || { echo "usage: tmux-kb-lights test 0-9" >&2; exit 2; }
+    lock; k connect-any; k set-rgb --led "$l" --color "$COLOR"; /bin/sleep 3; release; exit 0 ;;
 esac
 
+if [ -e "$HOME/.config/tmux-kb-lights.off" ]; then
+  # Switched off while keys were lit: give them back once.
+  [ -e "$STATE" ] && { lock; release; }
+  exit 0
+fi
+
+lock
+
+# Everything is read inside the lock, so the last run always paints the latest truth.
+# The session you are looking at = the most recently active attached client.
+sess=$(tmux list-clients -F '#{client_activity} #{session_name}' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+[ -n "$sess" ] || exit 0
+
+# The pane you are looking at right now (terminal focused) never counts as waiting.
+fmt='#{?@claude_unseen,#{window_index},}'
+if tmux list-clients -F '#{client_flags}' 2>/dev/null | grep -q focused; then
+  fmt='#{?#{&&:#{@claude_unseen},#{!=:#{window_active}#{pane_active},11}},#{window_index},}'
+fi
+want=$(tmux list-panes -s -t "=$sess" -F "$fmt" 2>/dev/null | grep -E '^[0-9]$' | sort -u | tr '\n' ' ')
+have=$(cat "$STATE" 2>/dev/null)
+[ "$want" = "$have" ] && exit 0
+
+# Nothing waiting: hand the LEDs back (also resets after a keyboard replug).
+if [ -z "$want" ]; then release; exit 0; fi
+
+# Repaint all ten keys so a missed call or a replugged keyboard heals on the next change.
+# The state is saved only when every call landed; otherwise the next event retries.
+ok=1
 k connect-any
-sess=$(tmux display-message -p '#{session_name}' 2>/dev/null) || exit 0
-active=$(tmux display-message -p '#{window_index}' 2>/dev/null)
-
-# Visiting a window clears its waiting flag.
-if [ -f "$STATE" ]; then grep -vx "$active" "$STATE" > "$STATE.tmp" 2>/dev/null; mv -f "$STATE.tmp" "$STATE"; fi
-
-live=" $(tmux list-windows -t "$sess" -F '#{window_index}' 2>/dev/null | tr '\n' ' ') "
-for n in 1 2 3 4 5 6 7 8 9; do
-  c=$OFF
-  case "$live" in *" $n "*) c=$LIVE ;; esac
-  grep -qx "$n" "$STATE" 2>/dev/null && c=$WAIT
-  [ "$n" = "$active" ] && c=$ACTIVE
-  k set-rgb --led "$(led "$n")" --color "$c"
+for n in 0 1 2 3 4 5 6 7 8 9; do
+  c=000000
+  case " $want " in *" $n "*) c=$COLOR ;; esac
+  k set-rgb --led "$(led "$n")" --color "$c" || ok=0
 done
+if [ "$ok" = 1 ]; then
+  printf '%s' "$want" > "$STATE"
+else
+  rm -f "$STATE"
+fi
