@@ -64,12 +64,11 @@ fn cmd_dump(args: &[String]) -> Result<(), String> {
         .iter()
         .find_map(|a| a.parse::<usize>().ok())
         .unwrap_or(80);
+    let tabs = sheet.meta.tabs();
     let filter = args
         .iter()
-        .find_map(|a| match a.as_str() {
-            "nvim" | "lazygit" | "all" => Some(a.as_str()),
-            _ => None,
-        })
+        .find(|a| tabs.contains(a))
+        .map(String::as_str)
         .unwrap_or("all");
     println!("{}", tui::dump(&sheet, width, filter, ""));
     Ok(())
@@ -85,6 +84,7 @@ cheat — ejfox's cheatsheet, from one TOML source
 
   cheat            open the TUI (default)
   cheat gen [out]  regenerate the Hammerspoon HTML panel from the TOML
+  cheat dump [width] [tab]   plain-text render (testing / piping)
   cheat help       this help
 
 source of truth: ~/.dotfiles/cheatsheet/cheatsheet.toml
@@ -92,7 +92,7 @@ source of truth: ~/.dotfiles/cheatsheet/cheatsheet.toml
 TUI keys:
   j/k ↑/↓   scroll        C-d/C-u   half page
   g / G     top / bottom  space/b   page
-  /         search        a/n/l     filter all/nvim/lazygit
+  /         search (all tabs)   1-9 / tab   switch tab (n nvim, l git, a all)
   q / esc   quit";
 
 fn main() -> ExitCode {

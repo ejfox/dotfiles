@@ -11,24 +11,36 @@ pub struct Sheet {
     pub sections: Vec<Section>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct Meta {
     #[serde(default = "default_title")]
     pub title: String,
+    /// Tab order. Each section's `group` should be one of these; the panel and
+    /// the TUI show one group at a time (plus "all").
+    #[serde(default)]
+    pub groups: Vec<String>,
 }
 
 fn default_title() -> String {
     "ejfox cheatsheet".into()
 }
 
+impl Default for Meta {
+    fn default() -> Self {
+        Meta {
+            title: default_title(),
+            groups: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Section {
     #[serde(default)]
     pub tone: String, // "" | accent | primary | gold | prose
-    #[serde(default = "default_tool")]
-    pub tool: String, // nvim | lazygit | both
+    /// Which tab the card lives under (one of meta.groups).
     #[serde(default)]
-    pub badge: String, // "" | nvim | lazygit
+    pub group: String,
     pub title: String,
     #[serde(default)]
     pub open: bool,
@@ -43,8 +55,13 @@ pub struct Section {
     pub body: Vec<Item>,
 }
 
-fn default_tool() -> String {
-    "both".into()
+impl Meta {
+    /// Tab names in order, always ending in "all".
+    pub fn tabs(&self) -> Vec<String> {
+        let mut tabs = self.groups.clone();
+        tabs.push("all".into());
+        tabs
+    }
 }
 
 /// One line inside a card. Untagged: the present keys decide the variant, so

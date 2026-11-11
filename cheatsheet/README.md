@@ -22,18 +22,39 @@ cheat help
 ```
 
 TUI keys: `j/k ↑/↓` scroll · `C-d/C-u` half-page · `g/G` top/bottom ·
-`space/b` page · `/` search · `a/n/l` filter all/nvim/lazygit · `q` quit.
+`space/b` page · `/` search (every tab) · `1-9` or `tab` switch tab
+(`n` nvim, `l` git, `a` all) · `q` quit.
+
+## The model: tabs
+
+The sheet is **tabs**, listed in order in `[meta] groups`
+(nvim · git · term · voice · pc · desk · make · ops), plus `all`.
+
+- Every card has a `group` and shows only on that tab. Keys `1-9` switch tabs
+  in both the panel and the TUI; the panel reopens on the last tab you used
+  (`cheatsheet.html#git` forces one).
+- On its tab, a card with `open = true` is expanded; the rest are closed
+  titles. Keep it to 2-4 open cards per tab: the daily drivers.
+- `all` is a closed outline of every card under group headings.
+- Search (`/`) always looks across every tab.
+- The tips index (`docs/tips.txt`) is filed per tab too, closed, under the
+  curated cards. The category → tab map is `CAT_TAB` in `templates/shell.html`;
+  unmapped categories only show on `all`.
+- One line per description. Detail goes in an `o` footnote. A card whose keys
+  are mostly commands (longer than 10 chars) stacks its rows: command on one
+  line, description under it.
 
 ## Editing the TOML
 
-Each card is a `[[section]]` with `tone`, `tool`, `badge`, `title`, `open`, and
-an ordered `body`.
+Each card is a `[[section]]` with `group`, `tone`, `title`, `open`, and an
+ordered `body`.
 
 **App context:** a card with `apps = ["Final Cut Pro"]` (Mac app names, as
-`pgrep -x` sees them) jumps to the top, opened and badged "● … open", while
-that app is running. The Hammerspoon panel also sets `CHEAT_FRONT` to the app
-you were in when you opened it, and that app's card goes first. Logic is in
-`src/context.rs`. App cards stay out of `docs/tips.txt` on purpose. Body item shapes:
+`pgrep -x` sees them) pins to the top of every tab, badged "● …", while that
+app is running. The Hammerspoon panel sets `CHEAT_FRONT` to the app you were
+in when you opened it; that app's card goes first and is the only one opened.
+Logic is in `src/context.rs`. App cards stay out of `docs/tips.txt` on purpose.
+Body item shapes:
 
 | write                                        | renders as              |
 |----------------------------------------------|-------------------------|
@@ -51,9 +72,9 @@ backtick. Literal unicode is fine: `→  ⎵ (leader/space)  ⏎ (return)  — (
 
 ## Layout
 
-- `cheatsheet.toml`     — source of truth (27 curated cards)
-- `templates/shell.html`— the panel chrome (CSS/JS/header/tipbar/tips index),
-  extracted byte-for-byte from the original HTML; `{{CARDS}}` is the splice point
+- `cheatsheet.toml`     — source of truth (47 curated cards in 8 groups)
+- `templates/shell.html`— the panel chrome (CSS/JS/tab strip/tip line/tips
+  index); `{{TABS}}` and `{{CARDS}}` are the splice points
 - `src/model.rs`        — TOML data model
 - `src/inline.rs`       — inline-markup parser (shared)
 - `src/html.rs`         — `cheat gen` renderer

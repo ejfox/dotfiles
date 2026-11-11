@@ -4,18 +4,23 @@
 # ~/.dotfiles/.config/cheatsheet.html (the Hammerspoon floating panel) from it.
 # The Hammerspoon panel regenerates on every open, so a save here is enough.
 #
+# ── the model ──────────────────────────────────────────────────────────
+#   The sheet is TABS (meta.groups). Every card belongs to one group and
+#   shows only on that tab. Keep each tab to: 2-4 `open = true` cards (the
+#   daily drivers), everything else closed. One line per description: if a
+#   row needs a paragraph, put the detail in an `o` footnote.
+#
 # ── inline markup (in n / o / strat steps) ─────────────────────────────
 #   `x`   → a key (kbd)          *x*   → emphasis (teal)
 #   **x** → bold                 \`    → a literal backtick
 #   literal unicode is fine:  →  ⎵ (leader/space)  ⏎ (return)  — (dash)
 #
 # ── section fields ─────────────────────────────────────────────────────
+#   group = one of meta.groups                              (which tab)
 #   tone  = "accent" | "primary" | "gold" | "prose" | ""   (border/kbd color)
-#   tool  = "nvim" | "lazygit" | "both"                     (filter buttons)
-#   badge = "nvim" | "lazygit" | ""                         (label in title)
-#   open  = true|false                                      (expanded on load)
-#   apps  = ["Final Cut Pro"]   Mac app names: card jumps to the top, opened,
-#                               while that app is frontmost or running
+#   open  = true|false                    (expanded when its tab is shown)
+#   apps  = ["Final Cut Pro"]   Mac app names: card pins to the top of every
+#                               tab while that app runs, open when frontmost
 #
 # ── body items (order preserved) ───────────────────────────────────────
 #   { k = "za", d = "toggle" }          a binding row
@@ -28,163 +33,124 @@
 
 [meta]
 title = "ejfox cheatsheet"
+groups = ["nvim", "git", "term", "voice", "pc", "desk", "make", "ops"]
 
 # ═══════════════════════════════════════════════════════════════════════
-# TALON VOICE — verified against ~/.talon/user/community + talon-overrides
-# ═══════════════════════════════════════════════════════════════════════
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "Talon — Deleting"
-open = true
-body = [
-  { n = 'the delete word is **clear** — say *clear* + any target. the one you keep forgetting: **clear all**.' },
-  { k = "clear all", d = "delete EVERYTHING (whole doc)", hl = true },
-  { k = "clear line", d = "delete current line", hl = true },
-  { k = "clear word", d = "delete word at cursor" },
-  { k = "clear paragraph", d = "delete paragraph" },
-  { k = "clear way left / way right", d = "delete to line start / end" },
-  { k = "clear left 3 words", d = "delete back N words (dictation)" },
-  { k = "wipe / delete", d = "backspace, one keypress" },
-  { div = true },
-  { k = "scratch that / nope that", d = "undo last utterance", hl = true },
-  { k = "undo that / redo that", d = "app undo / redo" },
-  { lbl = "in the terminal (ghostty)" },
-  { k = "wipe", d = "kill whole line (C-u)", hl = true },
-  { k = "wipe word / wipe back", d = "kill word behind (C-w)" },
-  { k = "wipe ahead", d = "kill to end of line (C-k)" },
-  { k = "chomp", d = "kill 10 words back" },
-  { o = "grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…" },
-]
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "Talon — Say & Modes"
-open = true
-body = [
-  { k = "talk", d = "→ dictation mode", hl = true },
-  { k = "command mode", d = "→ command mode", hl = true },
-  { k = "talon sleep / talon wake", d = "mic off / on" },
-  { div = true },
-  { k = "phrase hello world", d = "type words (command mode)" },
-  { k = "say … / sentence …", d = "prose / Capitalized prose" },
-  { k = "title …", d = "Capitalize All Words" },
-  { k = "camel / snake / kebab …", d = "identifier formatters" },
-  { k = "smash / all cap …", d = "nospaces / ALLCAPS" },
-  { k = "camel that", d = "reformat selection (any formatter)" },
-  { div = true },
-  { k = "select all / line / word", d = "same targets as clear" },
-  { k = "copy that / cut that", d = "clipboard out" },
-  { k = "paste that / paste match", d = "clipboard in / match style" },
-  { k = "go way up / way down", d = "top / bottom of file" },
-  { k = "head / tail", d = "line start / end" },
-  { k = "press cmd shift alpha", d = "any chord, NATO letters" },
-  { n = 'letters are **NATO**: alpha bravo charlie delta… (your override)' },
-]
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "Talon — Apps, Windows, Tmux"
-open = true
-body = [
-  { k = "slap / go ahead / send it", d = "press enter", hl = true },
-  { k = "cancel / bail", d = "ctrl-c" },
-  { k = "dismiss", d = "escape" },
-  { k = "confirm / deny", d = "y / n" },
-  { div = true },
-  { k = "open ghostty / chrome / slack…", d = "focus app" },
-  { k = "window left / right", d = "snap half (divvy)" },
-  { k = "snap full / window expand", d = "fullscreen" },
-  { k = "send to screen two", d = "move + maximize" },
-  { k = "desk left / desk right", d = "switch spaces" },
-  { k = "hide this / quit this", d = "cmd-h / cmd-q" },
-  { div = true },
-  { k = "mux 2 / mux next / mux last", d = "tmux windows" },
-  { k = "mux left / right / up / down", d = "tmux panes" },
-  { k = "mux new / mux close", d = "window create / kill" },
-  { div = true },
-  { k = "last command / run again", d = "↑ / ↑ + enter" },
-  { k = "search history", d = "ctrl-r (fzf)" },
-]
-
+# NVIM
 # ═══════════════════════════════════════════════════════════════════════
 
 [[section]]
-tone = "accent"
-tool = "both"
-badge = "PC"
-title = "computah — Windows PC"
+group = "nvim"
+tone = ""
+title = "Move in File"
 open = true
 body = [
-  { k = "computah doctor", d = "health check + auto-heal EVERYTHING (run this first if anything's off)", hl = true },
-  { k = "computah muse-loop", d = "weird art wall from your screen + notes", hl = true },
-  { k = "computah status", d = "reachable? load? disk?" },
-  { k = "computah wake / sleep", d = "power on (WoL) / suspend" },
-  { k = "computah harden-wol", d = "run once if wake dies after a full shutdown (Fast Startup off, arm NIC, kill night-wake)" },
-  { k = "computah imagine \"…\"", d = "one FLUX image on the PC GPU" },
-  { k = "renders", d = "browse Blender renders: PC awake = page with EVERY render (10.0.0.169:7861/blender.html, no login), PC off = Mac copy in ~/Pictures/Blender", hl = true },
-  { k = "renders live / renders mac", d = "the studio's live viewer page / force the Mac copy" },
-  { k = "studio-dev on / wait N / sheet", d = "fast 1-bit studio iteration: 360p previews on the PC, block for N, contact sheet (page: :7861/studio-dev.html)" },
-  { k = "studio-dev pin k=v / now / kill", d = "pin any recipe knob (scene= signal= dither= lens= seed=...), stage breadcrumbs of a stuck piece, kill stuck pieces" },
-  { k = "pcps <<'EOF'", d = "run a PowerShell script on the PC from a heredoc: no ssh/cmd quoting hell" },
-  { k = "computah-check", d = "health of everything on the PC: services, kiosks, endpoints, studio + wall producing (◆ ok / ◇ problem)", hl = true },
-  { k = "obs-computah-source", d = "iMac OBS: (re)create scene 'computah' w/ 'computah (Teleport)' = the PC's OBS program feed, ~tens of ms, muted (dials 10.0.0.169:9100); hidden SRT fallback; grabs a test frame" },
-  { k = "brief-pictures --dry", d = "preview the 08:02 Discord picture DM (today's charts + one art tile); full-size files in ~/Pictures/Brief/<date>/" },
-  { k = "computah sd-server start/stop", d = "keep FLUX hot — imagine/muse-loop skip the multi-min model reload", hl = true },
-  { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
-  { k = "computah scanner-worker on/off/status", d = "PC drains the VPS radio-transcript queue (whisper turbo); idles in games + 22:00-09:00, never wakes it. UI: scanner.tools.ejfox.com (private link)" },
-  { k = "computah screenshot", d = "the real Windows desktop -> ~/screenshots/computah + image on the clipboard (~3s); --up also uploads via the Cloudinary watcher", hl = true },
-  { k = "computah obs start/rec/stop", d = "OBS on the PC: tray / record now / off (off by default: idle OBS tripped the wall's game guard; Fortnite matches still auto-open it)" },
+  { k = "{ / }", d = "prev / next paragraph", hl = true },
+  { k = "C-d / C-u", d = "half page down / up" },
+  { k = "gg / G", d = "top / bottom of file" },
+  { k = "%", d = "matching bracket" },
   { div = true },
-  { o = "◆ reverse channel: on the PC, robots run `tomac <file>` → ~/Desktop/from-computah here" },
-  { o = "◆ anything broken (deskflow, wall, renders)? → computah doctor" },
-  { o = "◆ deskflow cursor won't cross? → deskflow-heal -v (or just re-login)" },
-  { o = "◆ stop the art wall: pkill -f 'computah muse-loop'" },
-]
-
-# ═══════════════════════════════════════════════════════════════════════
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "ejfox Workflow"
-open = true
-body = [
-  { k = "C-a g", d = "tmux: lazygit popup", hl = true },
-  { k = "C-a Z", d = "tmux: reading column (this window, 80ch)", hl = true },
-  { k = "Space → a", d = "lazygit: stage, AI commit", hl = true },
-  { k = "⎵gg", d = "nvim: open lazygit", hl = true },
-  { k = "Enter → v → Space", d = "lazygit: partial hunk staging" },
-  { k = "⎵gm → ]h", d = "nvim: diff main, walk hunks" },
-  { div = true },
-  { o = "C-a g = float lazygit over your panes, dismiss when done" },
-  { o = "stage with space, AI commit with a, push with P" },
-  { o = "z to undo anything (reflog-powered safety net)" },
-  { lbl = "morning brief feeds" },
-  { k = "things-bridge", d = "push Things → VPS, pull brief facts back (auto every 30m)" },
-  { k = "pixel knock / tally / wilt", d = "radar of 25+ hit IPs · blocked-days tally wall · goal garden" },
-  { k = "pixel action / found / held", d = "today's 10-min step · who found you · what the brief kept quiet" },
-  { lbl = "pixel theater" },
-  { k = "pixel skyline", d = "repos as a night city · lit windows = today's commits · real sun + moon" },
-  { k = "pixel vitals / hive", d = "24h operator EKG (prompts, flatlines) · Claude sessions as a swarm + session ids" },
-  { k = "pixel credits / transmission", d = "the day's opening titles · a phrase you spoke to Talon, decoded" },
-  { k = "things-export | jq", d = "see exactly what leaves the Mac" },
-  { o = "log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access" },
+  { k = "C-o / C-i", d = "jumplist back / forward" },
+  { k = "gi", d = "go to last insert spot" },
+  { k = "* / #", d = "search word forward / back" },
+  { k = ".", d = "repeat last change" },
 ]
 
 [[section]]
+group = "nvim"
+tone = ""
+title = "Navigate"
+open = true
+body = [
+  { k = "⎵ff", d = "find file", hl = true },
+  { k = "⎵sg", d = "live grep" },
+  { k = "⎵/", d = "grep from root" },
+  { k = "⎵fb", d = "buffers" },
+  { k = "⎵fr", d = "recent files" },
+  { div = true },
+  { k = "s", d = "flash jump" },
+  { k = "S", d = "flash treesitter select" },
+  { div = true },
+  { k = "H / L", d = "prev / next buffer" },
+  { k = "⎵bd", d = "close buffer" },
+  { k = "⎵| / ⎵-", d = "vsplit / hsplit" },
+  { k = "C-h/j/k/l", d = "move between splits" },
+  { lbl = "hand it to claude" },
+  { k = "⎵yr", d = "copy + relative path", hl = true },
+  { k = "⎵ya", d = "copy + absolute path" },
+  { o = 'in *visual mode* it copies *file:10-15 \`\`\`code\`\`\`*' },
+]
+
+[[section]]
+group = "nvim"
+tone = ""
+title = "Understand & Fix"
+open = true
+body = [
+  { k = "gd", d = "go to definition", hl = true },
+  { k = "gr", d = "references" },
+  { k = "gI", d = "implementation" },
+  { k = "gy", d = "type definition" },
+  { k = "K", d = "hover docs" },
+  { div = true },
+  { k = "gai / gao", d = "incoming / outgoing calls" },
+  { k = "⎵ss / ⎵sS", d = "file / workspace symbols" },
+  { div = true },
+  { k = "⎵ca", d = "code action" },
+  { k = "⎵cr", d = "rename symbol" },
+  { k = "⎵cd", d = "line diagnostics" },
+  { k = "⎵co", d = "organize imports" },
+  { k = "]d / [d", d = "next / prev diagnostic" },
+  { o = "native LSP, not telescope — instant jumps" },
+]
+
+[[section]]
+group = "nvim"
 tone = "primary"
-tool = "nvim"
-badge = "nvim"
+title = "Review Changes"
+open = false
+body = [
+  { k = "⎵gm → ]h", d = "diff main, walk hunks", hl = true },
+  { k = "⎵gp", d = "gutter → diff vs PR base" },
+  { k = "⎵gH", d = "gutter → reset to HEAD" },
+  { k = "⎵gM", d = "split diff vs main" },
+  { div = true },
+  { k = "]h / [h", d = "next / prev hunk" },
+  { k = "]H / [H", d = "last / first hunk" },
+  { div = true },
+  { k = "⎵gj", d = "all hunks → quickfix" },
+  { k = "]q / [q", d = "jump across files" },
+  { n = '*⎵gj* then *]q* = walk ALL changed files' },
+]
+
+[[section]]
+group = "nvim"
+tone = "primary"
+title = "Git Actions"
+open = false
+body = [
+  { k = "⎵gg", d = "lazygit", hl = true },
+  { k = "⎵gs", d = "stage hunk" },
+  { k = "⎵gr", d = "reset hunk" },
+  { k = "⎵gS / ⎵gR", d = "stage / reset buffer" },
+  { k = "⎵gu", d = "undo stage" },
+  { k = "⎵gb", d = "blame line" },
+  { div = true },
+  { k = "⎵gf", d = "file history" },
+  { k = "⎵gl / ⎵gL", d = "git log (root / cwd)" },
+  { k = "⎵gB", d = "open in browser" },
+  { k = "⎵gY", d = "copy repo URL" },
+  { div = true },
+  { k = "co / ct", d = "conflict: ours / theirs" },
+  { k = "cb / c0", d = "conflict: both / none" },
+  { k = "]x / [x", d = "next / prev conflict" },
+]
+
+[[section]]
+group = "nvim"
+tone = "primary"
 title = "Folds"
-open = true
+open = false
 body = [
   { n = 'folds follow real code structure (treesitter / LSP, not indent guesses). *foldlevel* is a depth dial: *0* = everything shut, *99* = everything open. LazyVim starts at 99, so you close what you want rather than dig out.' },
   { lbl = "this fold — at the cursor" },
@@ -212,51 +178,10 @@ body = [
 ]
 
 [[section]]
+group = "nvim"
 tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Move in File"
-open = true
-body = [
-  { k = "{ / }", d = "prev / next paragraph", hl = true },
-  { k = "C-d / C-u", d = "half page down / up" },
-  { k = "gg / G", d = "top / bottom of file" },
-  { k = "%", d = "matching bracket" },
-  { div = true },
-  { k = "C-o / C-i", d = "jumplist back / forward" },
-  { k = "gi", d = "go to last insert spot" },
-  { k = "* / #", d = "search word forward / back" },
-  { k = ".", d = "repeat last change" },
-]
-
-[[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Navigate"
-open = true
-body = [
-  { k = "⎵ff", d = "find file", hl = true },
-  { k = "⎵sg", d = "live grep" },
-  { k = "⎵/", d = "grep from root" },
-  { k = "⎵fb", d = "buffers" },
-  { k = "⎵fr", d = "recent files" },
-  { div = true },
-  { k = "s", d = "flash jump" },
-  { k = "S", d = "flash treesitter select" },
-  { div = true },
-  { k = "H / L", d = "prev / next buffer" },
-  { k = "⎵bd", d = "close buffer" },
-  { k = "⎵| / ⎵-", d = "vsplit / hsplit" },
-  { k = "C-h/j/k/l", d = "move between splits" },
-]
-
-[[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
 title = "Oil — Files as Buffers"
-open = true
+open = false
 body = [
   { k = "-", d = "open parent dir", hl = true },
   { k = "⏎", d = "open file" },
@@ -271,111 +196,13 @@ body = [
 ]
 
 [[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Understand & Fix"
-open = true
-body = [
-  { k = "gd", d = "go to definition", hl = true },
-  { k = "gr", d = "references" },
-  { k = "gI", d = "implementation" },
-  { k = "gy", d = "type definition" },
-  { k = "K", d = "hover docs" },
-  { div = true },
-  { k = "gai / gao", d = "incoming / outgoing calls" },
-  { k = "⎵ss / ⎵sS", d = "file / workspace symbols" },
-  { div = true },
-  { k = "⎵ca", d = "code action" },
-  { k = "⎵cr", d = "rename symbol" },
-  { k = "⎵cd", d = "line diagnostics" },
-  { k = "⎵co", d = "organize imports" },
-  { k = "]d / [d", d = "next / prev diagnostic" },
-  { o = "native LSP, not telescope — instant jumps" },
-]
-
-[[section]]
-tone = "primary"
-tool = "nvim"
-badge = "nvim"
-title = "Review Changes"
-open = true
-body = [
-  { k = "⎵gm → ]h", d = "diff main, walk hunks", hl = true },
-  { k = "⎵gp", d = "gutter → diff vs PR base" },
-  { k = "⎵gH", d = "gutter → reset to HEAD" },
-  { k = "⎵gM", d = "split diff vs main" },
-  { div = true },
-  { k = "]h / [h", d = "next / prev hunk" },
-  { k = "]H / [H", d = "last / first hunk" },
-  { div = true },
-  { k = "⎵gj", d = "all hunks → quickfix" },
-  { k = "]q / [q", d = "jump across files" },
-  { n = '*⎵gj* then *]q* = walk ALL changed files' },
-]
-
-[[section]]
-tone = "primary"
-tool = "nvim"
-badge = "nvim"
-title = "Git Actions"
-open = true
-body = [
-  { k = "⎵gg", d = "lazygit", hl = true },
-  { k = "⎵gs", d = "stage hunk" },
-  { k = "⎵gr", d = "reset hunk" },
-  { k = "⎵gS / ⎵gR", d = "stage / reset buffer" },
-  { k = "⎵gu", d = "undo stage" },
-  { k = "⎵gb", d = "blame line" },
-  { div = true },
-  { k = "⎵gf", d = "file history" },
-  { k = "⎵gl / ⎵gL", d = "git log (root / cwd)" },
-  { k = "⎵gB", d = "open in browser" },
-  { k = "⎵gY", d = "copy repo URL" },
-  { div = true },
-  { k = "co / ct", d = "conflict: ours / theirs" },
-  { k = "cb / c0", d = "conflict: both / none" },
-  { k = "]x / [x", d = "next / prev conflict" },
-]
-
-[[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Claude Code Workflow"
-open = false
-body = [
-  { k = "⎵yr", d = "copy + relative path", hl = true },
-  { k = "⎵ya", d = "copy + absolute path" },
-  { n = '*visual mode* — gives *file:10-15 \`\`\`code\`\`\`*' },
-]
-
-[[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Your Overrides"
-open = false
-body = [
-  { o = "native LSP not telescope — instant, no fuzzy" },
-  { o = "oil not neo-tree — dirs are buffers" },
-  { o = "inline copilot not cmp — ghost text not menu" },
-  { o = "pbcopy not OSC52 — avoids clipboard spam" },
-  { o = "cmdheight=0 — statusline shows everything" },
-  { o = "virtualedit=all — cursor anywhere, past EOL" },
-  { o = "C-h/l/s disabled in oil — split nav priority" },
-  { o = "vscode-js-debug disabled — janky" },
-]
-
-[[section]]
+group = "nvim"
 tone = "accent"
-tool = "nvim"
-badge = "nvim"
 title = "The ] / [ Pattern"
-open = true
+open = false
 body = [
   { k = "]h / [h", d = "git hunk" },
-  { k = "]H / [H", d = "first / last hunk" },
+  { k = "]H / [H", d = "last / first hunk" },
   { k = "]d / [d", d = "diagnostic" },
   { k = "]x / [x", d = "merge conflict" },
   { k = "]q / [q", d = "quickfix" },
@@ -383,9 +210,8 @@ body = [
 ]
 
 [[section]]
+group = "nvim"
 tone = ""
-tool = "nvim"
-badge = "nvim"
 title = "Surround"
 open = false
 body = [
@@ -398,39 +224,29 @@ body = [
 ]
 
 [[section]]
+group = "nvim"
 tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Copilot — Ghost Text + Next Edit"
-open = true
+title = "Copilot + Completion"
+open = false
 body = [
+  { lbl = "copilot — ghost text + next edit" },
   { k = "Tab", d = "accept suggestion / next edit", hl = true },
   { k = "C-→", d = "accept word" },
   { k = "C-l", d = "accept line" },
   { k = "M-] / M-[", d = "cycle suggestions" },
   { k = "Esc", d = "dismiss" },
-  { div = true },
   { k = "Tab", d = "normal: jump to / apply next edit" },
   { k = "⎵uN", d = "toggle next-edit suggestions" },
-  { n = ":LspCopilotSignIn   :lsp stop copilot" },
-]
-
-[[section]]
-tone = ""
-tool = "nvim"
-badge = "nvim"
-title = "Completion (Blink)"
-open = false
-body = [
+  { o = ":LspCopilotSignIn   :lsp stop copilot" },
+  { lbl = "completion menu (blink)" },
   { k = "C-Space", d = "trigger completion", hl = true },
   { k = "C-n / C-p", d = "next / prev item" },
   { k = "⏎", d = "accept" },
 ]
 
 [[section]]
+group = "nvim"
 tone = ""
-tool = "nvim"
-badge = "nvim"
 title = "Focus & Writing"
 open = false
 body = [
@@ -442,9 +258,8 @@ body = [
 ]
 
 [[section]]
+group = "nvim"
 tone = ""
-tool = "nvim"
-badge = "nvim"
 title = "Debug — DAP"
 open = false
 body = [
@@ -459,14 +274,50 @@ body = [
 ]
 
 [[section]]
+group = "nvim"
+tone = ""
+title = "Your Overrides"
+open = false
+body = [
+  { o = "native LSP not telescope — instant, no fuzzy" },
+  { o = "oil not neo-tree — dirs are buffers" },
+  { o = "inline copilot not cmp — ghost text not menu" },
+  { o = "pbcopy not OSC52 — avoids clipboard spam" },
+  { o = "cmdheight=0 — statusline shows everything" },
+  { o = "virtualedit=all — cursor anywhere, past EOL" },
+  { o = "C-h/l/s disabled in oil — split nav priority" },
+  { o = "vscode-js-debug disabled — janky" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# GIT (lazygit)
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
+title = "Daily Flow"
+open = true
+body = [
+  { k = "C-a g", d = "tmux: lazygit popup over your panes", hl = true },
+  { k = "⎵gg", d = "nvim: open lazygit", hl = true },
+  { k = "Space → a", d = "lazygit: stage, AI commit", hl = true },
+  { k = "Enter → v → Space", d = "lazygit: partial hunk staging" },
+  { k = "⎵gm → ]h", d = "nvim: diff main, walk hunks" },
+  { o = "stage with space, AI commit with a, push with P" },
+  { o = "z to undo anything (reflog-powered safety net)" },
+]
+
+[[section]]
+group = "git"
+tone = "gold"
 title = "Files (Panel 2)"
 open = true
 body = [
   { k = "Space", d = "stage / unstage file", hl = true },
-  { k = "a", d = "AI commit (fzf + Claude)", hl = true },
+  { k = "a", d = "AI commit — fzf picker, diff preview", hl = true },
+  { k = "C-a", d = "AI commit — inline lazygit menu" },
+  { k = "C-b", d = "AI commit — edit message first" },
   { k = "c", d = "commit (opens editor)" },
   { k = "A", d = "amend last commit" },
   { k = "C", d = "commit with editor" },
@@ -482,14 +333,12 @@ body = [
   { k = "f", d = "fetch" },
   { k = "r", d = "refresh files" },
   { k = "i", d = "add to .gitignore" },
-  { n = '*a* = custom AI commit via ai-commit + fzf' },
-  { o = "space to stage, then a for AI commit = daily flow" },
+  { o = "AI-commit cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)" },
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Staging (Inside File)"
 open = true
 body = [
@@ -501,31 +350,11 @@ body = [
   { k = "e", d = "edit hunk in editor" },
   { k = "Esc / q", d = "back to files list" },
   { n = '*v* then *j/k* to select lines, *Space* to stage selection' },
-  { o = "partial staging = clean commits without git add -p" },
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
-title = "Panel Navigation"
-open = true
-body = [
-  { k = "Tab / Shift-Tab", d = "next / prev panel", hl = true },
-  { k = "1-5", d = "jump to panel by number", hl = true },
-  { k = "[ / ]", d = "prev / next tab within panel" },
-  { k = "h / l", d = "scroll left / right (diff)" },
-  { div = true },
-  { k = "? / x", d = "keybinding menu / context menu" },
-  { k = "+", d = "open/close command log" },
-  { k = "q / Esc", d = "quit / cancel" },
-  { n = '*1* Status *2* Files *3* Branches *4* Commits *5* Stash' },
-]
-
-[[section]]
-tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Push / Pull / Sync"
 open = true
 body = [
@@ -541,9 +370,25 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
+title = "Panel Navigation"
+open = false
+body = [
+  { k = "Tab / Shift-Tab", d = "next / prev panel", hl = true },
+  { k = "1-5", d = "jump to panel by number", hl = true },
+  { k = "[ / ]", d = "prev / next tab within panel" },
+  { k = "h / l", d = "scroll left / right (diff)" },
+  { div = true },
+  { k = "? / x", d = "keybinding menu / context menu" },
+  { k = "+", d = "open/close command log" },
+  { k = "q / Esc", d = "quit / cancel" },
+  { n = '*1* Status *2* Files *3* Branches *4* Commits *5* Stash' },
+]
+
+[[section]]
+group = "git"
+tone = "gold"
 title = "Commits (Panel 4)"
 open = false
 body = [
@@ -569,9 +414,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Branches (Panel 3)"
 open = false
 body = [
@@ -592,9 +436,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Merge Conflicts"
 open = false
 body = [
@@ -608,9 +451,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Diff & Search"
 open = false
 body = [
@@ -627,9 +469,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Stash (Panel 5)"
 open = false
 body = [
@@ -643,9 +484,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Interactive Rebase"
 open = false
 body = [
@@ -663,9 +503,8 @@ body = [
 ]
 
 [[section]]
+group = "git"
 tone = "gold"
-tool = "lazygit"
-badge = "lazygit"
 title = "Global Shortcuts"
 open = false
 body = [
@@ -676,116 +515,268 @@ body = [
   { k = "C-w", d = "toggle whitespace" },
 ]
 
+# ═══════════════════════════════════════════════════════════════════════
+# TERM — tmux + agents. The long tmux / zsh / yazi lists live in
+# docs/tips.txt and show up in this tab's index.
+# ═══════════════════════════════════════════════════════════════════════
+
 [[section]]
+group = "term"
 tone = "accent"
-tool = "both"
-badge = ""
-title = "AI Commits + Agent Fleet"
-open = false
+title = "Tmux"
+open = true
 body = [
-  { lbl = "lazygit (files panel)" },
-  { k = "a", d = "AI commit — fzf picker with diff preview", hl = true },
-  { k = "C-a", d = "AI commit — inline lazygit menu" },
-  { k = "C-b", d = "AI commit — edit message before commit" },
-  { div = true },
-  { lbl = "watch every agent (~/code/robots, homegrown)" },
+  { k = "C-a g", d = "lazygit popup", hl = true },
+  { k = "C-a Z", d = "reading column (this window, 80ch)", hl = true },
+  { k = "C-a u / C-a O", d = "flip pixel scene / agent-fleet overview" },
+  { k = "cmd; ding", d = "desk reacts to the exit code" },
+  { o = "a background window that rings the bell glows *teal* + ◆ until you switch to it" },
+  { o = "every tmux, zsh and yazi key is in the index below" },
+]
+
+[[section]]
+group = "term"
+tone = "accent"
+title = "Agent Fleet"
+open = true
+body = [
+  { lbl = "watch every agent (~/code/robots)" },
   { k = "robots", d = "live TUI of ALL claude agents on the box", hl = true },
-  { k = "robots -a", d = "ambient grid — every agent's live output tiled" },
-  { k = "robots -t", d = "counts for tmux status bar: ◇1 ◆2 ●7" },
+  { k = "robots -a", d = "ambient grid: every agent's output tiled" },
+  { k = "robots -t", d = "counts for the tmux status bar: ◇1 ◆2 ●7" },
   { n = "in TUI: *h/j/k/l* move · *enter* jump to pane · *z* zoom · *v* raw view · *a* ambient · *s* sort · *q* quit" },
-  { o = "cells show conversation only (chrome stripped); v flips to the raw screen" },
   { o = "◇ needs you · ◆ working · ● idle — no hooks, works retroactively" },
-  { div = true },
   { lbl = "worktree agents (workmux)" },
   { k = "workmux add <name>", d = "worktree + tmux window for an agent" },
   { k = "workmux merge", d = "merge branch, tear down window/worktree" },
-  { k = "workmux dashboard", d = "TUI — only workmux-spawned worktrees" },
-  { div = true },
+  { k = "workmux dashboard", d = "TUI of workmux-spawned worktrees" },
   { lbl = "research visibility" },
   { k = "fleet-watch", d = "3×3 live panes of workflow subagents" },
   { k = "chrome-grid <urls>", d = "one Chrome window per URL, auto-tiled" },
   { k = "chrome-grid --tile", d = "re-tile all existing Chrome windows" },
-  { o = "AI-commit custom cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# VOICE — Talon, verified against ~/.talon/user/community + talon-overrides
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+group = "voice"
+tone = "accent"
+title = "Talon — Deleting"
+open = true
+body = [
+  { n = 'the delete word is **clear** — say *clear* + any target. the one you keep forgetting: **clear all**.' },
+  { k = "clear all", d = "delete EVERYTHING (whole doc)", hl = true },
+  { k = "clear line", d = "delete current line", hl = true },
+  { k = "clear word", d = "delete word at cursor" },
+  { k = "clear paragraph", d = "delete paragraph" },
+  { k = "clear way left / way right", d = "delete to line start / end" },
+  { k = "clear left 3 words", d = "delete back N words (dictation)" },
+  { k = "wipe / delete", d = "backspace, one keypress" },
+  { div = true },
+  { k = "scratch that / nope that", d = "undo last utterance", hl = true },
+  { k = "undo that / redo that", d = "app undo / redo" },
+  { lbl = "in the terminal (ghostty)" },
+  { k = "wipe", d = "kill whole line (C-u)", hl = true },
+  { k = "wipe word / wipe back", d = "kill word behind (C-w)" },
+  { k = "wipe ahead", d = "kill to end of line (C-k)" },
+  { k = "chomp", d = "kill 10 words back" },
+  { o = "grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…" },
 ]
 
 [[section]]
+group = "voice"
 tone = "accent"
-tool = "both"
-badge = ""
-title = "Desk Hardware — Pixel Canvas + RGB"
+title = "Talon — Say & Modes"
+open = true
+body = [
+  { k = "talk", d = "→ dictation mode", hl = true },
+  { k = "command mode", d = "→ command mode", hl = true },
+  { k = "talon sleep / talon wake", d = "mic off / on" },
+  { div = true },
+  { k = "phrase hello world", d = "type words (command mode)" },
+  { k = "say … / sentence …", d = "prose / Capitalized prose" },
+  { k = "title …", d = "Capitalize All Words" },
+  { k = "camel / snake / kebab …", d = "identifier formatters" },
+  { k = "smash / all cap …", d = "nospaces / ALLCAPS" },
+  { k = "camel that", d = "reformat selection (any formatter)" },
+  { div = true },
+  { k = "select all / line / word", d = "same targets as clear" },
+  { k = "copy that / cut that", d = "clipboard out" },
+  { k = "paste that / paste match", d = "clipboard in / match style" },
+  { k = "go way up / way down", d = "top / bottom of file" },
+  { k = "head / tail", d = "line start / end" },
+  { k = "press cmd shift alpha", d = "any chord, NATO letters" },
+  { n = 'letters are **NATO**: alpha bravo charlie delta… (your override)' },
+]
+
+[[section]]
+group = "voice"
+tone = "accent"
+title = "Talon — Apps, Windows, Tmux"
+open = true
+body = [
+  { k = "slap / go ahead / send it", d = "press enter", hl = true },
+  { k = "cancel / bail", d = "ctrl-c" },
+  { k = "dismiss", d = "escape" },
+  { k = "confirm / deny", d = "y / n" },
+  { div = true },
+  { k = "open ghostty / chrome / slack…", d = "focus app" },
+  { k = "window left / right", d = "snap half (divvy)" },
+  { k = "snap full / window expand", d = "fullscreen" },
+  { k = "send to screen two", d = "move + maximize" },
+  { k = "desk left / desk right", d = "switch spaces" },
+  { k = "hide this / quit this", d = "cmd-h / cmd-q" },
+  { div = true },
+  { k = "mux 2 / mux next / mux last", d = "tmux windows" },
+  { k = "mux left / right / up / down", d = "tmux panes" },
+  { k = "mux new / mux close", d = "window create / kill" },
+  { div = true },
+  { k = "last command / run again", d = "↑ / ↑ + enter" },
+  { k = "search history", d = "ctrl-r (fzf)" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# PC — computah, the Windows machine
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+group = "pc"
+tone = "accent"
+title = "computah — health + power"
+open = true
+body = [
+  { k = "computah doctor", d = "health check + auto-heal everything. run this first", hl = true },
+  { k = "computah-check", d = "services, kiosks, endpoints, studio, wall (◆ ok / ◇ problem)", hl = true },
+  { k = "computah status", d = "reachable? load? disk?" },
+  { k = "computah wake / sleep", d = "power on (WoL) / suspend; works from off" },
+  { k = "computah harden-wol", d = "run once if wake dies after a full shutdown" },
+  { div = true },
+  { k = "computah run \"cmd\"", d = "run anything on the PC over SSH" },
+  { k = "pcps <<'EOF'", d = "PowerShell on the PC from a heredoc, no quoting hell" },
+  { k = "computah screenshot", d = "Windows desktop → ~/screenshots/computah + clipboard (--up uploads)", hl = true },
+  { k = "computah stream [app]", d = "Moonlight-stream the PC to this Mac" },
+  { n = "**never** touch it mid-Fortnite — check `computah run \"powershell Get-Process FortniteClient*\"` first" },
+  { o = "reverse channel: on the PC, `tomac <file>` → ~/Desktop/from-computah" },
+  { o = "deskflow cursor won't cross? → deskflow-heal -v (or just re-login)" },
+]
+
+[[section]]
+group = "pc"
+tone = "accent"
+title = "computah — GPU jobs + art"
 open = false
 body = [
-  { lbl = "pixel canvas (ESP32 desk display, 10.0.0.103)" },
+  { k = "computah muse-loop", d = "art wall from your screen + notes", hl = true },
+  { k = "computah imagine \"…\"", d = "one FLUX image on the PC GPU" },
+  { k = "computah sd-server start/stop", d = "keep FLUX hot: no multi-minute model reload", hl = true },
+  { k = "computah llm on/off", d = "local Qwen LLM server :8085" },
+  { k = "computah render / blender / whisper / demucs", d = "heavy jobs there, results land here" },
+  { k = "computah scanner-worker on/off/status", d = "PC drains the VPS radio-transcript queue (whisper turbo)" },
+  { o = "scanner idles in games + 22:00-09:00, never wakes the PC · UI: scanner.tools.ejfox.com (private link)" },
+  { o = "stop the art wall: pkill -f 'computah muse-loop'" },
+]
+
+[[section]]
+group = "pc"
+tone = "accent"
+title = "computah — renders + studio-dev"
+open = false
+body = [
+  { k = "renders", d = "browse Blender renders (PC awake: all of them; PC off: Mac copy)", hl = true },
+  { k = "renders live / renders mac", d = "studio's live viewer / force the Mac copy" },
+  { k = "studio-dev on / wait N / sheet", d = "fast 1-bit iteration: 360p previews, block for N, contact sheet" },
+  { k = "studio-dev pin k=v / now / kill", d = "pin a recipe knob / breadcrumbs of a stuck piece / kill it" },
+  { o = "pages: 10.0.0.169:7861/blender.html (no login) · :7861/studio-dev.html · Mac copy in ~/Pictures/Blender" },
+  { o = "pin knobs: scene= signal= dither= lens= seed=…" },
+]
+
+[[section]]
+group = "pc"
+tone = "accent"
+title = "computah — OBS"
+open = false
+body = [
+  { k = "computah obs start/rec/stop", d = "OBS on the PC: tray / record now / off" },
+  { k = "obs-computah-source", d = "iMac OBS: (re)create scene 'computah' from the PC's program feed" },
+  { o = "PC OBS is off by default: idle OBS tripped the wall's game guard. Fortnite matches still auto-open it" },
+  { o = "feed = 'computah (Teleport)', muted, ~tens of ms (dials 10.0.0.169:9100); hidden SRT fallback; grabs a test frame" },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# DESK — pixel canvas, RGB, Hue
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+group = "desk"
+tone = "accent"
+title = "Pixel Canvas"
+open = true
+body = [
   { k = "pixel", d = "draw a random scene now", hl = true },
   { k = "pixel say \"msg\"", d = "push ad-hoc text to the glass", hl = true },
   { k = "pixel list / clear / ping", d = "scenes / blank it / reachable?" },
   { k = "pixel raw \"text?msg=hi&x=10&y=10\"", d = "raw draw API call" },
-  { n = "two cadences: scenes rotate every 5 min (gallery pace), *pixel-live* ticks every second — clock + hotpink *N need you* top-right" },
-  { div = true },
-  { lbl = "computah RGB (OpenRGB, resting vulpes pink)" },
-  { k = "rgb-flash fyi|done|needs|error", d = "grammar flash: count = urgency", hl = true },
-  { n = "decode: *1 soft blip* fyi · *1 slow swell* claude done · *2 pink pulses* needs YOU · *1 deep red swell* error" },
-  { k = "rgb-flash <color|hex>", d = "manual single pulse (teal/white/RRGGBB)" },
-  { k = "rgb-flash rest", d = "just set the pink resting state" },
-  { k = "C-a u / C-a O", d = "tmux: flip scene / agent-fleet overview", hl = true },
-  { k = "pixel bloom", d = "phyllotaxis day-clock: seeds fill as the day does, white tip = now" },
+  { lbl = "scenes" },
   { k = "pixel constellation", d = "tmux star chart: windows as stars, hotpink = claude", hl = true },
   { k = "pixel commits", d = "git bloom: seed per commit today, hue per repo", hl = true },
-  { o = "rotation is weighted: pixel-scenes/.favorites = bonus tickets for the useful screens" },
-  { div = true },
-  { lbl = "desk events (lights ping, glass captions)" },
-  { k = "desk-event <kind> [detail]", d = "RGB pulse + caption strip on canvas", hl = true },
-  { k = "cmd; ding", d = "desk reacts to the exit code: teal ok / red + code", hl = true },
-  { n = "color code: *hotpink* = claude needs you · *teal* = FYI (bell/activity/done) · *red* = error" },
-  { o = "auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene" },
-  { o = "tmux status: a background window that rings the bell glows *teal* + ◆ until you switch to it" },
+  { k = "pixel bloom", d = "day-clock: seeds fill as the day does, white tip = now" },
+  { k = "pixel skyline", d = "repos as a night city, lit windows = today's commits" },
+  { k = "pixel vitals / hive", d = "24h operator EKG / Claude sessions as a swarm" },
+  { k = "pixel credits / transmission", d = "the day's opening titles / a Talon phrase, decoded" },
+  { lbl = "the morning brief, on the glass" },
+  { k = "pixel knock / tally / wilt", d = "radar of 25+ hit IPs / blocked-days wall / goal garden" },
+  { k = "pixel action / found / held", d = "today's 10-min step / who found you / what the brief kept quiet" },
+  { n = "two cadences: scenes rotate every 5 min, *pixel-live* ticks every second — clock + hotpink *N need you* top-right" },
+  { o = "ESP32 at 10.0.0.103 · rotation is weighted: pixel-scenes/.favorites = bonus tickets" },
 ]
 
 [[section]]
+group = "desk"
 tone = "accent"
-tool = "both"
-badge = ""
-title = "Computah + Hue Lights"
+title = "Desk Events + RGB Flash"
+open = true
+body = [
+  { k = "desk-event <kind> [detail]", d = "RGB pulse + caption strip on the canvas", hl = true },
+  { k = "cmd; ding", d = "desk reacts to the exit code: teal ok / red + code", hl = true },
+  { k = "rgb-flash fyi|done|needs|error", d = "grammar flash: count = urgency", hl = true },
+  { k = "rgb-flash <color|hex>", d = "manual single pulse (teal/white/RRGGBB)" },
+  { k = "rgb-flash rest", d = "set the pink resting state" },
+  { k = "C-a u / C-a O", d = "tmux: flip scene / agent-fleet overview" },
+  { n = "color code: *hotpink* = claude needs you · *teal* = FYI (bell/activity/done) · *red* = error" },
+  { n = "decode: *1 soft blip* fyi · *1 slow swell* claude done · *2 pink pulses* needs YOU · *1 deep red swell* error" },
+  { o = "auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene" },
+]
+
+[[section]]
+group = "desk"
+tone = "accent"
+title = "Hue + computah RGB"
 open = false
 body = [
-  { lbl = "computah (the Windows PC — LAN or Tailscale)" },
-  { k = "computah wake / sleep / status", d = "power + health, works from off", hl = true },
-  { k = "computah run \"cmd\"", d = "run anything on the PC over SSH" },
-  { k = "computah render / blender / whisper / demucs", d = "heavy jobs there, results land here" },
-  { k = "computah stream [app]", d = "Moonlight-stream the PC to this Mac" },
-  { n = "**never** touch it mid-Fortnite — check `computah run \"powershell Get-Process FortniteClient*\"` first" },
-  { div = true },
-  { lbl = "rgb (PC case + DualSense + Hue desk lights, synced)" },
-  { k = "computah rgb wave|breathe|pulse", d = "vulpes effects; hue desk lights wave along", hl = true },
-  { k = "computah rgb screen", d = "PC case follows the iMac screen" },
-  { k = "computah rgb off / status", d = "blackout + stop; status shows PC + hue daemon" },
-  { o = "one color engine: pc-rgb-effect publishes zones -> hue-stream daemon renders them on the strip" },
-  { div = true },
   { lbl = "hue (rooms + scenes from the shell)" },
   { k = "hue list / on / off / dim <0-100> <room>", d = "room control", hl = true },
-  { k = "hue scene <name>", d = "Coding, Concentrate, Dim Redded, Nightlight..." },
-  { k = "screensync on/off", d = "iMac screen colors -> desk lights" },
+  { k = "hue scene <name>", d = "Coding, Concentrate, Dim Redded, Nightlight…" },
+  { k = "screensync on/off", d = "iMac screen colors → desk lights" },
   { k = "hue-flash [r g b]", d = "flash entertainment lights, then return" },
-  { k = "hue-keys on/off", d = "typing -> light bursts (default OFF, deliberately)" },
-  { o = "DTLS handshake timeouts = bridge wedged -> unplug bridge 10s, then *computah rgb wave* relaunches the chain" },
-  { div = true },
-  { lbl = "obs-defer (heavy jobs wait while OBS is open)" },
-  { k = "obs-defer status", d = "OBS open? + what's queued", hl = true },
-  { k = "obs-defer run-all", d = "run the queue now, OBS or not" },
-  { k = "touch ~/.config/obs-defer-disabled", d = "kill switch: everything runs normally" },
-  { o = "queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log" },
-  { div = true },
-  { lbl = "obs-synccheck (camera vs mic offset, measured)" },
-  { k = "obs-synccheck", d = "5 screen flashes + beeps while OBS records -> real A/V offset", hl = true },
-  { k = "obs-synccheck --apply", d = "measure, then set the SM7dB sync offset to cancel it" },
-  { o = "OBS open + Camera for OBS app foreground · run after a reconnect or before a long session · test file -> ~/.cache/obs-synccheck" },
+  { k = "hue-keys on/off", d = "typing → light bursts (default OFF, deliberately)" },
+  { lbl = "PC case + DualSense + Hue desk lights, synced" },
+  { k = "computah rgb wave|breathe|pulse", d = "vulpes effects; hue desk lights wave along", hl = true },
+  { k = "computah rgb screen", d = "PC case follows the iMac screen" },
+  { k = "computah rgb off / status", d = "blackout + stop / PC effect + hue daemon" },
+  { o = "one color engine: pc-rgb-effect publishes zones → hue-stream daemon renders them on the strip" },
+  { o = "DTLS handshake timeouts = bridge wedged → unplug bridge 10s, then *computah rgb wave* relaunches the chain" },
 ]
 
+# ═══════════════════════════════════════════════════════════════════════
+# MAKE — charts, video, recording
+# ═══════════════════════════════════════════════════════════════════════
+
 [[section]]
+group = "make"
 tone = "accent"
-tool = "both"
-badge = ""
-title = "Chart Desk — prep cook for the daily chart"
+title = "Chart Desk"
 open = true
 body = [
   { n = 'desk preps the bench at 06:30 (data, sketch, notes, angles). **you make the thing.**' },
@@ -793,90 +784,72 @@ body = [
   { k = "desk work desks/DATE/01-slug", d = "open the bench: folder + sketch + notes", hl = true },
   { k = "desk check desks/DATE/01-slug", d = "fact-check YOUR version (report only)", hl = true },
   { k = "desk shipped desks/DATE/01-slug <url>", d = "log it, +1 streak, blog draft stub", hl = true },
+  { div = true },
   { k = "desk run --seed \"hunch or URL\"", d = "force your hunch into today's picks" },
   { k = "desk build desks/DATE/02-slug", d = "prep an on-deck pick" },
-  { k = "desk streak / desk gather / desk lint <dir>", d = "streak · what sources returned · free checks" },
+  { k = "desk streak / desk gather / desk lint <dir>", d = "streak / what sources returned / free checks" },
   { k = "desk install", d = "re-apply [schedule] after editing it" },
   { k = "touch ~/.config/chart-desk-disabled", d = "pause the daily run" },
   { o = "knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/*.md" },
 ]
 
 [[section]]
+group = "make"
 tone = "accent"
-tool = "both"
-badge = ""
-title = "VPS — owner-only apps"
-open = false
-body = [
-  { n = 'fitness, health-webhook and egoscan answer **404** to the internet. on-box callers still get through.' },
-  { k = "owner-login", d = "open fitness logged in (1-year cookie)", hl = true },
-  { k = "owner-login egoscan", d = "same for any owner-gated app" },
-  { o = "token: vps ~/.config/owner-token + each app's .env as OWNER_TOKEN" },
-]
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "Canary tokens — know when a file gets opened"
-open = false
-body = [
-  { n = 'plant a 1px beacon; opening the file pings the honeypot → **critical** alert "canary tripped: <label>".' },
-  { k = 'canary new "label" "where planted"', d = "mint a token: prints obsidian/md/html lines", hl = true },
-  { k = "canary list / canary hits <id>", d = "tokens + who opened them", hl = true },
-  { k = "canary mute <id> <min>", d = "learning window: your devices' IPs get trusted" },
-  { k = "canary docx <id> decoy.docx", d = "Word doc whose picture is the beacon" },
-  { k = "canary retire <id>", d = "turn it off (404 from then on)" },
-  { o = "open the planted file from each device within 15 min of minting, or it'll trip on you" },
-]
-
-[[section]]
-tone = "accent"
-tool = "both"
-badge = ""
-title = "Studio — record terminal demos (black or greenscreen)"
+title = "Studio — terminal demos"
 open = true
 body = [
   { n = 'a separate size-locked Ghostty with vulpes glow + scanlines, **random vulpes month** each launch, recorded as a window.' },
   { k = "studio", d = "open STUDIO 9:16 (Reels/Shorts), plain black", hl = true },
   { k = "studio wide", d = "same window, 16:9 (YouTube)" },
-  { k = "studio greenscreen [wide]", d = "on a #00ff00 key: stop also writes <take>-alpha.mov", hl = true },
-  { k = "studio theme [month]", d = "reroll the vulpes month (june, august, ...)" },
-  { k = "studio rec [sec]", d = "record the window wherever you drag it -> ~/Movies/studio", hl = true },
-  { k = "studio stop", d = "finish; greenscreen -> real alpha .mov in the background", hl = true },
+  { k = "studio greenscreen [wide]", d = "on a #00ff00 key; stop also writes <take>-alpha.mov", hl = true },
+  { k = "studio theme [month]", d = "reroll the vulpes month (june, august, …)" },
+  { k = "studio rec [sec]", d = "record the window wherever it is → ~/Movies/studio", hl = true },
+  { k = "studio stop", d = "finish; greenscreen → real alpha .mov in the background", hl = true },
   { k = "studio alpha take.mov", d = "(re)make the alpha .mov (qtrle, or --codec prores)" },
   { o = "drag by the top strip · size locked, fits every monitor · run rec/stop from your MAIN terminal · cmd+k clears" },
-  { lbl = "secrets without pasting" },
-  { k = "gh-secret-from-clipboard NAME owner/repo", d = "click COPY -> GitHub Actions secret, clipboard cleared" },
-  { k = "env-from-clipboard KEY path/.env", d = "click COPY -> KEY=value in an .env (backed up)" },
 ]
 
 [[section]]
+group = "make"
 tone = "accent"
-tool = "both"
-badge = "PC"
-title = "B-roll — paper + CRT (renders on computah)"
-open = true
+title = "B-roll — paper + CRT"
+open = false
 body = [
-  { n = 'code, docs, PDFs and screenshots as **real matte paper** in Blender; outputs in ~/code/paperize/out' },
+  { n = 'code, docs, PDFs and screenshots as **real matte paper** in Blender. renders on computah; outputs in ~/code/paperize/out' },
   { k = "paperize FILE[:40-95] --orbit 70 --secs 15 --gpu", d = "one page, camera slowly circles it (code, md, pdf --page N, image)", hl = true },
   { k = "paperize FILE", d = "single still, transparent PNG" },
   { k = "paperdrop PDF|FOLDER", d = "huge stack falls from the sky + slams, alpha ProRes", hl = true },
-  { k = "printify DIR -o OUT --border 0.5", d = "screenshots -> inkjet prints at true relative size" },
+  { k = "printify DIR -o OUT --border 0.5", d = "screenshots → inkjet prints at true relative size" },
   { k = "paginate FILE[:A-B] [--receipt]", d = "typeset pages (80 cols) or a CVS receipt strip" },
   { k = "crtbroll VIDEO --shot hero|pushin|macro", d = "screen recording on a black CRT, OLED-black room", hl = true },
   { k = "gpulease status", d = "who holds the GPU (wall pauses while leased)" },
   { o = "GUI: open the .blend files in C:\\Users\\ejfox\\Documents\\Paperize on computah" },
 ]
 
-# ═══════════════════════════════════════════════════════════════════════
-# APP-CONTEXT CARDS: `apps = [...]` cards jump to the top, opened, while
-# that Mac app is frontmost (via the Hammerspoon panel) or running.
-# ═══════════════════════════════════════════════════════════════════════
+[[section]]
+group = "make"
+tone = "accent"
+title = "OBS — defer + sync check"
+open = false
+body = [
+  { lbl = "obs-defer (heavy jobs wait while OBS is open)" },
+  { k = "obs-defer status", d = "OBS open? + what's queued", hl = true },
+  { k = "obs-defer run-all", d = "run the queue now, OBS or not" },
+  { k = "touch ~/.config/obs-defer-disabled", d = "kill switch: everything runs normally" },
+  { o = "queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log" },
+  { lbl = "obs-synccheck (camera vs mic offset, measured)" },
+  { k = "obs-synccheck", d = "5 flashes + beeps while OBS records → real A/V offset", hl = true },
+  { k = "obs-synccheck --apply", d = "measure, then set the SM7dB sync offset to cancel it" },
+  { o = "OBS open + Camera for OBS app foreground · run after a reconnect or before a long session · test file → ~/.cache/obs-synccheck" },
+]
+
+# APP-CONTEXT CARDS: `apps = [...]` cards pin to the top of every tab while
+# that Mac app is running, and open when it is the app you were in.
 
 [[section]]
+group = "make"
 tone = "primary"
-tool = "both"
 apps = ["Final Cut Pro"]
 title = "Final Cut Pro — your keys"
 body = [
@@ -918,8 +891,8 @@ body = [
 ]
 
 [[section]]
+group = "make"
 tone = "gold"
-tool = "both"
 apps = ["Logic Pro"]
 title = "Logic Pro — beds, stems, VO"
 body = [
@@ -941,4 +914,58 @@ body = [
   { lbl = "windows + out" },
   { k = "x  ·  e  ·  b  ·  y", d = "mixer · editor · smart controls · library" },
   { k = "⌘b", d = "bounce project or the cycle area (beds, KO-33 / TP-7 packs)", hl = true },
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# OPS — brief, secrets, VPS, canaries
+# ═══════════════════════════════════════════════════════════════════════
+
+[[section]]
+group = "ops"
+tone = "accent"
+title = "Morning Brief"
+open = true
+body = [
+  { k = "things-bridge", d = "push Things → VPS, pull brief facts back (auto every 30m)" },
+  { k = "things-export | jq", d = "see exactly what leaves the Mac" },
+  { k = "brief-pictures --dry", d = "preview the 08:02 Discord picture DM" },
+  { o = "pictures: today's charts + one art tile, full size in ~/Pictures/Brief/<date>/" },
+  { o = "log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access" },
+]
+
+[[section]]
+group = "ops"
+tone = "accent"
+title = "Secrets Without Pasting"
+open = true
+body = [
+  { k = "gh-secret-from-clipboard NAME owner/repo", d = "click COPY → GitHub Actions secret, clipboard cleared" },
+  { k = "env-from-clipboard KEY path/.env", d = "click COPY → KEY=value in an .env (backed up)" },
+]
+
+[[section]]
+group = "ops"
+tone = "accent"
+title = "VPS — owner-only apps"
+open = true
+body = [
+  { n = 'fitness, health-webhook and egoscan answer **404** to the internet. on-box callers still get through.' },
+  { k = "owner-login", d = "open fitness logged in (1-year cookie)", hl = true },
+  { k = "owner-login egoscan", d = "same for any owner-gated app" },
+  { o = "token: vps ~/.config/owner-token + each app's .env as OWNER_TOKEN" },
+]
+
+[[section]]
+group = "ops"
+tone = "accent"
+title = "Canary Tokens"
+open = false
+body = [
+  { n = 'plant a 1px beacon; opening the file pings the honeypot → **critical** alert "canary tripped: <label>".' },
+  { k = 'canary new "label" "where planted"', d = "mint a token: prints obsidian/md/html lines", hl = true },
+  { k = "canary list / canary hits <id>", d = "tokens + who opened them", hl = true },
+  { k = "canary mute <id> <min>", d = "learning window: your devices' IPs get trusted" },
+  { k = "canary docx <id> decoy.docx", d = "Word doc whose picture is the beacon" },
+  { k = "canary retire <id>", d = "turn it off (404 from then on)" },
+  { o = "open the planted file from each device within 15 min of minting, or it'll trip on you" },
 ]

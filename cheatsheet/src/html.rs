@@ -4,6 +4,12 @@
 use crate::inline::{self, Seg};
 use crate::model::{Item, Section, Sheet};
 
+/// Keys longer than this (shell commands, mostly) get a stacked row: the key
+/// on its own line, the description under it. Short keys stay in two columns.
+const STACK_AT: usize = 16;
+/// A key longer than this reads as a command rather than a keystroke.
+const COMMAND_KEY: usize = 10;
+
 fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
@@ -20,31 +26,60 @@ fn segs_html(s: &str) -> String {
         .collect()
 }
 
+fn row_class(k: &str, hl: bool) -> String {
+    let mut cls = String::from("r");
+    if hl {
+        cls.push_str(" dd");
+    }
+    if k.chars().count() > STACK_AT {
+        cls.push_str(" st");
+    }
+    cls
+}
+
+/// A card whose keys are mostly shell commands ("computah doctor", "desk
+/// review") stacks every row, so the whole card reads as one uniform list
+/// instead of a ragged mix of two-column and stacked rows.
+fn is_command_card(s: &Section) -> bool {
+    let lens: Vec<usize> = s
+        .body
+        .iter()
+        .filter_map(|it| match it {
+            Item::Binding { k, .. } => Some(k.chars().count()),
+            _ => None,
+        })
+        .collect();
+    let long = lens.iter().filter(|n| **n > COMMAND_KEY).count();
+    !lens.is_empty() && long * 2 > lens.len()
+}
+
 fn section_html(s: &Section) -> String {
-    let class = if s.tone.is_empty() {
+    let mut classes: Vec<&str> = Vec::new();
+    if !s.tone.is_empty() {
+        classes.push(&s.tone);
+    }
+    if is_command_card(s) {
+        classes.push("stk");
+    }
+    let class = if classes.is_empty() {
         String::new()
     } else {
-        format!(" class=\"{}\"", s.tone)
+        format!(" class=\"{}\"", classes.join(" "))
     };
-    let open = if s.open { " open" } else { "" };
-    let mut summary = if s.badge.is_empty() {
-        esc(&s.title)
-    } else {
-        format!(
-            "<span class=\"badge {}\">{}</span> {}",
-            s.badge,
-            s.badge,
-            esc(&s.title)
-        )
-    };
+    // data-open is the card's resting state; the panel script applies it per
+    // tab (the "all" tab is a closed outline).
+    let open = if s.open { " open data-open=\"1\"" } else { "" };
+    let mut summary = esc(&s.title);
+    let mut live = "";
     if let Some(app) = &s.live {
-        summary = format!("<span class=\"badge live\">● {} open</span> {summary}", esc(app));
+        summary = format!("<span class=\"badge live\">● {}</span> {summary}", esc(app));
+        live = " data-live=\"1\"";
     }
 
     let mut out = String::new();
     out.push_str(&format!(
-        "<details{class}{open} data-tool=\"{}\">\n",
-        s.tool
+        "<details{class}{open}{live} data-group=\"{}\">\n",
+        esc(&s.group)
     ));
     out.push_str(&format!("  <summary>{summary}</summary>\n"));
     out.push_str("  <div class=\"c\">\n");
@@ -52,7 +87,7 @@ fn section_html(s: &Section) -> String {
     for item in &s.body {
         match item {
             Item::Binding { k, d, hl } => {
-                let cls = if *hl { "r dd" } else { "r" };
+                let cls = row_class(k, *hl);
                 let desc = d
                     .as_ref()
                     .map(|d| format!("<span class=\"d\">{}</span>", esc(d)))
@@ -100,17 +135,46 @@ fn section_html(s: &Section) -> String {
     out
 }
 
-/// The cards region only (all sections, blank-line separated).
+/// The cards region: every section, with a group heading before the first card
+/// of each group (the headings only show on the "all" tab).
 pub fn cards(sheet: &Sheet) -> String {
-    sheet
-        .sections
-        .iter()
-        .map(section_html)
-        .collect::<Vec<_>>()
-        .join("\n")
+    let mut out = String::new();
+    let mut last_group: Option<&str> = None;
+    for s in &sheet.sections {
+        if s.live.is_none() && last_group != Some(s.group.as_str()) {
+            out.push_str(&format!(
+                "<h2 class=\"g\" data-group=\"{0}\">{0}</h2>\n",
+                esc(&s.group)
+            ));
+            last_group = Some(s.group.as_str());
+        }
+        out.push_str(&section_html(s));
+        out.push('\n');
+    }
+    out
 }
 
-/// Full page: template chrome with {{CARDS}} replaced.
+/// The tab strip: one button per group, then "all". Number keys match order.
+pub fn tabs(sheet: &Sheet) -> String {
+    sheet
+        .meta
+        .tabs()
+        .iter()
+        .enumerate()
+        .map(|(i, g)| {
+            format!(
+                "<button data-tab=\"{0}\" title=\"key {1}\">{0}</button>",
+                esc(g),
+                i + 1
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n    ")
+}
+
+/// Full page: template chrome with {{TABS}} and {{CARDS}} replaced.
 pub fn page(sheet: &Sheet, template: &str) -> String {
-    template.replace("{{CARDS}}", &cards(sheet))
+    template
+        .replace("{{TABS}}", &tabs(sheet))
+        .replace("{{CARDS}}", &cards(sheet))
 }

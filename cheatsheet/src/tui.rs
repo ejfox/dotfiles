@@ -72,25 +72,27 @@ fn teardown(term: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
 
 struct App<'a> {
     sheet: &'a Sheet,
-    filter: &'static str, // all | nvim | lazygit
+    tabs: Vec<String>, // meta.groups + "all"
+    tab: usize,        // index into tabs
     query: String,
     searching: bool,
     offset: usize,
     // cache
     lines: Vec<Line<'static>>,
-    cache_key: (u16, &'static str, String),
+    cache_key: (u16, usize, String),
 }
 
 impl<'a> App<'a> {
     fn new(sheet: &'a Sheet) -> Self {
         App {
             sheet,
-            filter: "all",
+            tabs: sheet.meta.tabs(),
+            tab: 0,
             query: String::new(),
             searching: false,
             offset: 0,
             lines: Vec::new(),
-            cache_key: (0, "", String::new()),
+            cache_key: (0, usize::MAX, String::new()),
         }
     }
 
@@ -136,6 +138,11 @@ impl<'a> App<'a> {
         }
 
         match key.code {
+            // esc with a kept search clears it first; a second esc quits
+            KeyCode::Esc if !self.query.is_empty() => {
+                self.query.clear();
+                self.offset = 0;
+            }
             KeyCode::Char('q') | KeyCode::Esc => return true,
             KeyCode::Char('c') if ctrl => return true,
             KeyCode::Char('j') | KeyCode::Down => self.scroll(1),
@@ -151,17 +158,32 @@ impl<'a> App<'a> {
                 self.query.clear();
                 self.offset = 0;
             }
-            KeyCode::Char('a') => self.set_filter("all"),
-            KeyCode::Char('n') => self.set_filter("nvim"),
-            KeyCode::Char('l') => self.set_filter("lazygit"),
+            KeyCode::Char(c @ '1'..='9') => self.set_tab(c as usize - '1' as usize),
+            KeyCode::Tab => self.set_tab((self.tab + 1) % self.tabs.len()),
+            KeyCode::BackTab => self.set_tab((self.tab + self.tabs.len() - 1) % self.tabs.len()),
+            KeyCode::Char('a') => self.set_tab_named("all"),
+            KeyCode::Char('n') => self.set_tab_named("nvim"),
+            KeyCode::Char('l') => self.set_tab_named("git"),
             _ => {}
         }
         false
     }
 
-    fn set_filter(&mut self, f: &'static str) {
-        self.filter = f;
-        self.offset = 0;
+    fn set_tab(&mut self, i: usize) {
+        if i < self.tabs.len() {
+            self.tab = i;
+            self.offset = 0;
+        }
+    }
+
+    fn set_tab_named(&mut self, name: &str) {
+        if let Some(i) = self.tabs.iter().position(|t| t == name) {
+            self.set_tab(i);
+        }
+    }
+
+    fn filter(&self) -> &str {
+        &self.tabs[self.tab]
     }
 
     fn scroll(&mut self, delta: i64) {
@@ -191,16 +213,19 @@ impl<'a> App<'a> {
 
         // title bar
         let title = &self.sheet.meta.title;
-        let bar = Line::from(vec![
-            Span::styled(
-                format!(" {} ", title),
-                Style::default().fg(Color::Black).bg(BASE).bold(),
-            ),
-            Span::styled(
-                format!("  nvim + lazygit  ·  teal = daily driver"),
-                Style::default().fg(BADGE),
-            ),
-        ]);
+        let mut bar_spans = vec![Span::styled(
+            format!(" {} ", title),
+            Style::default().fg(Color::Black).bg(BASE).bold(),
+        )];
+        for (i, t) in self.tabs.iter().enumerate() {
+            let style = if i == self.tab {
+                Style::default().fg(TEAL).bold()
+            } else {
+                Style::default().fg(BADGE)
+            };
+            bar_spans.push(Span::styled(format!("  {}{}", i + 1, t), style));
+        }
+        let bar = Line::from(bar_spans);
         f.render_widget(Paragraph::new(bar), chunks[0]);
 
         // body slice
@@ -237,11 +262,7 @@ impl<'a> App<'a> {
                     Style::default().fg(Color::Black).bg(FAINT),
                 ),
                 Span::styled(
-                    format!("  filter:{}", self.filter),
-                    Style::default().fg(if self.filter == "all" { BADGE } else { TEAL }),
-                ),
-                Span::styled(
-                    "   j/k scroll · / search · a/n/l filter · q quit",
+                    "   j/k scroll · / search (all tabs) · 1-9 or tab = switch · q quit",
                     Style::default().fg(FAINT),
                 ),
             ])
@@ -250,19 +271,19 @@ impl<'a> App<'a> {
     }
 
     fn ensure_lines(&mut self, width: u16) {
-        let key = (width, self.filter, self.query.clone());
+        let key = (width, self.tab, self.query.clone());
         if key == self.cache_key && !self.lines.is_empty() {
             return;
         }
-        self.lines = compose(self.sheet, self.filter, &self.query, width as usize);
+        self.lines = compose(self.sheet, self.filter(), &self.query, width as usize);
         self.cache_key = key;
     }
 }
 
 // ── line building ───────────────────────────────────────────────────────
 
-fn tool_visible(section: &Section, filter: &str) -> bool {
-    filter == "all" || section.tool == filter || section.tool == "both"
+fn group_visible(section: &Section, filter: &str) -> bool {
+    filter == "all" || section.group == filter || section.live.is_some()
 }
 
 fn kbd_color(tone: &str, hl: bool) -> Color {
@@ -298,7 +319,8 @@ fn compose(sheet: &Sheet, filter: &str, query: &str, total_width: usize) -> Vec<
 
     let mut blocks: Vec<Vec<Line<'static>>> = Vec::new();
     for s in &sheet.sections {
-        if !tool_visible(s, filter) {
+        // a search looks across every tab; otherwise show the current one
+        if q.is_empty() && !group_visible(s, filter) {
             continue;
         }
         if !q.is_empty() && !section_matches(s, &q) {
@@ -378,12 +400,6 @@ fn build_block(s: &Section, cw: usize, q: &str) -> Vec<Line<'static>> {
         Span::styled("▌ ", Style::default().fg(tcol)),
         Span::styled(s.title.to_uppercase(), Style::default().fg(tcol).bold()),
     ];
-    if !s.badge.is_empty() {
-        hspans.push(Span::styled(
-            format!("  {}", s.badge),
-            Style::default().fg(BADGE),
-        ));
-    }
     if let Some(app) = &s.live {
         hspans.push(Span::styled(
             format!("  ● {app} open"),
@@ -403,6 +419,18 @@ fn build_block(s: &Section, cw: usize, q: &str) -> Vec<Line<'static>> {
         .max()
         .unwrap_or(0)
         .min(KEYCOL_MAX);
+    // command card (most keys are shell commands): no key rail, so every row
+    // stacks — the same rule `cheat gen` applies to the HTML panel.
+    let key_lens: Vec<usize> = s
+        .body
+        .iter()
+        .filter_map(|it| match it {
+            Item::Binding { k, .. } => Some(k.chars().count()),
+            _ => None,
+        })
+        .collect();
+    let long_keys = key_lens.iter().filter(|n| **n > 10).count();
+    let kw = if long_keys * 2 > key_lens.len() { 0 } else { kw };
 
     for item in &s.body {
         match item {
@@ -525,28 +553,41 @@ fn push_binding(
         return;
     }
 
-    // table logic: key on the left rail, description RIGHT-aligned to the column
-    // edge, wrapping ragged-left — like the HTML panel's text-align:right.
-    let gap_min = 2;
-    let desc_field = cw.saturating_sub(kw + gap_min).max(6);
-    let dlines = wrap_str(desc, desc_field);
+    let gap = 2;
 
+    // a key too long for the key rail (a shell command): stack it. The key
+    // wraps inside the column, the description sits under it, indented.
+    if key_disp > kw {
+        for (i, kl) in wrap_str(k, cw).into_iter().enumerate() {
+            let lead = if i == 0 { gutter.clone() } else { Span::raw("  ") };
+            out.push(Line::from(vec![
+                lead,
+                Span::styled(kl, Style::default().fg(kcol).bold()),
+            ]));
+        }
+        for dl in wrap_str(desc, cw.saturating_sub(gap).max(6)) {
+            out.push(Line::from(vec![
+                Span::raw(" ".repeat(2 + gap)),
+                Span::styled(dl, Style::default().fg(dcol)),
+            ]));
+        }
+        return;
+    }
+
+    // table logic, same as the HTML panel: key on the left rail, description
+    // LEFT-aligned at one x for the whole card, wrapping ragged-right.
+    let desc_field = cw.saturating_sub(kw + gap).max(6);
+    let dlines = wrap_str(desc, desc_field);
     let first = dlines.first().cloned().unwrap_or_default();
-    let mid = cw
-        .saturating_sub(key_disp + first.chars().count())
-        .max(gap_min);
     out.push(Line::from(vec![
         gutter,
         Span::styled(k.to_string(), Style::default().fg(kcol).bold()),
-        Span::raw(" ".repeat(mid)),
+        Span::raw(" ".repeat(kw - key_disp + gap)),
         Span::styled(first, Style::default().fg(dcol)),
     ]));
-
-    // continuation lines: right-aligned to the same edge (ragged left)
     for cont in dlines.iter().skip(1) {
-        let pad = cw.saturating_sub(cont.chars().count());
         out.push(Line::from(vec![
-            Span::raw(" ".repeat(2 + pad)),
+            Span::raw(" ".repeat(2 + kw + gap)),
             Span::styled(cont.clone(), Style::default().fg(dcol)),
         ]));
     }

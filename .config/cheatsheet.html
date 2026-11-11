@@ -41,34 +41,46 @@
     padding: 4px 6px;
     line-height: 1.25;
   }
-  /* fluid columns: as many ~215px columns as fit the FULL window width (no count
-     cap, so wide screens fill edge-to-edge and balance instead of leaving the
-     right half empty). column-width only => auto count => no horizontal scrollbar. */
+  /* fluid columns: as many ~235px columns as fit the window width. A narrow
+     panel is one column; a wide one fills edge to edge. */
   .grid { column-width: 235px; column-gap: 10px; }
 
+  /* Header = the tab strip. One tab (group) shows at a time; "all" is a closed
+     outline of every card. Text tabs, no boxes: the active one is bright with a
+     hairline under it. Keys 1-9 switch. */
   header {
     display: flex; flex-wrap: wrap; align-items: baseline;
-    gap: 2px 10px;
-    padding-bottom: 3px; margin-bottom: 4px;
-    border-bottom: 1px solid var(--base15);
-    font-size: 10px; color: var(--fg40);
+    gap: 2px 4px;
+    padding-bottom: 3px; margin-bottom: 3px;
+    border-bottom: 1px solid var(--fg10);
   }
-  header .title { color: var(--base); letter-spacing: 1px; font-size: 11px; white-space: nowrap; }
-  header .tag { white-space: nowrap; }
-  header .controls { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
-  /* narrow panel: shed the decorative tagline so title + buttons stay on one line */
-  @media (max-width: 400px) { header .tag { display: none; } }
   header button {
-    background: var(--base08); color: var(--fg40); border: 1px solid var(--base15);
-    padding: 1px 6px; border-radius: 2px; font-family: inherit;
-    font-size: 9px; cursor: pointer;
+    background: none; border: 0; border-bottom: 1px solid transparent;
+    color: var(--fg20); font-family: inherit; font-size: 10px;
+    padding: 1px 4px; cursor: pointer;
   }
-  header button:hover { color: var(--fg80); border-color: var(--base30); }
-  header button.active { color: var(--base); border-color: var(--base50); }
+  header button:hover { color: var(--fg80); }
+  #tabs { display: flex; flex-wrap: wrap; gap: 2px 4px; }
+  #tabs button { text-transform: uppercase; letter-spacing: 1px; }
+  #tabs button.active { color: var(--fg80); border-bottom-color: var(--fg80); }
+  header .controls { display: flex; gap: 2px; margin-left: auto; }
+  header .controls button { font-size: 9px; }
+
+  /* tip of the moment: one dim line (two at most), click for the next */
+  #tipbar {
+    display: flex; gap: 8px; align-items: baseline;
+    margin: 0 0 5px; padding: 0 4px;
+    font-size: 9px; color: var(--fg20); cursor: pointer; user-select: none;
+  }
+  #tipbar .t { text-transform: uppercase; letter-spacing: 1px; color: var(--base50); }
+  #tiptext {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  #tipbar:hover #tiptext { color: var(--fg60); }
 
   /* Floating search: hidden until you press "/". Fixed to the panel viewport so
-     it works no matter how far you've scrolled. Disappears on Escape or on blur
-     when empty — minimalist, out of the way until needed. */
+     it works no matter how far you've scrolled. Searches every tab. */
   #search {
     position: fixed; top: 8px; left: 50%; z-index: 50;
     width: min(280px, 72%);
@@ -85,6 +97,16 @@
     transform: translateX(-50%) translateY(0);
   }
   #search::placeholder { color: var(--fg20); }
+
+  /* group heading: only on the "all" tab and above the tips index */
+  h2.g {
+    column-span: all;
+    font-size: 9px; font-weight: inherit; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--fg80); margin: 10px 0 4px; padding-top: 5px;
+    border-top: 1px solid var(--fg10);
+  }
+  h2.g:first-child { margin-top: 0; border-top: 0; padding-top: 0; }
+  h2.g .sub { color: var(--fg20); letter-spacing: 0.5px; text-transform: none; }
 
   details {
     break-inside: avoid;
@@ -107,34 +129,30 @@
   summary::after { content: "\25B8"; font-size: 7px; color: var(--fg20); transition: transform 0.15s; }
   details[open] summary::after { transform: rotate(90deg); color: var(--base50); }
   summary:hover { color: var(--fg80); }
+  summary .ct { color: var(--fg20); margin-left: 6px; margin-right: auto; letter-spacing: 0; }
 
-  summary .ct {
-    font-size: 8px; color: var(--fg20); font-variant-numeric: tabular-nums;
-    letter-spacing: 0; text-transform: none; margin-left: auto; margin-right: 6px;
-  }
-
-  /* tool badge in summary */
+  /* app-context card: its app (Final Cut, Logic) is frontmost or running */
   summary .badge {
     font-size: 7px; letter-spacing: 0.5px; padding: 0 4px; border-radius: 2px;
     margin-right: 6px; text-transform: none;
   }
-  summary .badge.nvim { background: rgba(230,0,103,0.15); color: var(--base50); }
-  summary .badge.lazygit { background: rgba(247,200,110,0.12); color: var(--gold40); }
-  /* app-context card: its app (Final Cut, Logic) is frontmost or running */
   summary .badge.live { background: rgba(123,240,249,0.14); color: #7bf0f9; }
 
   .c { padding: 0 6px; }
-  /* Two-column TABLE: keys in a stable left column, descriptions left-aligned so
-     they wrap ragged-RIGHT (calm) instead of ragged-both — no more orphaned words
-     or variable eye-jumps. minmax lets a rare long key expand without wrapping,
-     while short keys share one left edge and every description starts at the same x. */
+  /* Two-column TABLE: keys in a stable left column, descriptions LEFT-aligned
+     so every description starts at the same x and wraps ragged-right. */
   .r {
     display: grid; grid-template-columns: minmax(4.6em, auto) 1fr;
     column-gap: 10px; align-items: baseline;
     padding: 1.5px 4px; margin: 0 -4px; border-radius: 2px;
   }
-  /* Tufte-subtle zebra: smallest effective difference — just enough to rail the
-     eye from key to meaning across the row. Skip the special/matched rows. */
+  /* stacked row: a long key (a shell command) takes its own line and the
+     description sits under it, indented. Set by `cheat gen` for keys > 16 chars. */
+  /* details.stk = a command card (most keys are commands): every row stacks. */
+  .r.st, .stk .r { display: block; }
+  .r.st kbd, .stk .r kbd { display: block; }
+  .r.st .d, .stk .r .d { display: block; padding-left: 1.2em; }
+  /* Tufte-subtle zebra: just enough to rail the eye from key to meaning. */
   .r:nth-child(even):not(.dd):not(.highlight) { background: rgba(245,225,235,0.035); }
   .r:hover { background: var(--base08); }
   .r.highlight { background: var(--base15); }
@@ -153,19 +171,17 @@
     white-space: normal; overflow-wrap: break-word;
   }
   .d {
-    color: var(--fg40); text-align: right;
+    color: var(--fg40); text-align: left;
     white-space: normal; overflow-wrap: break-word;
     font-size: 10px;
   }
-  /* a keyless row (description only) spans both columns instead of squeezing
-     itself into the narrow key track */
+  /* a keyless row (description only) spans both columns */
   .r > .d:only-child { grid-column: 1 / -1; }
   .r:hover .d { color: var(--fg60); }
 
   .div { height: 1px; background: var(--fg10); margin: 3px 0; }
 
-  /* prose notes: roman, not italic — small italic monospace is the least legible
-     thing on the page. Keep it dim; let <em> lift the key terms in teal. */
+  /* prose notes: roman, not italic. Dim; <em> lifts the key terms in teal. */
   .n { font-size: 9px; color: var(--fg40); font-style: normal; padding: 2px 0 3px;
     line-height: 1.45;
   }
@@ -174,7 +190,7 @@
   .o { font-size: 8.5px; color: var(--fg40); padding: 1px 0; letter-spacing: 0.3px; }
   .o::before { content: "\21B3 "; color: var(--base30); }
 
-  /* sub-group label inside a card — splits a long card into teachable chunks */
+  /* sub-group label inside a card */
   .lbl {
     font-size: 7.5px; text-transform: uppercase; letter-spacing: 1px;
     color: var(--base50); margin: 5px 0 1px; padding-top: 3px;
@@ -182,8 +198,7 @@
   }
   .lbl:first-child { border-top: 0; padding-top: 0; }
 
-  /* strategy callout — a small stepped block for "how to actually use this",
-     not just what the keys are. Teal-accented like the daily-driver rows. */
+  /* strategy callout: "how to actually use this", not just what the keys are */
   .strat {
     margin: 5px -2px 2px; padding: 5px 8px; border-radius: 3px;
     background: rgba(110,237,247,0.04); border-left: 2px solid var(--teal40);
@@ -210,205 +225,148 @@
   details.gold[open] { border-left-color: rgba(247,200,110,0.5); }
   details.gold[open] summary { color: var(--gold70); }
 
-  /* colored keys per domain so the auto-index reads like the curated cards:
-     nvim=teal (above), git/lazygit=gold, tmux=pink, prose=dim italic */
   details.gold kbd { color: var(--gold); }
   details.primary kbd { color: var(--base80); }
-  details.primary[open] summary { color: var(--fg); }
   details.prose { border-left-color: var(--fg10); }
   details.prose[open] summary { color: var(--fg40); }
-  details.prose .d { text-align: left; font-style: italic; padding-left: 0; }
+  details.prose .d { font-style: italic; padding-left: 0; }
 
-  details.hidden { display: none; }
-  .r.hidden { display: none; }
+  .hidden { display: none !important; }
 
-  html, body { overflow-x: hidden; } /* belt-and-suspenders: never a horizontal bar */
+  html, body { overflow-x: hidden; } /* never a horizontal bar */
 </style>
 </head>
 <body>
 
 <header>
-  <span class="title">ejfox cheatsheet</span>
-  <span class="tag"><span style="color:var(--base50)">nvim</span> + <span style="color:var(--gold40)">lazygit</span> &nbsp; <span style="color:var(--teal40)">teal</span> = daily driver</span>
+  <nav id="tabs">
+    <button data-tab="nvim" title="key 1">nvim</button>
+    <button data-tab="git" title="key 2">git</button>
+    <button data-tab="term" title="key 3">term</button>
+    <button data-tab="voice" title="key 4">voice</button>
+    <button data-tab="pc" title="key 5">pc</button>
+    <button data-tab="desk" title="key 6">desk</button>
+    <button data-tab="make" title="key 7">make</button>
+    <button data-tab="ops" title="key 8">ops</button>
+    <button data-tab="all" title="key 9">all</button>
+  </nav>
   <span class="controls">
-    <button onclick="filterTool('all')" class="active" id="btn-all">all</button>
-    <button onclick="filterTool('nvim')" id="btn-nvim">nvim</button>
-    <button onclick="filterTool('lazygit')" id="btn-lazygit">lazygit</button>
-    <button onclick="toggleAll(true)">open all</button>
-    <button onclick="toggleAll(false)">collapse</button>
-      <button onclick="zoomBy(-0.1)" title="text smaller (-)">A&#8722;</button>
+    <button onclick="openSearch()" title="search every tab (/)">/</button>
+    <button onclick="toggleAll(true)" title="open every card on this tab">open</button>
+    <button onclick="toggleAll(false)" title="close every card on this tab">shut</button>
+    <button onclick="zoomBy(-0.1)" title="text smaller (-)">A&#8722;</button>
     <button onclick="zoomBy(0.1)" title="text bigger (+)">A+</button>
   </span>
 </header>
-<input type="text" id="search" placeholder="search keybindings…  (esc to close)">
+<input type="text" id="search" placeholder="search every tab…  (esc to close)">
 
-<div id="tipbar" onclick="nextTip()" title="click for another — auto-rotates every 15m"
-  style="display:flex;gap:10px;align-items:baseline;margin:6px 0 2px;padding:6px 10px;
-  border:1px solid var(--base15);border-left:2px solid var(--base);border-radius:4px;
-  background:var(--base08);cursor:pointer;user-select:none;">
-  <span style="color:var(--base);text-transform:uppercase;letter-spacing:.1em;font-size:9px;">tip</span>
-  <span id="tiptext" style="color:var(--fg80);">loading…</span>
+<div id="tipbar" onclick="nextTip()" title="click for another (auto-rotates every 15m)">
+  <span class="t">tip</span>
+  <span id="tiptext">loading…</span>
 </div>
 
 <div class="grid" id="grid">
 
-<!-- ═══════════════════════════════════════════ -->
-<!--                 NVIM                        -->
-<!-- ═══════════════════════════════════════════ -->
-
-<details class="gold" open data-tool="both">
-  <summary><span class="badge live">● Logic Pro open</span> Logic Pro — beds, stems, VO</summary>
+<h2 class="g" data-group="nvim">nvim</h2>
+<details open data-open="1" data-group="nvim">
+  <summary>Move in File</summary>
   <div class="c">
-    <div class="n">Logic's default key commands (no named custom set found) · check any in <kbd>⌥k</kbd></div>
-    <div class="lbl">transport</div>
-    <div class="r dd"><kbd>⎵  ·  r</kbd><span class="d">play / stop · record</span></div>
-    <div class="r"><kbd>⏎</kbd><span class="d">go to the beginning</span></div>
-    <div class="r dd"><kbd>c  ·  ⌘u</kbd><span class="d">cycle on/off · cycle the selection (set locators)</span></div>
-    <div class="r"><kbd>k</kbd><span class="d">metronome click</span></div>
+    <div class="r dd"><kbd>{ / }</kbd><span class="d">prev / next paragraph</span></div>
+    <div class="r"><kbd>C-d / C-u</kbd><span class="d">half page down / up</span></div>
+    <div class="r"><kbd>gg / G</kbd><span class="d">top / bottom of file</span></div>
+    <div class="r"><kbd>%</kbd><span class="d">matching bracket</span></div>
     <div class="div"></div>
-    <div class="lbl">regions</div>
-    <div class="r dd"><kbd>⌘t</kbd><span class="d">split at the playhead (chopping stems + samples)</span></div>
-    <div class="r"><kbd>⌘j</kbd><span class="d">join regions</span></div>
-    <div class="r"><kbd>⌃m</kbd><span class="d">mute region</span></div>
-    <div class="r"><kbd>m  ·  s</kbd><span class="d">mute track · solo track</span></div>
-    <div class="r"><kbd>q</kbd><span class="d">quantize selection</span></div>
-    <div class="r"><kbd>z</kbd><span class="d">zoom to fit the selection</span></div>
-    <div class="div"></div>
-    <div class="lbl">windows + out</div>
-    <div class="r"><kbd>x  ·  e  ·  b  ·  y</kbd><span class="d">mixer · editor · smart controls · library</span></div>
-    <div class="r dd"><kbd>⌘b</kbd><span class="d">bounce project or the cycle area (beds, KO-33 / TP-7 packs)</span></div>
+    <div class="r"><kbd>C-o / C-i</kbd><span class="d">jumplist back / forward</span></div>
+    <div class="r"><kbd>gi</kbd><span class="d">go to last insert spot</span></div>
+    <div class="r"><kbd>* / #</kbd><span class="d">search word forward / back</span></div>
+    <div class="r"><kbd>.</kbd><span class="d">repeat last change</span></div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary>Talon — Deleting</summary>
+<details open data-open="1" data-group="nvim">
+  <summary>Navigate</summary>
   <div class="c">
-    <div class="n">the delete word is <b>clear</b> — say <em>clear</em> + any target. the one you keep forgetting: <b>clear all</b>.</div>
-    <div class="r dd"><kbd>clear all</kbd><span class="d">delete EVERYTHING (whole doc)</span></div>
-    <div class="r dd"><kbd>clear line</kbd><span class="d">delete current line</span></div>
-    <div class="r"><kbd>clear word</kbd><span class="d">delete word at cursor</span></div>
-    <div class="r"><kbd>clear paragraph</kbd><span class="d">delete paragraph</span></div>
-    <div class="r"><kbd>clear way left / way right</kbd><span class="d">delete to line start / end</span></div>
-    <div class="r"><kbd>clear left 3 words</kbd><span class="d">delete back N words (dictation)</span></div>
-    <div class="r"><kbd>wipe / delete</kbd><span class="d">backspace, one keypress</span></div>
+    <div class="r dd"><kbd>⎵ff</kbd><span class="d">find file</span></div>
+    <div class="r"><kbd>⎵sg</kbd><span class="d">live grep</span></div>
+    <div class="r"><kbd>⎵/</kbd><span class="d">grep from root</span></div>
+    <div class="r"><kbd>⎵fb</kbd><span class="d">buffers</span></div>
+    <div class="r"><kbd>⎵fr</kbd><span class="d">recent files</span></div>
     <div class="div"></div>
-    <div class="r dd"><kbd>scratch that / nope that</kbd><span class="d">undo last utterance</span></div>
-    <div class="r"><kbd>undo that / redo that</kbd><span class="d">app undo / redo</span></div>
-    <div class="lbl">in the terminal (ghostty)</div>
-    <div class="r dd"><kbd>wipe</kbd><span class="d">kill whole line (C-u)</span></div>
-    <div class="r"><kbd>wipe word / wipe back</kbd><span class="d">kill word behind (C-w)</span></div>
-    <div class="r"><kbd>wipe ahead</kbd><span class="d">kill to end of line (C-k)</span></div>
-    <div class="r"><kbd>chomp</kbd><span class="d">kill 10 words back</span></div>
-    <div class="o">grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…</div>
+    <div class="r"><kbd>s</kbd><span class="d">flash jump</span></div>
+    <div class="r"><kbd>S</kbd><span class="d">flash treesitter select</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>H / L</kbd><span class="d">prev / next buffer</span></div>
+    <div class="r"><kbd>⎵bd</kbd><span class="d">close buffer</span></div>
+    <div class="r"><kbd>⎵| / ⎵-</kbd><span class="d">vsplit / hsplit</span></div>
+    <div class="r"><kbd>C-h/j/k/l</kbd><span class="d">move between splits</span></div>
+    <div class="lbl">hand it to claude</div>
+    <div class="r dd"><kbd>⎵yr</kbd><span class="d">copy + relative path</span></div>
+    <div class="r"><kbd>⎵ya</kbd><span class="d">copy + absolute path</span></div>
+    <div class="o">in <em>visual mode</em> it copies <em>file:10-15 ```code```</em></div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary>Talon — Say &amp; Modes</summary>
+<details open data-open="1" data-group="nvim">
+  <summary>Understand &amp; Fix</summary>
   <div class="c">
-    <div class="r dd"><kbd>talk</kbd><span class="d">→ dictation mode</span></div>
-    <div class="r dd"><kbd>command mode</kbd><span class="d">→ command mode</span></div>
-    <div class="r"><kbd>talon sleep / talon wake</kbd><span class="d">mic off / on</span></div>
+    <div class="r dd"><kbd>gd</kbd><span class="d">go to definition</span></div>
+    <div class="r"><kbd>gr</kbd><span class="d">references</span></div>
+    <div class="r"><kbd>gI</kbd><span class="d">implementation</span></div>
+    <div class="r"><kbd>gy</kbd><span class="d">type definition</span></div>
+    <div class="r"><kbd>K</kbd><span class="d">hover docs</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>phrase hello world</kbd><span class="d">type words (command mode)</span></div>
-    <div class="r"><kbd>say … / sentence …</kbd><span class="d">prose / Capitalized prose</span></div>
-    <div class="r"><kbd>title …</kbd><span class="d">Capitalize All Words</span></div>
-    <div class="r"><kbd>camel / snake / kebab …</kbd><span class="d">identifier formatters</span></div>
-    <div class="r"><kbd>smash / all cap …</kbd><span class="d">nospaces / ALLCAPS</span></div>
-    <div class="r"><kbd>camel that</kbd><span class="d">reformat selection (any formatter)</span></div>
+    <div class="r"><kbd>gai / gao</kbd><span class="d">incoming / outgoing calls</span></div>
+    <div class="r"><kbd>⎵ss / ⎵sS</kbd><span class="d">file / workspace symbols</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>select all / line / word</kbd><span class="d">same targets as clear</span></div>
-    <div class="r"><kbd>copy that / cut that</kbd><span class="d">clipboard out</span></div>
-    <div class="r"><kbd>paste that / paste match</kbd><span class="d">clipboard in / match style</span></div>
-    <div class="r"><kbd>go way up / way down</kbd><span class="d">top / bottom of file</span></div>
-    <div class="r"><kbd>head / tail</kbd><span class="d">line start / end</span></div>
-    <div class="r"><kbd>press cmd shift alpha</kbd><span class="d">any chord, NATO letters</span></div>
-    <div class="n">letters are <b>NATO</b>: alpha bravo charlie delta… (your override)</div>
+    <div class="r"><kbd>⎵ca</kbd><span class="d">code action</span></div>
+    <div class="r"><kbd>⎵cr</kbd><span class="d">rename symbol</span></div>
+    <div class="r"><kbd>⎵cd</kbd><span class="d">line diagnostics</span></div>
+    <div class="r"><kbd>⎵co</kbd><span class="d">organize imports</span></div>
+    <div class="r"><kbd>]d / [d</kbd><span class="d">next / prev diagnostic</span></div>
+    <div class="o">native LSP, not telescope — instant jumps</div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary>Talon — Apps, Windows, Tmux</summary>
+<details class="primary" data-group="nvim">
+  <summary>Review Changes</summary>
   <div class="c">
-    <div class="r dd"><kbd>slap / go ahead / send it</kbd><span class="d">press enter</span></div>
-    <div class="r"><kbd>cancel / bail</kbd><span class="d">ctrl-c</span></div>
-    <div class="r"><kbd>dismiss</kbd><span class="d">escape</span></div>
-    <div class="r"><kbd>confirm / deny</kbd><span class="d">y / n</span></div>
+    <div class="r dd"><kbd>⎵gm → ]h</kbd><span class="d">diff main, walk hunks</span></div>
+    <div class="r"><kbd>⎵gp</kbd><span class="d">gutter → diff vs PR base</span></div>
+    <div class="r"><kbd>⎵gH</kbd><span class="d">gutter → reset to HEAD</span></div>
+    <div class="r"><kbd>⎵gM</kbd><span class="d">split diff vs main</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>open ghostty / chrome / slack…</kbd><span class="d">focus app</span></div>
-    <div class="r"><kbd>window left / right</kbd><span class="d">snap half (divvy)</span></div>
-    <div class="r"><kbd>snap full / window expand</kbd><span class="d">fullscreen</span></div>
-    <div class="r"><kbd>send to screen two</kbd><span class="d">move + maximize</span></div>
-    <div class="r"><kbd>desk left / desk right</kbd><span class="d">switch spaces</span></div>
-    <div class="r"><kbd>hide this / quit this</kbd><span class="d">cmd-h / cmd-q</span></div>
+    <div class="r"><kbd>]h / [h</kbd><span class="d">next / prev hunk</span></div>
+    <div class="r"><kbd>]H / [H</kbd><span class="d">last / first hunk</span></div>
     <div class="div"></div>
-    <div class="r"><kbd>mux 2 / mux next / mux last</kbd><span class="d">tmux windows</span></div>
-    <div class="r"><kbd>mux left / right / up / down</kbd><span class="d">tmux panes</span></div>
-    <div class="r"><kbd>mux new / mux close</kbd><span class="d">window create / kill</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>last command / run again</kbd><span class="d">↑ / ↑ + enter</span></div>
-    <div class="r"><kbd>search history</kbd><span class="d">ctrl-r (fzf)</span></div>
+    <div class="r"><kbd>⎵gj</kbd><span class="d">all hunks → quickfix</span></div>
+    <div class="r"><kbd>]q / [q</kbd><span class="d">jump across files</span></div>
+    <div class="n"><em>⎵gj</em> then <em>]q</em> = walk ALL changed files</div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary><span class="badge PC">PC</span> computah — Windows PC</summary>
+<details class="primary" data-group="nvim">
+  <summary>Git Actions</summary>
   <div class="c">
-    <div class="r dd"><kbd>computah doctor</kbd><span class="d">health check + auto-heal EVERYTHING (run this first if anything's off)</span></div>
-    <div class="r dd"><kbd>computah muse-loop</kbd><span class="d">weird art wall from your screen + notes</span></div>
-    <div class="r"><kbd>computah status</kbd><span class="d">reachable? load? disk?</span></div>
-    <div class="r"><kbd>computah wake / sleep</kbd><span class="d">power on (WoL) / suspend</span></div>
-    <div class="r"><kbd>computah harden-wol</kbd><span class="d">run once if wake dies after a full shutdown (Fast Startup off, arm NIC, kill night-wake)</span></div>
-    <div class="r"><kbd>computah imagine "…"</kbd><span class="d">one FLUX image on the PC GPU</span></div>
-    <div class="r dd"><kbd>renders</kbd><span class="d">browse Blender renders: PC awake = page with EVERY render (10.0.0.169:7861/blender.html, no login), PC off = Mac copy in ~/Pictures/Blender</span></div>
-    <div class="r"><kbd>renders live / renders mac</kbd><span class="d">the studio's live viewer page / force the Mac copy</span></div>
-    <div class="r"><kbd>studio-dev on / wait N / sheet</kbd><span class="d">fast 1-bit studio iteration: 360p previews on the PC, block for N, contact sheet (page: :7861/studio-dev.html)</span></div>
-    <div class="r"><kbd>studio-dev pin k=v / now / kill</kbd><span class="d">pin any recipe knob (scene= signal= dither= lens= seed=...), stage breadcrumbs of a stuck piece, kill stuck pieces</span></div>
-    <div class="r"><kbd>pcps &lt;&lt;'EOF'</kbd><span class="d">run a PowerShell script on the PC from a heredoc: no ssh/cmd quoting hell</span></div>
-    <div class="r dd"><kbd>computah-check</kbd><span class="d">health of everything on the PC: services, kiosks, endpoints, studio + wall producing (◆ ok / ◇ problem)</span></div>
-    <div class="r"><kbd>obs-computah-source</kbd><span class="d">iMac OBS: (re)create scene 'computah' w/ 'computah (Teleport)' = the PC's OBS program feed, ~tens of ms, muted (dials 10.0.0.169:9100); hidden SRT fallback; grabs a test frame</span></div>
-    <div class="r"><kbd>brief-pictures --dry</kbd><span class="d">preview the 08:02 Discord picture DM (today's charts + one art tile); full-size files in ~/Pictures/Brief/&lt;date&gt;/</span></div>
-    <div class="r dd"><kbd>computah sd-server start/stop</kbd><span class="d">keep FLUX hot — imagine/muse-loop skip the multi-min model reload</span></div>
-    <div class="r"><kbd>computah llm on/off</kbd><span class="d">local Qwen LLM server :8085</span></div>
-    <div class="r"><kbd>computah scanner-worker on/off/status</kbd><span class="d">PC drains the VPS radio-transcript queue (whisper turbo); idles in games + 22:00-09:00, never wakes it. UI: scanner.tools.ejfox.com (private link)</span></div>
-    <div class="r dd"><kbd>computah screenshot</kbd><span class="d">the real Windows desktop -&gt; ~/screenshots/computah + image on the clipboard (~3s); --up also uploads via the Cloudinary watcher</span></div>
-    <div class="r"><kbd>computah obs start/rec/stop</kbd><span class="d">OBS on the PC: tray / record now / off (off by default: idle OBS tripped the wall's game guard; Fortnite matches still auto-open it)</span></div>
+    <div class="r dd"><kbd>⎵gg</kbd><span class="d">lazygit</span></div>
+    <div class="r"><kbd>⎵gs</kbd><span class="d">stage hunk</span></div>
+    <div class="r"><kbd>⎵gr</kbd><span class="d">reset hunk</span></div>
+    <div class="r"><kbd>⎵gS / ⎵gR</kbd><span class="d">stage / reset buffer</span></div>
+    <div class="r"><kbd>⎵gu</kbd><span class="d">undo stage</span></div>
+    <div class="r"><kbd>⎵gb</kbd><span class="d">blame line</span></div>
     <div class="div"></div>
-    <div class="o">◆ reverse channel: on the PC, robots run <kbd>tomac &lt;file&gt;</kbd> → ~/Desktop/from-computah here</div>
-    <div class="o">◆ anything broken (deskflow, wall, renders)? → computah doctor</div>
-    <div class="o">◆ deskflow cursor won't cross? → deskflow-heal -v (or just re-login)</div>
-    <div class="o">◆ stop the art wall: pkill -f 'computah muse-loop'</div>
+    <div class="r"><kbd>⎵gf</kbd><span class="d">file history</span></div>
+    <div class="r"><kbd>⎵gl / ⎵gL</kbd><span class="d">git log (root / cwd)</span></div>
+    <div class="r"><kbd>⎵gB</kbd><span class="d">open in browser</span></div>
+    <div class="r"><kbd>⎵gY</kbd><span class="d">copy repo URL</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>co / ct</kbd><span class="d">conflict: ours / theirs</span></div>
+    <div class="r"><kbd>cb / c0</kbd><span class="d">conflict: both / none</span></div>
+    <div class="r"><kbd>]x / [x</kbd><span class="d">next / prev conflict</span></div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary>ejfox Workflow</summary>
-  <div class="c">
-    <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: lazygit popup</span></div>
-    <div class="r dd"><kbd>C-a Z</kbd><span class="d">tmux: reading column (this window, 80ch)</span></div>
-    <div class="r dd"><kbd>Space → a</kbd><span class="d">lazygit: stage, AI commit</span></div>
-    <div class="r dd"><kbd>⎵gg</kbd><span class="d">nvim: open lazygit</span></div>
-    <div class="r"><kbd>Enter → v → Space</kbd><span class="d">lazygit: partial hunk staging</span></div>
-    <div class="r"><kbd>⎵gm → ]h</kbd><span class="d">nvim: diff main, walk hunks</span></div>
-    <div class="div"></div>
-    <div class="o">C-a g = float lazygit over your panes, dismiss when done</div>
-    <div class="o">stage with space, AI commit with a, push with P</div>
-    <div class="o">z to undo anything (reflog-powered safety net)</div>
-    <div class="lbl">morning brief feeds</div>
-    <div class="r"><kbd>things-bridge</kbd><span class="d">push Things → VPS, pull brief facts back (auto every 30m)</span></div>
-    <div class="r"><kbd>pixel knock / tally / wilt</kbd><span class="d">radar of 25+ hit IPs · blocked-days tally wall · goal garden</span></div>
-    <div class="r"><kbd>pixel action / found / held</kbd><span class="d">today's 10-min step · who found you · what the brief kept quiet</span></div>
-    <div class="lbl">pixel theater</div>
-    <div class="r"><kbd>pixel skyline</kbd><span class="d">repos as a night city · lit windows = today's commits · real sun + moon</span></div>
-    <div class="r"><kbd>pixel vitals / hive</kbd><span class="d">24h operator EKG (prompts, flatlines) · Claude sessions as a swarm + session ids</span></div>
-    <div class="r"><kbd>pixel credits / transmission</kbd><span class="d">the day's opening titles · a phrase you spoke to Talon, decoded</span></div>
-    <div class="r"><kbd>things-export | jq</kbd><span class="d">see exactly what leaves the Mac</span></div>
-    <div class="o">log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access</div>
-  </div>
-</details>
-
-<details class="primary" open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Folds</summary>
+<details class="primary" data-group="nvim">
+  <summary>Folds</summary>
   <div class="c">
     <div class="n">folds follow real code structure (treesitter / LSP, not indent guesses). <em>foldlevel</em> is a depth dial: <em>0</em> = everything shut, <em>99</em> = everything open. LazyVim starts at 99, so you close what you want rather than dig out.</div>
     <div class="lbl">this fold — at the cursor</div>
@@ -437,42 +395,8 @@
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Move in File</summary>
-  <div class="c">
-    <div class="r dd"><kbd>{ / }</kbd><span class="d">prev / next paragraph</span></div>
-    <div class="r"><kbd>C-d / C-u</kbd><span class="d">half page down / up</span></div>
-    <div class="r"><kbd>gg / G</kbd><span class="d">top / bottom of file</span></div>
-    <div class="r"><kbd>%</kbd><span class="d">matching bracket</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>C-o / C-i</kbd><span class="d">jumplist back / forward</span></div>
-    <div class="r"><kbd>gi</kbd><span class="d">go to last insert spot</span></div>
-    <div class="r"><kbd>* / #</kbd><span class="d">search word forward / back</span></div>
-    <div class="r"><kbd>.</kbd><span class="d">repeat last change</span></div>
-  </div>
-</details>
-
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Navigate</summary>
-  <div class="c">
-    <div class="r dd"><kbd>⎵ff</kbd><span class="d">find file</span></div>
-    <div class="r"><kbd>⎵sg</kbd><span class="d">live grep</span></div>
-    <div class="r"><kbd>⎵/</kbd><span class="d">grep from root</span></div>
-    <div class="r"><kbd>⎵fb</kbd><span class="d">buffers</span></div>
-    <div class="r"><kbd>⎵fr</kbd><span class="d">recent files</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>s</kbd><span class="d">flash jump</span></div>
-    <div class="r"><kbd>S</kbd><span class="d">flash treesitter select</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>H / L</kbd><span class="d">prev / next buffer</span></div>
-    <div class="r"><kbd>⎵bd</kbd><span class="d">close buffer</span></div>
-    <div class="r"><kbd>⎵| / ⎵-</kbd><span class="d">vsplit / hsplit</span></div>
-    <div class="r"><kbd>C-h/j/k/l</kbd><span class="d">move between splits</span></div>
-  </div>
-</details>
-
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Oil — Files as Buffers</summary>
+<details data-group="nvim">
+  <summary>Oil — Files as Buffers</summary>
   <div class="c">
     <div class="r dd"><kbd>-</kbd><span class="d">open parent dir</span></div>
     <div class="r"><kbd>⏎</kbd><span class="d">open file</span></div>
@@ -487,93 +411,11 @@
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Understand &amp; Fix</summary>
-  <div class="c">
-    <div class="r dd"><kbd>gd</kbd><span class="d">go to definition</span></div>
-    <div class="r"><kbd>gr</kbd><span class="d">references</span></div>
-    <div class="r"><kbd>gI</kbd><span class="d">implementation</span></div>
-    <div class="r"><kbd>gy</kbd><span class="d">type definition</span></div>
-    <div class="r"><kbd>K</kbd><span class="d">hover docs</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>gai / gao</kbd><span class="d">incoming / outgoing calls</span></div>
-    <div class="r"><kbd>⎵ss / ⎵sS</kbd><span class="d">file / workspace symbols</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>⎵ca</kbd><span class="d">code action</span></div>
-    <div class="r"><kbd>⎵cr</kbd><span class="d">rename symbol</span></div>
-    <div class="r"><kbd>⎵cd</kbd><span class="d">line diagnostics</span></div>
-    <div class="r"><kbd>⎵co</kbd><span class="d">organize imports</span></div>
-    <div class="r"><kbd>]d / [d</kbd><span class="d">next / prev diagnostic</span></div>
-    <div class="o">native LSP, not telescope — instant jumps</div>
-  </div>
-</details>
-
-<details class="primary" open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Review Changes</summary>
-  <div class="c">
-    <div class="r dd"><kbd>⎵gm → ]h</kbd><span class="d">diff main, walk hunks</span></div>
-    <div class="r"><kbd>⎵gp</kbd><span class="d">gutter → diff vs PR base</span></div>
-    <div class="r"><kbd>⎵gH</kbd><span class="d">gutter → reset to HEAD</span></div>
-    <div class="r"><kbd>⎵gM</kbd><span class="d">split diff vs main</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>]h / [h</kbd><span class="d">next / prev hunk</span></div>
-    <div class="r"><kbd>]H / [H</kbd><span class="d">last / first hunk</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>⎵gj</kbd><span class="d">all hunks → quickfix</span></div>
-    <div class="r"><kbd>]q / [q</kbd><span class="d">jump across files</span></div>
-    <div class="n"><em>⎵gj</em> then <em>]q</em> = walk ALL changed files</div>
-  </div>
-</details>
-
-<details class="primary" open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Git Actions</summary>
-  <div class="c">
-    <div class="r dd"><kbd>⎵gg</kbd><span class="d">lazygit</span></div>
-    <div class="r"><kbd>⎵gs</kbd><span class="d">stage hunk</span></div>
-    <div class="r"><kbd>⎵gr</kbd><span class="d">reset hunk</span></div>
-    <div class="r"><kbd>⎵gS / ⎵gR</kbd><span class="d">stage / reset buffer</span></div>
-    <div class="r"><kbd>⎵gu</kbd><span class="d">undo stage</span></div>
-    <div class="r"><kbd>⎵gb</kbd><span class="d">blame line</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>⎵gf</kbd><span class="d">file history</span></div>
-    <div class="r"><kbd>⎵gl / ⎵gL</kbd><span class="d">git log (root / cwd)</span></div>
-    <div class="r"><kbd>⎵gB</kbd><span class="d">open in browser</span></div>
-    <div class="r"><kbd>⎵gY</kbd><span class="d">copy repo URL</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>co / ct</kbd><span class="d">conflict: ours / theirs</span></div>
-    <div class="r"><kbd>cb / c0</kbd><span class="d">conflict: both / none</span></div>
-    <div class="r"><kbd>]x / [x</kbd><span class="d">next / prev conflict</span></div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Claude Code Workflow</summary>
-  <div class="c">
-    <div class="r dd"><kbd>⎵yr</kbd><span class="d">copy + relative path</span></div>
-    <div class="r"><kbd>⎵ya</kbd><span class="d">copy + absolute path</span></div>
-    <div class="n"><em>visual mode</em> — gives <em>file:10-15 ```code```</em></div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Your Overrides</summary>
-  <div class="c">
-    <div class="o">native LSP not telescope — instant, no fuzzy</div>
-    <div class="o">oil not neo-tree — dirs are buffers</div>
-    <div class="o">inline copilot not cmp — ghost text not menu</div>
-    <div class="o">pbcopy not OSC52 — avoids clipboard spam</div>
-    <div class="o">cmdheight=0 — statusline shows everything</div>
-    <div class="o">virtualedit=all — cursor anywhere, past EOL</div>
-    <div class="o">C-h/l/s disabled in oil — split nav priority</div>
-    <div class="o">vscode-js-debug disabled — janky</div>
-  </div>
-</details>
-
-<details class="accent" open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> The ] / [ Pattern</summary>
+<details class="accent" data-group="nvim">
+  <summary>The ] / [ Pattern</summary>
   <div class="c">
     <div class="r"><kbd>]h / [h</kbd><span class="d">git hunk</span></div>
-    <div class="r"><kbd>]H / [H</kbd><span class="d">first / last hunk</span></div>
+    <div class="r"><kbd>]H / [H</kbd><span class="d">last / first hunk</span></div>
     <div class="r"><kbd>]d / [d</kbd><span class="d">diagnostic</span></div>
     <div class="r"><kbd>]x / [x</kbd><span class="d">merge conflict</span></div>
     <div class="r"><kbd>]q / [q</kbd><span class="d">quickfix</span></div>
@@ -581,8 +423,8 @@
   </div>
 </details>
 
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Surround</summary>
+<details data-group="nvim">
+  <summary>Surround</summary>
   <div class="c">
     <div class="r dd"><kbd>cs{c}{n}</kbd><span class="d">change surround</span></div>
     <div class="r"><kbd>ys{m}{c}</kbd><span class="d">add surround</span></div>
@@ -593,32 +435,27 @@
   </div>
 </details>
 
-<details open data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Copilot — Ghost Text + Next Edit</summary>
+<details data-group="nvim">
+  <summary>Copilot + Completion</summary>
   <div class="c">
+    <div class="lbl">copilot — ghost text + next edit</div>
     <div class="r dd"><kbd>Tab</kbd><span class="d">accept suggestion / next edit</span></div>
     <div class="r"><kbd>C-→</kbd><span class="d">accept word</span></div>
     <div class="r"><kbd>C-l</kbd><span class="d">accept line</span></div>
     <div class="r"><kbd>M-] / M-[</kbd><span class="d">cycle suggestions</span></div>
     <div class="r"><kbd>Esc</kbd><span class="d">dismiss</span></div>
-    <div class="div"></div>
     <div class="r"><kbd>Tab</kbd><span class="d">normal: jump to / apply next edit</span></div>
     <div class="r"><kbd>⎵uN</kbd><span class="d">toggle next-edit suggestions</span></div>
-    <div class="n">:LspCopilotSignIn   :lsp stop copilot</div>
-  </div>
-</details>
-
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Completion (Blink)</summary>
-  <div class="c">
+    <div class="o">:LspCopilotSignIn   :lsp stop copilot</div>
+    <div class="lbl">completion menu (blink)</div>
     <div class="r dd"><kbd>C-Space</kbd><span class="d">trigger completion</span></div>
     <div class="r"><kbd>C-n / C-p</kbd><span class="d">next / prev item</span></div>
     <div class="r"><kbd>⏎</kbd><span class="d">accept</span></div>
   </div>
 </details>
 
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Focus &amp; Writing</summary>
+<details data-group="nvim">
+  <summary>Focus &amp; Writing</summary>
   <div class="c">
     <div class="r dd"><kbd>⎵Z</kbd><span class="d">zen mode (100ch)</span></div>
     <div class="r"><kbd>⎵up</kbd><span class="d">prose mode (38ch)</span></div>
@@ -628,8 +465,8 @@
   </div>
 </details>
 
-<details data-tool="nvim">
-  <summary><span class="badge nvim">nvim</span> Debug — DAP</summary>
+<details data-group="nvim">
+  <summary>Debug — DAP</summary>
   <div class="c">
     <div class="r dd"><kbd>⎵db</kbd><span class="d">breakpoint</span></div>
     <div class="r"><kbd>⎵dc</kbd><span class="d">continue / start</span></div>
@@ -642,11 +479,41 @@
   </div>
 </details>
 
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Files (Panel 2)</summary>
+<details data-group="nvim">
+  <summary>Your Overrides</summary>
+  <div class="c">
+    <div class="o">native LSP not telescope — instant, no fuzzy</div>
+    <div class="o">oil not neo-tree — dirs are buffers</div>
+    <div class="o">inline copilot not cmp — ghost text not menu</div>
+    <div class="o">pbcopy not OSC52 — avoids clipboard spam</div>
+    <div class="o">cmdheight=0 — statusline shows everything</div>
+    <div class="o">virtualedit=all — cursor anywhere, past EOL</div>
+    <div class="o">C-h/l/s disabled in oil — split nav priority</div>
+    <div class="o">vscode-js-debug disabled — janky</div>
+  </div>
+</details>
+
+<h2 class="g" data-group="git">git</h2>
+<details class="gold" open data-open="1" data-group="git">
+  <summary>Daily Flow</summary>
+  <div class="c">
+    <div class="r dd"><kbd>C-a g</kbd><span class="d">tmux: lazygit popup over your panes</span></div>
+    <div class="r dd"><kbd>⎵gg</kbd><span class="d">nvim: open lazygit</span></div>
+    <div class="r dd"><kbd>Space → a</kbd><span class="d">lazygit: stage, AI commit</span></div>
+    <div class="r st"><kbd>Enter → v → Space</kbd><span class="d">lazygit: partial hunk staging</span></div>
+    <div class="r"><kbd>⎵gm → ]h</kbd><span class="d">nvim: diff main, walk hunks</span></div>
+    <div class="o">stage with space, AI commit with a, push with P</div>
+    <div class="o">z to undo anything (reflog-powered safety net)</div>
+  </div>
+</details>
+
+<details class="gold" open data-open="1" data-group="git">
+  <summary>Files (Panel 2)</summary>
   <div class="c">
     <div class="r dd"><kbd>Space</kbd><span class="d">stage / unstage file</span></div>
-    <div class="r dd"><kbd>a</kbd><span class="d">AI commit (fzf + Claude)</span></div>
+    <div class="r dd"><kbd>a</kbd><span class="d">AI commit — fzf picker, diff preview</span></div>
+    <div class="r"><kbd>C-a</kbd><span class="d">AI commit — inline lazygit menu</span></div>
+    <div class="r"><kbd>C-b</kbd><span class="d">AI commit — edit message first</span></div>
     <div class="r"><kbd>c</kbd><span class="d">commit (opens editor)</span></div>
     <div class="r"><kbd>A</kbd><span class="d">amend last commit</span></div>
     <div class="r"><kbd>C</kbd><span class="d">commit with editor</span></div>
@@ -662,13 +529,12 @@
     <div class="r"><kbd>f</kbd><span class="d">fetch</span></div>
     <div class="r"><kbd>r</kbd><span class="d">refresh files</span></div>
     <div class="r"><kbd>i</kbd><span class="d">add to .gitignore</span></div>
-    <div class="n"><em>a</em> = custom AI commit via ai-commit + fzf</div>
-    <div class="o">space to stage, then a for AI commit = daily flow</div>
+    <div class="o">AI-commit cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)</div>
   </div>
 </details>
 
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Staging (Inside File)</summary>
+<details class="gold" open data-open="1" data-group="git">
+  <summary>Staging (Inside File)</summary>
   <div class="c">
     <div class="r dd"><kbd>Space</kbd><span class="d">stage / unstage hunk</span></div>
     <div class="r dd"><kbd>v</kbd><span class="d">select range (visual mode)</span></div>
@@ -678,27 +544,11 @@
     <div class="r"><kbd>e</kbd><span class="d">edit hunk in editor</span></div>
     <div class="r"><kbd>Esc / q</kbd><span class="d">back to files list</span></div>
     <div class="n"><em>v</em> then <em>j/k</em> to select lines, <em>Space</em> to stage selection</div>
-    <div class="o">partial staging = clean commits without git add -p</div>
   </div>
 </details>
 
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Panel Navigation</summary>
-  <div class="c">
-    <div class="r dd"><kbd>Tab / Shift-Tab</kbd><span class="d">next / prev panel</span></div>
-    <div class="r dd"><kbd>1-5</kbd><span class="d">jump to panel by number</span></div>
-    <div class="r"><kbd>[ / ]</kbd><span class="d">prev / next tab within panel</span></div>
-    <div class="r"><kbd>h / l</kbd><span class="d">scroll left / right (diff)</span></div>
-    <div class="div"></div>
-    <div class="r"><kbd>? / x</kbd><span class="d">keybinding menu / context menu</span></div>
-    <div class="r"><kbd>+</kbd><span class="d">open/close command log</span></div>
-    <div class="r"><kbd>q / Esc</kbd><span class="d">quit / cancel</span></div>
-    <div class="n"><em>1</em> Status <em>2</em> Files <em>3</em> Branches <em>4</em> Commits <em>5</em> Stash</div>
-  </div>
-</details>
-
-<details class="gold" open data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Push / Pull / Sync</summary>
+<details class="gold" open data-open="1" data-group="git">
+  <summary>Push / Pull / Sync</summary>
   <div class="c">
     <div class="r dd"><kbd>P</kbd><span class="d">push (global)</span></div>
     <div class="r dd"><kbd>p</kbd><span class="d">pull (global)</span></div>
@@ -712,8 +562,23 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Commits (Panel 4)</summary>
+<details class="gold" data-group="git">
+  <summary>Panel Navigation</summary>
+  <div class="c">
+    <div class="r dd"><kbd>Tab / Shift-Tab</kbd><span class="d">next / prev panel</span></div>
+    <div class="r dd"><kbd>1-5</kbd><span class="d">jump to panel by number</span></div>
+    <div class="r"><kbd>[ / ]</kbd><span class="d">prev / next tab within panel</span></div>
+    <div class="r"><kbd>h / l</kbd><span class="d">scroll left / right (diff)</span></div>
+    <div class="div"></div>
+    <div class="r"><kbd>? / x</kbd><span class="d">keybinding menu / context menu</span></div>
+    <div class="r"><kbd>+</kbd><span class="d">open/close command log</span></div>
+    <div class="r"><kbd>q / Esc</kbd><span class="d">quit / cancel</span></div>
+    <div class="n"><em>1</em> Status <em>2</em> Files <em>3</em> Branches <em>4</em> Commits <em>5</em> Stash</div>
+  </div>
+</details>
+
+<details class="gold" data-group="git">
+  <summary>Commits (Panel 4)</summary>
   <div class="c">
     <div class="r dd"><kbd>Enter</kbd><span class="d">view commit files</span></div>
     <div class="r"><kbd>Space</kbd><span class="d">checkout commit</span></div>
@@ -737,8 +602,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Branches (Panel 3)</summary>
+<details class="gold" data-group="git">
+  <summary>Branches (Panel 3)</summary>
   <div class="c">
     <div class="r dd"><kbd>Space</kbd><span class="d">checkout branch</span></div>
     <div class="r dd"><kbd>n</kbd><span class="d">new branch</span></div>
@@ -757,8 +622,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Merge Conflicts</summary>
+<details class="gold" data-group="git">
+  <summary>Merge Conflicts</summary>
   <div class="c">
     <div class="r dd"><kbd>Space</kbd><span class="d">pick hunk</span></div>
     <div class="r"><kbd>b</kbd><span class="d">pick both hunks</span></div>
@@ -770,8 +635,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Diff &amp; Search</summary>
+<details class="gold" data-group="git">
+  <summary>Diff &amp; Search</summary>
   <div class="c">
     <div class="r dd"><kbd>Enter</kbd><span class="d">expand file to see diff</span></div>
     <div class="r"><kbd>W</kbd><span class="d">toggle whitespace in diff</span></div>
@@ -786,8 +651,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Stash (Panel 5)</summary>
+<details class="gold" data-group="git">
+  <summary>Stash (Panel 5)</summary>
   <div class="c">
     <div class="r dd"><kbd>Space</kbd><span class="d">apply stash</span></div>
     <div class="r"><kbd>g</kbd><span class="d">pop stash (apply + drop)</span></div>
@@ -799,8 +664,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Interactive Rebase</summary>
+<details class="gold" data-group="git">
+  <summary>Interactive Rebase</summary>
   <div class="c">
     <div class="r dd"><kbd>e</kbd><span class="d">start editing commit</span></div>
     <div class="r"><kbd>p</kbd><span class="d">pick</span></div>
@@ -816,8 +681,8 @@
   </div>
 </details>
 
-<details class="gold" data-tool="lazygit">
-  <summary><span class="badge lazygit">lazygit</span> Global Shortcuts</summary>
+<details class="gold" data-group="git">
+  <summary>Global Shortcuts</summary>
   <div class="c">
     <div class="r"><kbd>@ (status)</kbd><span class="d">open recent repos</span></div>
     <div class="r"><kbd>:</kbd><span class="d">run custom command</span></div>
@@ -827,176 +692,288 @@
   </div>
 </details>
 
-<details class="accent" data-tool="both">
-  <summary>AI Commits + Agent Fleet</summary>
+<h2 class="g" data-group="term">term</h2>
+<details class="accent" open data-open="1" data-group="term">
+  <summary>Tmux</summary>
   <div class="c">
-    <div class="lbl">lazygit (files panel)</div>
-    <div class="r dd"><kbd>a</kbd><span class="d">AI commit — fzf picker with diff preview</span></div>
-    <div class="r"><kbd>C-a</kbd><span class="d">AI commit — inline lazygit menu</span></div>
-    <div class="r"><kbd>C-b</kbd><span class="d">AI commit — edit message before commit</span></div>
-    <div class="div"></div>
-    <div class="lbl">watch every agent (~/code/robots, homegrown)</div>
+    <div class="r dd"><kbd>C-a g</kbd><span class="d">lazygit popup</span></div>
+    <div class="r dd"><kbd>C-a Z</kbd><span class="d">reading column (this window, 80ch)</span></div>
+    <div class="r"><kbd>C-a u / C-a O</kbd><span class="d">flip pixel scene / agent-fleet overview</span></div>
+    <div class="r"><kbd>cmd; ding</kbd><span class="d">desk reacts to the exit code</span></div>
+    <div class="o">a background window that rings the bell glows <em>teal</em> + ◆ until you switch to it</div>
+    <div class="o">every tmux, zsh and yazi key is in the index below</div>
+  </div>
+</details>
+
+<details class="accent stk" open data-open="1" data-group="term">
+  <summary>Agent Fleet</summary>
+  <div class="c">
+    <div class="lbl">watch every agent (~/code/robots)</div>
     <div class="r dd"><kbd>robots</kbd><span class="d">live TUI of ALL claude agents on the box</span></div>
-    <div class="r"><kbd>robots -a</kbd><span class="d">ambient grid — every agent's live output tiled</span></div>
-    <div class="r"><kbd>robots -t</kbd><span class="d">counts for tmux status bar: ◇1 ◆2 ●7</span></div>
+    <div class="r"><kbd>robots -a</kbd><span class="d">ambient grid: every agent's output tiled</span></div>
+    <div class="r"><kbd>robots -t</kbd><span class="d">counts for the tmux status bar: ◇1 ◆2 ●7</span></div>
     <div class="n">in TUI: <em>h/j/k/l</em> move · <em>enter</em> jump to pane · <em>z</em> zoom · <em>v</em> raw view · <em>a</em> ambient · <em>s</em> sort · <em>q</em> quit</div>
-    <div class="o">cells show conversation only (chrome stripped); v flips to the raw screen</div>
     <div class="o">◇ needs you · ◆ working · ● idle — no hooks, works retroactively</div>
-    <div class="div"></div>
     <div class="lbl">worktree agents (workmux)</div>
-    <div class="r"><kbd>workmux add &lt;name&gt;</kbd><span class="d">worktree + tmux window for an agent</span></div>
+    <div class="r st"><kbd>workmux add &lt;name&gt;</kbd><span class="d">worktree + tmux window for an agent</span></div>
     <div class="r"><kbd>workmux merge</kbd><span class="d">merge branch, tear down window/worktree</span></div>
-    <div class="r"><kbd>workmux dashboard</kbd><span class="d">TUI — only workmux-spawned worktrees</span></div>
-    <div class="div"></div>
+    <div class="r st"><kbd>workmux dashboard</kbd><span class="d">TUI of workmux-spawned worktrees</span></div>
     <div class="lbl">research visibility</div>
     <div class="r"><kbd>fleet-watch</kbd><span class="d">3×3 live panes of workflow subagents</span></div>
-    <div class="r"><kbd>chrome-grid &lt;urls&gt;</kbd><span class="d">one Chrome window per URL, auto-tiled</span></div>
-    <div class="r"><kbd>chrome-grid --tile</kbd><span class="d">re-tile all existing Chrome windows</span></div>
-    <div class="o">AI-commit custom cmds live in lazygit/custom-commands.yml (theme regens can't wipe them)</div>
+    <div class="r st"><kbd>chrome-grid &lt;urls&gt;</kbd><span class="d">one Chrome window per URL, auto-tiled</span></div>
+    <div class="r st"><kbd>chrome-grid --tile</kbd><span class="d">re-tile all existing Chrome windows</span></div>
   </div>
 </details>
 
-<details class="accent" data-tool="both">
-  <summary>Desk Hardware — Pixel Canvas + RGB</summary>
+<h2 class="g" data-group="voice">voice</h2>
+<details class="accent stk" open data-open="1" data-group="voice">
+  <summary>Talon — Deleting</summary>
   <div class="c">
-    <div class="lbl">pixel canvas (ESP32 desk display, 10.0.0.103)</div>
+    <div class="n">the delete word is <b>clear</b> — say <em>clear</em> + any target. the one you keep forgetting: <b>clear all</b>.</div>
+    <div class="r dd"><kbd>clear all</kbd><span class="d">delete EVERYTHING (whole doc)</span></div>
+    <div class="r dd"><kbd>clear line</kbd><span class="d">delete current line</span></div>
+    <div class="r"><kbd>clear word</kbd><span class="d">delete word at cursor</span></div>
+    <div class="r"><kbd>clear paragraph</kbd><span class="d">delete paragraph</span></div>
+    <div class="r st"><kbd>clear way left / way right</kbd><span class="d">delete to line start / end</span></div>
+    <div class="r st"><kbd>clear left 3 words</kbd><span class="d">delete back N words (dictation)</span></div>
+    <div class="r"><kbd>wipe / delete</kbd><span class="d">backspace, one keypress</span></div>
+    <div class="div"></div>
+    <div class="r dd st"><kbd>scratch that / nope that</kbd><span class="d">undo last utterance</span></div>
+    <div class="r st"><kbd>undo that / redo that</kbd><span class="d">app undo / redo</span></div>
+    <div class="lbl">in the terminal (ghostty)</div>
+    <div class="r dd"><kbd>wipe</kbd><span class="d">kill whole line (C-u)</span></div>
+    <div class="r st"><kbd>wipe word / wipe back</kbd><span class="d">kill word behind (C-w)</span></div>
+    <div class="r"><kbd>wipe ahead</kbd><span class="d">kill to end of line (C-k)</span></div>
+    <div class="r"><kbd>chomp</kbd><span class="d">kill 10 words back</span></div>
+    <div class="o">grammar: select / clear / copy / cut / paste + all / line / word / paragraph / way left…</div>
+  </div>
+</details>
+
+<details class="accent stk" open data-open="1" data-group="voice">
+  <summary>Talon — Say &amp; Modes</summary>
+  <div class="c">
+    <div class="r dd"><kbd>talk</kbd><span class="d">→ dictation mode</span></div>
+    <div class="r dd"><kbd>command mode</kbd><span class="d">→ command mode</span></div>
+    <div class="r st"><kbd>talon sleep / talon wake</kbd><span class="d">mic off / on</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>phrase hello world</kbd><span class="d">type words (command mode)</span></div>
+    <div class="r st"><kbd>say … / sentence …</kbd><span class="d">prose / Capitalized prose</span></div>
+    <div class="r"><kbd>title …</kbd><span class="d">Capitalize All Words</span></div>
+    <div class="r st"><kbd>camel / snake / kebab …</kbd><span class="d">identifier formatters</span></div>
+    <div class="r st"><kbd>smash / all cap …</kbd><span class="d">nospaces / ALLCAPS</span></div>
+    <div class="r"><kbd>camel that</kbd><span class="d">reformat selection (any formatter)</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>select all / line / word</kbd><span class="d">same targets as clear</span></div>
+    <div class="r st"><kbd>copy that / cut that</kbd><span class="d">clipboard out</span></div>
+    <div class="r st"><kbd>paste that / paste match</kbd><span class="d">clipboard in / match style</span></div>
+    <div class="r st"><kbd>go way up / way down</kbd><span class="d">top / bottom of file</span></div>
+    <div class="r"><kbd>head / tail</kbd><span class="d">line start / end</span></div>
+    <div class="r st"><kbd>press cmd shift alpha</kbd><span class="d">any chord, NATO letters</span></div>
+    <div class="n">letters are <b>NATO</b>: alpha bravo charlie delta… (your override)</div>
+  </div>
+</details>
+
+<details class="accent stk" open data-open="1" data-group="voice">
+  <summary>Talon — Apps, Windows, Tmux</summary>
+  <div class="c">
+    <div class="r dd st"><kbd>slap / go ahead / send it</kbd><span class="d">press enter</span></div>
+    <div class="r"><kbd>cancel / bail</kbd><span class="d">ctrl-c</span></div>
+    <div class="r"><kbd>dismiss</kbd><span class="d">escape</span></div>
+    <div class="r"><kbd>confirm / deny</kbd><span class="d">y / n</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>open ghostty / chrome / slack…</kbd><span class="d">focus app</span></div>
+    <div class="r st"><kbd>window left / right</kbd><span class="d">snap half (divvy)</span></div>
+    <div class="r st"><kbd>snap full / window expand</kbd><span class="d">fullscreen</span></div>
+    <div class="r st"><kbd>send to screen two</kbd><span class="d">move + maximize</span></div>
+    <div class="r st"><kbd>desk left / desk right</kbd><span class="d">switch spaces</span></div>
+    <div class="r st"><kbd>hide this / quit this</kbd><span class="d">cmd-h / cmd-q</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>mux 2 / mux next / mux last</kbd><span class="d">tmux windows</span></div>
+    <div class="r st"><kbd>mux left / right / up / down</kbd><span class="d">tmux panes</span></div>
+    <div class="r st"><kbd>mux new / mux close</kbd><span class="d">window create / kill</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>last command / run again</kbd><span class="d">↑ / ↑ + enter</span></div>
+    <div class="r"><kbd>search history</kbd><span class="d">ctrl-r (fzf)</span></div>
+  </div>
+</details>
+
+<h2 class="g" data-group="pc">pc</h2>
+<details class="accent stk" open data-open="1" data-group="pc">
+  <summary>computah — health + power</summary>
+  <div class="c">
+    <div class="r dd"><kbd>computah doctor</kbd><span class="d">health check + auto-heal everything. run this first</span></div>
+    <div class="r dd"><kbd>computah-check</kbd><span class="d">services, kiosks, endpoints, studio, wall (◆ ok / ◇ problem)</span></div>
+    <div class="r"><kbd>computah status</kbd><span class="d">reachable? load? disk?</span></div>
+    <div class="r st"><kbd>computah wake / sleep</kbd><span class="d">power on (WoL) / suspend; works from off</span></div>
+    <div class="r st"><kbd>computah harden-wol</kbd><span class="d">run once if wake dies after a full shutdown</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>computah run "cmd"</kbd><span class="d">run anything on the PC over SSH</span></div>
+    <div class="r"><kbd>pcps &lt;&lt;'EOF'</kbd><span class="d">PowerShell on the PC from a heredoc, no quoting hell</span></div>
+    <div class="r dd st"><kbd>computah screenshot</kbd><span class="d">Windows desktop → ~/screenshots/computah + clipboard (--up uploads)</span></div>
+    <div class="r st"><kbd>computah stream [app]</kbd><span class="d">Moonlight-stream the PC to this Mac</span></div>
+    <div class="n"><b>never</b> touch it mid-Fortnite — check <kbd>computah run "powershell Get-Process FortniteClient*"</kbd> first</div>
+    <div class="o">reverse channel: on the PC, <kbd>tomac &lt;file&gt;</kbd> → ~/Desktop/from-computah</div>
+    <div class="o">deskflow cursor won't cross? → deskflow-heal -v (or just re-login)</div>
+  </div>
+</details>
+
+<details class="accent stk" data-group="pc">
+  <summary>computah — GPU jobs + art</summary>
+  <div class="c">
+    <div class="r dd st"><kbd>computah muse-loop</kbd><span class="d">art wall from your screen + notes</span></div>
+    <div class="r st"><kbd>computah imagine "…"</kbd><span class="d">one FLUX image on the PC GPU</span></div>
+    <div class="r dd st"><kbd>computah sd-server start/stop</kbd><span class="d">keep FLUX hot: no multi-minute model reload</span></div>
+    <div class="r st"><kbd>computah llm on/off</kbd><span class="d">local Qwen LLM server :8085</span></div>
+    <div class="r st"><kbd>computah render / blender / whisper / demucs</kbd><span class="d">heavy jobs there, results land here</span></div>
+    <div class="r st"><kbd>computah scanner-worker on/off/status</kbd><span class="d">PC drains the VPS radio-transcript queue (whisper turbo)</span></div>
+    <div class="o">scanner idles in games + 22:00-09:00, never wakes the PC · UI: scanner.tools.ejfox.com (private link)</div>
+    <div class="o">stop the art wall: pkill -f 'computah muse-loop'</div>
+  </div>
+</details>
+
+<details class="accent stk" data-group="pc">
+  <summary>computah — renders + studio-dev</summary>
+  <div class="c">
+    <div class="r dd"><kbd>renders</kbd><span class="d">browse Blender renders (PC awake: all of them; PC off: Mac copy)</span></div>
+    <div class="r st"><kbd>renders live / renders mac</kbd><span class="d">studio's live viewer / force the Mac copy</span></div>
+    <div class="r st"><kbd>studio-dev on / wait N / sheet</kbd><span class="d">fast 1-bit iteration: 360p previews, block for N, contact sheet</span></div>
+    <div class="r st"><kbd>studio-dev pin k=v / now / kill</kbd><span class="d">pin a recipe knob / breadcrumbs of a stuck piece / kill it</span></div>
+    <div class="o">pages: 10.0.0.169:7861/blender.html (no login) · :7861/studio-dev.html · Mac copy in ~/Pictures/Blender</div>
+    <div class="o">pin knobs: scene= signal= dither= lens= seed=…</div>
+  </div>
+</details>
+
+<details class="accent stk" data-group="pc">
+  <summary>computah — OBS</summary>
+  <div class="c">
+    <div class="r st"><kbd>computah obs start/rec/stop</kbd><span class="d">OBS on the PC: tray / record now / off</span></div>
+    <div class="r st"><kbd>obs-computah-source</kbd><span class="d">iMac OBS: (re)create scene 'computah' from the PC's program feed</span></div>
+    <div class="o">PC OBS is off by default: idle OBS tripped the wall's game guard. Fortnite matches still auto-open it</div>
+    <div class="o">feed = 'computah (Teleport)', muted, ~tens of ms (dials 10.0.0.169:9100); hidden SRT fallback; grabs a test frame</div>
+  </div>
+</details>
+
+<h2 class="g" data-group="desk">desk</h2>
+<details class="accent stk" open data-open="1" data-group="desk">
+  <summary>Pixel Canvas</summary>
+  <div class="c">
     <div class="r dd"><kbd>pixel</kbd><span class="d">draw a random scene now</span></div>
     <div class="r dd"><kbd>pixel say "msg"</kbd><span class="d">push ad-hoc text to the glass</span></div>
-    <div class="r"><kbd>pixel list / clear / ping</kbd><span class="d">scenes / blank it / reachable?</span></div>
-    <div class="r"><kbd>pixel raw "text?msg=hi&amp;x=10&amp;y=10"</kbd><span class="d">raw draw API call</span></div>
-    <div class="n">two cadences: scenes rotate every 5 min (gallery pace), <em>pixel-live</em> ticks every second — clock + hotpink <em>N need you</em> top-right</div>
-    <div class="div"></div>
-    <div class="lbl">computah RGB (OpenRGB, resting vulpes pink)</div>
-    <div class="r dd"><kbd>rgb-flash fyi|done|needs|error</kbd><span class="d">grammar flash: count = urgency</span></div>
-    <div class="n">decode: <em>1 soft blip</em> fyi · <em>1 slow swell</em> claude done · <em>2 pink pulses</em> needs YOU · <em>1 deep red swell</em> error</div>
-    <div class="r"><kbd>rgb-flash &lt;color|hex&gt;</kbd><span class="d">manual single pulse (teal/white/RRGGBB)</span></div>
-    <div class="r"><kbd>rgb-flash rest</kbd><span class="d">just set the pink resting state</span></div>
-    <div class="r dd"><kbd>C-a u / C-a O</kbd><span class="d">tmux: flip scene / agent-fleet overview</span></div>
-    <div class="r"><kbd>pixel bloom</kbd><span class="d">phyllotaxis day-clock: seeds fill as the day does, white tip = now</span></div>
-    <div class="r dd"><kbd>pixel constellation</kbd><span class="d">tmux star chart: windows as stars, hotpink = claude</span></div>
+    <div class="r st"><kbd>pixel list / clear / ping</kbd><span class="d">scenes / blank it / reachable?</span></div>
+    <div class="r st"><kbd>pixel raw "text?msg=hi&amp;x=10&amp;y=10"</kbd><span class="d">raw draw API call</span></div>
+    <div class="lbl">scenes</div>
+    <div class="r dd st"><kbd>pixel constellation</kbd><span class="d">tmux star chart: windows as stars, hotpink = claude</span></div>
     <div class="r dd"><kbd>pixel commits</kbd><span class="d">git bloom: seed per commit today, hue per repo</span></div>
-    <div class="o">rotation is weighted: pixel-scenes/.favorites = bonus tickets for the useful screens</div>
-    <div class="div"></div>
-    <div class="lbl">desk events (lights ping, glass captions)</div>
-    <div class="r dd"><kbd>desk-event &lt;kind&gt; [detail]</kbd><span class="d">RGB pulse + caption strip on canvas</span></div>
-    <div class="r dd"><kbd>cmd; ding</kbd><span class="d">desk reacts to the exit code: teal ok / red + code</span></div>
-    <div class="n">color code: <em>hotpink</em> = claude needs you · <em>teal</em> = FYI (bell/activity/done) · <em>red</em> = error</div>
-    <div class="o">auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene</div>
-    <div class="o">tmux status: a background window that rings the bell glows <em>teal</em> + ◆ until you switch to it</div>
+    <div class="r"><kbd>pixel bloom</kbd><span class="d">day-clock: seeds fill as the day does, white tip = now</span></div>
+    <div class="r"><kbd>pixel skyline</kbd><span class="d">repos as a night city, lit windows = today's commits</span></div>
+    <div class="r st"><kbd>pixel vitals / hive</kbd><span class="d">24h operator EKG / Claude sessions as a swarm</span></div>
+    <div class="r st"><kbd>pixel credits / transmission</kbd><span class="d">the day's opening titles / a Talon phrase, decoded</span></div>
+    <div class="lbl">the morning brief, on the glass</div>
+    <div class="r st"><kbd>pixel knock / tally / wilt</kbd><span class="d">radar of 25+ hit IPs / blocked-days wall / goal garden</span></div>
+    <div class="r st"><kbd>pixel action / found / held</kbd><span class="d">today's 10-min step / who found you / what the brief kept quiet</span></div>
+    <div class="n">two cadences: scenes rotate every 5 min, <em>pixel-live</em> ticks every second — clock + hotpink <em>N need you</em> top-right</div>
+    <div class="o">ESP32 at 10.0.0.103 · rotation is weighted: pixel-scenes/.favorites = bonus tickets</div>
   </div>
 </details>
 
-<details class="accent" data-tool="both">
-  <summary>Computah + Hue Lights</summary>
+<details class="accent stk" open data-open="1" data-group="desk">
+  <summary>Desk Events + RGB Flash</summary>
   <div class="c">
-    <div class="lbl">computah (the Windows PC — LAN or Tailscale)</div>
-    <div class="r dd"><kbd>computah wake / sleep / status</kbd><span class="d">power + health, works from off</span></div>
-    <div class="r"><kbd>computah run "cmd"</kbd><span class="d">run anything on the PC over SSH</span></div>
-    <div class="r"><kbd>computah render / blender / whisper / demucs</kbd><span class="d">heavy jobs there, results land here</span></div>
-    <div class="r"><kbd>computah stream [app]</kbd><span class="d">Moonlight-stream the PC to this Mac</span></div>
-    <div class="n"><b>never</b> touch it mid-Fortnite — check <kbd>computah run "powershell Get-Process FortniteClient*"</kbd> first</div>
-    <div class="div"></div>
-    <div class="lbl">rgb (PC case + DualSense + Hue desk lights, synced)</div>
-    <div class="r dd"><kbd>computah rgb wave|breathe|pulse</kbd><span class="d">vulpes effects; hue desk lights wave along</span></div>
-    <div class="r"><kbd>computah rgb screen</kbd><span class="d">PC case follows the iMac screen</span></div>
-    <div class="r"><kbd>computah rgb off / status</kbd><span class="d">blackout + stop; status shows PC + hue daemon</span></div>
-    <div class="o">one color engine: pc-rgb-effect publishes zones -&gt; hue-stream daemon renders them on the strip</div>
-    <div class="div"></div>
-    <div class="lbl">hue (rooms + scenes from the shell)</div>
-    <div class="r dd"><kbd>hue list / on / off / dim &lt;0-100&gt; &lt;room&gt;</kbd><span class="d">room control</span></div>
-    <div class="r"><kbd>hue scene &lt;name&gt;</kbd><span class="d">Coding, Concentrate, Dim Redded, Nightlight...</span></div>
-    <div class="r"><kbd>screensync on/off</kbd><span class="d">iMac screen colors -&gt; desk lights</span></div>
-    <div class="r"><kbd>hue-flash [r g b]</kbd><span class="d">flash entertainment lights, then return</span></div>
-    <div class="r"><kbd>hue-keys on/off</kbd><span class="d">typing -&gt; light bursts (default OFF, deliberately)</span></div>
-    <div class="o">DTLS handshake timeouts = bridge wedged -&gt; unplug bridge 10s, then <em>computah rgb wave</em> relaunches the chain</div>
-    <div class="div"></div>
-    <div class="lbl">obs-defer (heavy jobs wait while OBS is open)</div>
-    <div class="r dd"><kbd>obs-defer status</kbd><span class="d">OBS open? + what's queued</span></div>
-    <div class="r"><kbd>obs-defer run-all</kbd><span class="d">run the queue now, OBS or not</span></div>
-    <div class="r"><kbd>touch ~/.config/obs-defer-disabled</kbd><span class="d">kill switch: everything runs normally</span></div>
-    <div class="o">queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log</div>
-    <div class="div"></div>
-    <div class="lbl">obs-synccheck (camera vs mic offset, measured)</div>
-    <div class="r dd"><kbd>obs-synccheck</kbd><span class="d">5 screen flashes + beeps while OBS records -&gt; real A/V offset</span></div>
-    <div class="r"><kbd>obs-synccheck --apply</kbd><span class="d">measure, then set the SM7dB sync offset to cancel it</span></div>
-    <div class="o">OBS open + Camera for OBS app foreground · run after a reconnect or before a long session · test file -&gt; ~/.cache/obs-synccheck</div>
+    <div class="r dd st"><kbd>desk-event &lt;kind&gt; [detail]</kbd><span class="d">RGB pulse + caption strip on the canvas</span></div>
+    <div class="r dd"><kbd>cmd; ding</kbd><span class="d">desk reacts to the exit code: teal ok / red + code</span></div>
+    <div class="r dd st"><kbd>rgb-flash fyi|done|needs|error</kbd><span class="d">grammar flash: count = urgency</span></div>
+    <div class="r st"><kbd>rgb-flash &lt;color|hex&gt;</kbd><span class="d">manual single pulse (teal/white/RRGGBB)</span></div>
+    <div class="r"><kbd>rgb-flash rest</kbd><span class="d">set the pink resting state</span></div>
+    <div class="r"><kbd>C-a u / C-a O</kbd><span class="d">tmux: flip scene / agent-fleet overview</span></div>
+    <div class="n">color code: <em>hotpink</em> = claude needs you · <em>teal</em> = FYI (bell/activity/done) · <em>red</em> = error</div>
+    <div class="n">decode: <em>1 soft blip</em> fyi · <em>1 slow swell</em> claude done · <em>2 pink pulses</em> needs YOU · <em>1 deep red swell</em> error</div>
+    <div class="o">auto: tmux bell+activity, claude turn-end + needs-input; claude events wash into the fleet scene</div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary>Chart Desk — prep cook for the daily chart</summary>
+<details class="accent stk" data-group="desk">
+  <summary>Hue + computah RGB</summary>
+  <div class="c">
+    <div class="lbl">hue (rooms + scenes from the shell)</div>
+    <div class="r dd st"><kbd>hue list / on / off / dim &lt;0-100&gt; &lt;room&gt;</kbd><span class="d">room control</span></div>
+    <div class="r"><kbd>hue scene &lt;name&gt;</kbd><span class="d">Coding, Concentrate, Dim Redded, Nightlight…</span></div>
+    <div class="r st"><kbd>screensync on/off</kbd><span class="d">iMac screen colors → desk lights</span></div>
+    <div class="r st"><kbd>hue-flash [r g b]</kbd><span class="d">flash entertainment lights, then return</span></div>
+    <div class="r"><kbd>hue-keys on/off</kbd><span class="d">typing → light bursts (default OFF, deliberately)</span></div>
+    <div class="lbl">PC case + DualSense + Hue desk lights, synced</div>
+    <div class="r dd st"><kbd>computah rgb wave|breathe|pulse</kbd><span class="d">vulpes effects; hue desk lights wave along</span></div>
+    <div class="r st"><kbd>computah rgb screen</kbd><span class="d">PC case follows the iMac screen</span></div>
+    <div class="r st"><kbd>computah rgb off / status</kbd><span class="d">blackout + stop / PC effect + hue daemon</span></div>
+    <div class="o">one color engine: pc-rgb-effect publishes zones → hue-stream daemon renders them on the strip</div>
+    <div class="o">DTLS handshake timeouts = bridge wedged → unplug bridge 10s, then <em>computah rgb wave</em> relaunches the chain</div>
+  </div>
+</details>
+
+<h2 class="g" data-group="make">make</h2>
+<details class="accent stk" open data-open="1" data-group="make">
+  <summary>Chart Desk</summary>
   <div class="c">
     <div class="n">desk preps the bench at 06:30 (data, sketch, notes, angles). <b>you make the thing.</b></div>
     <div class="r dd"><kbd>desk review</kbd><span class="d">today's bench + the streak</span></div>
-    <div class="r dd"><kbd>desk work desks/DATE/01-slug</kbd><span class="d">open the bench: folder + sketch + notes</span></div>
-    <div class="r dd"><kbd>desk check desks/DATE/01-slug</kbd><span class="d">fact-check YOUR version (report only)</span></div>
-    <div class="r dd"><kbd>desk shipped desks/DATE/01-slug &lt;url&gt;</kbd><span class="d">log it, +1 streak, blog draft stub</span></div>
-    <div class="r"><kbd>desk run --seed "hunch or URL"</kbd><span class="d">force your hunch into today's picks</span></div>
-    <div class="r"><kbd>desk build desks/DATE/02-slug</kbd><span class="d">prep an on-deck pick</span></div>
-    <div class="r"><kbd>desk streak / desk gather / desk lint &lt;dir&gt;</kbd><span class="d">streak · what sources returned · free checks</span></div>
+    <div class="r dd st"><kbd>desk work desks/DATE/01-slug</kbd><span class="d">open the bench: folder + sketch + notes</span></div>
+    <div class="r dd st"><kbd>desk check desks/DATE/01-slug</kbd><span class="d">fact-check YOUR version (report only)</span></div>
+    <div class="r dd st"><kbd>desk shipped desks/DATE/01-slug &lt;url&gt;</kbd><span class="d">log it, +1 streak, blog draft stub</span></div>
+    <div class="div"></div>
+    <div class="r st"><kbd>desk run --seed "hunch or URL"</kbd><span class="d">force your hunch into today's picks</span></div>
+    <div class="r st"><kbd>desk build desks/DATE/02-slug</kbd><span class="d">prep an on-deck pick</span></div>
+    <div class="r st"><kbd>desk streak / desk gather / desk lint &lt;dir&gt;</kbd><span class="d">streak / what sources returned / free checks</span></div>
     <div class="r"><kbd>desk install</kbd><span class="d">re-apply [schedule] after editing it</span></div>
-    <div class="r"><kbd>touch ~/.config/chart-desk-disabled</kbd><span class="d">pause the daily run</span></div>
+    <div class="r st"><kbd>touch ~/.config/chart-desk-disabled</kbd><span class="d">pause the daily run</span></div>
     <div class="o">knobs: ~/code/chart-desk/desk.toml (sources, beat, style, outputs, budget) · prompts/<em>.md</em></div>
   </div>
 </details>
 
-<details class="accent" data-tool="both">
-  <summary>VPS — owner-only apps</summary>
-  <div class="c">
-    <div class="n">fitness, health-webhook and egoscan answer <b>404</b> to the internet. on-box callers still get through.</div>
-    <div class="r dd"><kbd>owner-login</kbd><span class="d">open fitness logged in (1-year cookie)</span></div>
-    <div class="r"><kbd>owner-login egoscan</kbd><span class="d">same for any owner-gated app</span></div>
-    <div class="o">token: vps ~/.config/owner-token + each app's .env as OWNER_TOKEN</div>
-  </div>
-</details>
-
-<details class="accent" data-tool="both">
-  <summary>Canary tokens — know when a file gets opened</summary>
-  <div class="c">
-    <div class="n">plant a 1px beacon; opening the file pings the honeypot → <b>critical</b> alert "canary tripped: &lt;label&gt;".</div>
-    <div class="r dd"><kbd>canary new "label" "where planted"</kbd><span class="d">mint a token: prints obsidian/md/html lines</span></div>
-    <div class="r dd"><kbd>canary list / canary hits &lt;id&gt;</kbd><span class="d">tokens + who opened them</span></div>
-    <div class="r"><kbd>canary mute &lt;id&gt; &lt;min&gt;</kbd><span class="d">learning window: your devices' IPs get trusted</span></div>
-    <div class="r"><kbd>canary docx &lt;id&gt; decoy.docx</kbd><span class="d">Word doc whose picture is the beacon</span></div>
-    <div class="r"><kbd>canary retire &lt;id&gt;</kbd><span class="d">turn it off (404 from then on)</span></div>
-    <div class="o">open the planted file from each device within 15 min of minting, or it'll trip on you</div>
-  </div>
-</details>
-
-<details class="accent" open data-tool="both">
-  <summary>Studio — record terminal demos (black or greenscreen)</summary>
+<details class="accent stk" open data-open="1" data-group="make">
+  <summary>Studio — terminal demos</summary>
   <div class="c">
     <div class="n">a separate size-locked Ghostty with vulpes glow + scanlines, <b>random vulpes month</b> each launch, recorded as a window.</div>
     <div class="r dd"><kbd>studio</kbd><span class="d">open STUDIO 9:16 (Reels/Shorts), plain black</span></div>
     <div class="r"><kbd>studio wide</kbd><span class="d">same window, 16:9 (YouTube)</span></div>
-    <div class="r dd"><kbd>studio greenscreen [wide]</kbd><span class="d">on a #00ff00 key: stop also writes &lt;take&gt;-alpha.mov</span></div>
-    <div class="r"><kbd>studio theme [month]</kbd><span class="d">reroll the vulpes month (june, august, ...)</span></div>
-    <div class="r dd"><kbd>studio rec [sec]</kbd><span class="d">record the window wherever you drag it -&gt; ~/Movies/studio</span></div>
-    <div class="r dd"><kbd>studio stop</kbd><span class="d">finish; greenscreen -&gt; real alpha .mov in the background</span></div>
-    <div class="r"><kbd>studio alpha take.mov</kbd><span class="d">(re)make the alpha .mov (qtrle, or --codec prores)</span></div>
+    <div class="r dd st"><kbd>studio greenscreen [wide]</kbd><span class="d">on a #00ff00 key; stop also writes &lt;take&gt;-alpha.mov</span></div>
+    <div class="r st"><kbd>studio theme [month]</kbd><span class="d">reroll the vulpes month (june, august, …)</span></div>
+    <div class="r dd"><kbd>studio rec [sec]</kbd><span class="d">record the window wherever it is → ~/Movies/studio</span></div>
+    <div class="r dd"><kbd>studio stop</kbd><span class="d">finish; greenscreen → real alpha .mov in the background</span></div>
+    <div class="r st"><kbd>studio alpha take.mov</kbd><span class="d">(re)make the alpha .mov (qtrle, or --codec prores)</span></div>
     <div class="o">drag by the top strip · size locked, fits every monitor · run rec/stop from your MAIN terminal · cmd+k clears</div>
-    <div class="lbl">secrets without pasting</div>
-    <div class="r"><kbd>gh-secret-from-clipboard NAME owner/repo</kbd><span class="d">click COPY -&gt; GitHub Actions secret, clipboard cleared</span></div>
-    <div class="r"><kbd>env-from-clipboard KEY path/.env</kbd><span class="d">click COPY -&gt; KEY=value in an .env (backed up)</span></div>
   </div>
 </details>
 
-<details class="accent" open data-tool="both">
-  <summary><span class="badge PC">PC</span> B-roll — paper + CRT (renders on computah)</summary>
+<details class="accent stk" data-group="make">
+  <summary>B-roll — paper + CRT</summary>
   <div class="c">
-    <div class="n">code, docs, PDFs and screenshots as <b>real matte paper</b> in Blender; outputs in ~/code/paperize/out</div>
-    <div class="r dd"><kbd>paperize FILE[:40-95] --orbit 70 --secs 15 --gpu</kbd><span class="d">one page, camera slowly circles it (code, md, pdf --page N, image)</span></div>
+    <div class="n">code, docs, PDFs and screenshots as <b>real matte paper</b> in Blender. renders on computah; outputs in ~/code/paperize/out</div>
+    <div class="r dd st"><kbd>paperize FILE[:40-95] --orbit 70 --secs 15 --gpu</kbd><span class="d">one page, camera slowly circles it (code, md, pdf --page N, image)</span></div>
     <div class="r"><kbd>paperize FILE</kbd><span class="d">single still, transparent PNG</span></div>
-    <div class="r dd"><kbd>paperdrop PDF|FOLDER</kbd><span class="d">huge stack falls from the sky + slams, alpha ProRes</span></div>
-    <div class="r"><kbd>printify DIR -o OUT --border 0.5</kbd><span class="d">screenshots -&gt; inkjet prints at true relative size</span></div>
-    <div class="r"><kbd>paginate FILE[:A-B] [--receipt]</kbd><span class="d">typeset pages (80 cols) or a CVS receipt strip</span></div>
-    <div class="r dd"><kbd>crtbroll VIDEO --shot hero|pushin|macro</kbd><span class="d">screen recording on a black CRT, OLED-black room</span></div>
+    <div class="r dd st"><kbd>paperdrop PDF|FOLDER</kbd><span class="d">huge stack falls from the sky + slams, alpha ProRes</span></div>
+    <div class="r st"><kbd>printify DIR -o OUT --border 0.5</kbd><span class="d">screenshots → inkjet prints at true relative size</span></div>
+    <div class="r st"><kbd>paginate FILE[:A-B] [--receipt]</kbd><span class="d">typeset pages (80 cols) or a CVS receipt strip</span></div>
+    <div class="r dd st"><kbd>crtbroll VIDEO --shot hero|pushin|macro</kbd><span class="d">screen recording on a black CRT, OLED-black room</span></div>
     <div class="r"><kbd>gpulease status</kbd><span class="d">who holds the GPU (wall pauses while leased)</span></div>
     <div class="o">GUI: open the .blend files in C:UsersejfoxDocumentsPaperize on computah</div>
   </div>
 </details>
 
-<details class="primary" data-tool="both">
+<details class="accent stk" data-group="make">
+  <summary>OBS — defer + sync check</summary>
+  <div class="c">
+    <div class="lbl">obs-defer (heavy jobs wait while OBS is open)</div>
+    <div class="r dd"><kbd>obs-defer status</kbd><span class="d">OBS open? + what's queued</span></div>
+    <div class="r st"><kbd>obs-defer run-all</kbd><span class="d">run the queue now, OBS or not</span></div>
+    <div class="r st"><kbd>touch ~/.config/obs-defer-disabled</kbd><span class="d">kill switch: everything runs normally</span></div>
+    <div class="o">queued: security-scan 72h, mac-backup 48h, ice-hv 12h (then forced at low priority) · skipped: render-forever/discover, muse-push · log ~/.local/state/obs-defer/log</div>
+    <div class="lbl">obs-synccheck (camera vs mic offset, measured)</div>
+    <div class="r dd"><kbd>obs-synccheck</kbd><span class="d">5 flashes + beeps while OBS records → real A/V offset</span></div>
+    <div class="r st"><kbd>obs-synccheck --apply</kbd><span class="d">measure, then set the SM7dB sync offset to cancel it</span></div>
+    <div class="o">OBS open + Camera for OBS app foreground · run after a reconnect or before a long session · test file → ~/.cache/obs-synccheck</div>
+  </div>
+</details>
+
+<details class="primary" data-group="make">
   <summary>Final Cut Pro — your keys</summary>
   <div class="c">
     <div class="n">read from your active command set, <em>EJ's Final Cut Pro Shortcuts</em> (2023)</div>
@@ -1038,102 +1015,289 @@
   </div>
 </details>
 
+<details class="gold" data-group="make">
+  <summary>Logic Pro — beds, stems, VO</summary>
+  <div class="c">
+    <div class="n">Logic's default key commands (no named custom set found) · check any in <kbd>⌥k</kbd></div>
+    <div class="lbl">transport</div>
+    <div class="r dd"><kbd>⎵  ·  r</kbd><span class="d">play / stop · record</span></div>
+    <div class="r"><kbd>⏎</kbd><span class="d">go to the beginning</span></div>
+    <div class="r dd"><kbd>c  ·  ⌘u</kbd><span class="d">cycle on/off · cycle the selection (set locators)</span></div>
+    <div class="r"><kbd>k</kbd><span class="d">metronome click</span></div>
+    <div class="div"></div>
+    <div class="lbl">regions</div>
+    <div class="r dd"><kbd>⌘t</kbd><span class="d">split at the playhead (chopping stems + samples)</span></div>
+    <div class="r"><kbd>⌘j</kbd><span class="d">join regions</span></div>
+    <div class="r"><kbd>⌃m</kbd><span class="d">mute region</span></div>
+    <div class="r"><kbd>m  ·  s</kbd><span class="d">mute track · solo track</span></div>
+    <div class="r"><kbd>q</kbd><span class="d">quantize selection</span></div>
+    <div class="r"><kbd>z</kbd><span class="d">zoom to fit the selection</span></div>
+    <div class="div"></div>
+    <div class="lbl">windows + out</div>
+    <div class="r st"><kbd>x  ·  e  ·  b  ·  y</kbd><span class="d">mixer · editor · smart controls · library</span></div>
+    <div class="r dd"><kbd>⌘b</kbd><span class="d">bounce project or the cycle area (beds, KO-33 / TP-7 packs)</span></div>
+  </div>
+</details>
+
+<h2 class="g" data-group="ops">ops</h2>
+<details class="accent stk" open data-open="1" data-group="ops">
+  <summary>Morning Brief</summary>
+  <div class="c">
+    <div class="r"><kbd>things-bridge</kbd><span class="d">push Things → VPS, pull brief facts back (auto every 30m)</span></div>
+    <div class="r st"><kbd>things-export | jq</kbd><span class="d">see exactly what leaves the Mac</span></div>
+    <div class="r st"><kbd>brief-pictures --dry</kbd><span class="d">preview the 08:02 Discord picture DM</span></div>
+    <div class="o">pictures: today's charts + one art tile, full size in ~/Pictures/Brief/&lt;date&gt;/</div>
+    <div class="o">log: ~/.local/share/things-bridge/bridge.log · after a tmux upgrade, re-grant tmux Full Disk Access</div>
+  </div>
+</details>
+
+<details class="accent stk" open data-open="1" data-group="ops">
+  <summary>Secrets Without Pasting</summary>
+  <div class="c">
+    <div class="r st"><kbd>gh-secret-from-clipboard NAME owner/repo</kbd><span class="d">click COPY → GitHub Actions secret, clipboard cleared</span></div>
+    <div class="r st"><kbd>env-from-clipboard KEY path/.env</kbd><span class="d">click COPY → KEY=value in an .env (backed up)</span></div>
+  </div>
+</details>
+
+<details class="accent stk" open data-open="1" data-group="ops">
+  <summary>VPS — owner-only apps</summary>
+  <div class="c">
+    <div class="n">fitness, health-webhook and egoscan answer <b>404</b> to the internet. on-box callers still get through.</div>
+    <div class="r dd"><kbd>owner-login</kbd><span class="d">open fitness logged in (1-year cookie)</span></div>
+    <div class="r st"><kbd>owner-login egoscan</kbd><span class="d">same for any owner-gated app</span></div>
+    <div class="o">token: vps ~/.config/owner-token + each app's .env as OWNER_TOKEN</div>
+  </div>
+</details>
+
+<details class="accent stk" data-group="ops">
+  <summary>Canary Tokens</summary>
+  <div class="c">
+    <div class="n">plant a 1px beacon; opening the file pings the honeypot → <b>critical</b> alert "canary tripped: &lt;label&gt;".</div>
+    <div class="r dd st"><kbd>canary new "label" "where planted"</kbd><span class="d">mint a token: prints obsidian/md/html lines</span></div>
+    <div class="r dd st"><kbd>canary list / canary hits &lt;id&gt;</kbd><span class="d">tokens + who opened them</span></div>
+    <div class="r st"><kbd>canary mute &lt;id&gt; &lt;min&gt;</kbd><span class="d">learning window: your devices' IPs get trusted</span></div>
+    <div class="r st"><kbd>canary docx &lt;id&gt; decoy.docx</kbd><span class="d">Word doc whose picture is the beacon</span></div>
+    <div class="r st"><kbd>canary retire &lt;id&gt;</kbd><span class="d">turn it off (404 from then on)</span></div>
+    <div class="o">open the planted file from each device within 15 min of minting, or it'll trip on you</div>
+  </div>
+</details>
+
+
 </div>
 
 <!-- tips array, regenerated from docs/tips.txt each time `cheatsheet` opens -->
 <script src="cheatsheet-tips.js"></script>
 <script>
-function toggleAll(open) {
-  document.querySelectorAll('details:not(.hidden)').forEach(d => d.open = open);
+// ── storage: per-viewer conveniences only; the page works without it ────────
+function recall(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function remember(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* private window etc. */ }
 }
 
-function filterTool(tool) {
-  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-  document.getElementById('btn-' + tool).classList.add('active');
-  document.querySelectorAll('details').forEach(section => {
-    const t = section.dataset.tool;
-    if (tool === 'all' || t === tool || t === 'both') {
-      section.classList.remove('hidden');
+// ── tips index ──────────────────────────────────────────────────────────────
+// Every line of docs/tips.txt (window.TIPS), grouped by its (category) prefix
+// and filed under the tab that category belongs to, closed, below the curated
+// cards. Categories with no tab ("misc") only show on the "all" tab.
+const CAT_TAB = {
+  lazygit: 'git', git: 'git', gist: 'git',
+  zsh: 'term', tmux: 'term', 'tmux/copy-mode': 'term', yazi: 'term', ssh: 'term',
+  mosh: 'term', '1p': 'term', combo: 'term', workflow: 'term', cheatsheet: 'term',
+  voice: 'voice', mic: 'voice',
+  computah: 'pc',
+  desk: 'desk', hue: 'desk', winmode: 'desk', alfred: 'desk', kbd: 'desk', sketchybar: 'desk',
+  obsidian: 'make', weeknotes: 'make', pipeline: 'make',
+};
+const PROSE_CATS = ['reading', 'vibe', 'wisdom'];
+
+function tabForCat(cat) {
+  if (cat.startsWith('nvim') || cat.endsWith('.nvim')) return 'nvim';
+  if (Object.hasOwn(CAT_TAB, cat)) return CAT_TAB[cat];
+  return 'misc';
+}
+function toneForTab(tab, cat) {
+  if (PROSE_CATS.includes(cat)) return 'prose';
+  if (tab === 'git') return 'gold';
+  if (tab === 'nvim') return '';
+  return 'accent';
+}
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function tipRow(line) {
+  const i = line.indexOf(' - ');
+  if (i === -1) return '<div class="r"><span class="d">' + escHtml(line) + '</span></div>';
+  let key = line.slice(0, i);
+  let desc = line.slice(i + 3);
+  // a key that ends in a literal dash ("space -", "C-a -"): re-glue the dash
+  if (desc.startsWith('- ')) { key += ' -'; desc = desc.slice(2); }
+  let cls = 'r';
+  if (key.length > 16) cls = 'r st';
+  return '<div class="' + cls + '"><kbd>' + escHtml(key) + '</kbd><span class="d">' + escHtml(desc) + '</span></div>';
+}
+
+(function buildIndex() {
+  const tips = (window.TIPS || []).filter(Boolean);
+  const grid = document.getElementById('grid');
+  if (!tips.length || !grid) return;
+  const groups = Object.create(null); // no inherited keys: a "(constructor)" tip is fine
+  const cats = [];
+  for (const line of tips) {
+    const m = line.match(/^\(([^)]+)\)\s*(.*)$/);
+    let cat = 'misc';
+    let rest = line;
+    if (m) { cat = m[1]; rest = m[2]; }
+    if (!groups[cat]) { groups[cat] = []; cats.push(cat); }
+    groups[cat].push(rest);
+  }
+  const tabOrder = Array.from(document.querySelectorAll('#tabs button')).map(b => b.dataset.tab);
+  const rank = cat => {
+    const i = tabOrder.indexOf(tabForCat(cat));
+    if (i === -1) return tabOrder.length;
+    return i;
+  };
+  cats.sort((a, b) => (rank(a) - rank(b)) || (groups[b].length - groups[a].length));
+
+  const frag = document.createDocumentFragment();
+  const hdr = document.createElement('h2');
+  hdr.className = 'g';
+  hdr.id = 'ixhdr';
+  hdr.innerHTML = 'index <span class="sub">every tip from tips.txt</span>';
+  frag.appendChild(hdr);
+  for (const cat of cats) {
+    const d = document.createElement('details');
+    const tab = tabForCat(cat);
+    d.dataset.group = tab;
+    d.dataset.ix = '1';
+    d.className = toneForTab(tab, cat);
+    // same rule as `cheat gen`: mostly-command categories stack every row
+    const keyed = groups[cat].filter(r => r.indexOf(' - ') > 10).length;
+    if (keyed * 2 > groups[cat].length) d.classList.add('stk');
+    d.innerHTML = '<summary>' + escHtml(cat) + '<span class="ct">' + groups[cat].length +
+      '</span></summary><div class="c">' + groups[cat].map(tipRow).join('') + '</div>';
+    frag.appendChild(d);
+  }
+  grid.appendChild(frag);
+})();
+
+// ── tabs ────────────────────────────────────────────────────────────────────
+const tabButtons = Array.from(document.querySelectorAll('#tabs button'));
+const TABS = tabButtons.map(b => b.dataset.tab);
+// opens on the last tab you used; cheatsheet.html#git forces one
+let currentTab = recall('cheatTab');
+const hashTab = location.hash.slice(1);
+if (TABS.includes(hashTab)) currentTab = hashTab;
+if (!TABS.includes(currentTab)) currentTab = TABS[0];
+
+function cardOnTab(card, tab) {
+  return tab === 'all' || card.dataset.group === tab || card.dataset.live === '1';
+}
+
+// Show one tab. Cards return to their resting state: the ones marked
+// `open = true` in the TOML open on their own tab; "all" is a closed outline.
+function showTab(tab) {
+  currentTab = tab;
+  remember('cheatTab', tab);
+  tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  let indexCards = 0;
+  document.querySelectorAll('details').forEach(card => {
+    const on = cardOnTab(card, tab);
+    card.classList.toggle('hidden', !on);
+    card.querySelectorAll('.r').forEach(r => r.classList.remove('hidden', 'highlight'));
+    if (on && card.dataset.ix === '1') indexCards += 1;
+    if (tab === 'all') {
+      card.open = card.dataset.live === '1' && card.dataset.open === '1';
     } else {
-      section.classList.add('hidden');
+      card.open = card.dataset.open === '1';
     }
   });
+  document.querySelectorAll('h2.g').forEach(h => {
+    if (h.id === 'ixhdr') h.classList.toggle('hidden', indexCards === 0);
+    else h.classList.toggle('hidden', tab !== 'all');
+  });
+  window.scrollTo(0, 0);
+}
+// Picking a tab by hand (click or number key) also drops any search, so the
+// box never shows a query the cards no longer reflect.
+function goTab(tab) {
+  const box = document.getElementById('search');
+  box.value = '';
+  box.blur();
+  box.classList.remove('on');
+  showTab(tab);
+}
+tabButtons.forEach(b => b.addEventListener('click', () => goTab(b.dataset.tab)));
+
+function toggleAll(open) {
+  document.querySelectorAll('details:not(.hidden)').forEach(d => { d.open = open; });
 }
 
+// ── search: always across every tab ─────────────────────────────────────────
 const search = document.getElementById('search');
+function openSearch() {
+  search.classList.add('on');
+  search.focus();
+}
 search.addEventListener('input', () => {
   const q = search.value.toLowerCase().trim();
-  document.querySelectorAll('details').forEach(section => {
-    if (!q) {
-      section.classList.remove('hidden');
-      section.querySelectorAll('.r').forEach(r => r.classList.remove('hidden', 'highlight'));
-      return;
-    }
-    let hasMatch = false;
-    const title = section.querySelector('summary').textContent.toLowerCase();
-    if (title.includes(q)) hasMatch = true;
-    section.querySelectorAll('.r').forEach(row => {
-      const text = row.textContent.toLowerCase();
-      if (text.includes(q)) {
-        row.classList.remove('hidden');
-        row.classList.add('highlight');
-        hasMatch = true;
-      } else {
-        row.classList.add('hidden');
-        row.classList.remove('highlight');
-      }
+  if (!q) { showTab(currentTab); return; }
+  document.querySelectorAll('h2.g').forEach(h => h.classList.add('hidden'));
+  document.querySelectorAll('details').forEach(card => {
+    const titleHit = card.querySelector('summary').textContent.toLowerCase().includes(q);
+    let hit = titleHit;
+    card.querySelectorAll('.r').forEach(row => {
+      const rowHit = row.textContent.toLowerCase().includes(q);
+      row.classList.toggle('highlight', rowHit);
+      row.classList.toggle('hidden', !rowHit && !titleHit);
+      if (rowHit) hit = true;
     });
-    section.querySelectorAll('.n, .o').forEach(el => {
-      if (el.textContent.toLowerCase().includes(q)) hasMatch = true;
+    card.querySelectorAll('.n, .o, .strat, .lbl').forEach(el => {
+      if (el.textContent.toLowerCase().includes(q)) hit = true;
     });
-    if (hasMatch) {
-      section.classList.remove('hidden');
-      section.open = true;
-    } else {
-      section.classList.add('hidden');
-    }
+    card.classList.toggle('hidden', !hit);
+    card.open = hit;
   });
 });
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === '/' && document.activeElement !== search) {
-    e.preventDefault();
-    search.classList.add('on');   // reveal the floating pill…
-    search.focus();               // …and drop the cursor in it
-  }
-  if (e.key === 'Escape') {
-    search.value = '';
-    search.dispatchEvent(new Event('input')); // reset the filter
-    search.blur();
-    search.classList.remove('on'); // and tuck it away again
-  }
-});
-
-// Disappear when not needed: clicking away with an empty box hides it. If a
-// filter is still active (box has text), leave it up so you can keep editing.
+// clicking away with an empty box hides it; with text, it stays for editing
 search.addEventListener('blur', () => {
   if (!search.value.trim()) search.classList.remove('on');
 });
 
-// text zoom — A−/A+ buttons or bare +/- keys (0 = reset); persists via localStorage
-let cheatZoom = parseFloat(localStorage.getItem('cheatZoom')) || 1;
+// ── text zoom: A−/A+ buttons or bare +/- keys (0 = reset) ───────────────────
+let cheatZoom = parseFloat(recall('cheatZoom')) || 1;
 function applyZoom() { document.body.style.zoom = cheatZoom; }
 function zoomBy(d) {
   cheatZoom = Math.round(Math.min(2, Math.max(0.5, cheatZoom + d)) * 100) / 100;
-  localStorage.setItem('cheatZoom', cheatZoom);
+  remember('cheatZoom', cheatZoom);
   applyZoom();
 }
 applyZoom();
+
+// ── keys: / search · esc clear · 1-9 tabs · + - 0 zoom ──────────────────────
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') {
+    const hadQuery = search.value.trim() !== '';
+    search.value = '';
+    search.blur();
+    search.classList.remove('on');
+    if (hadQuery) showTab(currentTab);
+    return;
+  }
+  if (e.target.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === '/') { e.preventDefault(); openSearch(); return; }
+  if (e.key >= '1' && e.key <= '9') {
+    const tab = TABS[parseInt(e.key, 10) - 1];
+    if (tab) goTab(tab);
+    return;
+  }
   if (e.key === '+' || e.key === '=') zoomBy(0.1);
   else if (e.key === '-') zoomBy(-0.1);
-  else if (e.key === '0') { cheatZoom = 1; localStorage.setItem('cheatZoom', 1); applyZoom(); }
+  else if (e.key === '0') { cheatZoom = 1; remember('cheatZoom', 1); applyZoom(); }
 });
 
-// Rotating "tip of the moment" — sourced from docs/tips.txt via cheatsheet-tips.js.
-// Click the bar to advance; auto-rotates every 15 minutes for ambient/always-open use.
-(function(){
+// ── tip of the moment, from docs/tips.txt via cheatsheet-tips.js ────────────
+(function () {
   const tips = (window.TIPS || []).filter(Boolean);
   const el = document.getElementById('tiptext');
   if (!el) return;
@@ -1145,59 +1309,7 @@ document.addEventListener('keydown', (e) => {
   setInterval(window.nextTip, 15 * 60 * 1000);
 })();
 
-// Full index — render EVERY tip from tips.txt (window.TIPS), grouped by its
-// (category) prefix, so the sheet always matches the source of truth. The 27
-// curated cards above stay first; this appends the complete 400+ set below,
-// collapsed by default, fully searchable/filterable via the existing handlers.
-(function(){
-  const tips = (window.TIPS || []).filter(Boolean);
-  const grid = document.getElementById('grid');
-  if (!tips.length || !grid) return;
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const groups = {}, order = [];
-  for (const line of tips) {
-    const m = line.match(/^\(([^)]+)\)\s*(.*)$/);
-    const cat = m ? m[1] : 'misc';
-    const rest = m ? m[2] : line;
-    (groups[cat] || (order.push(cat), groups[cat] = [])).push(rest);
-  }
-  const soft = new Set(['reading','vibe','wisdom','workflow']);   // prose → bottom
-  order.sort((a,b) => (soft.has(a) - soft.has(b)) || (groups[b].length - groups[a].length));
-  const toolFor = c => c.startsWith('nvim') ? 'nvim' : (c === 'lazygit' ? 'lazygit' : 'both');
-  // color tone by domain, mirroring the curated cards: nvim=teal, git=gold,
-  // tmux=pink, prose (reading/vibe/wisdom)=dim italic, everything else=neutral
-  const tone = c => c.startsWith('nvim') ? 'accent'
-    : (c === 'lazygit' || c === 'git' || c === 'gist') ? 'gold'
-    : (c.startsWith('tmux')) ? 'primary'
-    : soft.has(c) ? 'prose' : '';
-
-  const frag = document.createDocumentFragment();
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'column-span:all;margin:16px 0 4px;color:var(--base);font-size:10px;' +
-    'text-transform:uppercase;letter-spacing:.12em;border-top:1px solid var(--base15);padding-top:8px;';
-  hdr.textContent = '▾ full index — all ' + tips.length + ' tips (auto-generated from tips.txt)';
-  frag.appendChild(hdr);
-
-  for (const cat of order) {
-    const d = document.createElement('details');
-    d.dataset.tool = toolFor(cat);
-    const t = tone(cat); if (t) d.className = t;
-    const rows = groups[cat].map(r => {
-      const i = r.indexOf(' - ');
-      if (i === -1) return '<div class="r"><span class="d">' + esc(r) + '</span></div>';
-      let kbd = r.slice(0, i), desc = r.slice(i + 3);
-      // key that ends in a literal dash (e.g. "space -", "C-a -"): the split on
-      // the FIRST " - " landed a separator early, so desc comes back starting
-      // with "- ". Re-glue the dash onto the key so it renders correctly.
-      if (desc.startsWith('- ')) { kbd += ' -'; desc = desc.slice(2); }
-      return '<div class="r"><kbd>' + esc(kbd) + '</kbd><span class="d">' + esc(desc) + '</span></div>';
-    }).join('');
-    d.innerHTML = '<summary>' + esc(cat) + ' <span style="color:var(--fg40)">' +
-      groups[cat].length + '</span></summary><div class="c">' + rows + '</div>';
-    frag.appendChild(d);
-  }
-  grid.appendChild(frag);
-})();
+showTab(currentTab);
 </script>
 </body>
 </html>

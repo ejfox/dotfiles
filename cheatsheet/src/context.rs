@@ -1,5 +1,5 @@
-//! App context: cards that declare `apps = [...]` jump to the top (opened)
-//! while one of those Mac apps is frontmost or running.
+//! App context: cards that declare `apps = [...]` jump to the top while one of
+//! those Mac apps is running, and open when it is the frontmost app.
 //!
 //! The frontmost app comes from $CHEAT_FRONT, which the Hammerspoon panel sets
 //! to the app you were in when you hit ⌥Space ?. "Running" is checked here with
@@ -47,11 +47,13 @@ pub fn arrange(sheet: &mut Sheet) {
     let ctx = context_apps(sheet);
     if ctx.is_empty() {
         return;
-    }
+    }    // Only the app you were actually in gets its card opened; an app that is
+    // merely running in the background pins its card to the top, closed.
+    let front = std::env::var("CHEAT_FRONT").unwrap_or_default();
     for s in &mut sheet.sections {
         s.live = ctx.iter().find(|a| s.apps.contains(a)).cloned();
         if s.live.is_some() {
-            s.open = true;
+            s.open = s.live.as_deref() == Some(front.as_str());
         }
     }
     let rank = |live: &Option<String>| match live {
