@@ -9,7 +9,8 @@ as the teal ✳ in the tmux window list, moved to your fingers.
 | Piece | Where | Job |
 |---|---|---|
 | Flag | `bin/claude-waiting` (Claude Code hooks) | sets/clears `@claude_unseen` on the tmux pane |
-| Lights | `bin/tmux-kb-lights` | turns the flags into LED calls via `kontroll` and Keymapp |
+| Lights | `bin/tmux-kb-lights` | turns the flags into LED calls |
+| LED tool | `voyager/led` (`voyager-led`) | sends the LED packets straight to the keyboard over raw HID; no Keymapp |
 | Firmware patch | `voyager/patch-keymap.py` | host LEDs overlay the layer colors instead of replacing them |
 | Build | `.github/workflows/voyager-firmware.yml` | Oryx source + patch, built in GitHub Actions |
 | Command | `bin/voyager-firmware` | trigger the build, download the `.bin` |
@@ -35,7 +36,8 @@ If Oryx ever changes the generated code, the build fails at the patch step with 
 - `tmux-kb-lights test 3` lights the 3 key for 3 seconds (mapping check).
 - `tmux-kb-lights clear` hands all LEDs back to the firmware.
 - Off switch: `touch ~/.config/tmux-kb-lights.off`.
-- Keymapp must be running (its API is how the Mac reaches the keyboard).
+- Keymapp does not need to be running; you only open it to flash. `voyager-led ping` checks the Mac can reach the keyboard.
+- `voyager-led` is a small Rust crate. Rebuild: `cd ~/.dotfiles/voyager/led && cargo build --release` (`~/.local/bin/voyager-led` is a symlink to the build). It speaks the Oryx raw HID protocol: usage page 0xFF60, 32-byte reports, `[6, led, r, g, b]` sets one LED, `[5, 0]` hands them back.
 - Number keys 1-9 and 0 map to LEDs 1-5 and 26-30 (layout EJ 0.0.9). If the number row moves, edit `led()` in `bin/tmux-kb-lights`.
 
 ## Rollback

@@ -16,18 +16,24 @@
 # Off switch: touch ~/.config/tmux-kb-lights.off   (rm it to turn back on)
 #
 # Wired from: bin/claude-waiting (flag set/cleared) and the pane-focus hooks in .tmux.conf.
-# Requires: kontroll (~/.cargo/bin) and Keymapp running with its API on.
+# Requires: voyager-led (voyager/led, talks raw HID to the keyboard; no Keymapp needed).
 set -u
 
-K="$HOME/.cargo/bin/kontroll"
-# Keymapp is sandboxed on macOS, so its socket is not where kontroll looks by default.
-S="$HOME/Library/Containers/io.zsa.keymapp/Data/Library/Application Support/.keymapp/keymapp.sock"
+V="$HOME/.local/bin/voyager-led"
 STATE="${TMPDIR:-/tmp}/tmux-kb-lights.lit"
 LOCK="${TMPDIR:-/tmp}/tmux-kb-lights.lock"
 COLOR="00e6f5"   # gamut-edge teal; #7bf0f9 washes out on LEDs
+DIRTY="dirty"    # state after a failed keyboard call: LEDs unknown, repaint or restore next run
 
-[ -x "$K" ] && [ -S "$S" ] || exit 0
-k() { gtimeout 3 "$K" -p "$S" "$@" >/dev/null 2>&1; }
+[ -x "$V" ] || exit 0
+
+# One run at a time, every mode: re-run this script under an OS lock (released by the
+# kernel when the run ends, however it ends).
+if [ -z "${TMUX_KB_LIGHTS_LOCKED:-}" ]; then
+  TMUX_KB_LIGHTS_LOCKED=1 exec /usr/bin/lockf -k -t 20 "$LOCK" "$0" "$@"
+fi
+
+v() { gtimeout 3 "$V" "$@" >/dev/null 2>&1; }
 
 # LED index of the base-layer number key (EJ 0.0.9: 1-5 left top row, 6-9 and 0 right top row).
 led() {
@@ -38,50 +44,42 @@ led() {
   esac
 }
 
-# One run at a time, every mode. The lock holds its owner's pid and is only taken
-# over when that process is gone.
-lock() {
-  until mkdir "$LOCK" 2>/dev/null; do
-    owner=$(cat "$LOCK/pid" 2>/dev/null)
-    if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
-      rm -rf "$LOCK"
-    else
-      /bin/sleep 0.1
-    fi
-  done
-  echo $$ > "$LOCK/pid"
-  trap 'rm -rf "$LOCK"' EXIT
+# Hand every LED back to the firmware. If the keyboard did not take it, stay dirty so
+# the next run tries again.
+release() {
+  if v restore; then
+    rm -f "$STATE"
+  else
+    printf '%s' "$DIRTY" > "$STATE"
+  fi
 }
-
-# Hand every LED back to the firmware and forget what we lit.
-release() { k connect-any; k restore-rgb-leds; rm -f "$STATE"; }
 
 case "${1:-sync}" in
   clear)
-    lock; release; exit 0 ;;
+    release; exit 0 ;;
   test)
     l=$(led "${2:-}"); [ -n "$l" ] || { echo "usage: tmux-kb-lights test 0-9" >&2; exit 2; }
-    lock; k connect-any; k set-rgb --led "$l" --color "$COLOR"; /bin/sleep 3; release; exit 0 ;;
+    printf '%s' "$DIRTY" > "$STATE"
+    v set "$l=$COLOR"; /bin/sleep 3; release; exit 0 ;;
 esac
 
 if [ -e "$HOME/.config/tmux-kb-lights.off" ]; then
-  # Switched off while keys were lit: give them back once.
-  [ -e "$STATE" ] && { lock; release; }
+  # Switched off while keys were lit: give them back.
+  [ -e "$STATE" ] && release
   exit 0
 fi
 
-lock
-
-# Everything is read inside the lock, so the last run always paints the latest truth.
 # The session you are looking at = the most recently active attached client.
-sess=$(tmux list-clients -F '#{client_activity} #{session_name}' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+client=$(tmux list-clients -F '#{client_activity} #{client_flags} #{session_name}' 2>/dev/null | sort -rn | head -1)
+flags=$(echo "$client" | cut -d' ' -f2)
+sess=$(echo "$client" | cut -d' ' -f3-)
 [ -n "$sess" ] || exit 0
 
-# The pane you are looking at right now (terminal focused) never counts as waiting.
+# The pane you are looking at right now (that client's terminal focused) never counts as waiting.
 fmt='#{?@claude_unseen,#{window_index},}'
-if tmux list-clients -F '#{client_flags}' 2>/dev/null | grep -q focused; then
-  fmt='#{?#{&&:#{@claude_unseen},#{!=:#{window_active}#{pane_active},11}},#{window_index},}'
-fi
+case ",$flags," in
+  *,focused,*) fmt='#{?#{&&:#{@claude_unseen},#{!=:#{window_active}#{pane_active},11}},#{window_index},}' ;;
+esac
 want=$(tmux list-panes -s -t "=$sess" -F "$fmt" 2>/dev/null | grep -E '^[0-9]$' | sort -u | tr '\n' ' ')
 have=$(cat "$STATE" 2>/dev/null)
 [ "$want" = "$have" ] && exit 0
@@ -89,17 +87,16 @@ have=$(cat "$STATE" 2>/dev/null)
 # Nothing waiting: hand the LEDs back (also resets after a keyboard replug).
 if [ -z "$want" ]; then release; exit 0; fi
 
-# Repaint all ten keys so a missed call or a replugged keyboard heals on the next change.
-# The state is saved only when every call landed; otherwise the next event retries.
-ok=1
-k connect-any
+# Repaint all ten keys in one call so a replugged keyboard heals on the next change.
+# The state is saved only when the call landed; otherwise the next event retries.
+args=()
 for n in 0 1 2 3 4 5 6 7 8 9; do
   c=000000
   case " $want " in *" $n "*) c=$COLOR ;; esac
-  k set-rgb --led "$(led "$n")" --color "$c" || ok=0
+  args+=("$(led "$n")=$c")
 done
-if [ "$ok" = 1 ]; then
+if v set "${args[@]}"; then
   printf '%s' "$want" > "$STATE"
 else
-  rm -f "$STATE"
+  printf '%s' "$DIRTY" > "$STATE"
 fi

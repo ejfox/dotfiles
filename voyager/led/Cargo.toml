@@ -1,0 +1,17 @@
+[package]
+name = "voyager-led"
+version = "0.1.0"
+edition = "2021"
+description = "Set ZSA Voyager LEDs straight over raw HID (Oryx protocol), no Keymapp"
+
+[[bin]]
+name = "voyager-led"
+path = "src/main.rs"
+
+[dependencies]
+hidapi = "2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
