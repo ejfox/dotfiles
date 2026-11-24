@@ -2082,8 +2082,8 @@ PYEOF
 
   ls)
     # The one registry (computah-telemetry pc/services.json: mode + what) joined with live state:
-    # name, mode (always | on-demand | off), running?, task state, RAM, VRAM. Same rows as
-    # http://100.106.221.70:7861/status.html. Read-only.
+    # name, mode (always | on-demand | off), running?, task state, RAM, VRAM. The same rows feed the
+    # NET-RUNNER wall's COMPUTAH panel (farm\sd\status.json, written by `svc status`). Read-only.
     h=$(host)
     if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "PC asleep/unreachable"; exit 1; fi
     rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\svc.ps1 ls" | tr -d '\r'
