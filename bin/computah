@@ -484,6 +484,10 @@ PS
       echo "→ freeing GPU (pausing wall) + loading Qwen3-14B…" >&2
       # sd-server runs under the svc supervisor: taskkill over SSH can't stop it, which
       # left FLUX on the card and Qwen loading beside it far past the wait (2026-10-02).
+      # sd-server is on-demand (2026-11-24): only put FLUX back if it was actually up before we
+      # took the card, otherwise every `ask` would reload 7 GB of FLUX for 30 idle minutes
+      _sd_was_up=0
+      [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)" = "200" ] && _sd_was_up=1
       "$0" sd-server stop >/dev/null 2>&1 || true
       "$0" llm on >/dev/null 2>&1 || true
       up=0
@@ -493,7 +497,9 @@ PS
       done
       if [ "$up" -ne 1 ]; then      # never leave a half-loaded Qwen holding the wall's VRAM
         echo "LLM didn't come up in time." >&2
-        "$0" llm off >/dev/null 2>&1 || true; "$0" sd-server start >/dev/null 2>&1 || true; exit 1
+        "$0" llm off >/dev/null 2>&1 || true
+        [ "${_sd_was_up:-0}" = "1" ] && { "$0" sd-server start >/dev/null 2>&1 || true; }
+        exit 1
       fi
     fi
     # /usr/bin/python3, not PATH's: macOS Local Network privacy blocks /usr/local/bin/python3
@@ -516,8 +522,12 @@ PYEOF
     rc=$?
     if [ "$held" -eq 0 ]; then
       "$0" llm off >/dev/null 2>&1 || true
-      "$0" sd-server start >/dev/null 2>&1 || true
-      echo "(wall restored)" >&2
+      if [ "${_sd_was_up:-0}" = "1" ]; then
+        "$0" sd-server start >/dev/null 2>&1 || true
+        echo "(sd-server restored)" >&2
+      else
+        echo "(GPU released; sd-server stays off until the next imagine)" >&2
+      fi
     else
       echo "(LLM still held — 'computah llm off && computah sd-server start' to resume the wall)" >&2
     fi
