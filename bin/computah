@@ -35,6 +35,9 @@
 #   computah gpu [status|why]  shadow GPU broker: VRAM, game state, gpu services, sleep4
 #                            next run (status, default) or last 20 broker events (why).
 #                            Read-only passthrough to gpu.ps1 on the PC. Never wakes it.
+#   computah ls              every registered service: mode (always|on-demand|off), running?, RAM, VRAM
+#   computah on <name>       bring a service back (mode off -> previous mode) and start it
+#   computah off <name>      stop a service and set its mode off (edits pc/services.json in the repo)
 #   computah run "<cmd>"     run any remote command
 set -euo pipefail
 # Sibling helpers (muse-lifefeed, muse-brainstorm, muse-arena, muse-cloudinary,
@@ -263,8 +266,12 @@ PS
       rssh "schtasks /run /tn preview-server >nul" 2>/dev/null; sleep 3
       [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:7861/wall.html" 2>/dev/null)" = "200" ] && ok "preview server STARTED (:7861)" || bad "preview server won't start"
     fi
-    # muse loop status
-    pgrep -f "computah muse-loop" >/dev/null && ok "muse-loop running" || echo "  · muse-loop not running (start: computah muse-loop)"
+    # muse loop: the art wall is RETIRED (EJ 2026-11-24); a running loop would keep reviving sd-server
+    if pgrep -f "computah muse-loop" >/dev/null; then
+      bad "muse-loop still running on this Mac (art wall retired 2026-11-24): launchctl bootout gui/$(id -u)/com.ejfox.muse"
+    else
+      ok "muse-loop not running (art wall retired)"
+    fi
     # deskflow KVM
     if command -v deskflow-heal >/dev/null 2>&1; then
       deskflow-heal >/dev/null 2>&1
@@ -287,12 +294,14 @@ PS
     fi
     # PC-side checks (computah-telemetry pc/doctor.ps1): tailscale (re-ups it), DST-pinned
     # triggers, gui-keeper stuck/gave up, crashes in 24 h, studio quiet, disk
+    # "MODE <name>=<mode>" lines carry services.json modes for the checks below (pc_modes_<name>)
     while IFS= read -r line; do
       line=${line%$'\r'}
       case "$line" in
         "OK "*) ok "${line#OK }" ;;
         "FIXED "*) fixed "${line#FIXED }" ;;
         "BAD "*) bad "${line#BAD }" ;;
+        "MODE "*) _m=${line#MODE }; _n=${_m%%=*}; _n=${_n//-/_}; printf -v "pc_modes_$_n" '%s' "${_m#*=}" ;;
       esac
     done < <(rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\doctor.ps1" 2>/dev/null)
     # GPU leases (paperize/CRT): they never expire, so a crashed or forgetful holder keeps
@@ -313,14 +322,20 @@ PS
         bad "stale GPU lease '$lname' (${lage}m, nothing rendering): ~/code/paperize/gpulease release $lname"
       fi
     done
-    # the wall's FLUX server: should be up unless a game or a lease holds the card
+    # the FLUX server (sd-server). Its MODE comes from services.json via doctor.ps1's "MODE
+    # sd-server=..." line (2026-11-24: on-demand, the art wall is retired). Only an "always"
+    # sd-server is expected up; on-demand down is normal and is never auto-started here
+    # (the old auto-start would have undone the retirement every day at 10:00).
     leases=$(find "$ldir" -type f 2>/dev/null | wc -l | tr -d ' ')
     game=$(rssh "if exist C:\\dev\\computah\\farm\\GAME_ON (echo 1) else (echo 0)" 2>/dev/null | tr -cd '01')
     # PC-side holds (farm\gpu\HOLD_<who>, e.g. the scene lab's scene-keeper) count like a lease
     pchold=$(rssh "dir /b C:\\dev\\computah\\farm\\gpu\\HOLD_* 2>nul" 2>/dev/null | tr -d '\r' | head -3 | tr '\n' ' ')
     [ -n "$pchold" ] && leases=$((leases + 1))
+    sdmode=${pc_modes_sd_server:-always}
     if curl -s -m3 -o /dev/null "http://$h:1234/" 2>/dev/null || nc -z -G 3 "$h" 1234 2>/dev/null; then
-      ok "sd-server up (:1234)"
+      ok "sd-server up (:1234, mode $sdmode)"
+    elif [ "$sdmode" != "always" ]; then
+      ok "sd-server down (mode $sdmode; 'computah imagine' starts it when needed)"
     elif [ "$leases" != "0" ] || [ "$game" = "1" ]; then
       ok "sd-server down on purpose (lease or game)"
     elif [ "$sched" -eq 1 ]; then
@@ -561,7 +576,9 @@ PYEOF
             exit 0
           fi
         fi
-        rssh "tasklist | findstr /i sd-server.exe >nul && echo already-running || powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 restart sd-server"
+        # `svc start` (2026-11-24): writes the on-demand request flag farm\svc\sd-server.on, then runs
+        # the task; run-logged refuses to start an on-demand service without that flag
+        rssh "tasklist | findstr /i sd-server.exe >nul && echo already-running || powershell -NoProfile -ExecutionPolicy Bypass -File C:\dev\computah\bin\svc.ps1 start sd-server"
         echo "loading model… (first render waits for it); endpoint http://$h:1234/sdapi/v1/{txt2img,img2img}"
         ;;
       stop|off|down)
@@ -599,6 +616,23 @@ PYEOF
     # init image (IMAGINE_INIT_LOCAL = a path on THIS mac); we base64 it in.
     endpoint="txt2img"; init="${IMAGINE_INIT_LOCAL:-}"
     { [ -n "$init" ] && [ -s "$init" ]; } && endpoint="img2img"
+    # ON-DEMAND sd-server (2026-11-24, art wall retired): FLUX no longer sits on the card. If :1234
+    # is not answering, request it (`sd-server start` writes farm\svc\sd-server.on and runs the
+    # task; it refuses under GAME_ON or a GPU lease and says so) and wait for the model (~5 min
+    # cold). run-logged stops it again after 30 idle minutes; nothing to do here afterwards.
+    if [ "$(curl -s -m4 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)" != "200" ]; then
+      _msg=$("$0" sd-server start 2>&1 | tr -d '\r')
+      case "$_msg" in
+        *"NOT started"*) echo "$_msg" >&2; exit 1 ;;
+      esac
+      echo "→ sd-server starting on demand (FLUX cold load, up to ~6 min)…" >&2
+      _up=0
+      for _ in $(seq 1 180); do
+        [ "$(curl -s -m4 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)" = "200" ] && { _up=1; break; }
+        sleep 2
+      done
+      if [ "$_up" -ne 1 ]; then echo "sd-server did not come up in 6 min (computah sd-server log)" >&2; exit 1; fi
+    fi
     echo "→ sd-server $endpoint (FLUX.2-klein, ${W}x${H}, ${steps} steps, ${sampler} cfg${cfg}, seed $seed${init:+, img2img s=$strength})"
     # EARLY-PREVIEW capture (log-only) runs for wall cells; MUSE_NO_EARLY=1 off,
     # IMAGINE_EARLY=1 forces it for a manual imagine. Writes ./early.png + ./early.json
@@ -2034,6 +2068,68 @@ PYEOF
   run)
     shift
     rssh "$@"
+    ;;
+
+  ls)
+    # The one registry (computah-telemetry pc/services.json: mode + what) joined with live state:
+    # name, mode (always | on-demand | off), running?, task state, RAM, VRAM. Same rows as
+    # http://100.106.221.70:7861/status.html. Read-only.
+    h=$(host)
+    if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "PC asleep/unreachable"; exit 1; fi
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\svc.ps1 ls" | tr -d '\r'
+    ;;
+
+  on|off)
+    # computah on <name>   mode off -> its previous mode (always if unknown), then start it
+    # computah off <name>  stop it + mode off (retired; run-logged/gui-keeper/doctor/task-tune ignore it)
+    # The mode lives in ONE place: ~/code/computah-telemetry/pc/services.json. This edits that file
+    # (python round-trip, key order kept), ships just that file to C:\dev\computah\bin, then calls
+    # svc.ps1 on the PC for the start/stop. Editing the PC copy instead would be undone by the next
+    # ./deploy.sh. Commit the repo change when you are done.
+    name="${2:?usage: computah $1 <name>  (computah ls lists them)}"
+    reg="$HOME/code/computah-telemetry/pc/services.json"
+    [ -f "$reg" ] || { echo "registry missing: $reg" >&2; exit 1; }
+    h=$(host)
+    if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "PC asleep/unreachable"; exit 1; fi
+    _out=$(REG="$reg" NAME="$name" ACTION="$1" /usr/bin/python3 - <<'PYEOF'
+import json, os, sys
+from collections import OrderedDict
+reg, name, action = os.environ["REG"], os.environ["NAME"], os.environ["ACTION"]
+d = json.load(open(reg), object_pairs_hook=OrderedDict)
+if name not in d or name.startswith("_"):
+    print("unknown service: " + name + "  (computah ls)", file=sys.stderr); sys.exit(1)
+e = d[name]
+was = e.get("mode", "always")
+if action == "off":
+    if was != "off":
+        e["mode_was"] = was
+        e["mode"] = "off"
+    print("off %s (was %s)" % (name, was))
+else:
+    if was == "off":
+        to = e.get("mode_was", "always")
+        if to == "off":
+            to = "always"
+        e["mode"] = to
+        e.pop("mode_was", None)
+        print("on %s -> mode %s" % (name, to))
+    else:
+        print("on %s (mode %s unchanged)" % (name, was))
+tmp = reg + ".part"
+with open(tmp, "w") as f:
+    json.dump(d, f, indent=2, ensure_ascii=True); f.write("\n")
+os.replace(tmp, reg)
+PYEOF
+    ) || { echo "$_out" >&2; exit 1; }
+    echo "$_out"
+    scp -q "$reg" "$REMOTE_USER@$h:C:/dev/computah/bin/services.json" || { echo "could not ship services.json to the PC" >&2; exit 1; }
+    if [ "$1" = "off" ]; then
+      rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\svc.ps1 stop $name" | tr -d '\r'
+    else
+      rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\svc.ps1 start $name" | tr -d '\r'
+    fi
+    rssh "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\dev\\computah\\bin\\svc.ps1 status" >/dev/null 2>&1 || true
+    echo "(mode saved in $reg -- commit it)"
     ;;
 
   gpu)
