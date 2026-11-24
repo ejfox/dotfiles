@@ -15,8 +15,8 @@
   --ink: #dcdce0; --hi: #ffffff; --dim: #6f6f78;
   --fam-text: #ff4d8d; --fam-seeded: #7bf0f9; --fam-taste: #ffffff;
   --fam-studio: #a9a9b0;                                  /* 1-bit Blender studio pieces (greyscale art → grey) */
-  --warn: #ffb000;
-  --mono: Consolas, Menlo, "DejaVu Sans Mono", monospace;
+  --warn: #e60067;   /* vulpes accent = needs EJ (2026-11-24; was amber #ffb000) */
+  --mono: "Monaspace Krypton", Consolas, Menlo, "DejaVu Sans Mono", monospace;
   /* viewport-scaled dense text: opt in with font-size: var(--kit-fs) (screens may override) */
   --kit-fs: clamp(10px, min(0.95vw, 0.82vh), 17px);
 }
