@@ -50,7 +50,9 @@ if [[ "$(cat "$STAMP" 2>/dev/null)" != "$(date +%F)" ]]; then
   done
   [[ -x "$HOME/.dotfiles/bin/music" ]] || problems+=("missing ~/.dotfiles/bin/music")
   [[ -f "$SH/models/ggml-base.en.bin" ]] || problems+=("missing whisper model")
-  for f in tp7-mount-handler.sh tp7-import.sh tp7-post.sh; do
+  # daily archive pass: catches anything a failed post-import archive missed (self-heal, no alert)
+  /bin/zsh "$SH/tp7-archive.sh" </dev/null >/dev/null 2>&1 &!
+  for f in tp7-mount-handler.sh tp7-import.sh tp7-post.sh tp7-archive.sh; do
     zsh -n "$SH/$f" 2>/dev/null || problems+=("$f does not parse")
     cmp -s "$SH/$f" "$HOME/.dotfiles/lib/music-cli/$f" || problems+=("$f differs from dotfiles")
   done

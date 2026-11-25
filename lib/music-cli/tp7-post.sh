@@ -155,7 +155,10 @@ things_todo() {   # $1 title, $2 notes
   open -g "things:///add?$q" 2>/dev/null
 }
 r2_put() {   # $1 local mp3, $2 key. wrangler's existing Cloudflare login; no extra R2 token.
-  wrangler r2 object put "ejfox-personal/$2" --file "$1" --content-type audio/mpeg --remote >/dev/null 2>>"$LOG"
+  # launchd runs us from /, and wrangler 4.9x writes .wrangler/cache in its cwd ("Missing /.wrangler/cache",
+  # 2026-11-17). Run it from a writable dir; $1 is made absolute first so the cd can't break it.
+  local f="${1:A}"
+  ( cd "$HOME/.local/share/music-cli" && wrangler r2 object put "ejfox-personal/$2" --file "$f" --content-type audio/mpeg --remote ) >/dev/null 2>>"$LOG"
 }
 if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
   PENDING="$HOME/.local/share/music-cli/publish-pending.txt"   # failed uploads, retried every run
@@ -228,3 +231,7 @@ if [[ -x "$MUSIC" && -n "${before:-}" ]]; then
     rm -f "$mp3"
   done
 fi
+
+# 6. ARCHIVE  copy anything new to the PRIVATE ejfox-archive bucket (EJ 2026-11-18: "archive
+#             automatically more regularly"). Detached so the import isn't held up by the upload.
+/bin/zsh "$HOME/.local/share/music-cli/tp7-archive.sh" </dev/null >/dev/null 2>&1 &!

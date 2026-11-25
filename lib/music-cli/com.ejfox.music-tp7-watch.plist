@@ -13,6 +13,9 @@
   <integer>10</integer>
   <key>RunAtLoad</key>
   <true/>
+  <!-- 2026-11-18: let the detached tp7-archive.sh upload outlive the 10 s poll that started it -->
+  <key>AbandonProcessGroup</key>
+  <true/>
   <key>StandardOutPath</key>
   <string>/Users/ejfox/.local/share/music-cli/watcher.log</string>
   <key>StandardErrorPath</key>

@@ -90,7 +90,10 @@ confirm() {
 # captures stderr to a temp log; on failure, shows last 5 lines so you see why.
 wr() {
   local log=$(mktemp)
-  if ! wrangler "$@" >/dev/null 2>"$log"; then
+  # wrangler 4.9x writes .wrangler/cache in its cwd; from launchd/Hammerspoon that's / (unwritable).
+  local wdir="$PWD"
+  [[ -w "$wdir" ]] || wdir="$HOME/.local/share/music-cli"
+  if ! ( cd "$wdir" && wrangler "$@" ) >/dev/null 2>"$log"; then
     print -u2 "${PINK}wrangler $1 failed:${RST}"
     tail -5 "$log" >&2
     rm -f "$log"
@@ -918,8 +921,13 @@ tp7_safe_to_publish() {
     rm -f "$tmp"; print "unchecked"; return 2
   fi
   local words
-  words=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp" 2>/dev/null \
-    | sed 's/([^)]*)//g; s/\[[^]]*\]//g; s/♪//g' | wc -w | tr -d ' ')
+  # pipefail: a crashed whisper must read as "unchecked", not as 0 words (Codex 2026-11-18: the gate
+  # failed OPEN, because wc's success hid whisper's failure and 0 words passed as publishable)
+  setopt localoptions pipefail
+  if ! words=$(whisper-cli -m "$WHISPER_MODEL" -t 8 --no-timestamps -f "$tmp" 2>/dev/null \
+    | sed 's/([^)]*)//g; s/\[[^]]*\]//g; s/♪//g' | wc -w | tr -d ' '); then
+    rm -f "$tmp"; print "unchecked"; return 2
+  fi
   rm -f "$tmp"
   [[ "$words" == <-> ]] || { print "unchecked"; return 2; }
   print "$words"
@@ -942,7 +950,8 @@ cmd_tp7_unpublish() {
     die "not a live published key: $key"
   fi
   local ok=no
-  wrangler r2 object delete "ejfox-personal/$key" --remote >/dev/null 2>&1 && ok=yes
+  # from Hammerspoon the cwd is / and wrangler 4.9x can't write .wrangler/cache there (2026-11-17)
+  ( cd "$SHARE_DIR" && wrangler r2 object delete "ejfox-personal/$key" --remote ) >/dev/null 2>&1 && ok=yes
   if [[ "$ok" != yes ]]; then
     _unpub_note "Remove FAILED for $key. It may still be public. Tell Claude." Basso
     die "remove failed: $key"
@@ -1376,6 +1385,9 @@ cmd_tp7_rename_memos() {
 }
 
 cmd_tp7_memos() {
+  # pipefail: the whisper | sed | awk check below must fail when WHISPER fails, or a crash reads as
+  # an empty transcript = "instrumental" = publishable (Codex 2026-11-18)
+  setopt localoptions pipefail
   # transcribe voice memos -> Obsidian notes in the main vault.
   # whisper auto-detects speech vs instrumental; jams/instrumentals are skipped.
   # idempotent: a ledger records every file's verdict so reruns are cheap and
