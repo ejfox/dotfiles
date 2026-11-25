@@ -331,9 +331,13 @@ PS
     # PC-side holds (farm\gpu\HOLD_<who>, e.g. the scene lab's scene-keeper) count like a lease
     pchold=$(rssh "dir /b C:\\dev\\computah\\farm\\gpu\\HOLD_* 2>nul" 2>/dev/null | tr -d '\r' | head -3 | tr '\n' ' ')
     [ -n "$pchold" ] && leases=$((leases + 1))
-    sdmode=${pc_modes_sd_server:-always}
+    # no MODE line from doctor.ps1 = unknown, never "always": the scheduled run must not auto-start
+    # an on-demand sd-server because the PC-side check happened to fail (Codex, 2026-11-24)
+    sdmode=${pc_modes_sd_server:-unknown}
     if curl -s -m3 -o /dev/null "http://$h:1234/" 2>/dev/null || nc -z -G 3 "$h" 1234 2>/dev/null; then
       ok "sd-server up (:1234, mode $sdmode)"
+    elif [ "$sdmode" = "unknown" ]; then
+      bad "sd-server down and its mode is unknown (doctor.ps1 gave no MODE line): computah ls"
     elif [ "$sdmode" != "always" ]; then
       ok "sd-server down (mode $sdmode; 'computah imagine' starts it when needed)"
     elif [ "$leases" != "0" ] || [ "$game" = "1" ]; then
@@ -486,8 +490,12 @@ PS
       # left FLUX on the card and Qwen loading beside it far past the wait (2026-10-02).
       # sd-server is on-demand (2026-11-24): only put FLUX back if it was actually up before we
       # took the card, otherwise every `ask` would reload 7 GB of FLUX for 30 idle minutes
+      # "was up" = the supervisor had a request for it (farm\svc\sd-server.on) OR it answers: a
+      # cold-loading FLUX is not answering yet, and stopping it without restoring would strand
+      # the imagine that asked for it (Codex, 2026-11-24)
       _sd_was_up=0
       [ "$(curl -s -m3 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)" = "200" ] && _sd_was_up=1
+      [ "$(rssh "if exist C:\\dev\\computah\\farm\\svc\\sd-server.on (echo 1) else (echo 0)" 2>/dev/null | tr -cd '01')" = "1" ] && _sd_was_up=1
       "$0" sd-server stop >/dev/null 2>&1 || true
       "$0" llm on >/dev/null 2>&1 || true
       up=0
@@ -631,7 +639,9 @@ PYEOF
     # task; it refuses under GAME_ON or a GPU lease and says so) and wait for the model (~5 min
     # cold). run-logged stops it again after 30 idle minutes; nothing to do here afterwards.
     if [ "$(curl -s -m4 -o /dev/null -w '%{http_code}' "http://$h:1234/v1/models" 2>/dev/null)" != "200" ]; then
-      _msg=$("$0" sd-server start 2>&1 | tr -d '\r')
+      # `|| ...`, not a bare assignment: under set -e a failed `sd-server start` (ssh down, task
+      # missing) would end imagine here with its message captured and never shown
+      _msg=$("$0" sd-server start 2>&1 | tr -d '\r') || { echo "sd-server start failed: $_msg" >&2; exit 1; }
       case "$_msg" in
         *"NOT started"*) echo "$_msg" >&2; exit 1 ;;
       esac
@@ -2101,6 +2111,15 @@ PYEOF
     [ -f "$reg" ] || { echo "registry missing: $reg" >&2; exit 1; }
     h=$(host)
     if ! nc -z -G 2 "$h" 22 2>/dev/null; then echo "PC asleep/unreachable"; exit 1; fi
+    # one on/off at a time: two at once read the same JSON and the second write drops the
+    # first's mode (Codex, 2026-11-24). mkdir is atomic; a lock older than 2 min is stale.
+    _lock="$reg.lock"
+    for _ in $(seq 1 100); do
+      mkdir "$_lock" 2>/dev/null && break
+      if [ -d "$_lock" ] && [ "$(( $(date +%s) - $(stat -f %m "$_lock" 2>/dev/null || echo 0) ))" -gt 120 ]; then rmdir "$_lock" 2>/dev/null || true; fi
+      sleep 0.2
+    done
+    trap 'rmdir "$_lock" 2>/dev/null || true' EXIT
     _out=$(REG="$reg" NAME="$name" ACTION="$1" /usr/bin/python3 - <<'PYEOF'
 import json, os, sys
 from collections import OrderedDict
