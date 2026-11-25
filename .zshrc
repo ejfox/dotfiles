@@ -148,7 +148,7 @@ setopt HIST_IGNORE_DUPS
 export NVM_DIR="$HOME/.nvm"
 [ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh" --no-use
 [ -s "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm" ] && \. "$BREW_PREFIX/opt/nvm/etc/bash_completion.d/nvm"
-_node_bin="$NVM_DIR/versions/node/v22.23.4/bin"
+_node_bin="$NVM_DIR/versions/node/v22.23.5/bin"
 if [[ ! -d $_node_bin ]]; then
   _node_bin=( "$NVM_DIR"/versions/node/v*/bin(N/nOn) )
   _node_bin=${_node_bin[1]}
