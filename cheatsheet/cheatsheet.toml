@@ -121,6 +121,8 @@ body = [
   { k = "⎵gj", d = "all hunks → quickfix" },
   { k = "]q / [q", d = "jump across files" },
   { n = '*⎵gj* then *]q* = walk ALL changed files' },
+  { k = ":copen / :cclose", d = "show / hide the stop list" },
+  { n = 'guided review: Claude loads a stop list with *:cfile*, you just press *]q*' },
 ]
 
 [[section]]
